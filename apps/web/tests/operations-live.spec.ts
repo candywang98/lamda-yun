@@ -8,9 +8,9 @@ const { api, queuedTask, canceledTask } = vi.hoisted(() => {
   const queued: OperationTask = {
     id: 'task-live-001',
     tenantId: 'tenant-001',
-    operationKey: 'watermarks.preview.render',
-    featureId: 'product-editor-03',
-    module: 'watermarks',
+    operationKey: 'media.derivative.generate',
+    featureId: 'assets-02',
+    module: 'media',
     requestSha256: '0123456789abcdef0123456789abcdef',
     requestedBy: 'user-001',
     status: 'QUEUED',
@@ -42,10 +42,10 @@ const { api, queuedTask, canceledTask } = vi.hoisted(() => {
     canceledTask: canceled,
     product,
     api: {
-      operationCatalog: vi.fn().mockResolvedValue([{ key: 'watermarks.preview.render', module: 'watermarks', resourceType: 'media_asset', batchAllowed: true, requiredPermission: 'content:write', allowed: true, allowedParameters: ['ruleVersionId', 'pageParameters'], description: 'preview', risk: 'standard', featureIds: ['product-editor-03'] }]),
+      operationCatalog: vi.fn().mockResolvedValue([{ key: 'media.derivative.generate', module: 'media', resourceType: 'media_asset', batchAllowed: true, requiredPermission: 'content:write', allowed: true, allowedParameters: ['derivativeProfileId', 'pageParameters'], description: 'preview', risk: 'standard', featureIds: ['assets-02'] }]),
       operationTasks: vi.fn().mockResolvedValue([]),
-      operationFeatureConfigDraft: vi.fn().mockResolvedValue({ featureId: 'product-editor-03', configuration: {}, version: 0, exists: false, createdAt: null, updatedAt: null, updatedBy: null }),
-      updateOperationFeatureConfigDraft: vi.fn().mockResolvedValue({ featureId: 'product-editor-03', configuration: { pageParameters: { watermarkOpacity: 65 } }, version: 1, exists: true, createdAt: '2026-08-31T00:00:00Z', updatedAt: '2026-08-31T00:00:00Z', updatedBy: 'user-001' }),
+      operationFeatureConfigDraft: vi.fn().mockResolvedValue({ featureId: 'assets-02', configuration: {}, version: 0, exists: false, createdAt: null, updatedAt: null, updatedBy: null }),
+      updateOperationFeatureConfigDraft: vi.fn().mockResolvedValue({ featureId: 'assets-02', configuration: { pageParameters: { versionNote: '封面素材 v2' } }, version: 1, exists: true, createdAt: '2026-08-31T00:00:00Z', updatedAt: '2026-08-31T00:00:00Z', updatedBy: 'user-001' }),
       createOperationTask: vi.fn().mockResolvedValue(queued),
       createBatchOperation: vi.fn().mockResolvedValue(queued),
       operationTask: vi.fn().mockResolvedValue(queued),
@@ -79,7 +79,7 @@ async function renderLiveOperation() {
       { path: '/operations/:moduleId/:operationId', component: OperationsView },
     ],
   })
-  await router.push('/operations/product-editor/product-editor-03')
+  await router.push('/operations/assets/assets-02')
   await router.isReady()
   return render(OperationsView, { global: { plugins: [createPinia(), router] } })
 }
@@ -102,44 +102,45 @@ describe('OperationsView live Control API path', () => {
 
   it('creates, audits and cancels a real backend task', async () => {
     await renderLiveOperation()
-    await screen.findByLabelText('不透明度（%）')
-    await fireEvent.update(screen.getByLabelText('不透明度（%）'), '65')
+    await screen.findByLabelText('版本说明')
+    await fireEvent.update(screen.getByLabelText('版本说明'), '封面素材 v2')
     await fireEvent.click(screen.getByRole('button', { name: '保存配置' }))
     await waitFor(() => expect(api.updateOperationFeatureConfigDraft).toHaveBeenCalledWith(
-      'product-editor-03',
+      'assets-02',
       expect.objectContaining({
         expectedVersion: 0,
         configuration: expect.objectContaining({
-          pageParameters: expect.objectContaining({ watermarkOpacity: 65 }),
+          pageParameters: expect.objectContaining({ versionNote: '封面素材 v2' }),
         }),
       }),
     ))
     expect(await screen.findByText(/后端配置草稿已保存 · v1/)).toBeTruthy()
     await fireEvent.click(screen.getAllByRole('button', { name: '创建后端任务' })[0]!)
-    await fireEvent.update(screen.getByPlaceholderText('填写授权依据或业务用途，写入审计'), '生成水印预览')
+    await fireEvent.update(screen.getByPlaceholderText('填写授权依据或业务用途，写入审计'), '登记图片素材')
     await fireEvent.update(screen.getByPlaceholderText('确认授权范围'), '确认授权范围')
     await fireEvent.click(screen.getByRole('button', { name: '确认提交' }))
 
     await screen.findByText('后端任务已接收')
     expect(api.createOperationTask).toHaveBeenCalledWith(
       expect.objectContaining({
-        operationKey: 'watermarks.preview.render',
-        featureId: 'product-editor-03',
+        operationKey: 'media.derivative.generate',
+        featureId: 'assets-02',
         resourceId: 'demo-resource-001',
         parameters: {
           pageParameters: {
-            watermarkTemplate: '品牌角标',
-            watermarkPosition: '右下角',
-            watermarkOpacity: 65,
-            previewOnly: true,
+            assetName: '',
+            assetScope: '全部内容',
+            fileReference: '',
+            versionNote: '封面素材 v2',
+            active: true,
           },
         },
         context: expect.objectContaining({
-          sourcePage: 21,
-          sourceRoute: '#/set/system/watermark',
+          sourcePage: 130,
+          sourceRoute: '#/set/material/image',
         }),
       }),
-      expect.stringContaining('web-product-editor-03-'),
+      expect.stringContaining('web-assets-02-'),
     )
     const submitted = api.createOperationTask.mock.calls[0]![0]
     expect(submitted.context).not.toHaveProperty('pageParameters')
@@ -147,7 +148,7 @@ describe('OperationsView live Control API path', () => {
     expect(await screen.findByText('operation.task.created')).toBeTruthy()
 
     await fireEvent.click(screen.getByRole('button', { name: '取消任务' }))
-    await waitFor(() => expect(api.cancelOperationTask).toHaveBeenCalledWith('task-live-001', { reason: '生成水印预览' }))
+    await waitFor(() => expect(api.cancelOperationTask).toHaveBeenCalledWith('task-live-001', { reason: '登记图片素材' }))
     expect(screen.getByText(/CANCELED/)).toBeTruthy()
     expect(canceledTask.status).toBe('CANCELED')
     expect(queuedTask.status).toBe('QUEUED')
@@ -159,34 +160,35 @@ describe('OperationsView live Control API path', () => {
       { ...queuedTask, id: 'task-live-002', requestSha256: 'abcdef0123456789abcdef0123456789' },
     ])
     await renderLiveOperation()
-    await screen.findByLabelText('不透明度（%）')
-    await fireEvent.update(screen.getByLabelText('不透明度（%）'), '54')
-    const rowSelections = screen.getAllByLabelText('选择 宝贝水印 · task-liv')
+    await screen.findByLabelText('版本说明')
+    await fireEvent.update(screen.getByLabelText('版本说明'), '封面素材 v3')
+    const rowSelections = screen.getAllByLabelText('选择 图片素材 · task-liv')
     await fireEvent.click(rowSelections[0]!)
     await fireEvent.click(rowSelections[1]!)
     await fireEvent.click(screen.getAllByRole('button', { name: '创建后端任务' })[0]!)
     await fireEvent.update(
       screen.getByPlaceholderText('填写授权依据或业务用途，写入审计'),
-      '批量生成水印预览',
+      '批量登记图片素材',
     )
     await fireEvent.update(screen.getByPlaceholderText('确认授权范围'), '确认授权范围')
     await fireEvent.click(screen.getByRole('button', { name: '确认提交' }))
 
     await waitFor(() => expect(api.createBatchOperation).toHaveBeenCalledWith(
       expect.objectContaining({
-        operationKey: 'watermarks.preview.render',
-        featureId: 'product-editor-03',
+        operationKey: 'media.derivative.generate',
+        featureId: 'assets-02',
         resourceIds: ['task-live-001', 'task-live-002'],
         parameters: {
           pageParameters: {
-            watermarkTemplate: '品牌角标',
-            watermarkPosition: '右下角',
-            watermarkOpacity: 54,
-            previewOnly: true,
+            assetName: '',
+            assetScope: '全部内容',
+            fileReference: '',
+            versionNote: '封面素材 v3',
+            active: true,
           },
         },
       }),
-      expect.stringContaining('web-product-editor-03-'),
+      expect.stringContaining('web-assets-02-'),
     ))
   })
 

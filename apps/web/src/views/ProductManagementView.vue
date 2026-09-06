@@ -13,6 +13,7 @@ import {
   productImages,
   productSpecLabel,
 } from '@/data/product-fields'
+import { createProductGroup, resolveProductGroups } from '@/data/product-groups'
 
 const router = useRouter()
 const catalog = createProductCatalog()
@@ -33,7 +34,7 @@ const dialog = ref<{ title: string; field: string; value: string; placeholder: s
 const confirmDelete = ref(false)
 const preview = ref<{ title: string; body: string } | null>(null)
 
-const groups = computed(() => [...new Set(products.value.map((item) => productGroupName(item)))].sort())
+const groups = computed(() => resolveProductGroups(products.value).map((item) => item.name))
 const categories = computed(() => [...new Set(products.value.flatMap((item) => parseAttributes(item.attributes).brands))].sort())
 
 const filteredProducts = computed(() => {
@@ -143,6 +144,9 @@ async function applyBatch() {
       else if (field === 'group') {
         attributes.groupName = value
         product.category = value || product.category
+        if (value.trim()) {
+          try { createProductGroup({ name: value.trim() }) } catch { /* already exists */ }
+        }
       } else if (field === 'description') product.description = value
       else if (field === 'replace') product.description = product.description.split(dialog.value.value.split('=>')[0] ?? '').join(dialog.value.value.split('=>')[1] ?? dialog.value.value)
       else if (field === 'insertTitle') product.title = `${value}${product.title}`

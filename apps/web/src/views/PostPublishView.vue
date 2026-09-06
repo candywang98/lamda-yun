@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { controlApiConfigured, createControlApiClient } from '@/api/control'
-import { mapControlDevice } from '@/api/devices'
 import { createPostCatalog } from '@/api/post-catalog'
+import XianyuDevicePicker from '@/components/XianyuDevicePicker.vue'
 import { clipText, formatDateTime, type PostRecord } from '@/data/post-fields'
+import { resolvePostGroups } from '@/data/post-groups'
 import { downloadDataUrl } from '@/data/product-fields'
 import {
   allocatePosts,
@@ -12,16 +12,16 @@ import {
   loadPublishConfig,
   platformCopy,
   savePublishConfig,
-  type PostPublishDevice,
   type PostPublishPlatform,
 } from '@/data/post-publish'
+import { fetchXianyuTaskDevices, type XianyuTaskDevice } from '@/data/xianyu-task-devices'
 
 const props = defineProps<{ platform: PostPublishPlatform }>()
 const router = useRouter()
 const catalog = createPostCatalog()
 const copy = computed(() => platformCopy(props.platform))
 const form = reactive(emptyPublishConfig())
-const devices = ref<PostPublishDevice[]>([])
+const devices = ref<XianyuTaskDevice[]>([])
 const posts = ref<PostRecord[]>([])
 const searchQuery = ref('')
 const appliedSearch = ref('')
@@ -31,11 +31,13 @@ const page = ref(1)
 const pageSize = ref(10)
 const jumpPage = ref('1')
 const pickerOpen = ref(false)
+const filterOpen = ref(false)
+const tableSelected = ref<string[]>([])
 const busy = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
 
-const groups = computed(() => [...new Set(posts.value.map((item) => item.groupName || '默认分组'))])
+const groups = computed(() => resolvePostGroups(posts.value).map((item) => item.name))
 const selectedPosts = computed(() => posts.value.filter((item) => form.postIds.includes(item.id)))
 const filtered = computed(() => posts.value.filter((post) => {
   const haystack = `${post.title}${post.body}${post.notes}`.toLowerCase()
@@ -45,49 +47,38 @@ const filtered = computed(() => posts.value.filter((post) => {
 }))
 const totalPages = computed(() => Math.max(1, Math.ceil(filtered.value.length / pageSize.value)))
 const paged = computed(() => filtered.value.slice((page.value - 1) * pageSize.value, page.value * pageSize.value))
-const selectedCount = computed(() => devices.value.filter((item) => form.deviceIds.includes(item.id)).length)
 const assignments = computed(() => allocatePosts(form.postIds, form.deviceIds, form.allocation))
 const isXianyu = computed(() => props.platform === 'xianyu')
+const allSelected = computed({
+  get: () => paged.value.length > 0 && paged.value.every((item) => tableSelected.value.includes(item.id)),
+  set: (value: boolean) => {
+    if (value) tableSelected.value = [...new Set([...tableSelected.value, ...paged.value.map((item) => item.id)])]
+    else tableSelected.value = tableSelected.value.filter((id) => !paged.value.some((item) => item.id === id))
+  },
+})
 
 async function loadDevices() {
-  if (!controlApiConfigured) {
-    devices.value = []
-    return
-  }
-  try {
-    const api = createControlApiClient()
-    devices.value = (await api.devices()).map((item) => {
-      const mapped = mapControlDevice(item)
-      return { id: mapped.id, name: mapped.name, online: mapped.presence === 'ONLINE' }
-    })
-  } catch {
-    devices.value = []
-  }
+  devices.value = await fetchXianyuTaskDevices()
 }
 
 async function loadPosts() {
   posts.value = await catalog.list()
 }
 
-function toggleDevice(id: string) {
-  form.deviceIds = form.deviceIds.includes(id)
-    ? form.deviceIds.filter((item) => item !== id)
-    : [...form.deviceIds, id]
-}
-
-function selectAllDevices() {
-  const ids = devices.value.map((item) => item.id)
-  form.deviceIds = form.deviceIds.length === ids.length ? [] : ids
-}
-
-function selectOnlineDevices() {
-  form.deviceIds = devices.value.filter((item) => item.online).map((item) => item.id)
-}
-
 function togglePost(id: string) {
   form.postIds = form.postIds.includes(id)
     ? form.postIds.filter((item) => item !== id)
     : [...form.postIds, id]
+}
+
+function toggleTableSelected(id: string) {
+  tableSelected.value = tableSelected.value.includes(id)
+    ? tableSelected.value.filter((item) => item !== id)
+    : [...tableSelected.value, id]
+}
+
+function addSelectedToQueue() {
+  form.postIds = [...new Set([...form.postIds, ...tableSelected.value])]
 }
 
 function searchTable() {
@@ -152,23 +143,7 @@ onMounted(async () => {
     <div class="card">
       <h2>{{ copy.title }}</h2>
       <div v-if="isXianyu" class="notice">闲鱼已下线「发布帖子」功能，本任务暂无法执行。若后续入口恢复，无需重新配置即可直接使用。</div>
-      <div class="row top">
-        <span class="label">执行设备</span>
-        <div>
-          <div v-if="devices.length === 0" class="hint">当前没有已接入设备。接入 Companion 后会出现在这里。</div>
-          <label v-for="device in devices" :key="device.id" class="chip">
-            <input type="checkbox" :checked="form.deviceIds.includes(device.id)" @change="toggleDevice(device.id)" />
-            {{ device.name }}
-            <small :class="device.online ? 'on' : 'off'">{{ device.online ? '在线' : '离线' }}</small>
-          </label>
-          <div class="links">
-            <button type="button" @click="selectAllDevices">全选/反选设备</button>
-            <button type="button" @click="selectOnlineDevices">全选在线设备</button>
-            <button type="button" @click="form.deviceIds = []">全部取消选择</button>
-            <span class="count">{{ selectedCount }}</span>
-          </div>
-        </div>
-      </div>
+      <XianyuDevicePicker v-model="form.deviceIds" :devices="devices" />
       <div class="row top">
         <span class="label">发布的{{ copy.itemLabel }}</span>
         <div>
@@ -257,17 +232,17 @@ onMounted(async () => {
         <button class="primary" type="button" @click="searchTable">查找</button>
       </div>
       <div class="actions">
-        <button class="primary" type="button" @click="pickerOpen = true">添加发布</button>
+        <button class="primary" type="button" @click="addSelectedToQueue">添加发布</button>
         <span class="spacer" />
-        <button class="outline" type="button">筛选</button>
-        <button class="outline" type="button" @click="resetTable">还原</button>
-        <button class="outline" type="button" @click="exportCsv">导出</button>
-        <button class="outline" type="button" @click="printList">打印</button>
+        <button class="primary" type="button" @click="filterOpen = true">筛选</button>
+        <button class="primary" type="button" @click="resetTable">还原</button>
+        <button class="primary" type="button" @click="exportCsv">导出</button>
+        <button class="primary" type="button" @click="printList">打印</button>
       </div>
       <table>
         <thead>
           <tr>
-            <th class="check"></th>
+            <th class="check"><input v-model="allSelected" type="checkbox" /></th>
             <th>{{ copy.tableGroup }}</th>
             <th>{{ copy.tableMedia }}</th>
             <th>标题</th>
@@ -279,7 +254,7 @@ onMounted(async () => {
         <tbody>
           <tr v-if="paged.length === 0"><td colspan="7" class="empty">无{{ copy.itemLabel }}数据，请先编辑{{ copy.itemLabel }}或采集后再发布。</td></tr>
           <tr v-for="post in paged" :key="post.id">
-            <td class="check"><input type="checkbox" :checked="form.postIds.includes(post.id)" @change="togglePost(post.id)" /></td>
+            <td class="check"><input type="checkbox" :checked="tableSelected.includes(post.id)" @change="toggleTableSelected(post.id)" /></td>
             <td>{{ post.groupName }}</td>
             <td>
               <div class="thumbs">
@@ -307,7 +282,7 @@ onMounted(async () => {
         <span>页</span>
         <button type="button" @click="page = Math.max(1, Number(jumpPage) || 1)">确定</button>
         <span>共 {{ filtered.length }} 条</span>
-        <select v-model.number="pageSize"><option :value="10">10 条/页</option><option :value="20">20 条/页</option></select>
+        <select v-model.number="pageSize"><option :value="10">10条/页</option><option :value="20">20条/页</option></select>
       </div>
     </div>
 
@@ -325,6 +300,18 @@ onMounted(async () => {
         </li>
         <li v-if="!isXianyu"><span class="tag">适配多开</span> 红薯多开运行任务前，请手动切换红薯分身到前台，暂无法像闲鱼那样选择主副应用</li>
       </ol>
+    </div>
+
+    <div v-if="filterOpen" class="mask" @click.self="filterOpen = false">
+      <div class="modal">
+        <h3>筛选{{ copy.itemLabel }}</h3>
+        <input v-model="searchQuery" placeholder="搜索标题、内容" />
+        <select v-model="groupFilter">
+          <option value="">{{ copy.groupPlaceholder }}</option>
+          <option v-for="item in groups" :key="item" :value="item">{{ item }}</option>
+        </select>
+        <div class="modal-actions"><button class="primary" type="button" @click="searchTable(); filterOpen = false">确定</button></div>
+      </div>
     </div>
 
     <div v-if="pickerOpen" class="mask" @click.self="pickerOpen = false">

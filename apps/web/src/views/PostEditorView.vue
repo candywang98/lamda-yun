@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { createPostCatalog } from '@/api/post-catalog'
 import { compressImageFile } from '@/data/product-fields'
 import { emptyPost, type PostRecord } from '@/data/post-fields'
+import { DEFAULT_POST_GROUP_NAME, resolvePostGroups } from '@/data/post-groups'
 
 const route = useRoute()
 const router = useRouter()
@@ -15,16 +16,16 @@ const currentId = ref('')
 const topicDraft = ref('')
 const imageInput = ref<HTMLInputElement | null>(null)
 const videoInput = ref<HTMLInputElement | null>(null)
-const groups = ref<string[]>(['默认分组'])
+const groups = ref<string[]>([DEFAULT_POST_GROUP_NAME])
 const form = reactive<PostRecord>(emptyPost())
 
 const postId = computed(() => (typeof route.query.id === 'string' ? route.query.id : ''))
 
 async function loadGroups() {
   try {
-    groups.value = [...new Set(['默认分组', ...(await catalog.list()).map((item) => item.groupName || '默认分组')])]
+    groups.value = resolvePostGroups(await catalog.list()).map((item) => item.name)
   } catch {
-    groups.value = ['默认分组']
+    groups.value = [DEFAULT_POST_GROUP_NAME]
   }
 }
 
@@ -168,9 +169,12 @@ onMounted(() => {
       <div class="row"><label for="post-notes">帖子备注</label><input id="post-notes" v-model="form.notes" placeholder="帖子备注" /></div>
       <div class="row">
         <label for="post-group">帖子分组</label>
-        <select id="post-group" v-model="form.groupName">
-          <option v-for="item in groups" :key="item" :value="item">{{ item }}</option>
-        </select>
+        <div class="grow inline">
+          <select id="post-group" v-model="form.groupName">
+            <option v-for="item in groups" :key="item" :value="item">{{ item }}</option>
+          </select>
+          <button class="link" type="button" @click="router.push('/operations/post-management/post-management-04')">分组管理</button>
+        </div>
       </div>
       <p v-if="errorMessage" class="flash error">{{ errorMessage }}</p>
       <p v-if="successMessage" class="flash ok">{{ successMessage }}</p>
@@ -213,6 +217,7 @@ small { color: #94a3b8; font-size: 12px; }
 .thumb img { width: 72px; height: 72px; object-fit: cover; border-radius: 4px; }
 .thumb button { position: absolute; top: 2px; right: 2px; width: 18px; height: 18px; padding: 0; border: 0; border-radius: 50%; background: #0f172a; color: #fff; }
 .tag { padding: 2px 8px; background: #ecfdf5; color: #0f766e; border-radius: 999px; font-size: 12px; }
+.link { height: 32px; padding: 0 10px; border: 0; background: none; color: #0f766e; cursor: pointer; }
 .flash { margin: 0; font-size: 13px; }
 .flash.error { color: #b91c1c; }
 .flash.ok { color: #166534; }

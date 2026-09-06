@@ -113,28 +113,26 @@ onMounted(() => {
           <input ref="logoInput" class="hidden" type="file" accept="image/png,image/*" @change="onPickLogo" />
           <button class="logo-box" type="button" @click="logoInput?.click()">
             <img v-if="form.imageDataUrl" :src="form.imageDataUrl" alt="水印 logo" />
-            <span v-else>+<small>上传logo</small></span>
+            <span v-else class="logo-placeholder"><span class="plus">+</span><small>上传logo</small></span>
           </button>
           <button v-if="form.imageDataUrl" class="link" type="button" @click="removeLogo">清除</button>
           <p class="hint">建议使用透明底PNG，水印随图片尺寸等比缩放</p>
         </div>
       </div>
 
-      <div class="row top">
-        <span class="label">历史水印</span>
-        <div>
-          <div class="history">
-            <button v-for="item in history" :key="item.id" class="history-item" type="button" :title="item.savedAt" @click="reuseHistory(item)">
-              <img v-if="item.thumbnail" :src="item.thumbnail" alt="" />
-              <span v-else>{{ item.config.mode === 'image' ? '图片水印' : item.config.text }}</span>
-            </button>
-            <span v-if="history.length === 0" class="hint">上传/保存过的图片或文字水印会自动记在本机浏览器里</span>
-          </div>
-          <p class="hint">上传/保存过的图片或文字水印会自动记在本机浏览器里，点击即可套用当时的全部参数（换账号登录同一浏览器也能用）</p>
-        </div>
-      </div>
-
       <template v-if="!isImageMode">
+        <div class="row top">
+          <span class="label">历史水印</span>
+          <div>
+            <div class="history">
+              <button v-for="item in history" :key="item.id" class="history-item" type="button" :title="item.savedAt" @click="reuseHistory(item)">
+                <img v-if="item.thumbnail" :src="item.thumbnail" alt="" />
+                <span v-else>{{ item.config.mode === 'image' ? '图片水印' : item.config.text }}</span>
+              </button>
+            </div>
+            <p class="hint">上传/保存过的图片或文字水印会自动记在本机浏览器里，点击即可套用当时的全部参数（换账号登录同一浏览器也能用）</p>
+          </div>
+        </div>
         <div class="row">
           <label class="label" for="wm-font">水印字体</label>
           <select id="wm-font" v-model="form.fontFamily">
@@ -152,7 +150,10 @@ onMounted(() => {
           <label class="label" for="wm-color">字体颜色</label>
           <div class="inline">
             <input id="wm-color" v-model="form.color" />
-            <input v-model="form.color" type="color" aria-label="选择字体颜色" />
+            <label class="color-swatch" for="wm-color-picker" :style="{ background: form.color }" title="选择字体颜色">
+              <input id="wm-color-picker" v-model="form.color" type="color" aria-label="选择字体颜色" />
+              <span class="color-caret">▾</span>
+            </label>
           </div>
         </div>
       </template>
@@ -202,8 +203,8 @@ onMounted(() => {
       <div class="row">
         <span class="label">铺满全图</span>
         <div>
-          <label class="radio"><input v-model="form.tile" type="radio" :value="false" /> 关闭</label>
-          <label class="radio"><input v-model="form.tile" type="radio" :value="true" /> 开启</label>
+          <label class="radio" for="wm-tile-off"><input id="wm-tile-off" v-model="form.tile" type="radio" :value="false" /> 关闭</label>
+          <label class="radio" for="wm-tile-on"><input id="wm-tile-on" v-model="form.tile" type="radio" :value="true" /> 开启</label>
         </div>
       </div>
       <div class="row">
@@ -234,10 +235,10 @@ onMounted(() => {
         <li>水印文字会随图片尺寸等比缩放，实际比例与预览一致（预览图片的尺寸为960×540）</li>
         <li>如应用图片选择尾张，且图片数&gt;=10，将在第9第和10张图片添加水印</li>
         <li>水印在宝贝发布时生效，宝贝编辑页面无法预览水印效果</li>
-        <li>发布宝贝、帖子时开启 图片水印 既可应用该页面的配置</li>
-        <li>如果您修改了某鱼昵称，请运行绑定某鱼任务重新同步到系统</li>
+        <li>发布宝贝、帖子时开启 <span class="chip">图片水印</span> 既可应用该页面的配置</li>
+        <li>如果您修改了某鱼昵称，请运行<span class="chip accent">绑定某鱼</span>任务重新同步到系统</li>
         <li>图片水印与文字水印二选一，logo建议使用透明底PNG，水印随图片尺寸等比缩放</li>
-        <li>上传/保存过的图片水印和文字水印会自动记入历史水印（保存在本机浏览器，各留最近12条），点击即可一键套用当时的全部参数，换账号登录同一浏览器也能使用</li>
+        <li>上传/保存过的图片水印和文字水印会自动记入 <span class="chip">历史水印</span> （保存在本机浏览器，各留最近12条），点击即可一键套用当时的全部参数，换账号登录同一浏览器也能使用</li>
       </ol>
     </div>
   </section>
@@ -247,25 +248,32 @@ onMounted(() => {
 .wm-page { display: grid; gap: 10px; color: #334155; }
 .card, .help { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; }
 .card { padding: 16px 18px 20px; display: grid; gap: 14px; }
-h2 { margin: 0; font-size: 15px; }
+h2 { margin: 0; padding-bottom: 12px; border-bottom: 1px solid #eef2f6; font-size: 15px; font-weight: 600; color: #1f2937; }
 .row { display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: 12px; align-items: center; }
 .row.top { align-items: start; }
 .label { color: #64748b; font-size: 13px; }
-input, select { width: min(280px, 100%); height: 34px; padding: 0 10px; border: 1px solid #d1d5db; border-radius: 4px; font: inherit; }
-input[type='color'] { width: 36px; padding: 2px; }
+input, select { width: min(280px, 100%); height: 34px; padding: 0 10px; border: 1px solid #d1d5db; border-radius: 4px; font: inherit; background: #fff; }
 .inline { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-.radio { display: inline-flex; align-items: center; gap: 6px; margin-right: 16px; color: #334155; }
+.inline .hint { margin: 0; }
+.radio { display: inline-flex; align-items: center; gap: 6px; margin-right: 16px; color: #334155; cursor: pointer; }
+.radio input { width: 16px; height: 16px; accent-color: #22c55e; }
 .hint { margin: 6px 0 0; color: #94a3b8; font-size: 12px; }
 .hidden { display: none; }
-.logo-box { width: 84px; height: 84px; border: 1px dashed #cbd5e1; border-radius: 8px; background: #f8fafc; color: #94a3b8; display: grid; place-items: center; }
+.logo-box { width: 84px; height: 84px; padding: 0; border: 1px dashed #cbd5e1; border-radius: 10px; background: #fff; color: #94a3b8; display: grid; place-items: center; cursor: pointer; }
 .logo-box img { width: 76px; height: 76px; object-fit: contain; }
+.logo-placeholder { display: grid; justify-items: center; gap: 2px; }
+.logo-placeholder .plus { font-size: 22px; line-height: 1; color: #94a3b8; }
 .logo-box small { display: block; font-size: 12px; }
-.link { border: 0; background: none; color: #0f766e; }
-.history { display: flex; flex-wrap: wrap; gap: 8px; }
-.history-item { width: 72px; height: 54px; padding: 0; overflow: hidden; border: 1px solid #e5e7eb; border-radius: 6px; background: #f8fafc; }
+.color-swatch { position: relative; width: 42px; height: 34px; border: 1px solid #d1d5db; border-radius: 4px; overflow: hidden; cursor: pointer; }
+.color-swatch input[type='color'] { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; border: 0; opacity: 0; cursor: pointer; }
+.color-caret { position: absolute; right: 4px; bottom: 0; color: #fff; font-size: 12px; text-shadow: 0 0 2px rgba(15, 23, 42, 0.45); pointer-events: none; }
+.link { border: 0; background: none; color: #0f766e; cursor: pointer; }
+.history { display: flex; flex-wrap: wrap; gap: 8px; min-height: 54px; }
+.history-item { width: 72px; height: 54px; padding: 0; overflow: hidden; border: 1px solid #e5e7eb; border-radius: 6px; background: repeating-conic-gradient(#f8fafc 0% 25%, #e5e7eb 0% 50%) 50% / 12px 12px; cursor: pointer; }
 .history-item img { width: 100%; height: 100%; object-fit: cover; }
 .footer { padding-left: 100px; display: flex; gap: 10px; }
-.primary { height: 34px; padding: 0 16px; border: 0; border-radius: 4px; background: #0f766e; color: #fff; }
+.primary { height: 34px; padding: 0 16px; border: 0; border-radius: 4px; background: #0f766e; color: #fff; cursor: pointer; }
+.primary:disabled { opacity: 0.6; cursor: not-allowed; }
 .flash { margin: 0; padding-left: 100px; font-size: 13px; }
 .flash.error { color: #b91c1c; }
 .flash.ok { color: #166534; }
@@ -273,4 +281,6 @@ input[type='color'] { width: 36px; padding: 2px; }
 .help { padding: 12px 14px 16px; }
 .help h3 { margin: 0 0 8px; font-size: 14px; }
 .help ol { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.8; }
+.chip { display: inline-block; margin: 0 2px; padding: 0 6px; border-radius: 4px; background: #eef2f6; color: #64748b; font-size: 12px; line-height: 20px; }
+.chip.accent { background: #e0f2fe; color: #0284c7; }
 </style>

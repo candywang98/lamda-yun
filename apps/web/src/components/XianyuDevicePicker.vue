@@ -22,9 +22,9 @@ function setIds(ids: string[]) {
     <span class="label">执行设备</span>
     <div>
       <div v-if="devices.length === 0" class="hint">当前没有已接入设备。接入 Companion 后会出现在这里。</div>
-      <label v-for="device in devices" :key="device.id" class="chip">
+      <label v-for="device in devices" :key="device.id" class="chip" :class="{ selected: modelValue.includes(device.id), offline: !device.online }">
         <input type="checkbox" :checked="modelValue.includes(device.id)" @change="setIds(toggleId(modelValue, device.id))" />
-        {{ deviceLabel(device, showAccount) }}
+        <span class="chip-name">{{ deviceLabel(device, showAccount) }}</span>
         <small :class="device.online ? 'on' : 'off'">{{ device.online ? '在线' : '离线' }}</small>
       </label>
       <div class="links">
@@ -38,15 +38,39 @@ function setIds(ids: string[]) {
 </template>
 
 <style scoped>
-.row { display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: 12px; align-items: center; }
+.row { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 14px; align-items: center; }
 .row.top { align-items: start; }
-.label { color: #64748b; font-size: 13px; padding-top: 6px; }
-.chip { display: inline-flex; align-items: center; gap: 6px; margin: 0 12px 8px 0; padding: 4px 8px; border: 1px solid #e5e7eb; border-radius: 6px; }
-.chip small { padding: 0 6px; border-radius: 4px; font-size: 11px; background: #f1f5f9; }
-.chip small.on { background: #dcfce7; color: #166534; }
-.chip small.off { color: #64748b; }
-.links { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 6px; color: #0f766e; font-size: 13px; }
-.links button { border: 0; background: none; color: #0f766e; padding: 0; }
-.count { min-width: 22px; height: 22px; padding: 0 6px; border-radius: 4px; background: #f1f5f9; color: #334155; text-align: center; }
-.hint { color: #94a3b8; font-size: 12px; }
+.label { color: #0f172a; font-size: 14px; font-weight: 600; padding-top: 8px; }
+
+.chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  margin: 0 10px 10px 0; padding: 9px 12px;
+  border: 1px solid #e2e8f0; border-radius: 10px; background: #fff;
+  font-size: 14px; color: #1e293b; cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+.chip:hover { border-color: #5eead4; background: #f8fdfc; }
+.chip.selected { border-color: #0f766e; background: #f0fdfa; box-shadow: 0 0 0 1px #0f766e inset; }
+.chip.offline { color: #64748b; }
+.chip input { accent-color: #0f766e; width: 16px; height: 16px; margin: 0; flex: none; }
+.chip-name { line-height: 1.4; }
+.chip small { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 999px; font-size: 12px; background: #f1f5f9; color: #64748b; }
+.chip small::before { content: ""; width: 6px; height: 6px; border-radius: 999px; background: #94a3b8; }
+.chip small.on { background: #dcfce7; color: #15803d; }
+.chip small.on::before { background: #22c55e; }
+
+.links { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; margin-top: 2px; color: #0f766e; font-size: 13px; }
+.links button { border: 0; background: none; color: #0f766e; padding: 0; font-size: 13px; font-weight: 600; cursor: pointer; }
+.links button:hover { text-decoration: underline; }
+.count {
+  min-width: 24px; height: 24px; padding: 0 8px; border-radius: 999px;
+  background: #0f766e; color: #fff; font-size: 12px; font-weight: 700;
+  display: inline-grid; place-items: center;
+}
+.hint { color: #94a3b8; font-size: 13px; padding: 10px 14px; border: 1px dashed #cbd5e1; border-radius: 10px; background: #f8fafc; }
+
+@media (max-width: 720px) {
+  .row { grid-template-columns: 1fr; row-gap: 8px; }
+  .label { padding-top: 0; }
+}
 </style>

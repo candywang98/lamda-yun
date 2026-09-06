@@ -202,7 +202,10 @@ onMounted(() => {
         <label class="label" for="product-description">描述</label>
         <div class="split">
           <textarea id="product-description" v-model="form.description" rows="10" />
-          <textarea v-model="form.attributes.rewriteText" rows="10" placeholder="改写文本&#10;填写改写文本后系统会把改写文本作为宝贝描述" />
+          <div class="grow">
+            <textarea v-model="form.attributes.rewriteText" rows="10" placeholder="改写文本（可选）" />
+            <small>填写改写文本后，系统会将它作为宝贝描述</small>
+          </div>
         </div>
       </div>
 
@@ -231,8 +234,8 @@ onMounted(() => {
         <span class="label">宝贝图片</span>
         <div class="grow">
           <div class="actions">
-            <button class="primary" type="button" @click="imageInput?.click()">多图片上传</button>
-            <button type="button" @click="clearImages">清除图片</button>
+            <button type="button" @click="imageInput?.click()">多图片上传</button>
+            <button class="danger" type="button" @click="clearImages">清除图片</button>
             <input ref="imageInput" class="hidden" type="file" accept="image/*" multiple @change="onPickImages" />
           </div>
           <small>Windows 按 Ctrl 多选，Mac 按 Command 多选。上传后第一张为封面，可上移下移排序。</small>
@@ -261,9 +264,9 @@ onMounted(() => {
         <span class="label">视频</span>
         <div class="grow">
           <div class="actions">
-            <button class="primary" type="button" @click="videoInput?.click()">上传</button>
+            <button type="button" @click="videoInput?.click()">上传</button>
             <button type="button" @click="form.attributes.videoUrl = ''; form.attributes.videoName = ''">暂无</button>
-            <button type="button" @click="form.attributes.videoUrl = ''; form.attributes.videoName = ''">清除</button>
+            <button class="danger" type="button" @click="form.attributes.videoUrl = ''; form.attributes.videoName = ''">清除</button>
             <input ref="videoInput" class="hidden" type="file" accept="video/mp4" @change="onPickVideo" />
           </div>
           <small>视频上传后会直接显示视频播放控件。采集宝贝后视频不会立刻显示，会有一分钟左右的上传转码过程。</small>
@@ -282,7 +285,7 @@ onMounted(() => {
         <span class="label">地址1</span>
         <div class="grow tags">
           <span v-for="(item, index) in form.attributes.address" :key="item" class="tag">{{ item }} <button type="button" @click="removeTag(form.attributes.address, index)">×</button></span>
-          <input v-model="tagDraft.address" placeholder="例如 江苏省-南京市-玄武区，回车添加" @keydown.enter.prevent="addTag(form.attributes.address, tagDraft.address); tagDraft.address = ''" />
+          <input v-model="tagDraft.address" class="wide" placeholder="江苏省-南京市-玄武区，回车添加" @keydown.enter.prevent="addTag(form.attributes.address, tagDraft.address); tagDraft.address = ''" />
         </div>
       </div>
 
@@ -312,7 +315,7 @@ onMounted(() => {
       <div class="field-line top"><label for="product-virtual">虚拟宝贝</label><textarea id="product-virtual" v-model="form.attributes.virtualProduct" rows="3" placeholder="填写虚拟宝贝的网盘链接或者卡密。买家拍下后发送此段内容并发货。" /></div>
       <div class="field-line"><label for="product-notes">宝贝备注</label><input id="product-notes" v-model="form.attributes.notes" placeholder="宝贝备注" /></div>
       <div class="field-line"><label for="product-share">分享码</label><input id="product-share" v-model="form.attributes.shareCode" placeholder="宝贝分享码" /><small>设置后可将宝贝共享给别人</small></div>
-      <div class="field-line"><label for="product-group">宝贝分组</label><input id="product-group" v-model="form.attributes.groupName" placeholder="例如 黄金回收" /><small>分组管理</small></div>
+      <div class="field-line"><label for="product-group">宝贝分组</label><input id="product-group" v-model="form.attributes.groupName" placeholder="例如 黄金回收" /><small><button class="group-link" type="button" @click="router.push('/operations/product-management/product-management-03')">分组管理</button></small></div>
 
       <div class="row">
         <span class="label" />
@@ -337,44 +340,65 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.editor { display: grid; gap: 10px; color: #334155; }
-.bar, .panel, .help { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; }
-.bar { padding: 10px 14px; font-size: 14px; }
-.panel { padding: 16px 18px 20px; display: grid; gap: 14px; }
-.row, .field-line { display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: 12px; align-items: start; }
+.editor { display: grid; gap: 14px; color: #334155; }
+.bar, .panel, .help { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 10px 28px -20px rgba(15, 23, 42, 0.25); }
+.bar { padding: 14px 18px; font-size: 16px; font-weight: 700; color: #1f2d3d; }
+.panel { padding: 20px 22px 24px; display: grid; gap: 16px; }
+.row, .field-line { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 14px; align-items: start; }
 .field-line { align-items: center; }
 .field-line.top { align-items: start; }
-.label, .field-line label { padding-top: 6px; color: #64748b; font-size: 13px; }
+.label, .field-line label { padding-top: 8px; color: #1f2d3d; font-size: 14px; font-weight: 600; }
+.field-line label { padding-top: 0; }
+.field-line.top label { padding-top: 8px; }
 .grow, .split { min-width: 0; display: grid; gap: 8px; }
 .split { grid-template-columns: 1fr 1fr; }
-input, select, textarea { width: 100%; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 4px; background: #fff; font: inherit; }
+input, select, textarea { width: 100%; padding: 9px 12px; border: 1px solid #d1d5db; border-radius: 10px; background: #fff; font: inherit; transition: border-color 0.15s, box-shadow 0.15s; }
+input:focus, select:focus, textarea:focus { outline: none; border-color: #14b8a6; box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.15); }
 textarea { resize: vertical; }
-.actions { display: flex; gap: 8px; flex-wrap: wrap; }
-.primary, .actions button { height: 32px; padding: 0 14px; border-radius: 4px; border: 1px solid #0f766e; background: #fff; color: #0f766e; }
-.primary { color: #fff; background: #0f766e; }
-.flash { margin: 0; padding: 8px 10px; border-radius: 6px; font-size: 13px; }
-.flash.error { color: #b91c1c; background: #fef2f2; }
-.flash.ok { color: #166534; background: #f0fdf4; }
-.box { padding: 10px; border: 1px solid #e5e7eb; border-radius: 6px; }
+.row .grow > input:not([type="checkbox"]) { max-width: 560px; }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.actions button { height: 34px; padding: 0 16px; border-radius: 10px; border: 1px solid #cbd5e1; background: #fff; color: #475569; cursor: pointer; transition: border-color 0.15s, color 0.15s, background 0.15s; }
+.actions button:hover:not(:disabled) { border-color: #14b8a6; color: #0f766e; }
+.actions button.primary, button.primary { border-color: #0f766e; background: #0f766e; color: #fff; font-weight: 600; box-shadow: 0 4px 10px -4px rgba(15, 118, 110, 0.5); }
+.actions button.primary:hover:not(:disabled), button.primary:hover:not(:disabled) { border-color: #115e59; background: #115e59; color: #fff; }
+.actions button:disabled { opacity: 0.55; cursor: not-allowed; }
+.actions button.danger { border-color: #fca5a5; color: #dc2626; background: #fff; }
+.actions button.danger:hover:not(:disabled) { border-color: #ef4444; color: #b91c1c; background: #fef2f2; }
+.flash { margin: 0; padding: 8px 12px; border-radius: 10px; font-size: 13px; border: 1px solid transparent; }
+.flash.error { color: #b91c1c; background: #fef2f2; border-color: #fecaca; }
+.flash.ok { color: #166534; background: #f0fdf4; border-color: #bbf7d0; }
+.box { padding: 12px 14px; border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc; display: grid; gap: 10px; }
 .inline, .tags, .check { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.link { height: auto; padding: 0; border: 0; background: transparent; color: #ef4444; }
-.tag { padding: 2px 8px; color: #0f766e; background: #ecfdf5; border-radius: 999px; font-size: 12px; }
-.tag button { border: 0; background: transparent; color: inherit; }
+.inline > span { font-size: 13px; font-weight: 600; color: #475569; }
+.inline select { width: auto; min-width: 170px; }
+.link { margin-left: auto; height: 26px; padding: 0 12px; border: 1px solid #fca5a5; border-radius: 999px; background: #fff; color: #dc2626; font-size: 12px; cursor: pointer; transition: background 0.15s, border-color 0.15s; }
+.link:hover { background: #fef2f2; border-color: #ef4444; }
+.tag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; color: #0f766e; background: #f0fdfa; border: 1px solid #99f6e4; border-radius: 999px; font-size: 12px; }
+.tag button { border: 0; background: transparent; color: inherit; cursor: pointer; padding: 0; font-size: 13px; }
+.tags input { width: 130px; flex: none; border-style: dashed; }
+.tags input.wide { width: 260px; }
 .hidden { display: none; }
-.gallery { display: flex; flex-wrap: wrap; gap: 8px; }
+.gallery { display: flex; flex-wrap: wrap; gap: 10px; }
 .thumb { position: relative; width: 108px; }
-.thumb img { width: 108px; height: 108px; object-fit: cover; border-radius: 6px; border: 1px solid #e5e7eb; }
-.thumb .x { position: absolute; top: 4px; right: 4px; width: 18px; height: 18px; padding: 0; border: 0; border-radius: 50%; background: #0f172a; color: #fff; }
+.thumb img { width: 108px; height: 108px; object-fit: cover; border-radius: 10px; border: 1px solid #e2e8f0; }
+.thumb .x { position: absolute; top: 4px; right: 4px; width: 18px; height: 18px; padding: 0; border: 0; border-radius: 50%; background: rgba(15, 23, 42, 0.75); color: #fff; cursor: pointer; }
 .thumb-ops { margin-top: 4px; display: flex; gap: 4px; }
-.thumb-ops button { height: 24px; padding: 0 6px; }
+.thumb-ops button { height: 24px; padding: 0 8px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; color: #475569; cursor: pointer; }
 .field-line input, .field-line textarea { max-width: 360px; }
-.field-line small, small, .hint { color: #94a3b8; font-size: 12px; }
-video { width: min(360px, 100%); background: #000; }
-.help { padding: 12px 14px 16px; }
-.help h3 { margin: 0 0 8px; font-size: 14px; }
-.help ol { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.8; }
-.check { font-size: 13px; }
+.field-line small { grid-column: 2; }
+.field-line small, small, .hint { color: #94a3b8; font-size: 12px; line-height: 1.6; }
+.group-link { border: 0; background: none; padding: 0; color: #0f766e; cursor: pointer; }
+video { width: min(360px, 100%); background: #000; border-radius: 10px; }
+.help { padding: 16px 18px 18px; }
+.help h3 { margin: 0 0 10px; font-size: 15px; color: #1f2d3d; }
+.help ol { margin: 0; padding: 0; list-style: none; counter-reset: h; display: grid; gap: 8px; font-size: 13px; line-height: 1.7; color: #475569; }
+.help li { counter-increment: h; display: flex; gap: 10px; align-items: flex-start; }
+.help li::before { content: counter(h); flex: none; width: 20px; height: 20px; margin-top: 1px; display: grid; place-items: center; border-radius: 50%; background: #f0fdfa; color: #0f766e; font-size: 12px; font-weight: 700; border: 1px solid #99f6e4; }
+.check { font-size: 13px; grid-column: 2; }
+.check input { width: auto; }
 @media (max-width: 900px) {
   .split, .row, .field-line { grid-template-columns: 1fr; }
+  .label, .field-line label { padding-top: 0; }
+  .check, .field-line small { grid-column: 1; }
 }
 </style>

@@ -14,6 +14,7 @@ import {
   VIDEO_MUSIC_OPTIONS,
 } from '@/data/xianyu-publish-goods'
 import { clipText, downloadDataUrl, parseAttributes, productGroupName, productImages, productSpecLabel } from '@/data/product-fields'
+import { resolveProductGroups } from '@/data/product-groups'
 import { fetchXianyuTaskDevices, type XianyuTaskDevice } from '@/data/xianyu-task-devices'
 
 const router = useRouter()
@@ -31,11 +32,12 @@ const page = ref(1)
 const pageSize = ref(10)
 const jumpPage = ref('1')
 const pickerOpen = ref(false)
+const filterOpen = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
 const tableSelected = ref<string[]>([])
 
-const groups = computed(() => [...new Set(products.value.map((item) => productGroupName(item)))].sort())
+const groups = computed(() => resolveProductGroups(products.value).map((item) => item.name))
 const categories = computed(() => [...new Set(products.value.flatMap((item) => parseAttributes(item.attributes).brands))].sort())
 const selectedProducts = computed(() => products.value.filter((item) => form.productIds.includes(item.id)))
 const filtered = computed(() => products.value.filter((product) => {
@@ -369,10 +371,10 @@ onMounted(async () => {
       <div class="actions">
         <button class="primary" type="button" @click="addSelectedToQueue">添加至待发布</button>
         <span class="spacer" />
-        <button class="outline" type="button">筛选</button>
-        <button class="outline" type="button" @click="resetTable">还原</button>
-        <button class="outline" type="button" @click="exportCsv">导出</button>
-        <button class="outline" type="button" @click="printList">打印</button>
+        <button class="primary" type="button" @click="filterOpen = true">筛选</button>
+        <button class="primary" type="button" @click="resetTable">还原</button>
+        <button class="primary" type="button" @click="exportCsv">导出</button>
+        <button class="primary" type="button" @click="printList">打印</button>
       </div>
       <table>
         <thead>
@@ -416,7 +418,7 @@ onMounted(async () => {
         <span>页</span>
         <button type="button" @click="page = Math.max(1, Number(jumpPage) || 1)">确定</button>
         <span>共 {{ filtered.length }} 条</span>
-        <select v-model.number="pageSize"><option :value="10">10 条/页</option><option :value="20">20 条/页</option></select>
+        <select v-model.number="pageSize"><option :value="10">10条/页</option><option :value="20">20条/页</option></select>
       </div>
     </div>
 
@@ -432,6 +434,22 @@ onMounted(async () => {
         <li>默认地址使用宝贝编辑页地点；随机地址从所选地址池抽取；多地铺货会按地址池每个地点发一遍。</li>
         <li>仅当设备在线时，才能创建定时执行任务和每天重复执行的任务。</li>
       </ol>
+    </div>
+
+    <div v-if="filterOpen" class="mask" @click.self="filterOpen = false">
+      <div class="modal">
+        <h3>筛选商品</h3>
+        <input v-model="searchQuery" placeholder="搜索标题或内容" />
+        <select v-model="categoryFilter">
+          <option value="">商品类别</option>
+          <option v-for="item in categories" :key="item" :value="item">{{ item }}</option>
+        </select>
+        <select v-model="groupFilter">
+          <option value="">商品分组</option>
+          <option v-for="item in groups" :key="item" :value="item">{{ item }}</option>
+        </select>
+        <div class="modal-actions"><button class="primary" type="button" @click="searchTable(); filterOpen = false">确定</button></div>
+      </div>
     </div>
 
     <div v-if="pickerOpen" class="mask" @click.self="pickerOpen = false">

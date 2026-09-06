@@ -29,14 +29,14 @@ describe('OperationsView production failure boundary', () => {
         { path: '/operations/:moduleId/:operationId', component: OperationsView },
       ],
     })
-    await router.push('/operations/product-editor/product-editor-03')
+    await router.push('/operations/assets/assets-02')
     await router.isReady()
     render(OperationsView, { global: { plugins: [createPinia(), router] } })
 
     await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Control API 初始化失败'))
     expect(screen.queryByText('竞品页面依据')).toBeNull()
     expect(screen.queryByText('Mock 请求已接收')).toBeNull()
-    expect(screen.queryByText('宝贝水印 · 01')).toBeNull()
+    expect(screen.queryByText('图片素材 · 01')).toBeNull()
     expect((screen.getAllByRole('button', { name: 'Control API 不可用' })[0] as HTMLButtonElement).disabled).toBe(true)
   })
 })

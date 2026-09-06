@@ -45,7 +45,7 @@ describe('operations catalog', () => {
     const expectations = [
       ['system-home', 'system-home-02', '体检范围'],
       ['task-queue', 'task-queue-01', '任务或设备关键词'],
-      ['product-editor', 'product-editor-03', '水印模板'],
+      ['product-editor', 'product-editor-03', '水印文字'],
       ['collection', 'collection-01', '公开链接'],
       ['product-management', 'product-management-02', '导入格式'],
       ['post-management', 'post-management-01', '帖子标题'],

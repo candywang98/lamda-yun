@@ -21,7 +21,7 @@ test-results/
 .gradle/
 local.properties
 mobile/**/build/
-data/
+/data/
 artifacts/tasks/*/commands.log
 artifacts/tasks/*/evidence/
 lab/**/credentials/

@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { createPostCatalog } from '@/api/post-catalog'
 import { downloadDataUrl } from '@/data/product-fields'
 import { clipText, formatDateTime, type PostRecord } from '@/data/post-fields'
+import { resolvePostGroups } from '@/data/post-groups'
 
 const router = useRouter()
 const catalog = createPostCatalog()
@@ -19,7 +20,7 @@ const pageSize = ref(10)
 const jumpPage = ref('1')
 const dialog = ref<{ title: string; field: string; value: string } | null>(null)
 
-const groups = computed(() => [...new Set(posts.value.map((item) => item.groupName || '默认分组'))])
+const groups = computed(() => resolvePostGroups(posts.value).map((item) => item.name))
 const filtered = computed(() => posts.value.filter((post) => {
   const haystack = `${post.title}${post.body}${post.notes}${post.topics.join('')}`.toLowerCase()
   if (searchQuery.value && !haystack.includes(searchQuery.value.trim().toLowerCase())) return false

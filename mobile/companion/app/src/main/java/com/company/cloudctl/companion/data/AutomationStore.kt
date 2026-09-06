@@ -1,0 +1,475 @@
+package com.company.cloudctl.companion.data
+
+import android.content.ContentValues
+import android.content.Context
+import android.database.sqlite.SQLiteDatabase
+import android.database.sqlite.SQLiteOpenHelper
+import org.json.JSONObject
+import java.security.MessageDigest
+import java.time.Instant
+
+data class PendingTask(val taskId: String, val payload: String, val leaseId: String)
+data class OutboxEvent(
+    val id: Long,
+    val path: String,
+    val payload: String,
+    val attemptCount: Int,
+)
+
+class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, null, VERSION) {
+    override fun onConfigure(db: SQLiteDatabase) {
+        db.enableWriteAheadLogging()
+        db.execSQL("PRAGMA foreign_keys=ON")
+    }
+
+    override fun onCreate(db: SQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE task_inbox(" +
+                "task_id TEXT PRIMARY KEY,payload TEXT NOT NULL,payload_sha256 TEXT NOT NULL," +
+                "lease_id TEXT NOT NULL,next_sequence INTEGER NOT NULL,state TEXT NOT NULL," +
+                "terminal_state TEXT,received_at TEXT NOT NULL,updated_at TEXT NOT NULL)",
+        )
+        db.execSQL(
+            "CREATE TABLE run_journal(" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT,task_id TEXT NOT NULL,step_id TEXT," +
+                "state TEXT NOT NULL,detail_code TEXT NOT NULL,occurred_at TEXT NOT NULL," +
+                "FOREIGN KEY(task_id) REFERENCES task_inbox(task_id))",
+        )
+        db.execSQL(
+            "CREATE TABLE event_outbox(" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT,dedupe_key TEXT UNIQUE NOT NULL," +
+                "task_id TEXT,path TEXT NOT NULL,payload TEXT NOT NULL,is_terminal INTEGER NOT NULL DEFAULT 0," +
+                "attempt_count INTEGER NOT NULL DEFAULT 0,next_attempt_at TEXT NOT NULL," +
+                "last_error TEXT,created_at TEXT NOT NULL,delivered_at TEXT,permanent_failure_at TEXT," +
+                "FOREIGN KEY(task_id) REFERENCES task_inbox(task_id))",
+        )
+        createIndexes(db)
+    }
+
+    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+        if (oldVersion < 2) migrateVersion1To2(db)
+        check(newVersion == VERSION) { "Unsupported automation database version $newVersion" }
+    }
+
+    fun enqueueTask(taskId: String, payload: String, leaseId: String, lastSequence: Int): Boolean =
+        transaction {
+            val existing = rawQuery(
+                "SELECT payload,lease_id,state,terminal_state FROM task_inbox WHERE task_id=?",
+                arrayOf(taskId),
+            ).use {
+                if (it.moveToFirst()) {
+                    ExistingTask(it.getString(0), it.getString(1), it.getString(2), it.getString(3))
+                } else {
+                    null
+                }
+            }
+            if (existing != null) {
+                require(existing.payload == payload) { "Task ID was reused with different content" }
+                execSQL(
+                    "UPDATE task_inbox SET payload_sha256=? WHERE task_id=? AND payload_sha256=''",
+                    arrayOf(payload.sha256(), taskId),
+                )
+                if (existing.leaseId == leaseId) {
+                    false
+                } else {
+                    val now = Instant.now().toString()
+                    when (existing.state) {
+                        STATE_QUEUED -> {
+                            execSQL(
+                                "UPDATE task_inbox SET lease_id=?,next_sequence=?,updated_at=? WHERE task_id=?",
+                                arrayOf(leaseId, lastSequence + 1, now, taskId),
+                            )
+                            true
+                        }
+
+                        STATE_TERMINAL_PENDING, STATE_TERMINAL_CONFIRMED, STATE_TERMINAL_REJECTED,
+                        "SUCCEEDED", "FAILED",
+                        -> {
+                            val terminalState = existing.terminalState ?: existing.state
+                            execSQL(
+                                "UPDATE task_inbox SET lease_id=?,next_sequence=?,state=?,terminal_state=?,updated_at=? WHERE task_id=?",
+                                arrayOf(
+                                    leaseId,
+                                    lastSequence + 1,
+                                    STATE_TERMINAL_PENDING,
+                                    terminalState,
+                                    now,
+                                    taskId,
+                                ),
+                            )
+                            enqueueTerminalForReplacementLease(
+                                taskId,
+                                leaseId,
+                                succeeded = terminalState == TERMINAL_SUCCEEDED,
+                            )
+                            false
+                        }
+
+                        else -> error("A running task cannot accept a replacement lease")
+                    }
+                }
+            } else {
+                val now = Instant.now().toString()
+                insertOrThrow("task_inbox", null, ContentValues().apply {
+                    put("task_id", taskId)
+                    put("payload", payload)
+                    put("payload_sha256", payload.sha256())
+                    put("lease_id", leaseId)
+                    put("next_sequence", lastSequence + 1)
+                    put("state", STATE_QUEUED)
+                    putNull("terminal_state")
+                    put("received_at", now)
+                    put("updated_at", now)
+                })
+                true
+            }
+        }
+
+    fun claimNext(): PendingTask? = transaction {
+        val task = rawQuery(
+            "SELECT task_id,payload,lease_id FROM task_inbox WHERE state=? ORDER BY received_at,rowid LIMIT 1",
+            arrayOf(STATE_QUEUED),
+        ).use {
+            if (it.moveToFirst()) PendingTask(it.getString(0), it.getString(1), it.getString(2)) else null
+        }
+        task?.let {
+            val now = Instant.now().toString()
+            execSQL(
+                "UPDATE task_inbox SET state=?,updated_at=? WHERE task_id=? AND state=?",
+                arrayOf(STATE_RUNNING, now, it.taskId, STATE_QUEUED),
+            )
+            insertJournalLocked(it.taskId, null, STATE_RUNNING, "TASK_CLAIMED_LOCAL", now)
+        }
+        task
+    }
+
+    fun record(taskId: String, stepId: String?, state: String, detailCode: String) {
+        transaction { insertJournalLocked(taskId, stepId, state, detailCode, Instant.now().toString()) }
+    }
+
+    fun recordStepEvent(
+        taskId: String,
+        stepId: String?,
+        state: String,
+        detailCode: String,
+        eventType: String,
+        stepIndex: Int?,
+        payload: JSONObject = JSONObject(),
+    ) = transaction {
+        val now = Instant.now().toString()
+        insertJournalLocked(taskId, stepId, state, detailCode, now)
+        enqueueStepEventLocked(taskId, eventType, stepIndex, payload, now)
+    }
+
+    fun enqueueStepEvent(
+        taskId: String,
+        eventType: String,
+        stepIndex: Int?,
+        payload: JSONObject = JSONObject(),
+    ) = transaction {
+        enqueueStepEventLocked(taskId, eventType, stepIndex, payload, Instant.now().toString())
+    }
+
+    fun finish(taskId: String, succeeded: Boolean, errorCode: String = "TASK_EXECUTION_FAILED") =
+        transaction {
+            val leaseId = row("SELECT lease_id FROM task_inbox WHERE task_id=?", arrayOf(taskId))
+                ?: error("Unknown task")
+            val now = Instant.now().toString()
+            val terminalState = if (succeeded) TERMINAL_SUCCEEDED else TERMINAL_FAILED
+            val terminalDetailCode = if (succeeded) "TASK_SUCCEEDED" else errorCode
+            execSQL(
+                "UPDATE task_inbox SET state=?,terminal_state=?,updated_at=? WHERE task_id=?",
+                arrayOf(STATE_TERMINAL_PENDING, terminalState, now, taskId),
+            )
+            insertJournalLocked(taskId, null, terminalState, terminalDetailCode, now)
+            enqueueTerminalLocked(taskId, leaseId, succeeded, errorCode, now)
+        }
+
+    /** Returns only a contiguous due prefix so later records cannot overtake a delayed one. */
+    fun pendingEvents(now: Instant = Instant.now(), limit: Int = 50): List<OutboxEvent> {
+        val candidates = readableDatabase.rawQuery(
+            "SELECT id,path,payload,attempt_count,next_attempt_at FROM event_outbox " +
+                "WHERE delivered_at IS NULL AND permanent_failure_at IS NULL ORDER BY id LIMIT ?",
+            arrayOf(limit.coerceIn(1, 100).toString()),
+        ).use { cursor ->
+            buildList {
+                while (cursor.moveToNext()) {
+                    add(
+                        DueOutboxEvent(
+                            OutboxEvent(
+                                cursor.getLong(0),
+                                cursor.getString(1),
+                                cursor.getString(2),
+                                cursor.getInt(3),
+                            ),
+                            Instant.parse(cursor.getString(4)),
+                        ),
+                    )
+                }
+            }
+        }
+        return candidates.takeWhile { !it.nextAttemptAt.isAfter(now) }.map(DueOutboxEvent::event)
+    }
+
+    fun markDelivered(id: Long) = transaction {
+        val terminalTaskId = rawQuery(
+            "SELECT task_id FROM event_outbox WHERE id=? AND is_terminal=1 AND delivered_at IS NULL",
+            arrayOf(id.toString()),
+        ).use { if (it.moveToFirst()) it.getString(0) else null }
+        val now = Instant.now().toString()
+        execSQL(
+            "UPDATE event_outbox SET delivered_at=?,last_error=NULL WHERE id=? AND delivered_at IS NULL",
+            arrayOf(now, id),
+        )
+        if (terminalTaskId != null) {
+            execSQL(
+                "UPDATE task_inbox SET state=?,updated_at=? WHERE task_id=? AND state=?",
+                arrayOf(STATE_TERMINAL_CONFIRMED, now, terminalTaskId, STATE_TERMINAL_PENDING),
+            )
+        }
+    }
+
+    fun recordDeliveryFailure(id: Long, error: String, nextAttemptAt: Instant) =
+        writableDatabase.execSQL(
+            "UPDATE event_outbox SET attempt_count=attempt_count+1,next_attempt_at=?,last_error=? " +
+                "WHERE id=? AND delivered_at IS NULL AND permanent_failure_at IS NULL",
+            arrayOf(nextAttemptAt.toString(), error.take(MAX_ERROR_LENGTH), id),
+        )
+
+    fun markPermanentlyRejected(id: Long, error: String) = transaction {
+        val rejected = rawQuery(
+            "SELECT task_id,is_terminal FROM event_outbox WHERE id=? AND delivered_at IS NULL",
+            arrayOf(id.toString()),
+        ).use { if (it.moveToFirst()) it.getString(0) to (it.getInt(1) == 1) else null }
+        val now = Instant.now().toString()
+        execSQL(
+            "UPDATE event_outbox SET attempt_count=attempt_count+1,last_error=?,permanent_failure_at=? " +
+                "WHERE id=? AND delivered_at IS NULL AND permanent_failure_at IS NULL",
+            arrayOf(error.take(MAX_ERROR_LENGTH), now, id),
+        )
+        if (rejected?.first != null) {
+            // Once an ordered record is permanently rejected, later records for that task can no
+            // longer be delivered without violating its event sequence.
+            execSQL(
+                "UPDATE event_outbox SET last_error=?,permanent_failure_at=? " +
+                    "WHERE task_id=? AND id>? AND delivered_at IS NULL AND permanent_failure_at IS NULL",
+                arrayOf("PREVIOUS_EVENT_REJECTED", now, rejected.first, id),
+            )
+        }
+        if (rejected?.second == true || rejected?.first != null) {
+            execSQL(
+                "UPDATE task_inbox SET state=?,updated_at=? WHERE task_id=? AND state=?",
+                arrayOf(STATE_TERMINAL_REJECTED, now, rejected.first, STATE_TERMINAL_PENDING),
+            )
+        }
+    }
+
+    fun recoverInterruptedRuns() = transaction {
+        val interrupted = rawQuery(
+            "SELECT task_id,lease_id FROM task_inbox WHERE state=?",
+            arrayOf(STATE_RUNNING),
+        ).use { buildList { while (it.moveToNext()) add(it.getString(0) to it.getString(1)) } }
+        for ((taskId, leaseId) in interrupted) {
+            val now = Instant.now().toString()
+            execSQL(
+                "UPDATE task_inbox SET state=?,terminal_state=?,updated_at=? WHERE task_id=?",
+                arrayOf(STATE_TERMINAL_PENDING, TERMINAL_FAILED, now, taskId),
+            )
+            insertJournalLocked(taskId, null, TERMINAL_FAILED, "FAILED_RESTART", now)
+            enqueueTerminalLocked(taskId, leaseId, false, "FAILED_RESTART", now)
+        }
+    }
+
+    private fun SQLiteDatabase.enqueueStepEventLocked(
+        taskId: String,
+        eventType: String,
+        stepIndex: Int?,
+        payload: JSONObject,
+        now: String,
+    ) {
+        val leaseAndSequence = rawQuery(
+            "SELECT lease_id,next_sequence,state FROM task_inbox WHERE task_id=?",
+            arrayOf(taskId),
+        ).use {
+            require(it.moveToFirst()) { "Unknown task" }
+            Triple(it.getString(0), it.getInt(1), it.getString(2))
+        }
+        require(leaseAndSequence.third == STATE_RUNNING) { "Task is not running" }
+        val body = JSONObject().put("leaseId", leaseAndSequence.first)
+            .put("sequence", leaseAndSequence.second)
+            .put("eventType", eventType)
+            .put("stepIndex", stepIndex)
+            .put("payload", payload)
+            .toString()
+        enqueueLocked(
+            "$taskId:${leaseAndSequence.first}:event:${leaseAndSequence.second}",
+            taskId,
+            "/companion/v2/tasks/$taskId/events",
+            body,
+            false,
+            now,
+        )
+        execSQL(
+            "UPDATE task_inbox SET next_sequence=?,updated_at=? WHERE task_id=?",
+            arrayOf(leaseAndSequence.second + 1, now, taskId),
+        )
+    }
+
+    private fun SQLiteDatabase.enqueueTerminalLocked(
+        taskId: String,
+        leaseId: String,
+        succeeded: Boolean,
+        errorCode: String,
+        now: String,
+    ) {
+        val endpoint = if (succeeded) "complete" else "fail"
+        val body = if (succeeded) {
+            JSONObject().put("leaseId", leaseId).put("result", JSONObject())
+        } else {
+            JSONObject().put("leaseId", leaseId).put("errorCode", errorCode)
+                .put("detail", "Companion terminated the task safely")
+        }
+        enqueueLocked(
+            "$taskId:$leaseId:$endpoint",
+            taskId,
+            "/companion/v2/tasks/$taskId/$endpoint",
+            body.toString(),
+            true,
+            now,
+        )
+    }
+
+    private fun SQLiteDatabase.enqueueTerminalForReplacementLease(
+        taskId: String,
+        leaseId: String,
+        succeeded: Boolean,
+    ) {
+        val now = Instant.now().toString()
+        if (succeeded) {
+            enqueueTerminalLocked(taskId, leaseId, true, "TASK_SUCCEEDED", now)
+        } else {
+            val body = JSONObject().put("leaseId", leaseId)
+                .put("errorCode", "TASK_PREVIOUSLY_TERMINATED")
+                .put("detail", "Companion will not replay a previously terminated task")
+            enqueueLocked(
+                "$taskId:$leaseId:fail",
+                taskId,
+                "/companion/v2/tasks/$taskId/fail",
+                body.toString(),
+                true,
+                now,
+            )
+        }
+    }
+
+    private fun SQLiteDatabase.enqueueLocked(
+        key: String,
+        taskId: String,
+        path: String,
+        payload: String,
+        terminal: Boolean,
+        now: String,
+    ) {
+        insertWithOnConflict("event_outbox", null, ContentValues().apply {
+            put("dedupe_key", key)
+            put("task_id", taskId)
+            put("path", path)
+            put("payload", payload)
+            put("is_terminal", if (terminal) 1 else 0)
+            put("attempt_count", 0)
+            put("next_attempt_at", now)
+            put("created_at", now)
+        }, SQLiteDatabase.CONFLICT_IGNORE)
+    }
+
+    private fun SQLiteDatabase.insertJournalLocked(
+        taskId: String,
+        stepId: String?,
+        state: String,
+        detailCode: String,
+        occurredAt: String,
+    ) {
+        insertOrThrow("run_journal", null, ContentValues().apply {
+            put("task_id", taskId)
+            put("step_id", stepId)
+            put("state", state)
+            put("detail_code", detailCode)
+            put("occurred_at", occurredAt)
+        })
+    }
+
+    private fun migrateVersion1To2(db: SQLiteDatabase) {
+        db.execSQL("ALTER TABLE task_inbox ADD COLUMN payload_sha256 TEXT NOT NULL DEFAULT ''")
+        db.execSQL("ALTER TABLE task_inbox ADD COLUMN terminal_state TEXT")
+        db.execSQL("ALTER TABLE event_outbox ADD COLUMN task_id TEXT")
+        db.execSQL("ALTER TABLE event_outbox ADD COLUMN is_terminal INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE event_outbox ADD COLUMN attempt_count INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE event_outbox ADD COLUMN next_attempt_at TEXT NOT NULL DEFAULT ''")
+        db.execSQL("ALTER TABLE event_outbox ADD COLUMN last_error TEXT")
+        db.execSQL("ALTER TABLE event_outbox ADD COLUMN permanent_failure_at TEXT")
+        db.execSQL("UPDATE event_outbox SET next_attempt_at=created_at WHERE next_attempt_at=''")
+        db.execSQL(
+            "UPDATE event_outbox SET is_terminal=1 WHERE path LIKE '%/complete' OR path LIKE '%/fail'",
+        )
+        db.execSQL(
+            "UPDATE event_outbox SET task_id=(SELECT task_id FROM task_inbox " +
+                "WHERE event_outbox.path LIKE '/companion/v2/tasks/' || task_inbox.task_id || '/%')",
+        )
+        db.execSQL("UPDATE task_inbox SET terminal_state=state WHERE state IN ('SUCCEEDED','FAILED')")
+        db.execSQL(
+            "UPDATE task_inbox SET state=CASE WHEN EXISTS(" +
+                "SELECT 1 FROM event_outbox WHERE event_outbox.task_id=task_inbox.task_id " +
+                "AND event_outbox.is_terminal=1 AND event_outbox.delivered_at IS NOT NULL" +
+                ") THEN '$STATE_TERMINAL_CONFIRMED' ELSE '$STATE_TERMINAL_PENDING' END " +
+                "WHERE state IN ('SUCCEEDED','FAILED')",
+        )
+        createIndexes(db)
+    }
+
+    private fun createIndexes(db: SQLiteDatabase) {
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS event_outbox_delivery_idx " +
+                "ON event_outbox(delivered_at,permanent_failure_at,id)",
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS run_journal_task_idx ON run_journal(task_id,id)")
+    }
+
+    private fun SQLiteDatabase.row(sql: String, args: Array<String>): String? =
+        rawQuery(sql, args).use { if (it.moveToFirst()) it.getString(0) else null }
+
+    private fun <T> transaction(block: SQLiteDatabase.() -> T): T {
+        val db = writableDatabase
+        db.beginTransaction()
+        return try {
+            db.block().also { db.setTransactionSuccessful() }
+        } finally {
+            db.endTransaction()
+        }
+    }
+
+    private data class ExistingTask(
+        val payload: String,
+        val leaseId: String,
+        val state: String,
+        val terminalState: String?,
+    )
+
+    private data class DueOutboxEvent(val event: OutboxEvent, val nextAttemptAt: Instant)
+
+    private fun String.sha256(): String = MessageDigest.getInstance("SHA-256")
+        .digest(toByteArray(Charsets.UTF_8))
+        .joinToString("") { "%02x".format(it) }
+
+    private companion object {
+        const val DATABASE_NAME = "cloudctl-automation.sqlite3"
+        const val VERSION = 2
+        const val STATE_QUEUED = "QUEUED"
+        const val STATE_RUNNING = "RUNNING"
+        const val STATE_TERMINAL_PENDING = "TERMINAL_PENDING_UPLOAD"
+        const val STATE_TERMINAL_CONFIRMED = "TERMINAL_CONFIRMED"
+        const val STATE_TERMINAL_REJECTED = "TERMINAL_REJECTED"
+        const val TERMINAL_SUCCEEDED = "SUCCEEDED"
+        const val TERMINAL_FAILED = "FAILED"
+        const val MAX_ERROR_LENGTH = 1_000
+    }
+}

@@ -1,14 +1,18 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { createPostCatalog } from '@/api/post-catalog'
 import { emptyPost } from '@/data/post-fields'
+import { DEFAULT_POST_GROUP_NAME, resolvePostGroups } from '@/data/post-groups'
 
+const router = useRouter()
 const catalog = createPostCatalog()
 const linksText = ref('')
 const collectAs = ref('帖子')
 const dedupe = ref(true)
 const plugin = ref('md5')
-const groupName = ref('默认分组')
+const groupName = ref(DEFAULT_POST_GROUP_NAME)
+const groups = ref<string[]>([DEFAULT_POST_GROUP_NAME])
 const busy = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
@@ -66,6 +70,14 @@ async function startCollect() {
     busy.value = false
   }
 }
+
+onMounted(async () => {
+  try {
+    groups.value = resolvePostGroups(await catalog.list()).map((item) => item.name)
+  } catch {
+    groups.value = [DEFAULT_POST_GROUP_NAME]
+  }
+})
 </script>
 
 <template>
@@ -85,9 +97,12 @@ async function startCollect() {
       <div class="row"><span class="label">采集插件</span><label class="radio"><input v-model="plugin" type="radio" value="md5" /> 图片MD5处理</label></div>
       <div class="row">
         <label for="post-collect-group">帖子分组</label>
-        <select id="post-collect-group" v-model="groupName">
-          <option>默认分组</option>
-        </select>
+        <div class="inline">
+          <select id="post-collect-group" v-model="groupName">
+            <option v-for="item in groups" :key="item" :value="item">{{ item }}</option>
+          </select>
+          <button class="link" type="button" @click="router.push('/operations/post-management/post-management-04')">分组管理</button>
+        </div>
       </div>
       <p v-if="errorMessage" class="flash error">{{ errorMessage }}</p>
       <p v-if="successMessage" class="flash ok">{{ successMessage }}</p>
@@ -115,7 +130,9 @@ h2 { margin: 0; font-size: 15px; }
 .row.top { align-items: start; }
 .label, label { color: #64748b; font-size: 13px; }
 textarea, select { width: 100%; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 4px; font: inherit; }
-.radio { display: inline-flex; align-items: center; gap: 6px; margin-right: 16px; color: #334155; }
+.radio, .inline { display: inline-flex; align-items: center; gap: 6px; margin-right: 16px; color: #334155; }
+.inline { width: 100%; margin-right: 0; }
+.link { height: 32px; padding: 0 10px; border: 0; background: none; color: #0f766e; cursor: pointer; }
 .footer { padding-left: 100px; }
 .primary { height: 32px; padding: 0 16px; border: 0; border-radius: 4px; background: #0f766e; color: #fff; }
 .flash { margin: 0; font-size: 13px; }

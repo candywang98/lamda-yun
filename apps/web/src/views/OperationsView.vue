@@ -20,12 +20,14 @@ import {
 import PageHeader from '@/components/PageHeader.vue'
 import PostCollectView from '@/views/PostCollectView.vue'
 import PostEditorView from '@/views/PostEditorView.vue'
+import PostGroupView from '@/views/PostGroupView.vue'
 import PostListView from '@/views/PostListView.vue'
 import ListingInfoCollectView from '@/views/ListingInfoCollectView.vue'
 import PostPublishView from '@/views/PostPublishView.vue'
 import PostWatermarkView from '@/views/PostWatermarkView.vue'
 import ProductEditView from '@/views/ProductEditView.vue'
 import ProductImportView from '@/views/ProductImportView.vue'
+import ProductGroupView from '@/views/ProductGroupView.vue'
 import ProductManagementView from '@/views/ProductManagementView.vue'
 import RetiredOperationView from '@/views/RetiredOperationView.vue'
 import XianyuPublishGoodsView from '@/views/XianyuPublishGoodsView.vue'
@@ -35,6 +37,7 @@ import XianyuDeviceAddressPoolView from '@/views/XianyuDeviceAddressPoolView.vue
 import XianyuDescriptionPoolView from '@/views/XianyuDescriptionPoolView.vue'
 import XianyuTagPoolView from '@/views/XianyuTagPoolView.vue'
 import XianyuForbiddenWordView from '@/views/XianyuForbiddenWordView.vue'
+import XiaohongshuNurtureView from '@/views/XiaohongshuNurtureView.vue'
 import type { XianyuSimpleKind } from '@/data/xianyu-simple-tasks'
 import { extraKindByOperationId } from '@/data/xianyu-extra-tasks'
 import StatusBadge from '@/components/StatusBadge.vue'
@@ -131,18 +134,21 @@ const mockRows = computed<OperationRow[]>(() => {
 
 const isProductList = computed(() => operation.value.id === 'product-management-01')
 const isProductImport = computed(() => operation.value.id === 'product-management-02')
+const isProductGroup = computed(() => operation.value.id === 'product-management-03')
 const isPostCollect = computed(() => operation.value.id === 'post-management-02')
 const isPostList = computed(() => operation.value.id === 'post-management-03')
-const isPostWatermark = computed(() => ['post-management-05', 'assets-01', 'xy-tasks-29'].includes(operation.value.id))
+const isPostGroup = computed(() => operation.value.id === 'post-management-04')
+const isPostWatermark = computed(() => ['post-management-05', 'assets-01', 'xy-tasks-29', 'product-editor-03'].includes(operation.value.id))
 const isDeviceAddressPool = computed(() => ['xy-tasks-26', 'product-editor-05', 'assets-06'].includes(operation.value.id))
 const isDescriptionPool = computed(() => ['xy-tasks-27', 'product-editor-06', 'assets-07'].includes(operation.value.id))
 const isTagPool = computed(() => ['xy-tasks-28', 'product-editor-07', 'assets-08'].includes(operation.value.id))
 const isForbiddenWord = computed(() => ['xy-tasks-30', 'product-management-09', 'zz-tasks-08'].includes(operation.value.id))
 const isPostPublishXianyu = computed(() => operation.value.id === 'post-management-07')
-const isPostPublishXiaohongshu = computed(() => operation.value.id === 'post-management-08')
+const isPostPublishXiaohongshu = computed(() => operation.value.id === 'post-management-08' || operation.value.id === 'red-tasks-01')
+const isXiaohongshuNurture = computed(() => operation.value.id === 'red-tasks-03')
 const isListingInfoCollect = computed(() => operation.value.id === 'analytics-01' || operation.value.id === 'xy-tasks-24')
 const isRetired = computed(() => isRetiredOperation(operation.value.id))
-const isXianyuPublishGoods = computed(() => operation.value.id === 'xy-tasks-01')
+const isXianyuPublishGoods = computed(() => operation.value.id === 'xy-tasks-01' || operation.value.id === 'product-management-05')
 const xianyuSimpleKind = computed<XianyuSimpleKind | null>(() => {
   if (operation.value.id === 'xy-tasks-03') return 'polish'
   if (operation.value.id === 'xy-tasks-04') return 'shelf-up'
@@ -780,7 +786,7 @@ function schedulePoll() {
 async function loadOperationData() {
   clearPoll()
   backendTasks.value = []
-  if (isProductList.value || isProductEditor.value || isProductImport.value || isPostEditor.value || isPostCollect.value || isPostList.value || isPostWatermark.value || isPostPublishXianyu.value || isPostPublishXiaohongshu.value || isListingInfoCollect.value) return
+  if (isProductList.value || isProductEditor.value || isProductImport.value || isProductGroup.value || isPostEditor.value || isPostCollect.value || isPostList.value || isPostGroup.value || isPostWatermark.value || isPostPublishXianyu.value || isPostPublishXiaohongshu.value || isXiaohongshuNurture.value || isListingInfoCollect.value || isXianyuPublishGoods.value) return
   if (!controlApiConfigured) {
     connection.value = operationsMockEnabled ? 'mock' : 'unavailable'
     connectionDetail.value = operationsMockEnabled
@@ -983,10 +989,12 @@ onUnmounted(clearPoll)
 <template>
   <ProductManagementView v-if="isProductList" />
   <ProductImportView v-else-if="isProductImport" />
+  <ProductGroupView v-else-if="isProductGroup" />
   <ProductEditView v-else-if="isProductEditor" />
   <PostEditorView v-else-if="isPostEditor" />
   <PostCollectView v-else-if="isPostCollect" />
   <PostListView v-else-if="isPostList" />
+  <PostGroupView v-else-if="isPostGroup" />
   <PostWatermarkView v-else-if="isPostWatermark" />
   <XianyuDeviceAddressPoolView v-else-if="isDeviceAddressPool" />
   <XianyuDescriptionPoolView v-else-if="isDescriptionPool" />
@@ -998,6 +1006,7 @@ onUnmounted(clearPoll)
   <XianyuExtraTaskView v-else-if="xianyuExtraKind" :kind="xianyuExtraKind" />
   <PostPublishView v-else-if="isPostPublishXianyu" platform="xianyu" />
   <PostPublishView v-else-if="isPostPublishXiaohongshu" platform="xiaohongshu" />
+  <XiaohongshuNurtureView v-else-if="isXiaohongshuNurture" />
   <ListingInfoCollectView v-else-if="isListingInfoCollect" />
   <template v-else>
   <PageHeader v-if="!isDeviceList" :title="operation.title" :description="operation.moduleLabel">

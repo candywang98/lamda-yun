@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { createProductCatalog } from '@/api/product-catalog'
 import { compressImageFile } from '@/data/product-fields'
+import { createProductGroup, DEFAULT_GROUP_NAME, listProductGroups } from '@/data/product-groups'
 import { imageBasename, isRemoteImage, parseImportFile, toProductCreate, type ParsedImportRow } from '@/data/product-import'
 
 const router = useRouter()
@@ -10,8 +11,8 @@ const catalog = createProductCatalog()
 const fileInput = ref<HTMLInputElement | null>(null)
 const folderInput = ref<HTMLInputElement | null>(null)
 const selectedFile = ref<File | null>(null)
-const selectedGroup = ref('默认分组')
-const groups = ref<string[]>(['默认分组'])
+const selectedGroup = ref(DEFAULT_GROUP_NAME)
+const groups = ref<string[]>([DEFAULT_GROUP_NAME])
 const newGroup = ref('')
 const showGroupModal = ref(false)
 const showAddressHelp = ref(false)
@@ -27,23 +28,25 @@ const needsFolder = computed(() => pendingLocals.value.length > 0)
 async function loadGroups() {
   try {
     const products = await catalog.list()
-    const names = products.map((item) => {
-      const group = typeof item.attributes?.groupName === 'string' ? item.attributes.groupName : item.category
-      return group || '默认分组'
-    })
-    groups.value = [...new Set(['默认分组', ...names])]
+    groups.value = listProductGroups(products).map((item) => item.name)
+    if (!groups.value.includes(selectedGroup.value)) selectedGroup.value = groups.value[0] ?? DEFAULT_GROUP_NAME
   } catch {
-    groups.value = ['默认分组']
+    groups.value = [DEFAULT_GROUP_NAME]
   }
 }
 
 function addGroup() {
   const name = newGroup.value.trim()
   if (!name) return
-  if (!groups.value.includes(name)) groups.value = [...groups.value, name]
-  selectedGroup.value = name
-  newGroup.value = ''
-  showGroupModal.value = false
+  try {
+    createProductGroup({ name })
+    if (!groups.value.includes(name)) groups.value = [...groups.value, name]
+    selectedGroup.value = name
+    newGroup.value = ''
+    showGroupModal.value = false
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : String(error)
+  }
 }
 
 function downloadTemplate(kind: 'csv' | 'xlsx') {
@@ -108,7 +111,7 @@ async function importRows(rows: ParsedImportRow[], localFiles: Record<string, st
         else missing.push(imageBasename(ref))
       }
       await catalog.save({
-        payload: toProductCreate(row, selectedGroup.value || '默认分组', images),
+        payload: toProductCreate(row, selectedGroup.value || DEFAULT_GROUP_NAME, images),
       })
       imported += 1
     }
@@ -209,7 +212,8 @@ onMounted(() => {
         <select v-model="selectedGroup">
           <option v-for="item in groups" :key="item" :value="item">{{ item }}</option>
         </select>
-        <button type="button" class="link" @click="showGroupModal = true">分组管理</button>
+        <button type="button" class="link" @click="router.push('/operations/product-management/product-management-03')">分组管理</button>
+        <button type="button" class="link" @click="showGroupModal = true">新增分组</button>
       </div>
 
       <div class="actions" @dragover.prevent @drop.prevent="onDrop">
