@@ -1,0 +1,156 @@
+package com.company.cloudctl.companion.automation
+
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.withTimeout
+import java.time.Instant
+
+data class LocalNodeState(
+    val enabled: Boolean,
+    val visible: Boolean,
+    val clickable: Boolean,
+    val editable: Boolean,
+    val text: String?,
+)
+
+data class ScreenshotEvidence(val path: String, val size: Long, val sha256: String)
+
+class ExecutorFailure(
+    val code: String,
+    message: String,
+    cause: Throwable? = null,
+) : IllegalStateException(message, cause)
+
+interface LocalAutomationUi {
+    fun ensureReady(targetPackage: String)
+    fun inspect(targetPackage: String, locatorRef: String): LocalNodeState?
+    suspend fun tap(targetPackage: String, locatorRef: String)
+    suspend fun replaceText(targetPackage: String, locatorRef: String, value: String)
+    suspend fun screenshot(taskId: String, label: String): ScreenshotEvidence
+    fun log(level: LogLevel, messageCode: String)
+}
+
+class LocalAutomationExecutor(
+    private val ui: LocalAutomationUi,
+    private val now: () -> Instant = Instant::now,
+    private val elapsedMs: () -> Long = { android.os.SystemClock.elapsedRealtime() },
+    private val sleep: suspend (Long) -> Unit = { delay(it) },
+) {
+    suspend fun execute(task: AutomationTask, journal: (AutomationStep, String) -> Unit) {
+        if (!task.expiresAt.isAfter(now())) throw ExecutorFailure("TASK_EXPIRED", "Task has expired")
+        val runDeadline = elapsedMs() + task.maxRunSeconds * 1_000L
+        for (step in task.steps) {
+            ensureWithinTaskDeadline(task, runDeadline)
+            journal(step, "STARTED")
+            try {
+                val remaining = (runDeadline - elapsedMs()).coerceAtLeast(1L)
+                withTimeout(minOf(step.timeoutMs, remaining)) {
+                    ui.ensureReady(task.targetPackage)
+                    executeStep(task, step, minOf(runDeadline, elapsedMs() + step.timeoutMs))
+                }
+            } catch (failure: ExecutorFailure) {
+                ui.log(LogLevel.ERROR, failure.code)
+                throw failure
+            } catch (failure: TimeoutCancellationException) {
+                ui.log(LogLevel.ERROR, "STEP_TIMEOUT")
+                throw ExecutorFailure("STEP_TIMEOUT", "Step ${step.stepId} exceeded its timeout", failure)
+            } catch (failure: Exception) {
+                ui.log(LogLevel.ERROR, "STEP_EXECUTION_FAILED")
+                throw ExecutorFailure("STEP_EXECUTION_FAILED", "Step ${step.stepId} failed safely", failure)
+            }
+            journal(step, "SUCCEEDED")
+        }
+    }
+
+    private suspend fun executeStep(task: AutomationTask, step: AutomationStep, runDeadline: Long) {
+        when (step) {
+            is AutomationStep.Find -> waitFor(task, step.locatorRef, NodeCondition.EXISTS, step.pollInterval(), runDeadline)
+            is AutomationStep.Tap -> {
+                val node = requireNode(task, step.locatorRef)
+                if (!node.visible || !node.enabled) {
+                    throw ExecutorFailure("NODE_NOT_CLICKABLE", "Approved locator is not safely clickable")
+                }
+                if (step.postconditionLocatorRef != null && matches(task, step.postconditionLocatorRef, NodeCondition.EXISTS)) {
+                    throw ExecutorFailure("POSTCONDITION_ALREADY_MET", "Click postcondition was already present")
+                }
+                ui.tap(task.targetPackage, step.locatorRef)
+                step.postconditionLocatorRef?.let { waitFor(task, it, NodeCondition.EXISTS, step.pollInterval(), runDeadline) }
+            }
+            is AutomationStep.Input -> {
+                val node = requireNode(task, step.locatorRef)
+                if (!node.visible || !node.enabled) {
+                    throw ExecutorFailure("NODE_NOT_EDITABLE", "Approved locator is not safely editable")
+                }
+                ui.replaceText(task.targetPackage, step.locatorRef, step.value)
+                waitForText(task, step.locatorRef, step.value, step.pollInterval(), runDeadline)
+            }
+            is AutomationStep.Wait -> waitFor(task, step.locatorRef, step.condition, step.pollMs, runDeadline)
+            is AutomationStep.Screenshot -> {
+                val evidence = ui.screenshot(task.taskId, step.label)
+                if (evidence.size <= 0L || !SHA256.matches(evidence.sha256) || evidence.path.isBlank()) {
+                    throw ExecutorFailure("SCREENSHOT_INVALID", "Screenshot evidence is incomplete")
+                }
+                ui.log(LogLevel.INFO, "SCREENSHOT_CAPTURED")
+            }
+            is AutomationStep.Assert -> if (!matches(task, step.locatorRef, step.predicate)) {
+                throw ExecutorFailure("ASSERTION_FAILED", "UI assertion failed")
+            }
+            is AutomationStep.Log -> ui.log(step.level, step.messageCode)
+        }
+    }
+
+    private fun requireNode(task: AutomationTask, locatorRef: String): LocalNodeState =
+        ui.inspect(task.targetPackage, locatorRef)
+            ?: throw ExecutorFailure("LOCATOR_NOT_FOUND", "Approved locator was not found")
+
+    private fun matches(task: AutomationTask, locatorRef: String, condition: NodeCondition): Boolean {
+        val node = ui.inspect(task.targetPackage, locatorRef)
+        return when (condition) {
+            NodeCondition.EXISTS -> node != null && node.visible
+            NodeCondition.NOT_EXISTS -> node == null || !node.visible
+            NodeCondition.ENABLED -> node?.visible == true && node.enabled
+        }
+    }
+
+    private suspend fun waitFor(
+        task: AutomationTask,
+        locatorRef: String,
+        condition: NodeCondition,
+        pollMs: Long,
+        runDeadline: Long,
+    ) {
+        while (true) {
+            ensureWithinTaskDeadline(task, runDeadline)
+            ui.ensureReady(task.targetPackage)
+            if (matches(task, locatorRef, condition)) return
+            sleep(pollMs)
+        }
+    }
+
+    private suspend fun waitForText(
+        task: AutomationTask,
+        locatorRef: String,
+        expected: String,
+        pollMs: Long,
+        runDeadline: Long,
+    ) {
+        while (true) {
+            ensureWithinTaskDeadline(task, runDeadline)
+            ui.ensureReady(task.targetPackage)
+            val actual = requireNode(task, locatorRef).text.orEmpty()
+            if (actual == expected || expected in actual) return
+            sleep(pollMs)
+        }
+    }
+
+    private fun ensureWithinTaskDeadline(task: AutomationTask, runDeadline: Long) {
+        if (!task.expiresAt.isAfter(now())) throw ExecutorFailure("TASK_EXPIRED", "Task expired during execution")
+        if (elapsedMs() >= runDeadline) throw ExecutorFailure("TASK_TIMEOUT", "Task exceeded its local runtime limit")
+    }
+
+    private fun AutomationStep.pollInterval() = minOf(200L, timeoutMs)
+
+    private companion object {
+        val SHA256 = Regex("^[a-f0-9]{64}$")
+    }
+}

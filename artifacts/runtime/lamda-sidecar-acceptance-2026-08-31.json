@@ -1,0 +1,66 @@
+{
+  "acceptanceId": "cloudctl-lamda-sidecar-2026-08-31",
+  "status": "SOFTWARE_PASSED_HARDWARE_BLOCKED",
+  "mainRuntime": {
+    "pythonVersion": "3.14.4",
+    "protobufVersion": "7.36.0"
+  },
+  "sidecarRuntime": {
+    "path": "/mnt/d/android-tools/lamda-wsl-python312/bin/python",
+    "pythonVersion": "3.12.14",
+    "lamdaVersion": "10.8",
+    "protobufVersion": "6.33.6",
+    "grpcioVersion": "1.81.1",
+    "pythonExecutableSha256": "fa67443527ed9647f760d807e2a38f26340757123e643c4639cf273ed15d5ea7",
+    "runtimeSizeMiB": 47,
+    "volume": "D:"
+  },
+  "isolation": {
+    "dependencyGraphsSeparated": true,
+    "protocolVersion": 1,
+    "transport": "STDIO_JSON_LINES",
+    "tcpListenerCreated": false,
+    "startupHandshake": "PASSED",
+    "reportedRuntime": "SidecarRuntimeInfo(protocol_version=1, sdk_version='10.8', python_version='3.12.14')",
+    "operationAllowlist": "PASSED",
+    "certificateNotInProcessArguments": "PASSED",
+    "contentAddressedArtifactRead": "PASSED",
+    "artifactDigestAndSizeRecheck": "PASSED",
+    "staleFencePreventsBackendStart": "PASSED"
+  },
+  "verification": {
+    "pytest": "270 passed in 250.71s",
+    "sidecarFocusedPytest": "26 passed in 95.02s",
+    "ruffFormat": "248 files already formatted",
+    "ruffCheck": "PASSED",
+    "mypy": "92 source files passed",
+    "pyright": "0 errors, 0 warnings, 0 informations",
+    "securityBoundaryCheck": "PASSED"
+  },
+  "localServices": {
+    "web5173": "LISTENING",
+    "studio5174": "LISTENING",
+    "api8000": "LISTENING",
+    "device65000": "NOT_LISTENING",
+    "relay7443": "NOT_LISTENING"
+  },
+  "storage": {
+    "cDriveFreeBytes": 28047241216,
+    "dDriveFreeBytes": 67761770496,
+    "sourceAndBuildDataOnD": true
+  },
+  "device": {
+    "previousAuthorizedSerialSha256": "7eb0f3955d4a946f0aac7d4c340089e69079a706cc95f707cb97ec5cb9f3f5d2",
+    "currentUsbSerialSha256": "d4d2773a702805e5e395dfe61d70cffa8e1ce4b62f2035a2c002906f03ea2f4b",
+    "currentAdbState": "UNAUTHORIZED",
+    "screenMirroring": "BLOCKED_PENDING_USB_AUTHORIZATION",
+    "dpcProvisioningPerformed": false
+  },
+  "externalBlockers": [
+    "Accept the current USB debugging authorization dialog before ADB and scrcpy can resume.",
+    "Install and authorize a trusted LAMDA Android service before port 65000 acceptance.",
+    "Provide the matching device service certificate before a real LAMDA session.",
+    "Provide the authenticated relay on port 7443 before production remote-control acceptance.",
+    "Provide release signing keys and explicit DPC provisioning authorization before rollout."
+  ]
+}

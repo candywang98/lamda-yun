@@ -1,0 +1,6 @@
+PASS: offline production-release evidence validator and contract are implemented.
+PASS: required release gates, artifact digest and commit-intent binding are enforced.
+PASS: explicit cohort arithmetic rejects selection above five percent.
+PASS: samples, duration, failure/regression, safety, unknown commit, duplicate action and audit gates exist.
+PASS: tested stable rollback and completed postmortem/release review are mandatory.
+BLOCKED_HARDWARE: no authorized external production-like canary evidence was supplied.

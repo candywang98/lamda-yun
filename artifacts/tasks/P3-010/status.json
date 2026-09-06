@@ -1,0 +1,18 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "blocked_hardware",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P3-010/summary.md",
+    "artifacts/tasks/P3-010/commands.log",
+    "artifacts/tasks/_verification-20260831/python-gates.log",
+    "packages/lamda-driver/src/cloudctl_lamda_driver/apk.py",
+    "edge/gateway/src/cloudctl_edge/executor.py",
+    "tests/edge_lamda_driver_test.py",
+    "tests/edge_executor_test.py",
+    "artifacts/runtime/local-acceptance-2026-08-31.json",
+    "artifacts/runtime/browser-live-acceptance-2026-08-31.json"
+  ],
+  "note": "Software paths exist for APK Install Session 与分批 Rollout; authorized hardware evidence is absent, so acceptance remains blocked_hardware."
+}
+

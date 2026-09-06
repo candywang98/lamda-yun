@@ -1,0 +1,415 @@
+I001 [*] Import block is un-sorted or un-formatted
+  --> scripts/benchmark_media_references.py:3:1
+   |
+ 1 |   """Repeatable local SQLite API benchmark; not a production capacity claim."""
+ 2 |
+ 3 | / from __future__ import annotations
+ 4 | |
+ 5 | | import asyncio
+ 6 | | import json
+ 7 | | import math
+ 8 | | import platform
+ 9 | | import statistics
+10 | | import tempfile
+11 | | from datetime import UTC, datetime
+12 | | from pathlib import Path
+13 | | from time import perf_counter
+14 | |
+15 | | import httpx
+16 | | from cloudctl_api.app import create_app
+17 | | from cloudctl_api.db import ContentItemRow, ContentRevisionMediaRow, ContentRevisionRow, MediaAssetRow
+18 | | from cloudctl_api.settings import Settings
+19 | | from sqlalchemy import insert, text
+   | |___________________________________^
+20 |
+21 |   TENANT = "00000000-0000-7000-8000-000000000111"
+   |
+help: Organize imports
+   |
+16 | from cloudctl_api.app import create_app
+   - from cloudctl_api.db import ContentItemRow, ContentRevisionMediaRow, ContentRevisionRow, MediaAssetRow
+17 + from cloudctl_api.db import (
+18 +     ContentItemRow,
+19 +     ContentRevisionMediaRow,
+20 +     ContentRevisionRow,
+21 +     MediaAssetRow,
+22 + )
+23 | from cloudctl_api.settings import Settings
+   |
+
+E501 Line too long (102 > 100)
+  --> scripts/benchmark_media_references.py:17:101
+   |
+15 | import httpx
+16 | from cloudctl_api.app import create_app
+17 | from cloudctl_api.db import ContentItemRow, ContentRevisionMediaRow, ContentRevisionRow, MediaAssetRow
+   |                                                                                                     ^^
+18 | from cloudctl_api.settings import Settings
+19 | from sqlalchemy import insert, text
+   |
+
+E501 Line too long (114 > 100)
+  --> scripts/benchmark_media_references.py:48:101
+   |
+46 |                     await session.execute(insert(ContentRevisionRow), [
+47 |                         dict(id=f"revision-{i:08}", tenant_id=TENANT, content_id="content",
+48 |                              revision_no=i + 1, payload={"mediaAssetIds": ["target" if i < matches else "other"]},
+   |                                                                                                     ^^^^^^^^^^^^^^
+49 |                              payload_sha256="c" * 64, created_by=USER, created_at=now)
+50 |                         for i in indexes
+   |
+
+E501 Line too long (103 > 100)
+  --> scripts/benchmark_media_references.py:65:101
+   |
+63 |                 ), {"tenant": TENANT, "asset": "target"})]
+64 |                 version = await connection.scalar(text("SELECT sqlite_version()"))
+65 |             headers = {"X-Tenant-Id": TENANT, "X-User-Id": USER, "X-Roles": "viewer", "X-MFA": "false"}
+   |                                                                                                     ^^^
+66 |             timings = []
+67 |             async with httpx.AsyncClient(
+   |
+
+E501 Line too long (101 > 100)
+  --> scripts/benchmark_media_references.py:68:101
+   |
+66 |             timings = []
+67 |             async with httpx.AsyncClient(
+68 |                 transport=httpx.ASGITransport(app=app), base_url="http://benchmark", trust_env=False,
+   |                                                                                                     ^
+69 |             ) as client:
+70 |                 for iteration in range(35):
+   |
+
+E501 Line too long (106 > 100)
+  --> scripts/benchmark_media_references.py:72:101
+   |
+70 |                 for iteration in range(35):
+71 |                     start = perf_counter()
+72 |                     response = await client.get("/api/v1/media/assets/target/references", headers=headers)
+   |                                                                                                     ^^^^^^
+73 |                     elapsed = (perf_counter() - start) * 1000
+74 |                     response.raise_for_status()
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+ --> services/control-api/migrations/versions/20260905_0009_add_products.py:3:1
+  |
+1 |   """add explicit product catalog tables"""
+2 |
+3 | / from collections.abc import Sequence
+4 | | import sqlalchemy as sa
+5 | | from alembic import op
+  | |______________________^
+6 |
+7 |   revision: str = "20260905_0009"
+  |
+help: Organize imports
+  |
+3 | from collections.abc import Sequence
+4 +
+5 | import sqlalchemy as sa
+  |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> services/control-api/src/cloudctl_api/mobile_routes.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | import uuid
+ 4 | | from typing import Annotated, Any, cast
+ 5 | |
+ 6 | | from cloudctl_domain import Actor, AuthenticationError
+ 7 | | from fastapi import APIRouter, Depends, Header, Request, Response, status
+ 8 | |
+ 9 | | from .auth import current_actor
+10 | | from .db import MobileBindingRow
+11 | | from .mobile_schemas import (
+12 | |     DevicePreviewSessionCreate,
+13 | |     DevicePreviewUpload,
+14 | |     MobileClaimRequest,
+15 | |     MobileDeviceCreate,
+16 | |     MobileDeviceHeartbeat,
+17 | |     MobileEnrollmentCreate,
+18 | |     MobileEnrollRequest,
+19 | |     MobileHeartbeat,
+20 | |     MobilePublishListingRequest,
+21 | |     MobileTaskCompletion,
+22 | |     MobileTaskCreate,
+23 | |     MobileMediaManifestRequest,
+24 | |     MobileTaskEvent,
+25 | |     MobileTaskFailure,
+26 | | )
+27 | | from .mobile_service import MobileTaskService
+   | |_____________________________________________^
+28 |
+29 |   operator_router = APIRouter(prefix="/api/v1/mobile", tags=["mobile-tasks"])
+   |
+help: Organize imports
+   |
+19 |     MobileHeartbeat,
+20 +     MobileMediaManifestRequest,
+21 |     MobilePublishListingRequest,
+22 |     MobileTaskCompletion,
+23 |     MobileTaskCreate,
+   -     MobileMediaManifestRequest,
+24 |     MobileTaskEvent,
+   |
+
+E501 Line too long (118 > 100)
+  --> services/control-api/src/cloudctl_api/mobile_schemas.py:72:101
+   |
+70 | class TapStep(LocatorStep):
+71 |     action: Literal["ui.tap"]
+72 |     postcondition_ref: str | None = Field(default=None, alias="postconditionLocatorRef", min_length=1, max_length=128)
+   |                                                                                                     ^^^^^^^^^^^^^^^^^^
+73 |
+74 |     @field_validator("postcondition_ref")
+   |
+
+UP037 [*] Remove quotes from type annotation
+   --> services/control-api/src/cloudctl_api/mobile_schemas.py:174:21
+    |
+172 |     total_timeout_ms: int = Field(alias="totalTimeoutMs", ge=1_000, le=MAX_TOTAL_TIMEOUT_MS)
+173 |     steps: list[MobileStep] = Field(min_length=1, max_length=MAX_STEPS)
+174 |     media_delivery: "MobileMediaDelivery | None" = Field(default=None, alias="mediaDelivery")
+    |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+175 |
+176 |     @field_validator("target_package")
+    |
+help: Remove quotes
+    |
+173 |     steps: list[MobileStep] = Field(min_length=1, max_length=MAX_STEPS)
+    -     media_delivery: "MobileMediaDelivery | None" = Field(default=None, alias="mediaDelivery")
+174 +     media_delivery: MobileMediaDelivery | None = Field(default=None, alias="mediaDelivery")
+175 |
+    |
+
+UP037 [*] Remove quotes from type annotation
+   --> services/control-api/src/cloudctl_api/mobile_schemas.py:184:47
+    |
+183 |     @model_validator(mode="after")
+184 |     def timeout_covers_bounded_steps(self) -> "MobileTaskCreate":
+    |                                               ^^^^^^^^^^^^^^^^^^
+185 |         step_ids = [step.step_id for step in self.steps]
+186 |         if len(set(step_ids)) != len(step_ids):
+    |
+help: Remove quotes
+    |
+183 |     @model_validator(mode="after")
+    -     def timeout_covers_bounded_steps(self) -> "MobileTaskCreate":
+184 +     def timeout_covers_bounded_steps(self) -> MobileTaskCreate:
+185 |         step_ids = [step.step_id for step in self.steps]
+    |
+
+E501 Line too long (126 > 100)
+   --> services/control-api/src/cloudctl_api/mobile_schemas.py:195:101
+    |
+194 | class MobileMediaDelivery(StrictModel):
+195 |     delivery_id: str = Field(alias="deliveryId", min_length=1, max_length=128, pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
+    |                                                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+196 |     asset_ids: list[str] = Field(alias="assetIds", min_length=1, max_length=50)
+    |
+
+E501 Line too long (128 > 100)
+   --> services/control-api/src/cloudctl_api/mobile_schemas.py:201:101
+    |
+199 |     @classmethod
+200 |     def bounded_unique_assets(cls, value: list[str]) -> list[str]:
+201 |         if any(not item or len(item) > 128 or not re.fullmatch(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$", item) for item in value):
+    |                                                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+202 |             raise ValueError("assetIds contain an invalid ID")
+203 |         if len(set(value)) != len(value):
+    |
+
+E501 Line too long (126 > 100)
+   --> services/control-api/src/cloudctl_api/mobile_schemas.py:209:101
+    |
+208 | class MobileMediaManifestRequest(StrictModel):
+209 |     delivery_id: str = Field(alias="deliveryId", min_length=1, max_length=128, pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
+    |                                                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+210 |     asset_ids: list[str] = Field(alias="assetIds", min_length=1, max_length=50)
+    |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> services/control-api/src/cloudctl_api/mobile_service.py:1:1
+   |
+ 1 | / from __future__ import annotations
+ 2 | |
+ 3 | | import base64
+ 4 | | import hashlib
+ 5 | | import json
+ 6 | | import secrets
+ 7 | | import uuid
+ 8 | | from datetime import UTC, datetime, timedelta
+ 9 | | from typing import Any
+10 | |
+11 | | from cloudctl_domain import (
+12 | |     Actor,
+13 | |     AuthenticationError,
+14 | |     ConflictError,
+15 | |     NotFoundError,
+16 | |     Permission,
+17 | |     ValidationError,
+18 | |     require_permissions,
+19 | | )
+20 | | from sqlalchemy import select
+21 | | from sqlalchemy.exc import IntegrityError
+22 | |
+23 | | from .db import (
+24 | |     Database,
+25 | |     DevicePreviewRow,
+26 | |     DeviceRow,
+27 | |     MobileBindingRow,
+28 | |     MobileEnrollmentRow,
+29 | |     MobileTaskEventRow,
+30 | |     MobileTaskRow,
+31 | |     MediaAssetRow,
+32 | |     PlatformAccountRow,
+33 | |     AccountDeviceBindingRow,
+34 | | )
+35 | | from .media_store import ObjectStore
+36 | | from .mobile_schemas import DevicePreviewUpload, MobileDeviceHeartbeat, MobileTaskCreate
+37 | | from .xianyu_publish import build_text_publish_task
+   | |___________________________________________________^
+38 |
+39 |   ACTIVE_STATES = ("CLAIMED", "RUNNING")
+   |
+help: Organize imports
+   |
+23 | from .db import (
+24 +     AccountDeviceBindingRow,
+25 |     Database,
+26 |     DevicePreviewRow,
+27 |     DeviceRow,
+28 +     MediaAssetRow,
+29 |     MobileBindingRow,
+30 |     MobileEnrollmentRow,
+31 |     MobileTaskEventRow,
+32 |     MobileTaskRow,
+   -     MediaAssetRow,
+33 |     PlatformAccountRow,
+   -     AccountDeviceBindingRow,
+34 | )
+   |
+
+E501 Line too long (120 > 100)
+  --> services/control-api/src/cloudctl_api/mobile_service.py:68:101
+   |
+66 |         self.object_store = object_store
+67 |
+68 |     async def media_manifest(self, current: MobileBindingRow, delivery_id: str, asset_ids: list[str]) -> dict[str, Any]:
+   |                                                                                                     ^^^^^^^^^^^^^^^^^^^^
+69 |         async with self.database.unit_of_work() as session:
+70 |             rows = list((await session.execute(
+   |
+
+E501 Line too long (103 > 100)
+  --> services/control-api/src/cloudctl_api/mobile_service.py:95:101
+   |
+93 |         }
+94 |
+95 |     async def download_media(self, current: MobileBindingRow, asset_id: str) -> tuple[bytes, str, str]:
+   |                                                                                                     ^^^
+96 |         if self.object_store is None:
+97 |             raise ValidationError("media object store is not configured")
+   |
+
+E501 Line too long (101 > 100)
+    --> services/control-api/src/cloudctl_api/services.py:1673:101
+     |
+1671 |                     price=price,
+1672 |                     media_asset_ids=media_ids or None,
+1673 |                     delivery_id=f"delivery-xianyu-{content.id}-{revision.id}" if media_ids else None,
+     |                                                                                                     ^
+1674 |                 )
+1675 |             )
+     |
+
+E501 Line too long (113 > 100)
+   --> services/control-api/src/cloudctl_api/xianyu_publish.py:145:101
+    |
+143 | ) -> dict[str, Any]:
+144 |     if media_asset_ids is not None:
+145 |         if not media_asset_ids or len(media_asset_ids) > 50 or len(set(media_asset_ids)) != len(media_asset_ids):
+    |                                                                                                     ^^^^^^^^^^^^^
+146 |             raise ValueError("media_asset_ids must be unique and contain 1 to 50 items")
+147 |         if not delivery_id:
+    |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> services/outbox-dispatcher/src/cloudctl_outbox/__init__.py:3:1
+   |
+ 1 |   """Transactional outbox dispatcher."""
+ 2 |
+ 3 | / from .dispatcher import OutboxDispatcher
+ 4 | | from .debug_sink import DebugRelayEventSink
+ 5 | | from .debug_http_sink import DebugHubHttpSink
+ 6 | | from .debug_stream_sink import DebugStreamSink
+ 7 | | from .debug_grpc_sink import DebugHubGrpcSink
+ 8 | | from .operation_sink import OperationExecutionSink
+ 9 | | from .sinks import EventEnvelope, EventSink, InMemorySink
+   | |_________________________________________________________^
+10 |
+11 |   __all__ = [
+   |
+help: Organize imports
+  |
+2 |
+  - from .dispatcher import OutboxDispatcher
+3 + from .debug_grpc_sink import DebugHubGrpcSink
+4 + from .debug_http_sink import DebugHubHttpSink
+5 | from .debug_sink import DebugRelayEventSink
+  - from .debug_http_sink import DebugHubHttpSink
+6 | from .debug_stream_sink import DebugStreamSink
+  - from .debug_grpc_sink import DebugHubGrpcSink
+7 + from .dispatcher import OutboxDispatcher
+8 | from .operation_sink import OperationExecutionSink
+  |
+
+E501 Line too long (106 > 100)
+   --> tests/integration/test_backend_accounts_media_content.py:623:101
+    |
+621 |         "/api/v1/mobile/devices",
+622 |         headers=operator,
+623 |         json={"logicalName": "media-dispatch-phone", "androidVersion": "14", "companionVersion": "1.0.0"},
+    |                                                                                                     ^^^^^^
+624 |     )
+625 |     assert device.status_code == 201, device.text
+    |
+
+E501 Line too long (123 > 100)
+   --> tests/integration/test_backend_accounts_media_content.py:629:101
+    |
+627 |         "/api/v1/media/assets:register",
+628 |         headers=operator,
+629 |         json={"sha256": "e" * 64, "objectKey": "listing/dispatch-cover.jpg", "contentType": "image/jpeg", "sizeBytes": 10},
+    |                                                                                                     ^^^^^^^^^^^^^^^^^^^^^^^
+630 |     )
+631 |     assert asset.status_code == 201, asset.text
+    |
+
+E501 Line too long (121 > 100)
+  --> tests/mobile_project_test.py:56:101
+   |
+54 |     assert '"/companion/v2/tasks/$taskId/heartbeat"' in client
+55 |     assert '"/companion/v2/devices/heartbeat"' in client
+56 |     assert "batteryOptimizationIgnored" in next(source_root.rglob("CompanionSyncService.kt")).read_text(encoding="utf-8")
+   |                                                                                                     ^^^^^^^^^^^^^^^^^^^^^
+57 |     assert "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" in (
+58 |         ROOT / "mobile/companion/app/src/main/AndroidManifest.xml"
+   |
+
+E501 Line too long (118 > 100)
+  --> tests/mobile_project_test.py:60:101
+   |
+58 |         ROOT / "mobile/companion/app/src/main/AndroidManifest.xml"
+59 |     ).read_text(encoding="utf-8")
+60 |     assert "USER_UNLOCKED" in (ROOT / "mobile/companion/app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
+   |                                                                                                     ^^^^^^^^^^^^^^^^^^
+61 |     assert '"Authorization" to "Bearer' in client
+62 |     assert "runtimeStatusStore.snapshot()" in repository
+   |
+
+Found 24 errors.
+[*] 7 fixable with the `--fix` option.

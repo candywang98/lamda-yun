@@ -1,0 +1,16 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "blocked_hardware",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P5-002/summary.md",
+    "artifacts/tasks/P5-002/commands.log",
+    "artifacts/tasks/P5-002/checksums.sha256",
+    "artifacts/tasks/P5-002/local-chaos-report.json",
+    "scripts/operational-acceptance.py",
+    "docs/runbooks/chaos-testing.md",
+    "tests/ops/test_operational_acceptance.py",
+    "scripts/validate-hardware-evidence.py"
+  ],
+  "note": "Local spool/restart/fencing/disk-pressure Chaos passed; production-like and authorized physical-device Chaos remains blocked_hardware."
+}

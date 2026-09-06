@@ -1,0 +1,16 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "pending",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P4-005/summary.md",
+    "artifacts/tasks/P4-005/commands.log",
+    "artifacts/tasks/_verification-20260831/python-gates.log",
+    "scripts/backup.sh",
+    "scripts/restore.sh",
+    "scripts/rotate-certificates.sh",
+    "docs/runbooks/disaster-recovery.md"
+  ],
+  "note": "Software evidence exists for 备份、恢复与证书轮换脚本, but the documented acceptance gap remains unresolved."
+}
+

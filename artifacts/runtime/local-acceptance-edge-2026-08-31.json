@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-31T01:38:52.711910+00:00",
+  "status": "passed",
+  "evidenceClass": "mock_only",
+  "hardwareEvidence": false,
+  "warning": "This report proves local process and HTTP contract behavior only. It is not evidence of an APK build, APK installation, a real LAMDA session, or authorized device control.",
+  "checks": [
+    {
+      "component": "edge-gateway",
+      "check": "network-free startup check",
+      "status": "passed",
+      "detail": "cloudctl_edge --check imported the composed runtime without network or hardware access"
+    },
+    {
+      "component": "companion-api",
+      "check": "enrollment, health, and snapshot",
+      "status": "passed",
+      "detail": "one-time enrollment, device-bound auth, health upload, task and confirmation snapshot passed"
+    },
+    {
+      "component": "companion-api",
+      "check": "confirmation and emergency stop",
+      "status": "passed",
+      "detail": "approved confirmation and emergency stop were recorded through the mock supervisor"
+    }
+  ]
+}

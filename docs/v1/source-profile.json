@@ -1,0 +1,174 @@
+{
+  "version": "1.0",
+  "created_at": "2026-09-05T22:15:00Z",
+  "description": "V1 demonstration product and media source profile",
+  "sources": [
+    {
+      "id": "demo-product-source",
+      "kind": "csv_file",
+      "display_name": "示范商品库（CSV）",
+      "connection": {
+        "type": "local_file",
+        "base_path": "artifacts/v1/V1-03/demo-data",
+        "file_name": "products.csv",
+        "encoding": "utf-8"
+      },
+      "entity_kind": "product",
+      "primary_key": "product_id",
+      "version_tracking": {
+        "field": "updated_at",
+        "type": "timestamp"
+      },
+      "fields": {
+        "product_id": {
+          "type": "string",
+          "required": true,
+          "description": "稳定的商品唯一标识"
+        },
+        "title": {
+          "type": "string",
+          "required": true,
+          "max_length": 60,
+          "description": "商品标题"
+        },
+        "description": {
+          "type": "string",
+          "required": true,
+          "max_length": 3000,
+          "description": "商品描述"
+        },
+        "price": {
+          "type": "decimal",
+          "required": true,
+          "currency": "CNY",
+          "description": "价格（人民币）"
+        },
+        "stock": {
+          "type": "integer",
+          "required": false,
+          "description": "库存数量"
+        },
+        "category": {
+          "type": "string",
+          "required": false,
+          "description": "类目"
+        },
+        "condition": {
+          "type": "string",
+          "required": false,
+          "enum": ["全新", "99新", "95新", "9成新"],
+          "description": "成色"
+        },
+        "media_refs": {
+          "type": "string",
+          "required": false,
+          "description": "关联素材ID列表（逗号分隔）"
+        },
+        "updated_at": {
+          "type": "timestamp",
+          "required": true,
+          "description": "最后更新时间"
+        }
+      },
+      "sample_size": 10,
+      "total_records": 10,
+      "sync_strategy": {
+        "mode": "incremental",
+        "cursor_field": "updated_at",
+        "deleted_marker": null
+      },
+      "conflict_resolution": "source_priority",
+      "readonly_fields": ["product_id", "title", "description", "price"],
+      "platform_override_fields": ["category", "condition"]
+    },
+    {
+      "id": "demo-media-source",
+      "kind": "file_folder",
+      "display_name": "示范素材库（文件夹）",
+      "connection": {
+        "type": "local_folder",
+        "base_path": "artifacts/v1/V1-03/demo-data/media"
+      },
+      "entity_kind": "media",
+      "primary_key": "file_name",
+      "version_tracking": {
+        "field": "file_mtime",
+        "type": "timestamp"
+      },
+      "fields": {
+        "file_name": {
+          "type": "string",
+          "required": true,
+          "description": "文件名（作为稳定标识）"
+        },
+        "file_path": {
+          "type": "string",
+          "required": true,
+          "description": "相对路径"
+        },
+        "content_type": {
+          "type": "string",
+          "required": true,
+          "enum": ["image/jpeg", "image/png", "video/mp4"],
+          "description": "媒体类型"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "required": true,
+          "description": "文件大小"
+        },
+        "sha256": {
+          "type": "string",
+          "required": true,
+          "description": "内容哈希"
+        },
+        "width": {
+          "type": "integer",
+          "required": false,
+          "description": "图片/视频宽度"
+        },
+        "height": {
+          "type": "integer",
+          "required": false,
+          "description": "图片/视频高度"
+        },
+        "file_mtime": {
+          "type": "timestamp",
+          "required": true,
+          "description": "文件修改时间"
+        }
+      },
+      "sample_size": 20,
+      "total_records": 20,
+      "total_size_bytes": 15728640,
+      "sync_strategy": {
+        "mode": "hash_diff",
+        "cursor_field": "file_mtime",
+        "deleted_marker": null
+      },
+      "attachment_access": {
+        "method": "direct_file_read",
+        "url_expiry": null,
+        "requires_auth": false
+      }
+    }
+  ],
+  "relationships": {
+    "product_to_media": {
+      "source_entity": "product",
+      "target_entity": "media",
+      "link_field": "media_refs",
+      "link_type": "comma_separated_ids"
+    }
+  },
+  "security": {
+    "credentials_storage": "none",
+    "access_level": "read_only",
+    "notes": "示范数据存储在本地文件系统，无需凭据"
+  },
+  "limitations": {
+    "max_concurrent_syncs": 1,
+    "rate_limit": null,
+    "notes": "本地文件访问，无速率限制"
+  }
+}

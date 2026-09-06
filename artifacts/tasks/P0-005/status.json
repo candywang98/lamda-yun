@@ -1,0 +1,17 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "pending",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P0-005/summary.md",
+    "artifacts/tasks/P0-005/commands.log",
+    "artifacts/tasks/_verification-20260831/python-gates.log",
+    "services/control-api/src/cloudctl_api/auth.py",
+    "packages/domain/src/cloudctl_domain/rbac.py",
+    "docs/runbooks/control-api-production.md",
+    "tests/security/test_control_api_auth.py",
+    "tests/unit/test_backend_domain.py"
+  ],
+  "note": "Software evidence exists for OIDC、MFA 声明与 RBAC 骨架, but the documented acceptance gap remains unresolved."
+}
+

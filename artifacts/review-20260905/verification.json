@@ -1,0 +1,141 @@
+{
+  "date": "2026-09-05",
+  "checks": [
+    {
+      "check": "Python 测试",
+      "result": "通过",
+      "detail": "392 passed",
+      "exitCode": 0,
+      "log": "pytest.log",
+      "limitation": "本地pytest；不代表真实平台结果"
+    },
+    {
+      "check": "Web 单测（清理后）",
+      "result": "通过",
+      "detail": "40 passed",
+      "exitCode": 0,
+      "log": "web-tests-after-cleanup.log",
+      "limitation": "保留全部有效测试"
+    },
+    {
+      "check": "Studio 单测",
+      "result": "通过",
+      "detail": "16 passed",
+      "exitCode": 0,
+      "log": "web-tests.log",
+      "limitation": "软件测试替身"
+    },
+    {
+      "check": "TS 类型（清理后）",
+      "result": "通过",
+      "detail": "Web/Studio/合同通过",
+      "exitCode": 0,
+      "log": "typecheck-after-cleanup.log",
+      "limitation": "编译类型检查"
+    },
+    {
+      "check": "Web/Studio 构建",
+      "result": "通过",
+      "detail": "两应用构建通过",
+      "exitCode": 0,
+      "log": "build.log",
+      "limitation": "Studio 大包警告"
+    },
+    {
+      "check": "Companion 单测+lint",
+      "result": "通过",
+      "detail": "41 tests / 14 suites；lint成功",
+      "exitCode": 0,
+      "log": "android.log",
+      "limitation": "主机测试，无障碍真机未验收"
+    },
+    {
+      "check": "Ruff",
+      "result": "失败",
+      "detail": "24 errors",
+      "exitCode": 1,
+      "log": "ruff.log",
+      "limitation": "原始静态检查"
+    },
+    {
+      "check": "格式检查",
+      "result": "失败",
+      "detail": "27 files",
+      "exitCode": 1,
+      "log": "format.log",
+      "limitation": "未为审计做批量格式改写"
+    },
+    {
+      "check": "Pyright",
+      "result": "失败",
+      "detail": "12 errors",
+      "exitCode": 1,
+      "log": "pyright.log",
+      "limitation": "Edge/Outbox类型合同待修"
+    },
+    {
+      "check": "Web lint（清理后）",
+      "result": "失败",
+      "detail": "4 errors",
+      "exitCode": 1,
+      "log": "web-lint-after-cleanup.log",
+      "limitation": "原5个，去掉1个无用测试变量"
+    },
+    {
+      "check": "安全扫描",
+      "result": "无效/需重验",
+      "detail": "退出0，grep报错",
+      "exitCode": 0,
+      "log": "security.log",
+      "limitation": "不能视为所有扫描规则通过"
+    },
+    {
+      "check": "默认E2E",
+      "result": "环境污染",
+      "detail": "4173复用其他项目",
+      "exitCode": 1,
+      "log": "e2e.log",
+      "limitation": "不作为本项目失败数量；Studio未运行"
+    },
+    {
+      "check": "独立端口Web smoke",
+      "result": "部分失败",
+      "detail": "16通过/4失败/8既有跳过",
+      "exitCode": 1,
+      "log": "e2e-isolated.log",
+      "limitation": "两处非精确文本定位器；不是已确认滚动故障"
+    },
+    {
+      "check": "商品专用E2E",
+      "result": "通过",
+      "detail": "1 passed",
+      "exitCode": 0,
+      "log": "e2e-product.log",
+      "limitation": "API拦截用例，不是真实数据库到真机"
+    },
+    {
+      "check": "真机盘点",
+      "result": "通过",
+      "detail": "OnePlus Android14；四App已安装",
+      "exitCode": 0,
+      "log": "device.json",
+      "limitation": "项目无障碍服务未启用"
+    },
+    {
+      "check": "本地API只读访问",
+      "result": "通过",
+      "detail": "OpenAPI 111 paths",
+      "exitCode": 0,
+      "log": "live-api-summary.json",
+      "limitation": "部署版本/外部来源未核实"
+    },
+    {
+      "check": "四平台真实发布",
+      "result": "未执行",
+      "detail": "0/4平台本轮完整验收",
+      "exitCode": null,
+      "log": "",
+      "limitation": "本轮审核没有发布外部内容"
+    }
+  ]
+}

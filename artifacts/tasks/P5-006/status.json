@@ -1,0 +1,16 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "blocked_hardware",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P5-006/summary.md",
+    "artifacts/tasks/P5-006/commands.log",
+    "artifacts/tasks/P5-006/software-gates.txt",
+    "artifacts/tasks/P5-006/checksums.sha256",
+    "scripts/validate-rollout-evidence.py",
+    "tests/ops/test_rollout_evidence.py",
+    "docs/contracts/rollout-evidence-contracts.json",
+    "docs/runbooks/autojs-dual-track.md"
+  ],
+  "note": "Offline paired AutoJS/CloudCtl result comparison is implemented and tested. No authorized external dual-track bundle exists, so acceptance remains blocked_hardware."
+}

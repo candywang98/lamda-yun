@@ -1,0 +1,18 @@
+{
+  "softwareStatus": "unverified",
+  "acceptanceStatus": "blocked_hardware",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P3-012/summary.md",
+    "artifacts/tasks/P3-012/commands.log",
+    "artifacts/tasks/P3-012/software-gates.txt",
+    "artifacts/tasks/P3-012/device-evidence/template.json",
+    "artifacts/tasks/P3-012/device-evidence/authorization-template.json",
+    "artifacts/tasks/P3-012/device-evidence/run-result-template.json",
+    "scripts/prepare-hardware-evidence.py",
+    "scripts/validate-hardware-evidence.py",
+    "tests/unit/test_hardware_evidence_preparation.py",
+    "tests/unit/test_hardware_evidence_gate.py"
+  ],
+  "note": "Offline evidence preparation and a strict authorized-account/device validation gate exist, but templates and previews cannot claim acceptance and no real publish execution or hardware evidence proves task completion."
+}

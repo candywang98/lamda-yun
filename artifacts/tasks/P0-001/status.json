@@ -1,0 +1,16 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "pending",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P0-001/summary.md",
+    "artifacts/tasks/P0-001/commands.log",
+    "artifacts/tasks/_verification-20260831/python-gates.log",
+    "pyproject.toml",
+    "package.json",
+    "pnpm-workspace.yaml",
+    "AGENTS.md",
+    "tests/security/test_repository_boundaries.py"
+  ],
+  "note": "Monorepo software is present, but the current repository-wide format gate is not green; acceptance remains pending."
+}

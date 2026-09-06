@@ -1,0 +1,16 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "pending",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P1-011/summary.md",
+    "artifacts/tasks/P1-011/commands.log",
+    "artifacts/tasks/_verification-20260831/python-gates.log",
+    "services/control-api/src/cloudctl_api/routes.py",
+    "services/outbox-dispatcher/src/cloudctl_outbox/dispatcher.py",
+    "tests/integration/test_backend_control_api.py",
+    "tests/integration/test_backend_outbox.py"
+  ],
+  "note": "Software evidence exists for SSE/WebSocket 进度事件, but the documented acceptance gap remains unresolved."
+}
+

@@ -1,0 +1,10 @@
+{
+  "devices": "List of devices attached\nb0644fb5               device usb:1179648X product:OnePlus9R_CH model:LE2100 device:OnePlus9R transport_id:27\n\n",
+  "android": "14\n",
+  "accessibility": "com.ydydyd8818/.AccessibilityService:com.sand.remotesupportaddon/.SmartService\n",
+  "companion": "versionCode=1 minSdk=29 targetSdk=35\nversionName=0.1.0\nflags=[ DEBUGGABLE HAS_CODE ALLOW_CLEAR_USER_DATA ]\nlastUpdateTime=2026-09-05 19:08:17",
+  "xianyu": "versionCode=516 minSdk=21 targetSdk=33\nversionName=7.27.90\nlastUpdateTime=2026-08-30 16:11:20",
+  "douyin": "versionCode=390601 minSdk=23 targetSdk=34\nversionName=39.6.0\nlastUpdateTime=2026-07-17 16:52:12",
+  "xiaohongshu": "versionCode=8501132 minSdk=21 targetSdk=33\nversionName=8.50.1\nlastUpdateTime=2026-08-19 20:19:00",
+  "wechat": "versionCode=3141 minSdk=24 targetSdk=34\nversionName=8.0.76\nlastUpdateTime=2026-07-18 10:19:58"
+}

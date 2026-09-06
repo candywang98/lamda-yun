@@ -1,0 +1,21 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "blocked_hardware",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P3-006/summary.md",
+    "artifacts/tasks/P3-006/commands.log",
+    "artifacts/tasks/_verification-20260831/python-gates.log",
+    "artifacts/tasks/_verification-20260831/frontend-gates.log",
+    "packages/automation-sdk/src/cloudctl_automation_sdk/lifecycle.py",
+    "apps/studio/src/domain.ts",
+    "edge/gateway/src/cloudctl_edge/executor.py",
+    "tests/unit/test_automation_sdk_inputs.py",
+    "apps/studio/tests/domain.spec.ts",
+    "tests/edge_executor_test.py",
+    "artifacts/runtime/local-acceptance-2026-08-31.json",
+    "artifacts/runtime/browser-live-acceptance-2026-08-31.json"
+  ],
+  "note": "Software paths exist for 步骤 Runner、断点、变量与证据; authorized hardware evidence is absent, so acceptance remains blocked_hardware."
+}
+

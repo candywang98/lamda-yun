@@ -1,0 +1,17 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "blocked_hardware",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P5-007/summary.md",
+    "artifacts/tasks/P5-007/commands.log",
+    "artifacts/tasks/P5-007/software-gates.txt",
+    "artifacts/tasks/P5-007/checksums.sha256",
+    "scripts/validate-rollout-evidence.py",
+    "tests/ops/test_rollout_evidence.py",
+    "packages/automation-sdk/src/cloudctl_automation_sdk/registry.py",
+    "docs/contracts/rollout-evidence-contracts.json",
+    "docs/runbooks/production-canary.md"
+  ],
+  "note": "Offline production gate, five-percent canary, rollback and review validation is implemented and tested. No authorized external canary bundle exists, so acceptance remains blocked_hardware."
+}

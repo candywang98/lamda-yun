@@ -1,0 +1,18 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "blocked_hardware",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P2-004/summary.md",
+    "artifacts/tasks/P2-004/commands.log",
+    "artifacts/tasks/_verification-20260831/python-gates.log",
+    "packages/lamda-driver/src/cloudctl_lamda_driver/driver.py",
+    "packages/lamda-driver/src/cloudctl_lamda_driver/errors.py",
+    "packages/lamda-driver/src/cloudctl_lamda_driver/adapter.py",
+    "tests/edge_lamda_driver_test.py",
+    "artifacts/runtime/local-acceptance-2026-08-31.json",
+    "artifacts/runtime/browser-live-acceptance-2026-08-31.json"
+  ],
+  "note": "Software paths exist for LAMDA Driver 连接、证书与错误映射; authorized hardware evidence is absent, so acceptance remains blocked_hardware."
+}
+

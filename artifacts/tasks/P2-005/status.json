@@ -1,0 +1,18 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "blocked_hardware",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P2-005/summary.md",
+    "artifacts/tasks/P2-005/commands.log",
+    "artifacts/tasks/_verification-20260831/python-gates.log",
+    "packages/lamda-driver/src/cloudctl_lamda_driver/session.py",
+    "services/control-api/src/cloudctl_api/services.py",
+    "tests/edge_lamda_driver_test.py",
+    "tests/integration/test_backend_control_api.py",
+    "artifacts/runtime/local-acceptance-2026-08-31.json",
+    "artifacts/runtime/browser-live-acceptance-2026-08-31.json"
+  ],
+  "note": "Software paths exist for 设备 Fencing Lease + LAMDA 60 秒锁; authorized hardware evidence is absent, so acceptance remains blocked_hardware."
+}
+

@@ -1,0 +1,17 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "pending",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P2-001/summary.md",
+    "artifacts/tasks/P2-001/commands.log",
+    "artifacts/tasks/_verification-20260831/python-gates.log",
+    "edge/gateway/src/cloudctl_edge/enrollment.py",
+    "edge/gateway/src/cloudctl_edge/cert_store.py",
+    "services/edge-hub/src/cloudctl_edge_hub/enrollment.py",
+    "tests/edge_hub_test.py",
+    "tests/edge_gateway_test.py"
+  ],
+  "note": "Software evidence exists for Edge 一次性入网与 mTLS 身份, but the documented acceptance gap remains unresolved."
+}
+

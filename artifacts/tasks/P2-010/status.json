@@ -1,0 +1,18 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "blocked_hardware",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P2-010/summary.md",
+    "artifacts/tasks/P2-010/commands.log",
+    "artifacts/tasks/_verification-20260831/python-gates.log",
+    "edge/gateway/src/cloudctl_edge/remote_proxy.py",
+    "services/edge-hub/src/cloudctl_edge_hub/debug_delivery.py",
+    "tests/edge_debug_delivery_test.py",
+    "tests/integration/test_backend_debug_sessions.py",
+    "artifacts/runtime/local-acceptance-2026-08-31.json",
+    "artifacts/runtime/browser-live-acceptance-2026-08-31.json"
+  ],
+  "note": "Software paths exist for 远程桌面安全代理 MVP; authorized hardware evidence is absent, so acceptance remains blocked_hardware."
+}
+

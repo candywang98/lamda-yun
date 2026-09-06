@@ -1,0 +1,16 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "blocked_hardware",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P5-001/summary.md",
+    "artifacts/tasks/P5-001/commands.log",
+    "artifacts/tasks/P5-001/checksums.sha256",
+    "artifacts/tasks/P5-001/local-load-report.json",
+    "scripts/operational-acceptance.py",
+    "docs/runbooks/performance-capacity.md",
+    "tests/ops/test_operational_acceptance.py",
+    "scripts/validate-hardware-evidence.py"
+  ],
+  "note": "Local load/capacity regression tooling passed; long-soak, production capacity, and authorized physical-device acceptance remain blocked_hardware."
+}

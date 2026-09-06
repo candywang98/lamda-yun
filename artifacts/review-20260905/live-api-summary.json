@@ -1,0 +1,8 @@
+{
+  "title": {
+    "title": "Spider_XHS Operations Platform",
+    "version": "0.1.0"
+  },
+  "pathCount": 111,
+  "source": "http://127.0.0.1:8000/openapi.json"
+}

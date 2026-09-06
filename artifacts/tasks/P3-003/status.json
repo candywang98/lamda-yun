@@ -1,0 +1,18 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "pending",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P3-003/summary.md",
+    "artifacts/tasks/P3-003/commands.log",
+    "artifacts/tasks/_verification-20260831/frontend-gates.log",
+    "apps/studio/src/App.vue",
+    "apps/studio/src/components/MonacoWorkspace.vue",
+    "apps/studio/src/domain.ts",
+    "apps/studio/tests/app.spec.ts",
+    "apps/studio/tests/domain.spec.ts",
+    "apps/studio/e2e/smoke.spec.ts"
+  ],
+  "note": "Software evidence exists for Studio 壳与 Monaco 工作区, but the documented acceptance gap remains unresolved."
+}
+

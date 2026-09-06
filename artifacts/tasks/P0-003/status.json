@@ -1,0 +1,17 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "pending",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P0-003/summary.md",
+    "artifacts/tasks/P0-003/commands.log",
+    "artifacts/tasks/_verification-20260831/python-gates.log",
+    "infra/compose/docker-compose.yml",
+    "infra/caddy/Caddyfile",
+    "scripts/bootstrap-dev.sh",
+    "scripts/smoke-test.sh",
+    "artifacts/runtime/local-acceptance-2026-08-31.json"
+  ],
+  "note": "Software evidence exists for 开发环境与 Compose 基线, but the documented acceptance gap remains unresolved."
+}
+

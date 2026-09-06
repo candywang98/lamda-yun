@@ -1,0 +1,19 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "pending",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P1-012/summary.md",
+    "artifacts/tasks/P1-012/commands.log",
+    "artifacts/tasks/P1-012/test-results/software-gates.txt",
+    "services/control-api/src/cloudctl_api/services.py",
+    "services/temporal-worker/src/cloudctl_worker/workflows.py",
+    "services/temporal-worker/src/cloudctl_worker/backend.py",
+    "edge/gateway/src/cloudctl_edge/executor.py",
+    "tests/integration/test_backend_control_api.py",
+    "tests/replay/test_backend_workflow_replay_safety.py",
+    "tests/edge_executor_test.py",
+    "artifacts/runtime/local-acceptance-2026-08-31.json"
+  ],
+  "note": "The mock control-plane, workflow, commit-intent, Edge execution, and reconciliation path is implemented. Acceptance remains pending because mock-only evidence cannot prove an authorized real-device publication."
+}

@@ -1,0 +1,49 @@
+{
+  "apiVersion": "cloudctl.example/v1",
+  "kind": "PublishPlan",
+  "metadata": {
+    "clientRequestId": "example-20260901-001"
+  },
+  "spec": {
+    "contentRevisionId": "018f0000-0000-7000-8000-000000000001",
+    "platformAdapter": "authorized-platform-adapter",
+    "targets": [
+      {
+        "accountId": "018f0000-0000-7000-8000-000000000002",
+        "deviceSelector": {
+          "matchLabels": {
+            "site": "edge-a",
+            "channel": "stable"
+          }
+        }
+      }
+    ],
+    "schedule": {
+      "mode": "AT",
+      "at": "2026-09-01T02:30:00Z"
+    },
+    "execution": {
+      "maxConcurrency": 2,
+      "minIntervalSeconds": 90,
+      "deviceLeaseSeconds": 120
+    },
+    "approval": {
+      "policy": "BEFORE_COMMIT",
+      "separationOfDuties": true
+    },
+    "automationPackage": {
+      "name": "authorized-content-publisher",
+      "version": "1.4.2"
+    },
+    "failurePolicy": {
+      "transientAttempts": 3,
+      "commitAttempts": 1,
+      "unknownRequiresHuman": true
+    },
+    "evidencePolicy": {
+      "beforeCommit": true,
+      "afterCommit": true,
+      "onFailure": true
+    }
+  }
+}

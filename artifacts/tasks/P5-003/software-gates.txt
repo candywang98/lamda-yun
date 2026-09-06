@@ -1,0 +1,6 @@
+PASS: offline external-evidence validator and machine-readable contract are implemented.
+PASS: Android x LAMDA x App N/N-1 coverage is complete and duplicate-safe.
+PASS: stable/candidate sample minimums, failure/regression thresholds and 72h soak are enforced.
+PASS: physical device/version, authorization, safety, unknown commit and SHA-256 gates exist.
+PASS: every promotion cell requires tested rollback and a reviewed PROMOTE decision.
+BLOCKED_HARDWARE: no authorized external compatibility matrix or candidate run was supplied.

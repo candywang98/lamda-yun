@@ -1,0 +1,18 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "pending",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P5-004/summary.md",
+    "artifacts/tasks/P5-004/commands.log",
+    "artifacts/tasks/P5-004/checksums.sha256",
+    "artifacts/tasks/P5-004/validation-report.json",
+    "infra/otel/slo-rules.yml",
+    "infra/otel/alertmanager.yml",
+    "infra/otel/dashboards/cloudctl-slo.json",
+    "docs/runbooks/on-call.md",
+    "scripts/validate-slo-assets.py",
+    "tests/ops/test_observability_assets.py"
+  ],
+  "note": "SLO, dashboard, and alert configuration is implemented; production metrics and external on-call delivery/escalation remain pending."
+}

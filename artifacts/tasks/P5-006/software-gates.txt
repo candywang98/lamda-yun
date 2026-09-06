@@ -1,0 +1,6 @@
+PASS: offline paired-result validator and machine-readable contract are implemented.
+PASS: AutoJS/CLOUDCTL pairs require identical scenario and input SHA-256 identities.
+PASS: minimum pairs, candidate failure, outcome regression and p95 duration gates are enforced.
+PASS: physical device/version, authorization, evidence completeness, safety and commit gates exist.
+PASS: tested rollback and a reviewed MIGRATE decision are mandatory.
+BLOCKED_HARDWARE: no authorized external dual-track device pilot was supplied.

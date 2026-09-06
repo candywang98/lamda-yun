@@ -1,0 +1,27 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "blocked_hardware",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P2-011/summary.md",
+    "artifacts/tasks/P2-011/commands.log",
+    "artifacts/tasks/P2-011/software-gates.txt",
+    "artifacts/tasks/P2-011/device-evidence/template.json",
+    "artifacts/tasks/P2-011/device-evidence/authorization-template.json",
+    "artifacts/tasks/P2-011/device-evidence/run-result-template.json",
+    "artifacts/tasks/P2-011/device-evidence/oneplus9r-20260831/run-result.json",
+    "artifacts/tasks/P2-011/device-evidence/oneplus9r-20260831/inventory.json",
+    "artifacts/tasks/P2-011/device-evidence/oneplus9r-20260831/command-audit.json",
+    "artifacts/tasks/P2-011/device-evidence/oneplus9r-20260831/screenshot.png",
+    "artifacts/tasks/P2-011/device-evidence/oneplus9r-20260831/ui.xml",
+    "artifacts/tasks/P2-011/device-evidence/oneplus9r-20260831/checksums.sha256",
+    "packages/lamda-driver/src/cloudctl_lamda_driver/readonly_probe.py",
+    "scripts/run-readonly-device-smoke.py",
+    "scripts/prepare-hardware-evidence.py",
+    "scripts/validate-hardware-evidence.py",
+    "tests/unit/test_readonly_device_smoke.py",
+    "tests/unit/test_hardware_evidence_preparation.py",
+    "tests/unit/test_hardware_evidence_gate.py"
+  ],
+  "note": "The allowlisted read-only runner and evidence gate are implemented and tested. An authorized LE2100 diagnostic run completed without mutation, but ADB diagnostics are not LAMDA acceptance: no LAMDA package, service port, SDK version, or complete support matrix is available."
+}

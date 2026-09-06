@@ -1,0 +1,17 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "pending",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P3-007/summary.md",
+    "artifacts/tasks/P3-007/commands.log",
+    "artifacts/tasks/_verification-20260831/python-gates.log",
+    "services/temporal-worker/src/cloudctl_worker/workflows.py",
+    "services/temporal-worker/src/cloudctl_worker/activities.py",
+    "services/temporal-worker/src/cloudctl_worker/contracts.py",
+    "tests/replay/test_backend_workflow_replay_safety.py",
+    "tests/integration/test_backend_control_api.py"
+  ],
+  "note": "Software evidence exists for Temporal 发布 Workflow 与取消, but the documented acceptance gap remains unresolved."
+}
+

@@ -1,0 +1,17 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "pending",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P3-001/summary.md",
+    "artifacts/tasks/P3-001/commands.log",
+    "artifacts/tasks/_verification-20260831/python-gates.log",
+    "packages/automation-sdk/src/cloudctl_automation_sdk/manifest.py",
+    "packages/automation-sdk/src/cloudctl_automation_sdk/lifecycle.py",
+    "packages/automation-sdk/src/cloudctl_automation_sdk/protocols.py",
+    "tests/unit/test_automation_sdk_inputs.py",
+    "tests/unit/test_backend_manifest.py"
+  ],
+  "note": "Software evidence exists for Automation Manifest 与 SDK, but the documented acceptance gap remains unresolved."
+}
+

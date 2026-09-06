@@ -1,0 +1,3046 @@
+{
+  "schemaVersion": "1.0",
+  "project": "LAMDA 云控系统",
+  "generatedAt": "2026-08-30",
+  "total": 59,
+  "statusValues": [
+    "todo",
+    "doing",
+    "blocked",
+    "blocked_hardware",
+    "review",
+    "done"
+  ],
+  "executionPolicy": {
+    "order": "topological_by_dependencies_then_priority",
+    "definitionOfDone": "AGENTS.md",
+    "hardwareEvidenceRequired": true,
+    "prohibitedAutoCompletion": [
+      "hardware_required_without_device_evidence",
+      "mock_only_claimed_as_real",
+      "security_boundary_bypassed"
+    ]
+  },
+  "tasks": [
+    {
+      "id": "P0-001",
+      "phase": "基础与工程骨架",
+      "priority": "P0",
+      "status": "todo",
+      "workstream": "platform",
+      "title": "初始化 Monorepo 与工具链",
+      "objective": "实现“初始化 Monorepo 与工具链”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [],
+      "hardware_required": false,
+      "estimate_points": 5,
+      "deliverables": [
+        "初始化 Monorepo 与工具链的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P0-001/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 初始化 Monorepo 与工具链 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。"
+      ],
+      "verification_commands": [
+        "ruff format --check .",
+        "ruff check .",
+        "pyright",
+        "pytest -q"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P0-002",
+      "phase": "基础与工程骨架",
+      "priority": "P0",
+      "status": "todo",
+      "workstream": "architecture",
+      "title": "建立 ADR 与安全边界",
+      "objective": "实现“建立 ADR 与安全边界”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P0-001"
+      ],
+      "hardware_required": false,
+      "estimate_points": 5,
+      "deliverables": [
+        "建立 ADR 与安全边界的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P0-002/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 建立 ADR 与安全边界 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。"
+      ],
+      "verification_commands": [
+        "ruff format --check .",
+        "ruff check .",
+        "pyright",
+        "pytest -q"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P0-003",
+      "phase": "基础与工程骨架",
+      "priority": "P0",
+      "status": "todo",
+      "workstream": "devops",
+      "title": "开发环境与 Compose 基线",
+      "objective": "实现“开发环境与 Compose 基线”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P0-001"
+      ],
+      "hardware_required": false,
+      "estimate_points": 8,
+      "deliverables": [
+        "开发环境与 Compose 基线的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P0-003/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 开发环境与 Compose 基线 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。"
+      ],
+      "verification_commands": [
+        "shellcheck scripts/*.sh",
+        "docker compose config",
+        "scripts/smoke-test.sh --dry-run"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P0-004",
+      "phase": "基础与工程骨架",
+      "priority": "P0",
+      "status": "todo",
+      "workstream": "backend",
+      "title": "PostgreSQL 基础模型与 Alembic",
+      "objective": "实现“PostgreSQL 基础模型与 Alembic”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P0-001",
+        "P0-003"
+      ],
+      "hardware_required": false,
+      "estimate_points": 3,
+      "deliverables": [
+        "PostgreSQL 基础模型与 Alembic的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P0-004/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 PostgreSQL 基础模型与 Alembic 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。"
+      ],
+      "verification_commands": [
+        "ruff format --check .",
+        "ruff check .",
+        "pyright",
+        "pytest -q"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P0-005",
+      "phase": "基础与工程骨架",
+      "priority": "P0",
+      "status": "todo",
+      "workstream": "security",
+      "title": "OIDC、MFA 声明与 RBAC 骨架",
+      "objective": "实现“OIDC、MFA 声明与 RBAC 骨架”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P0-002",
+        "P0-004"
+      ],
+      "hardware_required": false,
+      "estimate_points": 5,
+      "deliverables": [
+        "OIDC、MFA 声明与 RBAC 骨架的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P0-005/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 OIDC、MFA 声明与 RBAC 骨架 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。"
+      ],
+      "verification_commands": [
+        "ruff format --check .",
+        "ruff check .",
+        "pyright",
+        "pytest -q"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P0-006",
+      "phase": "基础与工程骨架",
+      "priority": "P0",
+      "status": "todo",
+      "workstream": "backend",
+      "title": "API 错误、幂等与 Outbox 基建",
+      "objective": "实现“API 错误、幂等与 Outbox 基建”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P0-002",
+        "P0-004"
+      ],
+      "hardware_required": false,
+      "estimate_points": 5,
+      "deliverables": [
+        "API 错误、幂等与 Outbox 基建的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P0-006/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 API 错误、幂等与 Outbox 基建 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。"
+      ],
+      "verification_commands": [
+        "ruff format --check .",
+        "ruff check .",
+        "pyright",
+        "pytest -q"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P0-007",
+      "phase": "基础与工程骨架",
+      "priority": "P0",
+      "status": "todo",
+      "workstream": "frontend",
+      "title": "Vue Web 壳与设计系统",
+      "objective": "实现“Vue Web 壳与设计系统”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P0-001"
+      ],
+      "hardware_required": false,
+      "estimate_points": 8,
+      "deliverables": [
+        "Vue Web 壳与设计系统的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P0-007/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 Vue Web 壳与设计系统 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。"
+      ],
+      "verification_commands": [
+        "pnpm --frozen-lockfile lint",
+        "pnpm --frozen-lockfile typecheck",
+        "pnpm --frozen-lockfile test",
+        "pnpm --frozen-lockfile e2e"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P0-008",
+      "phase": "基础与工程骨架",
+      "priority": "P0",
+      "status": "todo",
+      "workstream": "contract",
+      "title": "OpenAPI 合同与生成客户端",
+      "objective": "实现“OpenAPI 合同与生成客户端”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P0-006",
+        "P0-007"
+      ],
+      "hardware_required": false,
+      "estimate_points": 3,
+      "deliverables": [
+        "OpenAPI 合同与生成客户端的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P0-008/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 OpenAPI 合同与生成客户端 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。"
+      ],
+      "verification_commands": [
+        "buf lint",
+        "buf breaking --against .git#branch=main",
+        "pytest -q tests/contract"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P0-009",
+      "phase": "基础与工程骨架",
+      "priority": "P0",
+      "status": "todo",
+      "workstream": "observability",
+      "title": "OpenTelemetry 基线",
+      "objective": "实现“OpenTelemetry 基线”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P0-003"
+      ],
+      "hardware_required": false,
+      "estimate_points": 5,
+      "deliverables": [
+        "OpenTelemetry 基线的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P0-009/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 OpenTelemetry 基线 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。"
+      ],
+      "verification_commands": [
+        "ruff format --check .",
+        "ruff check .",
+        "pyright",
+        "pytest -q"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P0-010",
+      "phase": "基础与工程骨架",
+      "priority": "P0",
+      "status": "todo",
+      "workstream": "devops",
+      "title": "CI 质量/依赖/供应链门禁",
+      "objective": "实现“CI 质量/依赖/供应链门禁”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P0-001",
+        "P0-002"
+      ],
+      "hardware_required": false,
+      "estimate_points": 5,
+      "deliverables": [
+        "CI 质量/依赖/供应链门禁的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P0-010/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 CI 质量/依赖/供应链门禁 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。"
+      ],
+      "verification_commands": [
+        "shellcheck scripts/*.sh",
+        "docker compose config",
+        "scripts/smoke-test.sh --dry-run"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P0-011",
+      "phase": "基础与工程骨架",
+      "priority": "P0",
+      "status": "todo",
+      "workstream": "testing",
+      "title": "Mock Device/Mock Edge 与测试夹具",
+      "objective": "实现“Mock Device/Mock Edge 与测试夹具”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P0-006",
+        "P0-008"
+      ],
+      "hardware_required": false,
+      "estimate_points": 8,
+      "deliverables": [
+        "Mock Device/Mock Edge 与测试夹具的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P0-011/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 Mock Device/Mock Edge 与测试夹具 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。"
+      ],
+      "verification_commands": [
+        "ruff format --check .",
+        "ruff check .",
+        "pyright",
+        "pytest -q"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P1-001",
+      "phase": "控制平面与本地闭环",
+      "priority": "P0",
+      "status": "todo",
+      "workstream": "backend",
+      "title": "租户、用户与审计模块",
+      "objective": "实现“租户、用户与审计模块”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P0-004",
+        "P0-005",
+        "P0-006"
+      ],
+      "hardware_required": false,
+      "estimate_points": 3,
+      "deliverables": [
+        "租户、用户与审计模块的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P1-001/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 租户、用户与审计模块 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。"
+      ],
+      "verification_commands": [
+        "ruff format --check .",
+        "ruff check .",
+        "pyright",
+        "pytest -q"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P1-002",
+      "phase": "控制平面与本地闭环",
+      "priority": "P0",
+      "status": "todo",
+      "workstream": "backend",
+      "title": "设备与边缘节点领域模型",
+      "objective": "实现“设备与边缘节点领域模型”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P1-001"
+      ],
+      "hardware_required": false,
+      "estimate_points": 5,
+      "deliverables": [
+        "设备与边缘节点领域模型的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P1-002/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 设备与边缘节点领域模型 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。"
+      ],
+      "verification_commands": [
+        "ruff format --check .",
+        "ruff check .",
+        "pyright",
+        "pytest -q"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P1-003",
+      "phase": "控制平面与本地闭环",
+      "priority": "P0",
+      "status": "todo",
+      "workstream": "backend",
+      "title": "账号授权与设备绑定模型",
+      "objective": "实现“账号授权与设备绑定模型”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P1-001",
+        "P1-002"
+      ],
+      "hardware_required": false,
+      "estimate_points": 5,
+      "deliverables": [
+        "账号授权与设备绑定模型的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P1-003/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 账号授权与设备绑定模型 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。"
+      ],
+      "verification_commands": [
+        "ruff format --check .",
+        "ruff check .",
+        "pyright",
+        "pytest -q"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P1-004",
+      "phase": "控制平面与本地闭环",
+      "priority": "P0",
+      "status": "todo",
+      "workstream": "media",
+      "title": "S3 媒体上传、哈希与派生流水线",
+      "objective": "实现“S3 媒体上传、哈希与派生流水线”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P0-003",
+        "P0-006"
+      ],
+      "hardware_required": false,
+      "estimate_points": 8,
+      "deliverables": [
+        "S3 媒体上传、哈希与派生流水线的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P1-004/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 S3 媒体上传、哈希与派生流水线 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。"
+      ],
+      "verification_commands": [
+        "ruff format --check .",
+        "ruff check .",
+        "pyright",
+        "pytest -q"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P1-005",
+      "phase": "控制平面与本地闭环",
+      "priority": "P0",
+      "status": "todo",
+      "workstream": "content",
+      "title": "作品/修订/分组领域与 API",
+      "objective": "实现“作品/修订/分组领域与 API”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P1-001",
+        "P1-004"
+      ],
+      "hardware_required": false,
+      "estimate_points": 3,
+      "deliverables": [
+        "作品/修订/分组领域与 API的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P1-005/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 作品/修订/分组领域与 API 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。"
+      ],
+      "verification_commands": [
+        "ruff format --check .",
+        "ruff check .",
+        "pyright",
+        "pytest -q"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P1-006",
+      "phase": "控制平面与本地闭环",
+      "priority": "P0",
+      "status": "todo",
+      "workstream": "frontend",
+      "title": "作品编辑器与水印预览",
+      "objective": "实现“作品编辑器与水印预览”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P0-007",
+        "P0-008",
+        "P1-004",
+        "P1-005"
+      ],
+      "hardware_required": false,
+      "estimate_points": 5,
+      "deliverables": [
+        "作品编辑器与水印预览的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P1-006/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 作品编辑器与水印预览 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。"
+      ],
+      "verification_commands": [
+        "pnpm --frozen-lockfile lint",
+        "pnpm --frozen-lockfile typecheck",
+        "pnpm --frozen-lockfile test",
+        "pnpm --frozen-lockfile e2e"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P1-007",
+      "phase": "控制平面与本地闭环",
+      "priority": "P0",
+      "status": "todo",
+      "workstream": "publish",
+      "title": "发布计划、目标与快照模型",
+      "objective": "实现“发布计划、目标与快照模型”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P1-002",
+        "P1-003",
+        "P1-005"
+      ],
+      "hardware_required": false,
+      "estimate_points": 5,
+      "deliverables": [
+        "发布计划、目标与快照模型的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P1-007/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 发布计划、目标与快照模型 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。"
+      ],
+      "verification_commands": [
+        "ruff format --check .",
+        "ruff check .",
+        "pyright",
+        "pytest -q"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P1-008",
+      "phase": "控制平面与本地闭环",
+      "priority": "P0",
+      "status": "todo",
+      "workstream": "publish",
+      "title": "发布幂等键与不可变快照冻结",
+      "objective": "实现“发布幂等键与不可变快照冻结”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P1-007",
+        "P0-006"
+      ],
+      "hardware_required": false,
+      "estimate_points": 8,
+      "deliverables": [
+        "发布幂等键与不可变快照冻结的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P1-008/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 发布幂等键与不可变快照冻结 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。"
+      ],
+      "verification_commands": [
+        "ruff format --check .",
+        "ruff check .",
+        "pyright",
+        "pytest -q"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P1-009",
+      "phase": "控制平面与本地闭环",
+      "priority": "P0",
+      "status": "todo",
+      "workstream": "frontend",
+      "title": "任务队列与运行详情 UI",
+      "objective": "实现“任务队列与运行详情 UI”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P0-007",
+        "P0-008",
+        "P1-007"
+      ],
+      "hardware_required": false,
+      "estimate_points": 3,
+      "deliverables": [
+        "任务队列与运行详情 UI的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P1-009/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 任务队列与运行详情 UI 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。"
+      ],
+      "verification_commands": [
+        "pnpm --frozen-lockfile lint",
+        "pnpm --frozen-lockfile typecheck",
+        "pnpm --frozen-lockfile test",
+        "pnpm --frozen-lockfile e2e"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P1-010",
+      "phase": "控制平面与本地闭环",
+      "priority": "P0",
+      "status": "todo",
+      "workstream": "security",
+      "title": "审批与职责分离流程",
+      "objective": "实现“审批与职责分离流程”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P1-001",
+        "P1-007",
+        "P0-005"
+      ],
+      "hardware_required": false,
+      "estimate_points": 5,
+      "deliverables": [
+        "审批与职责分离流程的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P1-010/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 审批与职责分离流程 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。"
+      ],
+      "verification_commands": [
+        "ruff format --check .",
+        "ruff check .",
+        "pyright",
+        "pytest -q"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P1-011",
+      "phase": "控制平面与本地闭环",
+      "priority": "P0",
+      "status": "todo",
+      "workstream": "realtime",
+      "title": "SSE/WebSocket 进度事件",
+      "objective": "实现“SSE/WebSocket 进度事件”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P0-008",
+        "P0-009",
+        "P1-007"
+      ],
+      "hardware_required": false,
+      "estimate_points": 5,
+      "deliverables": [
+        "SSE/WebSocket 进度事件的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P1-011/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 SSE/WebSocket 进度事件 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。"
+      ],
+      "verification_commands": [
+        "ruff format --check .",
+        "ruff check .",
+        "pyright",
+        "pytest -q"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P1-012",
+      "phase": "控制平面与本地闭环",
+      "priority": "P0",
+      "status": "todo",
+      "workstream": "testing",
+      "title": "Mock 端到端发布闭环",
+      "objective": "实现“Mock 端到端发布闭环”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P0-011",
+        "P1-006",
+        "P1-008",
+        "P1-009",
+        "P1-010",
+        "P1-011"
+      ],
+      "hardware_required": false,
+      "estimate_points": 8,
+      "deliverables": [
+        "Mock 端到端发布闭环的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P1-012/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 Mock 端到端发布闭环 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。"
+      ],
+      "verification_commands": [
+        "ruff format --check .",
+        "ruff check .",
+        "pyright",
+        "pytest -q"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P2-001",
+      "phase": "Edge 与 LAMDA",
+      "priority": "P0",
+      "status": "todo",
+      "workstream": "edge",
+      "title": "Edge 一次性入网与 mTLS 身份",
+      "objective": "实现“Edge 一次性入网与 mTLS 身份”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P0-003",
+        "P0-005",
+        "P1-002"
+      ],
+      "hardware_required": false,
+      "estimate_points": 3,
+      "deliverables": [
+        "Edge 一次性入网与 mTLS 身份的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P2-001/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 Edge 一次性入网与 mTLS 身份 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。"
+      ],
+      "verification_commands": [
+        "ruff format --check .",
+        "ruff check .",
+        "pyright",
+        "pytest -q"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P2-002",
+      "phase": "Edge 与 LAMDA",
+      "priority": "P0",
+      "status": "todo",
+      "workstream": "edge",
+      "title": "Edge Hub 双向 gRPC 流与序列 ACK",
+      "objective": "实现“Edge Hub 双向 gRPC 流与序列 ACK”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P2-001",
+        "P0-008"
+      ],
+      "hardware_required": false,
+      "estimate_points": 5,
+      "deliverables": [
+        "Edge Hub 双向 gRPC 流与序列 ACK的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P2-002/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 Edge Hub 双向 gRPC 流与序列 ACK 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。"
+      ],
+      "verification_commands": [
+        "ruff format --check .",
+        "ruff check .",
+        "pyright",
+        "pytest -q"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P2-003",
+      "phase": "Edge 与 LAMDA",
+      "priority": "P0",
+      "status": "todo",
+      "workstream": "edge",
+      "title": "Edge SQLite WAL Spool 与 Artifact Cache",
+      "objective": "实现“Edge SQLite WAL Spool 与 Artifact Cache”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P2-002"
+      ],
+      "hardware_required": false,
+      "estimate_points": 5,
+      "deliverables": [
+        "Edge SQLite WAL Spool 与 Artifact Cache的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P2-003/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 Edge SQLite WAL Spool 与 Artifact Cache 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。"
+      ],
+      "verification_commands": [
+        "ruff format --check .",
+        "ruff check .",
+        "pyright",
+        "pytest -q"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P2-004",
+      "phase": "Edge 与 LAMDA",
+      "priority": "P0",
+      "status": "todo",
+      "workstream": "lamda",
+      "title": "LAMDA Driver 连接、证书与错误映射",
+      "objective": "实现“LAMDA Driver 连接、证书与错误映射”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P2-001",
+        "P0-011"
+      ],
+      "hardware_required": true,
+      "estimate_points": 8,
+      "deliverables": [
+        "LAMDA Driver 连接、证书与错误映射的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P2-004/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 LAMDA Driver 连接、证书与错误映射 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。",
+        "在授权真机执行，记录设备/Android/LAMDA/目标 App/自动化包版本和证据。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。",
+        "至少一台授权真机完成要求的测试，证据齐全；Mock 结果不代替真机。"
+      ],
+      "verification_commands": [
+        "ruff format --check .",
+        "ruff check .",
+        "pyright",
+        "pytest -q"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256",
+        "device-evidence/device-matrix.json",
+        "device-evidence/screenshots",
+        "device-evidence/logs"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P2-005",
+      "phase": "Edge 与 LAMDA",
+      "priority": "P0",
+      "status": "todo",
+      "workstream": "lamda",
+      "title": "设备 Fencing Lease + LAMDA 60 秒锁",
+      "objective": "实现“设备 Fencing Lease + LAMDA 60 秒锁”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P1-002",
+        "P2-002",
+        "P2-004"
+      ],
+      "hardware_required": true,
+      "estimate_points": 3,
+      "deliverables": [
+        "设备 Fencing Lease + LAMDA 60 秒锁的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P2-005/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 设备 Fencing Lease + LAMDA 60 秒锁 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。",
+        "在授权真机执行，记录设备/Android/LAMDA/目标 App/自动化包版本和证据。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。",
+        "至少一台授权真机完成要求的测试，证据齐全；Mock 结果不代替真机。"
+      ],
+      "verification_commands": [
+        "ruff format --check .",
+        "ruff check .",
+        "pyright",
+        "pytest -q"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256",
+        "device-evidence/device-matrix.json",
+        "device-evidence/screenshots",
+        "device-evidence/logs"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P2-006",
+      "phase": "Edge 与 LAMDA",
+      "priority": "P0",
+      "status": "todo",
+      "workstream": "edge",
+      "title": "设备发现、能力探测与心跳",
+      "objective": "实现“设备发现、能力探测与心跳”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P2-002",
+        "P2-004"
+      ],
+      "hardware_required": true,
+      "estimate_points": 5,
+      "deliverables": [
+        "设备发现、能力探测与心跳的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P2-006/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 设备发现、能力探测与心跳 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。",
+        "在授权真机执行，记录设备/Android/LAMDA/目标 App/自动化包版本和证据。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。",
+        "至少一台授权真机完成要求的测试，证据齐全；Mock 结果不代替真机。"
+      ],
+      "verification_commands": [
+        "ruff format --check .",
+        "ruff check .",
+        "pyright",
+        "pytest -q"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256",
+        "device-evidence/device-matrix.json",
+        "device-evidence/screenshots",
+        "device-evidence/logs"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P2-007",
+      "phase": "Edge 与 LAMDA",
+      "priority": "P0",
+      "status": "todo",
+      "workstream": "edge",
+      "title": "每设备隔离 Runner 与 Supervisor",
+      "objective": "实现“每设备隔离 Runner 与 Supervisor”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P2-003",
+        "P2-005"
+      ],
+      "hardware_required": true,
+      "estimate_points": 5,
+      "deliverables": [
+        "每设备隔离 Runner 与 Supervisor的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P2-007/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 每设备隔离 Runner 与 Supervisor 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。",
+        "在授权真机执行，记录设备/Android/LAMDA/目标 App/自动化包版本和证据。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。",
+        "至少一台授权真机完成要求的测试，证据齐全；Mock 结果不代替真机。"
+      ],
+      "verification_commands": [
+        "ruff format --check .",
+        "ruff check .",
+        "pyright",
+        "pytest -q"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256",
+        "device-evidence/device-matrix.json",
+        "device-evidence/screenshots",
+        "device-evidence/logs"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P2-008",
+      "phase": "Edge 与 LAMDA",
+      "priority": "P0",
+      "status": "todo",
+      "workstream": "automation",
+      "title": "Locator Registry 与 Watcher 生命周期",
+      "objective": "实现“Locator Registry 与 Watcher 生命周期”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P2-004",
+        "P2-007"
+      ],
+      "hardware_required": true,
+      "estimate_points": 8,
+      "deliverables": [
+        "Locator Registry 与 Watcher 生命周期的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P2-008/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 Locator Registry 与 Watcher 生命周期 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。",
+        "在授权真机执行，记录设备/Android/LAMDA/目标 App/自动化包版本和证据。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。",
+        "至少一台授权真机完成要求的测试，证据齐全；Mock 结果不代替真机。"
+      ],
+      "verification_commands": [
+        "ruff format --check .",
+        "ruff check .",
+        "pyright",
+        "pytest -q"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256",
+        "device-evidence/device-matrix.json",
+        "device-evidence/screenshots",
+        "device-evidence/logs"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P2-009",
+      "phase": "Edge 与 LAMDA",
+      "priority": "P0",
+      "status": "todo",
+      "workstream": "edge",
+      "title": "证据采集、断网缓存与上传",
+      "objective": "实现“证据采集、断网缓存与上传”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P1-004",
+        "P2-003",
+        "P2-007"
+      ],
+      "hardware_required": true,
+      "estimate_points": 3,
+      "deliverables": [
+        "证据采集、断网缓存与上传的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P2-009/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 证据采集、断网缓存与上传 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。",
+        "在授权真机执行，记录设备/Android/LAMDA/目标 App/自动化包版本和证据。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。",
+        "至少一台授权真机完成要求的测试，证据齐全；Mock 结果不代替真机。"
+      ],
+      "verification_commands": [
+        "ruff format --check .",
+        "ruff check .",
+        "pyright",
+        "pytest -q"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256",
+        "device-evidence/device-matrix.json",
+        "device-evidence/screenshots",
+        "device-evidence/logs"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P2-010",
+      "phase": "Edge 与 LAMDA",
+      "priority": "P0",
+      "status": "todo",
+      "workstream": "studio",
+      "title": "远程桌面安全代理 MVP",
+      "objective": "实现“远程桌面安全代理 MVP”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P2-002",
+        "P2-004",
+        "P2-005"
+      ],
+      "hardware_required": true,
+      "estimate_points": 5,
+      "deliverables": [
+        "远程桌面安全代理 MVP的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P2-010/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 远程桌面安全代理 MVP 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。",
+        "在授权真机执行，记录设备/Android/LAMDA/目标 App/自动化包版本和证据。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。",
+        "至少一台授权真机完成要求的测试，证据齐全；Mock 结果不代替真机。"
+      ],
+      "verification_commands": [
+        "pnpm --frozen-lockfile lint",
+        "pnpm --frozen-lockfile typecheck",
+        "pnpm --frozen-lockfile test",
+        "pnpm --frozen-lockfile e2e"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256",
+        "device-evidence/device-matrix.json",
+        "device-evidence/screenshots",
+        "device-evidence/logs"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P2-011",
+      "phase": "Edge 与 LAMDA",
+      "priority": "P0",
+      "status": "todo",
+      "workstream": "testing",
+      "title": "真机只读 Smoke 与支持矩阵",
+      "objective": "实现“真机只读 Smoke 与支持矩阵”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P2-006",
+        "P2-008",
+        "P2-009",
+        "P2-010"
+      ],
+      "hardware_required": true,
+      "estimate_points": 5,
+      "deliverables": [
+        "真机只读 Smoke 与支持矩阵的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P2-011/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 真机只读 Smoke 与支持矩阵 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。",
+        "在授权真机执行，记录设备/Android/LAMDA/目标 App/自动化包版本和证据。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。",
+        "至少一台授权真机完成要求的测试，证据齐全；Mock 结果不代替真机。"
+      ],
+      "verification_commands": [
+        "ruff format --check .",
+        "ruff check .",
+        "pyright",
+        "pytest -q"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256",
+        "device-evidence/device-matrix.json",
+        "device-evidence/screenshots",
+        "device-evidence/logs"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P3-001",
+      "phase": "自动化、发布、Studio 与 APK",
+      "priority": "P1",
+      "status": "todo",
+      "workstream": "automation",
+      "title": "Automation Manifest 与 SDK",
+      "objective": "实现“Automation Manifest 与 SDK”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P2-004",
+        "P2-008",
+        "P1-008"
+      ],
+      "hardware_required": false,
+      "estimate_points": 8,
+      "deliverables": [
+        "Automation Manifest 与 SDK的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P3-001/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 Automation Manifest 与 SDK 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。"
+      ],
+      "verification_commands": [
+        "ruff format --check .",
+        "ruff check .",
+        "pyright",
+        "pytest -q"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P3-002",
+      "phase": "自动化、发布、Studio 与 APK",
+      "priority": "P1",
+      "status": "todo",
+      "workstream": "automation",
+      "title": "自动化包 Registry、签名与灰度",
+      "objective": "实现“自动化包 Registry、签名与灰度”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P3-001",
+        "P0-010"
+      ],
+      "hardware_required": false,
+      "estimate_points": 3,
+      "deliverables": [
+        "自动化包 Registry、签名与灰度的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P3-002/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 自动化包 Registry、签名与灰度 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。"
+      ],
+      "verification_commands": [
+        "ruff format --check .",
+        "ruff check .",
+        "pyright",
+        "pytest -q"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P3-003",
+      "phase": "自动化、发布、Studio 与 APK",
+      "priority": "P1",
+      "status": "todo",
+      "workstream": "studio",
+      "title": "Studio 壳与 Monaco 工作区",
+      "objective": "实现“Studio 壳与 Monaco 工作区”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P0-007",
+        "P0-008",
+        "P2-010"
+      ],
+      "hardware_required": false,
+      "estimate_points": 5,
+      "deliverables": [
+        "Studio 壳与 Monaco 工作区的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P3-003/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 Studio 壳与 Monaco 工作区 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。"
+      ],
+      "verification_commands": [
+        "pnpm --frozen-lockfile lint",
+        "pnpm --frozen-lockfile typecheck",
+        "pnpm --frozen-lockfile test",
+        "pnpm --frozen-lockfile e2e"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P3-004",
+      "phase": "自动化、发布、Studio 与 APK",
+      "priority": "P1",
+      "status": "todo",
+      "workstream": "studio",
+      "title": "远控画面/输入与调试会话",
+      "objective": "实现“远控画面/输入与调试会话”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P3-003",
+        "P2-010"
+      ],
+      "hardware_required": true,
+      "estimate_points": 5,
+      "deliverables": [
+        "远控画面/输入与调试会话的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P3-004/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 远控画面/输入与调试会话 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。",
+        "在授权真机执行，记录设备/Android/LAMDA/目标 App/自动化包版本和证据。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。",
+        "至少一台授权真机完成要求的测试，证据齐全；Mock 结果不代替真机。"
+      ],
+      "verification_commands": [
+        "pnpm --frozen-lockfile lint",
+        "pnpm --frozen-lockfile typecheck",
+        "pnpm --frozen-lockfile test",
+        "pnpm --frozen-lockfile e2e"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256",
+        "device-evidence/device-matrix.json",
+        "device-evidence/screenshots",
+        "device-evidence/logs"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P3-005",
+      "phase": "自动化、发布、Studio 与 APK",
+      "priority": "P1",
+      "status": "todo",
+      "workstream": "studio",
+      "title": "UI 树、Selector 与 Locator Lab",
+      "objective": "实现“UI 树、Selector 与 Locator Lab”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P3-003",
+        "P2-008"
+      ],
+      "hardware_required": true,
+      "estimate_points": 8,
+      "deliverables": [
+        "UI 树、Selector 与 Locator Lab的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P3-005/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 UI 树、Selector 与 Locator Lab 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。",
+        "在授权真机执行，记录设备/Android/LAMDA/目标 App/自动化包版本和证据。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。",
+        "至少一台授权真机完成要求的测试，证据齐全；Mock 结果不代替真机。"
+      ],
+      "verification_commands": [
+        "pnpm --frozen-lockfile lint",
+        "pnpm --frozen-lockfile typecheck",
+        "pnpm --frozen-lockfile test",
+        "pnpm --frozen-lockfile e2e"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256",
+        "device-evidence/device-matrix.json",
+        "device-evidence/screenshots",
+        "device-evidence/logs"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P3-006",
+      "phase": "自动化、发布、Studio 与 APK",
+      "priority": "P1",
+      "status": "todo",
+      "workstream": "studio",
+      "title": "步骤 Runner、断点、变量与证据",
+      "objective": "实现“步骤 Runner、断点、变量与证据”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P3-001",
+        "P3-004",
+        "P3-005",
+        "P2-007"
+      ],
+      "hardware_required": true,
+      "estimate_points": 3,
+      "deliverables": [
+        "步骤 Runner、断点、变量与证据的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P3-006/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 步骤 Runner、断点、变量与证据 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。",
+        "在授权真机执行，记录设备/Android/LAMDA/目标 App/自动化包版本和证据。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。",
+        "至少一台授权真机完成要求的测试，证据齐全；Mock 结果不代替真机。"
+      ],
+      "verification_commands": [
+        "pnpm --frozen-lockfile lint",
+        "pnpm --frozen-lockfile typecheck",
+        "pnpm --frozen-lockfile test",
+        "pnpm --frozen-lockfile e2e"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256",
+        "device-evidence/device-matrix.json",
+        "device-evidence/screenshots",
+        "device-evidence/logs"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P3-007",
+      "phase": "自动化、发布、Studio 与 APK",
+      "priority": "P1",
+      "status": "todo",
+      "workstream": "publish",
+      "title": "Temporal 发布 Workflow 与取消",
+      "objective": "实现“Temporal 发布 Workflow 与取消”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P1-008",
+        "P1-010",
+        "P2-005",
+        "P3-002"
+      ],
+      "hardware_required": false,
+      "estimate_points": 5,
+      "deliverables": [
+        "Temporal 发布 Workflow 与取消的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P3-007/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 Temporal 发布 Workflow 与取消 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。"
+      ],
+      "verification_commands": [
+        "ruff format --check .",
+        "ruff check .",
+        "pyright",
+        "pytest -q"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P3-008",
+      "phase": "自动化、发布、Studio 与 APK",
+      "priority": "P1",
+      "status": "todo",
+      "workstream": "publish",
+      "title": "Commit Intent、单次提交与结果对账",
+      "objective": "实现“Commit Intent、单次提交与结果对账”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P3-007",
+        "P2-009"
+      ],
+      "hardware_required": true,
+      "estimate_points": 5,
+      "deliverables": [
+        "Commit Intent、单次提交与结果对账的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P3-008/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 Commit Intent、单次提交与结果对账 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。",
+        "在授权真机执行，记录设备/Android/LAMDA/目标 App/自动化包版本和证据。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。",
+        "至少一台授权真机完成要求的测试，证据齐全；Mock 结果不代替真机。"
+      ],
+      "verification_commands": [
+        "ruff format --check .",
+        "ruff check .",
+        "pyright",
+        "pytest -q"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256",
+        "device-evidence/device-matrix.json",
+        "device-evidence/screenshots",
+        "device-evidence/logs"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P3-009",
+      "phase": "自动化、发布、Studio 与 APK",
+      "priority": "P1",
+      "status": "todo",
+      "workstream": "apk",
+      "title": "APK 入库、静态分析、SBOM 与策略",
+      "objective": "实现“APK 入库、静态分析、SBOM 与策略”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P1-004",
+        "P0-010"
+      ],
+      "hardware_required": false,
+      "estimate_points": 8,
+      "deliverables": [
+        "APK 入库、静态分析、SBOM 与策略的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P3-009/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 APK 入库、静态分析、SBOM 与策略 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。"
+      ],
+      "verification_commands": [
+        "ruff format --check .",
+        "ruff check .",
+        "pyright",
+        "pytest -q"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P3-010",
+      "phase": "自动化、发布、Studio 与 APK",
+      "priority": "P1",
+      "status": "todo",
+      "workstream": "apk",
+      "title": "APK Install Session 与分批 Rollout",
+      "objective": "实现“APK Install Session 与分批 Rollout”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P3-009",
+        "P2-004",
+        "P2-007"
+      ],
+      "hardware_required": true,
+      "estimate_points": 3,
+      "deliverables": [
+        "APK Install Session 与分批 Rollout的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P3-010/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 APK Install Session 与分批 Rollout 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。",
+        "在授权真机执行，记录设备/Android/LAMDA/目标 App/自动化包版本和证据。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。",
+        "至少一台授权真机完成要求的测试，证据齐全；Mock 结果不代替真机。"
+      ],
+      "verification_commands": [
+        "ruff format --check .",
+        "ruff check .",
+        "pyright",
+        "pytest -q"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256",
+        "device-evidence/device-matrix.json",
+        "device-evidence/screenshots",
+        "device-evidence/logs"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P3-011",
+      "phase": "自动化、发布、Studio 与 APK",
+      "priority": "P1",
+      "status": "todo",
+      "workstream": "apk",
+      "title": "APK 验证、暂停与回滚",
+      "objective": "实现“APK 验证、暂停与回滚”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P3-010",
+        "P2-009"
+      ],
+      "hardware_required": true,
+      "estimate_points": 5,
+      "deliverables": [
+        "APK 验证、暂停与回滚的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P3-011/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 APK 验证、暂停与回滚 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。",
+        "在授权真机执行，记录设备/Android/LAMDA/目标 App/自动化包版本和证据。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。",
+        "至少一台授权真机完成要求的测试，证据齐全；Mock 结果不代替真机。"
+      ],
+      "verification_commands": [
+        "ruff format --check .",
+        "ruff check .",
+        "pyright",
+        "pytest -q"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256",
+        "device-evidence/device-matrix.json",
+        "device-evidence/screenshots",
+        "device-evidence/logs"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P3-012",
+      "phase": "自动化、发布、Studio 与 APK",
+      "priority": "P1",
+      "status": "todo",
+      "workstream": "testing",
+      "title": "授权测试账号真机发布验收",
+      "objective": "实现“授权测试账号真机发布验收”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P3-006",
+        "P3-008",
+        "P2-011"
+      ],
+      "hardware_required": true,
+      "estimate_points": 5,
+      "deliverables": [
+        "授权测试账号真机发布验收的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P3-012/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 授权测试账号真机发布验收 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。",
+        "在授权真机执行，记录设备/Android/LAMDA/目标 App/自动化包版本和证据。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。",
+        "至少一台授权真机完成要求的测试，证据齐全；Mock 结果不代替真机。"
+      ],
+      "verification_commands": [
+        "ruff format --check .",
+        "ruff check .",
+        "pyright",
+        "pytest -q"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256",
+        "device-evidence/device-matrix.json",
+        "device-evidence/screenshots",
+        "device-evidence/logs"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P4-001",
+      "phase": "伴生 App、安全与运维",
+      "priority": "P1",
+      "status": "todo",
+      "workstream": "android",
+      "title": "Kotlin Companion 入网与设备绑定",
+      "objective": "实现“Kotlin Companion 入网与设备绑定”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P2-001",
+        "P2-006"
+      ],
+      "hardware_required": true,
+      "estimate_points": 8,
+      "deliverables": [
+        "Kotlin Companion 入网与设备绑定的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P4-001/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 Kotlin Companion 入网与设备绑定 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。",
+        "在授权真机执行，记录设备/Android/LAMDA/目标 App/自动化包版本和证据。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。",
+        "至少一台授权真机完成要求的测试，证据齐全；Mock 结果不代替真机。"
+      ],
+      "verification_commands": [
+        "./gradlew lint testDebugUnitTest",
+        "./gradlew connectedCheck"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256",
+        "device-evidence/device-matrix.json",
+        "device-evidence/screenshots",
+        "device-evidence/logs"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P4-002",
+      "phase": "伴生 App、安全与运维",
+      "priority": "P1",
+      "status": "todo",
+      "workstream": "android",
+      "title": "健康/权限/人工确认/紧急停止/更新",
+      "objective": "实现“健康/权限/人工确认/紧急停止/更新”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P4-001",
+        "P3-007"
+      ],
+      "hardware_required": true,
+      "estimate_points": 3,
+      "deliverables": [
+        "健康/权限/人工确认/紧急停止/更新的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P4-002/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 健康/权限/人工确认/紧急停止/更新 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。",
+        "在授权真机执行，记录设备/Android/LAMDA/目标 App/自动化包版本和证据。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。",
+        "至少一台授权真机完成要求的测试，证据齐全；Mock 结果不代替真机。"
+      ],
+      "verification_commands": [
+        "./gradlew lint testDebugUnitTest",
+        "./gradlew connectedCheck"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256",
+        "device-evidence/device-matrix.json",
+        "device-evidence/screenshots",
+        "device-evidence/logs"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P4-003",
+      "phase": "伴生 App、安全与运维",
+      "priority": "P1",
+      "status": "todo",
+      "workstream": "android",
+      "title": "可选 Android Enterprise DPC Profile",
+      "objective": "实现“可选 Android Enterprise DPC Profile”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P4-001",
+        "P3-010"
+      ],
+      "hardware_required": true,
+      "estimate_points": 5,
+      "deliverables": [
+        "可选 Android Enterprise DPC Profile的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P4-003/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 可选 Android Enterprise DPC Profile 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。",
+        "在授权真机执行，记录设备/Android/LAMDA/目标 App/自动化包版本和证据。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。",
+        "至少一台授权真机完成要求的测试，证据齐全；Mock 结果不代替真机。"
+      ],
+      "verification_commands": [
+        "./gradlew lint testDebugUnitTest",
+        "./gradlew connectedCheck"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256",
+        "device-evidence/device-matrix.json",
+        "device-evidence/screenshots",
+        "device-evidence/logs"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P4-004",
+      "phase": "伴生 App、安全与运维",
+      "priority": "P1",
+      "status": "todo",
+      "workstream": "security",
+      "title": "生产/实验室能力与网络隔离",
+      "objective": "实现“生产/实验室能力与网络隔离”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P0-002",
+        "P2-011",
+        "P3-002"
+      ],
+      "hardware_required": false,
+      "estimate_points": 5,
+      "deliverables": [
+        "生产/实验室能力与网络隔离的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P4-004/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 生产/实验室能力与网络隔离 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。"
+      ],
+      "verification_commands": [
+        "ruff format --check .",
+        "ruff check .",
+        "pyright",
+        "pytest -q"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P4-005",
+      "phase": "伴生 App、安全与运维",
+      "priority": "P1",
+      "status": "todo",
+      "workstream": "devops",
+      "title": "备份、恢复与证书轮换脚本",
+      "objective": "实现“备份、恢复与证书轮换脚本”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P0-003",
+        "P2-001",
+        "P3-011"
+      ],
+      "hardware_required": false,
+      "estimate_points": 8,
+      "deliverables": [
+        "备份、恢复与证书轮换脚本的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P4-005/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 备份、恢复与证书轮换脚本 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。"
+      ],
+      "verification_commands": [
+        "shellcheck scripts/*.sh",
+        "docker compose config",
+        "scripts/smoke-test.sh --dry-run"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P4-006",
+      "phase": "伴生 App、安全与运维",
+      "priority": "P1",
+      "status": "todo",
+      "workstream": "security",
+      "title": "威胁建模与渗透/越权测试",
+      "objective": "实现“威胁建模与渗透/越权测试”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P4-004",
+        "P4-005",
+        "P3-012"
+      ],
+      "hardware_required": false,
+      "estimate_points": 3,
+      "deliverables": [
+        "威胁建模与渗透/越权测试的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P4-006/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 威胁建模与渗透/越权测试 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。"
+      ],
+      "verification_commands": [
+        "ruff format --check .",
+        "ruff check .",
+        "pyright",
+        "pytest -q"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P5-001",
+      "phase": "加固、迁移与上线",
+      "priority": "P2",
+      "status": "todo",
+      "workstream": "performance",
+      "title": "负载、长稳与资源容量测试",
+      "objective": "实现“负载、长稳与资源容量测试”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P3-012",
+        "P4-002"
+      ],
+      "hardware_required": true,
+      "estimate_points": 5,
+      "deliverables": [
+        "负载、长稳与资源容量测试的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P5-001/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 负载、长稳与资源容量测试 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。",
+        "在授权真机执行，记录设备/Android/LAMDA/目标 App/自动化包版本和证据。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。",
+        "至少一台授权真机完成要求的测试，证据齐全；Mock 结果不代替真机。"
+      ],
+      "verification_commands": [
+        "ruff format --check .",
+        "ruff check .",
+        "pyright",
+        "pytest -q"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256",
+        "device-evidence/device-matrix.json",
+        "device-evidence/screenshots",
+        "device-evidence/logs"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P5-002",
+      "phase": "加固、迁移与上线",
+      "priority": "P2",
+      "status": "todo",
+      "workstream": "reliability",
+      "title": "断网/重启/锁丢失/磁盘压力 Chaos",
+      "objective": "实现“断网/重启/锁丢失/磁盘压力 Chaos”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P4-005",
+        "P5-001"
+      ],
+      "hardware_required": true,
+      "estimate_points": 5,
+      "deliverables": [
+        "断网/重启/锁丢失/磁盘压力 Chaos的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P5-002/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 断网/重启/锁丢失/磁盘压力 Chaos 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。",
+        "在授权真机执行，记录设备/Android/LAMDA/目标 App/自动化包版本和证据。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。",
+        "至少一台授权真机完成要求的测试，证据齐全；Mock 结果不代替真机。"
+      ],
+      "verification_commands": [
+        "ruff format --check .",
+        "ruff check .",
+        "pyright",
+        "pytest -q"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256",
+        "device-evidence/device-matrix.json",
+        "device-evidence/screenshots",
+        "device-evidence/logs"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P5-003",
+      "phase": "加固、迁移与上线",
+      "priority": "P2",
+      "status": "todo",
+      "workstream": "testing",
+      "title": "Android/LAMDA/App 兼容矩阵与候选提升",
+      "objective": "实现“Android/LAMDA/App 兼容矩阵与候选提升”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P3-012",
+        "P5-001"
+      ],
+      "hardware_required": true,
+      "estimate_points": 8,
+      "deliverables": [
+        "Android/LAMDA/App 兼容矩阵与候选提升的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P5-003/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 Android/LAMDA/App 兼容矩阵与候选提升 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。",
+        "在授权真机执行，记录设备/Android/LAMDA/目标 App/自动化包版本和证据。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。",
+        "至少一台授权真机完成要求的测试，证据齐全；Mock 结果不代替真机。"
+      ],
+      "verification_commands": [
+        "ruff format --check .",
+        "ruff check .",
+        "pyright",
+        "pytest -q"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256",
+        "device-evidence/device-matrix.json",
+        "device-evidence/screenshots",
+        "device-evidence/logs"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P5-004",
+      "phase": "加固、迁移与上线",
+      "priority": "P2",
+      "status": "todo",
+      "workstream": "observability",
+      "title": "SLO 仪表盘、告警与值班接入",
+      "objective": "实现“SLO 仪表盘、告警与值班接入”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P0-009",
+        "P5-001",
+        "P5-002"
+      ],
+      "hardware_required": false,
+      "estimate_points": 3,
+      "deliverables": [
+        "SLO 仪表盘、告警与值班接入的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P5-004/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 SLO 仪表盘、告警与值班接入 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。"
+      ],
+      "verification_commands": [
+        "ruff format --check .",
+        "ruff check .",
+        "pyright",
+        "pytest -q"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P5-005",
+      "phase": "加固、迁移与上线",
+      "priority": "P2",
+      "status": "todo",
+      "workstream": "operations",
+      "title": "Runbook、灾备演练与审计导出",
+      "objective": "实现“Runbook、灾备演练与审计导出”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P4-005",
+        "P5-002",
+        "P5-004"
+      ],
+      "hardware_required": false,
+      "estimate_points": 5,
+      "deliverables": [
+        "Runbook、灾备演练与审计导出的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P5-005/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 Runbook、灾备演练与审计导出 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。"
+      ],
+      "verification_commands": [
+        "ruff format --check .",
+        "ruff check .",
+        "pyright",
+        "pytest -q"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P5-006",
+      "phase": "加固、迁移与上线",
+      "priority": "P2",
+      "status": "todo",
+      "workstream": "migration",
+      "title": "AutoJS 双轨迁移试点",
+      "objective": "实现“AutoJS 双轨迁移试点”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P3-012",
+        "P4-006",
+        "P5-003"
+      ],
+      "hardware_required": true,
+      "estimate_points": 5,
+      "deliverables": [
+        "AutoJS 双轨迁移试点的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P5-006/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 AutoJS 双轨迁移试点 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。",
+        "在授权真机执行，记录设备/Android/LAMDA/目标 App/自动化包版本和证据。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。",
+        "至少一台授权真机完成要求的测试，证据齐全；Mock 结果不代替真机。"
+      ],
+      "verification_commands": [
+        "ruff format --check .",
+        "ruff check .",
+        "pyright",
+        "pytest -q"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256",
+        "device-evidence/device-matrix.json",
+        "device-evidence/screenshots",
+        "device-evidence/logs"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    },
+    {
+      "id": "P5-007",
+      "phase": "加固、迁移与上线",
+      "priority": "P2",
+      "status": "todo",
+      "workstream": "release",
+      "title": "生产发布门禁、5% 灰度与上线复盘",
+      "objective": "实现“生产发布门禁、5% 灰度与上线复盘”，并使其满足技术架构报告、AGENTS.md、接口合同、安全边界和可观测性要求。",
+      "dependencies": [
+        "P5-003",
+        "P5-004",
+        "P5-005",
+        "P5-006"
+      ],
+      "hardware_required": true,
+      "estimate_points": 8,
+      "deliverables": [
+        "生产发布门禁、5% 灰度与上线复盘的生产代码与配置",
+        "对应单元/合同/集成测试",
+        "错误处理、结构化日志、指标与审计",
+        "相关文档/ADR/运行说明更新"
+      ],
+      "implementation_steps": [
+        "读取依赖任务产物、相关 ADR、OpenAPI/protobuf/schema 和现有测试夹具。",
+        "在 artifacts/tasks/P5-007/summary.md 写实施计划与风险。",
+        "先建立失败测试或合同，明确成功、失败、取消、超时和权限路径。",
+        "实现 生产发布门禁、5% 灰度与上线复盘 的最小完整闭环，不创建绕过架构边界的临时接口。",
+        "补充可观测性、审计、错误目录和安全校验。",
+        "执行 verification_commands，保存输出、截图和 checksums。",
+        "在授权真机执行，记录设备/Android/LAMDA/目标 App/自动化包版本和证据。"
+      ],
+      "acceptance_criteria": [
+        "所有依赖已完成，代码可从干净环境构建。",
+        "成功路径和主要失败/取消/超时路径有自动化测试。",
+        "不泄露 Secret/PEM，不降低 RBAC、租户隔离、签名、审计或设备端口边界。",
+        "API/事件/数据库变更与合同和迁移一致，向后兼容策略明确。",
+        "相关日志、指标和审计可通过 correlation_id/workflow_id/device_id 关联。",
+        "至少一台授权真机完成要求的测试，证据齐全；Mock 结果不代替真机。"
+      ],
+      "verification_commands": [
+        "ruff format --check .",
+        "ruff check .",
+        "pyright",
+        "pytest -q"
+      ],
+      "evidence_required": [
+        "summary.md",
+        "commands.log",
+        "test-results",
+        "checksums.sha256",
+        "device-evidence/device-matrix.json",
+        "device-evidence/screenshots",
+        "device-evidence/logs"
+      ],
+      "agent_notes": "严格遵守 AGENTS.md。不可逆提交不得自动重试；设备相关代码必须经过 lamda-driver；无法获取真机时标 blocked_hardware。"
+    }
+  ]
+}

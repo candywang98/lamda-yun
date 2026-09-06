@@ -1,0 +1,23 @@
+{
+  "acceptanceStatus": "pending_external",
+  "alertCount": 9,
+  "alerts": [
+    "CloudCtlControlApiAvailabilityBurn",
+    "CloudCtlDeviceHeartbeatStale",
+    "CloudCtlEdgeCommandAckSlow",
+    "CloudCtlEdgeSpoolGrowing",
+    "CloudCtlEvidenceIncomplete",
+    "CloudCtlLamdaLockRefreshFailed",
+    "CloudCtlScheduleDeviationHigh",
+    "CloudCtlTelemetryPipelineDown",
+    "CloudCtlUnknownCommitResult"
+  ],
+  "dashboardPanelCount": 7,
+  "evidenceClass": "local_configuration_validation",
+  "externalOnCallReceiverConfigured": false,
+  "generatedAt": "2026-08-31T05:22:09.227505+00:00",
+  "schemaVersion": 1,
+  "softwareStatus": "passed",
+  "taskId": "P5-004",
+  "warning": "Local configuration validation does not prove production metric emission, external page delivery, acknowledgment, or escalation."
+}

@@ -1,0 +1,14 @@
+=== 本地构建 APK ===
+文件大小: Modified
+Sep
+SHA256: f872686ae20c693b321e712a72d40541b269e41888f5e9609bf4e3f8d847cb37
+构建时间: 2026-09-05 19:08:15
+
+=== 设备上的 APK ===
+APK 路径: /data/app/~~huOYyKCGNr3y1E4WGpCFAQ==/com.company.cloudctl.companion-LIQmdJftUuNFeL3Ot8-bOg==/base.apk
+文件大小: Modified
+Sep
+SHA256: f872686ae20c693b321e712a72d40541b269e41888f5e9609bf4e3f8d847cb37
+
+=== 对比结果 ===
+✓ APK 哈希一致，设备上运行的是当前源码构建版本

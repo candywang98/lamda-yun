@@ -1,0 +1,18 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "pending",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P1-010/summary.md",
+    "artifacts/tasks/P1-010/commands.log",
+    "artifacts/tasks/_verification-20260831/python-gates.log",
+    "services/control-api/src/cloudctl_api/operation_service.py",
+    "services/control-api/src/cloudctl_api/services.py",
+    "packages/domain/src/cloudctl_domain/rbac.py",
+    "tests/integration/test_backend_operations.py",
+    "tests/integration/test_backend_control_api.py",
+    "artifacts/runtime/local-acceptance-2026-08-31.json"
+  ],
+  "note": "Software evidence exists for 审批与职责分离流程, but the documented acceptance gap remains unresolved."
+}
+

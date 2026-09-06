@@ -1,0 +1,20 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "pending",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P1-004/summary.md",
+    "artifacts/tasks/P1-004/commands.log",
+    "artifacts/tasks/P1-004/test-results/software-gates.txt",
+    "services/control-api/src/cloudctl_api/media_store.py",
+    "services/control-api/src/cloudctl_api/settings.py",
+    "services/control-api/src/cloudctl_api/app.py",
+    "services/control-api/src/cloudctl_api/db.py",
+    "services/control-api/src/cloudctl_api/routes.py",
+    "services/control-api/src/cloudctl_api/services.py",
+    "services/control-api/migrations/versions/20260831_0004_add_accounts_media_and_content_groups.py",
+    "tests/integration/test_backend_accounts_media_content.py",
+    "tests/security/test_control_api_auth.py"
+  ],
+  "note": "Checksum-bound media upload and derivative orchestration software are implemented. Acceptance awaits deployed S3 and derivative-worker validation with authorized media."
+}

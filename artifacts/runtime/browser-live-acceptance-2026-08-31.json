@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-08-31T12:17:31+08:00",
+  "classification": "mock_only",
+  "hardwareEvidence": false,
+  "browser": {
+    "surface": "Codex In-app Browser",
+    "webUrl": "http://127.0.0.1:5173/",
+    "studioUrl": "http://127.0.0.1:5174/"
+  },
+  "services": {
+    "controlApiUrl": "http://127.0.0.1:8000/",
+    "repositoryMode": "memory"
+  },
+  "checks": {
+    "webLoaded": true,
+    "catalogModules": 15,
+    "catalogOperations": 134,
+    "liveApiBadge": true,
+    "controlApiConnected": true,
+    "pdfSourcePageVisible": true,
+    "originalRouteVisible": true,
+    "pageWorkflowVisible": true,
+    "contentEditorRoleAllowedRevisionValidation": true,
+    "operationCreated": true,
+    "operationListed": true,
+    "operationAuditVisible": true,
+    "studioLoaded": true,
+    "studioUsesPythonAutomationSdk": true,
+    "studioMonacoWorkspaceVisible": true,
+    "studioDisconnectedStateExplicit": true,
+    "webConsoleWarningsOrErrors": 0,
+    "studioConsoleWarningsOrErrors": 0
+  },
+  "operation": {
+    "featureId": "product-management-09",
+    "operationKey": "works.revision.validate",
+    "taskId": "01a05608-1808-7c2b-bf86-9f3d191c7069",
+    "status": "QUEUED",
+    "targetCount": 1,
+    "auditEvent": "operation.task.created"
+  },
+  "limits": [
+    "No Android APK was compiled, signed, installed, upgraded, or rolled back.",
+    "No real LAMDA device transport, frame stream, input, layout, or evidence upload was exercised.",
+    "The Control API used in-memory state and the Studio remained disconnected from a device session."
+  ]
+}

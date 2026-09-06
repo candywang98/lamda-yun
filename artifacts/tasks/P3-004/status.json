@@ -1,0 +1,21 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "blocked_hardware",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P3-004/summary.md",
+    "artifacts/tasks/P3-004/commands.log",
+    "artifacts/tasks/_verification-20260831/python-gates.log",
+    "artifacts/tasks/_verification-20260831/frontend-gates.log",
+    "apps/studio/src/App.vue",
+    "services/control-api/src/cloudctl_api/debug_service.py",
+    "services/edge-hub/src/cloudctl_edge_hub/debug_delivery.py",
+    "apps/studio/tests/live-session.spec.ts",
+    "tests/integration/test_backend_debug_sessions.py",
+    "tests/edge_debug_delivery_test.py",
+    "artifacts/runtime/local-acceptance-2026-08-31.json",
+    "artifacts/runtime/browser-live-acceptance-2026-08-31.json"
+  ],
+  "note": "Software paths exist for 远控画面/输入与调试会话; authorized hardware evidence is absent, so acceptance remains blocked_hardware."
+}
+

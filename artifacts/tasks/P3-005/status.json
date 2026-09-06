@@ -1,0 +1,20 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "blocked_hardware",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P3-005/summary.md",
+    "artifacts/tasks/P3-005/commands.log",
+    "artifacts/tasks/_verification-20260831/python-gates.log",
+    "artifacts/tasks/_verification-20260831/frontend-gates.log",
+    "apps/studio/src/components/MonacoWorkspace.vue",
+    "packages/lamda-driver/src/cloudctl_lamda_driver/locator.py",
+    "packages/lamda-driver/src/cloudctl_lamda_driver/watcher.py",
+    "apps/studio/tests/domain.spec.ts",
+    "tests/edge_lamda_driver_test.py",
+    "artifacts/runtime/local-acceptance-2026-08-31.json",
+    "artifacts/runtime/browser-live-acceptance-2026-08-31.json"
+  ],
+  "note": "Software paths exist for UI 树、Selector 与 Locator Lab; authorized hardware evidence is absent, so acceptance remains blocked_hardware."
+}
+

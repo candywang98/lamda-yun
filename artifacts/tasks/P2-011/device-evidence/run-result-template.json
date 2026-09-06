@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "1.0",
+  "taskId": "P2-011",
+  "source": "DRY_RUN_TEMPLATE",
+  "executionMode": "DRY_RUN",
+  "deviceAttestation": {
+    "physical": false,
+    "emulator": false,
+    "serialHash": "REQUIRED_SHA256"
+  },
+  "execution": {
+    "startedAt": null,
+    "completedAt": null,
+    "correlationId": "REQUIRED",
+    "workflowId": "REQUIRED",
+    "commitIntentId": "NOT_APPLICABLE",
+    "outcome": "PENDING_HARDWARE"
+  },
+  "actions": [
+    {"name": "inventory.read", "mode": "READ_ONLY"},
+    {"name": "screenshot.capture", "mode": "READ_ONLY"},
+    {"name": "ui.dump", "mode": "READ_ONLY"}
+  ],
+  "checks": [
+    {"id": "inventory.read", "status": "PENDING", "evidenceRefs": []},
+    {"id": "no_mutation", "status": "PENDING", "evidenceRefs": []},
+    {"id": "screenshot.capture", "status": "PENDING", "evidenceRefs": []},
+    {"id": "ui.dump", "status": "PENDING", "evidenceRefs": []}
+  ],
+  "evidenceFiles": []
+}

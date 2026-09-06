@@ -1,0 +1,92 @@
+syntax = "proto3";
+package cloudctl.edge.v1;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+
+service EdgeControl {
+  rpc Connect(stream EdgeToCloud) returns (stream CloudToEdge);
+}
+
+message EdgeToCloud {
+  uint64 sequence = 1;
+  oneof body {
+    EdgeHello hello = 10;
+    Heartbeat heartbeat = 11;
+    CommandAck command_ack = 12;
+    TaskEvent task_event = 13;
+    EvidenceReady evidence_ready = 14;
+  }
+}
+
+message CloudToEdge {
+  uint64 sequence = 1;
+  oneof body {
+    CloudHello hello = 10;
+    StartCommand start = 11;
+    CancelCommand cancel = 12;
+    DebugSessionGrant debug_grant = 13;
+    CertificateRevocationUpdate revocations = 14;
+  }
+}
+
+message EdgeHello {
+  string edge_id = 1;
+  string software_version = 2;
+  uint64 last_cloud_sequence_acked = 3;
+}
+message CloudHello { uint64 last_edge_sequence_acked = 1; }
+message Heartbeat {
+  string edge_id = 1;
+  google.protobuf.Timestamp observed_at = 2;
+  repeated DeviceHealth devices = 3;
+}
+message DeviceHealth {
+  string device_id = 1;
+  string state = 2;
+  string android_version = 3;
+  string lamda_version = 4;
+  map<string,string> app_versions = 5;
+  google.protobuf.Struct capabilities = 6;
+}
+message StartCommand {
+  string command_id = 1;
+  string task_run_id = 2;
+  string device_id = 3;
+  string lease_id = 4;
+  uint64 fencing_token = 5;
+  google.protobuf.Timestamp deadline = 6;
+  string command_type = 7;
+  google.protobuf.Struct payload = 8;
+  repeated ArtifactRef artifacts = 9;
+}
+message ArtifactRef { string object_key = 1; string sha256 = 2; int64 size = 3; }
+message CancelCommand { string command_id = 1; string reason = 2; }
+message CommandAck {
+  string command_id = 1;
+  string state = 2; // RECEIVED, STARTED, REJECTED
+  string error_code = 3;
+  string detail = 4;
+}
+message TaskEvent {
+  string command_id = 1;
+  string task_run_id = 2;
+  string step = 3;
+  string state = 4;
+  google.protobuf.Timestamp occurred_at = 5;
+  google.protobuf.Struct attributes = 6;
+}
+message EvidenceReady {
+  string command_id = 1;
+  string evidence_id = 2;
+  string kind = 3;
+  string sha256 = 4;
+  int64 size = 5;
+}
+message DebugSessionGrant {
+  string session_id = 1;
+  string device_id = 2;
+  google.protobuf.Timestamp expires_at = 3;
+  repeated string capabilities = 4;
+}
+message CertificateRevocationUpdate { repeated string revoked_fingerprints = 1; }

@@ -1,0 +1,20 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "blocked_hardware",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P4-002/summary.md",
+    "artifacts/tasks/P4-002/commands.log",
+    "artifacts/tasks/_verification-20260831/python-gates.log",
+    "mobile/companion/app/src/main/java/com/company/cloudctl/companion/CompanionViewModel.kt",
+    "mobile/companion/app/src/main/java/com/company/cloudctl/companion/device/LocalHealthCollector.kt",
+    "mobile/companion/app/src/main/java/com/company/cloudctl/companion/security/UpdateVerifier.kt",
+    "tests/edge_companion_api_test.py",
+    "tests/edge_companion_contract_test.py",
+    "tests/mobile_project_test.py",
+    "artifacts/runtime/local-acceptance-2026-08-31.json",
+    "artifacts/runtime/browser-live-acceptance-2026-08-31.json"
+  ],
+  "note": "Software paths exist for 健康/权限/人工确认/紧急停止/更新; authorized hardware evidence is absent, so acceptance remains blocked_hardware."
+}
+

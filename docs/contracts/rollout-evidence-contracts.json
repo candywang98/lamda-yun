@@ -1,0 +1,146 @@
+{
+  "schemaVersion": "1.0",
+  "validator": "scripts/validate-rollout-evidence.py",
+  "common": {
+    "required": [
+      "schemaVersion",
+      "taskId",
+      "evidenceClass",
+      "executionMode",
+      "hardwareEvidence",
+      "authorization",
+      "automationPackage",
+      "evidenceFiles"
+    ],
+    "constants": {
+      "evidenceClass": "EXTERNAL_AUTHORIZED_HARDWARE",
+      "executionMode": "REAL_DEVICE",
+      "hardwareEvidence": true,
+      "authorization.status": "APPROVED"
+    },
+    "authorizationRequired": [
+      "ticket",
+      "approvedBy",
+      "approvedAt",
+      "expiresAt"
+    ],
+    "automationPackageRequired": [
+      "name",
+      "version",
+      "artifactSha256"
+    ],
+    "environmentRequired": [
+      "physical",
+      "emulator",
+      "serialHash",
+      "model",
+      "androidVersion",
+      "architecture",
+      "rootProfile",
+      "lamdaVersion",
+      "lamdaChannel",
+      "app.packageName",
+      "app.version",
+      "app.signatureSha256"
+    ],
+    "rules": [
+      "All execution timestamps must be timezone-aware and inside the approved authorization window.",
+      "Only physical, non-emulator environments are accepted.",
+      "Every referenced evidence file must exist beside the bundle and match its SHA-256 digest.",
+      "Sample IDs and correlation IDs must be unique across the bundle.",
+      "Private keys, bearer credentials and inline secret assignments are rejected.",
+      "Mock, synthetic, template, dry-run and local-only evidence classes cannot pass."
+    ]
+  },
+  "tasks": {
+    "P5-003": {
+      "required": ["coverage", "matrix", "promotion"],
+      "coverageRequired": [
+        "androidVersions",
+        "lamdaVersions",
+        "appReleases.N",
+        "appReleases.N-1",
+        "minimumSamplesPerTrack",
+        "minimumSoakHours",
+        "maxCandidateFailureRate",
+        "maxFailureRateRegression"
+      ],
+      "matrixCellRequired": [
+        "cellId",
+        "appRelease",
+        "environment",
+        "stable",
+        "candidate",
+        "rollback"
+      ],
+      "rules": [
+        "The matrix must cover every declared Android x LAMDA x App N/N-1 cell exactly once.",
+        "Stable and candidate tracks must both meet the minimum real sample count.",
+        "Candidate soak duration must be at least 72 hours.",
+        "Candidate failure and regression rates must remain within declared thresholds.",
+        "Safety violations and unknown commits must be zero.",
+        "Every cell requires a tested passing rollback before PROMOTE can be approved."
+      ]
+    },
+    "P5-006": {
+      "required": ["policy", "pairs", "rollback", "comparison"],
+      "pairRequired": [
+        "pairId",
+        "scenarioId",
+        "inputSha256",
+        "environment",
+        "baseline",
+        "candidate"
+      ],
+      "trackRequired": [
+        "engine",
+        "scenarioId",
+        "inputSha256",
+        "version",
+        "artifactSha256",
+        "sampleId",
+        "correlationId",
+        "startedAt",
+        "completedAt",
+        "outcome",
+        "durationMs",
+        "safetyViolations",
+        "evidenceRefs"
+      ],
+      "rules": [
+        "Each pair must compare AUTOJS and CLOUDCTL using the same authorized scenario and input digest.",
+        "Candidate failure, outcome regression and p95 duration regression must meet policy thresholds.",
+        "Safety violations and unknown commits must be zero.",
+        "A tested passing rollback and a reviewed MIGRATE decision are required.",
+        "The validator never executes or packages AutoJS; it only reads external results."
+      ]
+    },
+    "P5-007": {
+      "required": [
+        "policy",
+        "release",
+        "gates",
+        "canary",
+        "rollback",
+        "postmortem"
+      ],
+      "requiredReleaseGates": [
+        "artifact.verified",
+        "authorization.approved",
+        "compatibility.approved",
+        "observability.ready",
+        "rollback.ready",
+        "support.ready"
+      ],
+      "rules": [
+        "Selected canary devices must be unique and cannot exceed 5 percent of the eligible population.",
+        "The declared percentage must equal selectedCount / eligiblePopulation.",
+        "Minimum sample and observation-duration thresholds must be met.",
+        "Failure and stable-regression thresholds must be met.",
+        "Safety violations, unknown commits, duplicate irreversible actions and audit gaps must be zero.",
+        "Irreversible actions must bind to the release commitIntentId.",
+        "A tested rollback and completed postmortem/release review are required."
+      ]
+    }
+  }
+}

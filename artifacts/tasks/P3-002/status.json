@@ -1,0 +1,21 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "pending",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P3-002/summary.md",
+    "artifacts/tasks/P3-002/commands.log",
+    "artifacts/tasks/P3-002/test-results/software-gates.txt",
+    "packages/automation-sdk/src/cloudctl_automation_sdk/registry.py",
+    "services/control-api/src/cloudctl_api/services.py",
+    "services/control-api/src/cloudctl_api/routes.py",
+    "services/control-api/src/cloudctl_api/db.py",
+    "services/control-api/migrations/versions/20260831_0005_add_supply_chain_attestations.py",
+    "tests/unit/test_automation_registry.py",
+    "tests/integration/test_backend_control_api.py",
+    "packages/api-contracts/openapi.json",
+    "packages/api-contracts/typescript/src/client.ts",
+    "packages/api-contracts/typescript/src/types.ts"
+  ],
+  "note": "Signed registry and staged rollout software are implemented. Acceptance awaits production trusted keys and live rollout telemetry; no task is marked done from test fixtures alone."
+}

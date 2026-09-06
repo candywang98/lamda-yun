@@ -1,0 +1,19 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "blocked_hardware",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P3-011/summary.md",
+    "artifacts/tasks/P3-011/commands.log",
+    "artifacts/tasks/_verification-20260831/python-gates.log",
+    "artifacts/tasks/_verification-20260831/frontend-gates.log",
+    "packages/lamda-driver/src/cloudctl_lamda_driver/apk.py",
+    "apps/web/src/views/ApkRolloutView.vue",
+    "tests/edge_lamda_driver_test.py",
+    "apps/web/e2e/smoke.spec.ts",
+    "artifacts/runtime/local-acceptance-2026-08-31.json",
+    "artifacts/runtime/browser-live-acceptance-2026-08-31.json"
+  ],
+  "note": "Software paths exist for APK 验证、暂停与回滚; authorized hardware evidence is absent, so acceptance remains blocked_hardware."
+}
+

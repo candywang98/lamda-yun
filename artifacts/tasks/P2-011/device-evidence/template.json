@@ -1,0 +1,61 @@
+{
+  "schemaVersion": "1.0",
+  "taskId": "P2-011",
+  "evidenceKind": "TEMPLATE",
+  "evidenceSource": "TEMPLATE",
+  "hardwareEvidence": false,
+  "authorization": {
+    "ticket": "REQUIRED",
+    "approvedBy": "REQUIRED",
+    "approvedAt": null,
+    "expiresAt": null
+  },
+  "device": {
+    "physical": true,
+    "emulator": false,
+    "serialHash": "REQUIRED_SHA256",
+    "model": "REQUIRED",
+    "androidVersion": "REQUIRED",
+    "lamdaVersion": "REQUIRED",
+    "edgeId": "REQUIRED"
+  },
+  "targetApps": [],
+  "automationPackage": {
+    "name": "REQUIRED",
+    "version": "REQUIRED",
+    "artifactSha256": "REQUIRED_SHA256"
+  },
+  "execution": {
+    "mode": "PENDING_HARDWARE",
+    "startedAt": null,
+    "completedAt": null,
+    "correlationId": "REQUIRED",
+    "workflowId": "REQUIRED",
+    "commitIntentId": "REQUIRED_WHEN_APPLICABLE",
+    "outcome": "PENDING_HARDWARE"
+  },
+  "actions": [],
+  "checks": [
+    {
+      "id": "inventory.read",
+      "status": "PENDING",
+      "evidenceRefs": []
+    },
+    {
+      "id": "no_mutation",
+      "status": "PENDING",
+      "evidenceRefs": []
+    },
+    {
+      "id": "screenshot.capture",
+      "status": "PENDING",
+      "evidenceRefs": []
+    },
+    {
+      "id": "ui.dump",
+      "status": "PENDING",
+      "evidenceRefs": []
+    }
+  ],
+  "evidenceFiles": []
+}

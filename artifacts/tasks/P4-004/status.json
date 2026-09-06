@@ -1,0 +1,17 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "pending",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P4-004/summary.md",
+    "artifacts/tasks/P4-004/commands.log",
+    "artifacts/tasks/_verification-20260831/python-gates.log",
+    "AGENTS.md",
+    "docs/security/threat-model.md",
+    "scripts/check-security-boundaries.sh",
+    "tests/security/test_repository_boundaries.py",
+    "tests/security/test_source_archive.py"
+  ],
+  "note": "Software evidence exists for 生产/实验室能力与网络隔离, but the documented acceptance gap remains unresolved."
+}
+

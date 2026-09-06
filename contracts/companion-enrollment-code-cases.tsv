@@ -1,0 +1,11 @@
+# accepted<TAB>input<TAB>normalized-or-error
+true	ABCD-1234	ABCD-1234
+true	device-code	DEVICE-CODE
+true	ABC123	ABC123
+true	A-B-C-D	A-B-C-D
+false	-ABCDEF	error
+false	ABCDEF-	error
+false	ABC--DEF	error
+false	ABC_DEF	error
+false	ABCDE	error
+false	ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567	error

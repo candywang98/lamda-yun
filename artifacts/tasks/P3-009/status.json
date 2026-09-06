@@ -1,0 +1,21 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "pending",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P3-009/summary.md",
+    "artifacts/tasks/P3-009/commands.log",
+    "artifacts/tasks/P3-009/test-results/software-gates.txt",
+    "services/control-api/src/cloudctl_api/apk_policy.py",
+    "services/control-api/src/cloudctl_api/services.py",
+    "services/control-api/src/cloudctl_api/schemas.py",
+    "services/control-api/src/cloudctl_api/settings.py",
+    "services/control-api/src/cloudctl_api/db.py",
+    "services/control-api/migrations/versions/20260831_0005_add_supply_chain_attestations.py",
+    "tests/unit/test_apk_policy.py",
+    "tests/integration/test_backend_control_api.py",
+    "packages/api-contracts/openapi.json",
+    "packages/api-contracts/typescript/src/types.ts"
+  ],
+  "note": "Signed APK analysis admission, SBOM binding, and policy enforcement are implemented. Acceptance awaits a production analyzer, trusted key, object store, and real APK inputs."
+}

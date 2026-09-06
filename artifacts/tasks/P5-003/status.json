@@ -1,0 +1,16 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "blocked_hardware",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P5-003/summary.md",
+    "artifacts/tasks/P5-003/commands.log",
+    "artifacts/tasks/P5-003/software-gates.txt",
+    "artifacts/tasks/P5-003/checksums.sha256",
+    "scripts/validate-rollout-evidence.py",
+    "tests/ops/test_rollout_evidence.py",
+    "docs/contracts/rollout-evidence-contracts.json",
+    "docs/runbooks/compatibility-candidate-promotion.md"
+  ],
+  "note": "Offline compatibility and promotion evidence validation is implemented and tested. No authorized external hardware bundle exists, so acceptance remains blocked_hardware."
+}

@@ -1,0 +1,14 @@
+{
+  "serialHash": "7eb0f3955d4a946f0aac7d4c340089e69079a706cc95f707cb97ec5cb9f3f5d2",
+  "model": "LE2100",
+  "device": "OnePlus9R",
+  "androidVersion": "14",
+  "sdkLevel": "34",
+  "targetPackage": "com.android.settings",
+  "targetVersionName": "14.0.0",
+  "targetVersionCode": "14000000",
+  "lamdaPackages": [],
+  "lamdaPortListening": false,
+  "lamdaVersion": "UNAVAILABLE",
+  "transport": "ADB_READ_ONLY_DIAGNOSTIC"
+}

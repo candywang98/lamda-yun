@@ -1,0 +1,116 @@
+groups:
+  - name: cloudctl-slo-recording
+    interval: 30s
+    rules:
+      - record: cloudctl:control_api_availability:ratio_5m
+        expr: >-
+          sum(rate(http_request_duration_seconds_count{http_status_code!~"5.."}[5m]))
+          /
+          sum(rate(http_request_duration_seconds_count[5m]))
+      - record: cloudctl:edge_command_ack:p95_seconds_5m
+        expr: >-
+          histogram_quantile(0.95,
+            sum by (le) (rate(command_ack_latency_seconds_bucket[5m])))
+      - record: cloudctl:schedule_deviation:p95_seconds_5m
+        expr: >-
+          histogram_quantile(0.95,
+            sum by (le) (rate(schedule_deviation_seconds_bucket[5m])))
+
+  - name: cloudctl-slo-alerts
+    rules:
+      - alert: CloudCtlControlApiAvailabilityBurn
+        expr: cloudctl:control_api_availability:ratio_5m < 0.999
+        for: 10m
+        labels:
+          severity: page
+          service: control-api
+          slo: availability
+        annotations:
+          summary: Control API availability is below 99.9 percent
+          runbook: docs/runbooks/on-call.md#control-api-availability
+
+      - alert: CloudCtlEdgeCommandAckSlow
+        expr: cloudctl:edge_command_ack:p95_seconds_5m > 2
+        for: 10m
+        labels:
+          severity: page
+          service: edge
+          slo: command-ack
+        annotations:
+          summary: Online Edge command ACK p95 exceeds two seconds
+          runbook: docs/runbooks/on-call.md#edge-command-ack
+
+      - alert: CloudCtlScheduleDeviationHigh
+        expr: cloudctl:schedule_deviation:p95_seconds_5m > 30
+        for: 15m
+        labels:
+          severity: ticket
+          service: scheduler
+          slo: schedule-deviation
+        annotations:
+          summary: Schedule deviation p95 exceeds 30 seconds
+          runbook: docs/runbooks/on-call.md#schedule-deviation
+
+      - alert: CloudCtlDeviceHeartbeatStale
+        expr: device_heartbeat_age_seconds > 60
+        for: 5m
+        labels:
+          severity: page
+          service: edge
+          slo: device-heartbeat
+        annotations:
+          summary: An online device heartbeat is older than 60 seconds
+          runbook: docs/runbooks/on-call.md#device-heartbeat
+
+      - alert: CloudCtlLamdaLockRefreshFailed
+        expr: increase(lamda_lock_refresh_failures_total[5m]) > 0
+        labels:
+          severity: page
+          service: device-runner
+          slo: fencing
+        annotations:
+          summary: A LAMDA device lock refresh failed
+          runbook: docs/runbooks/on-call.md#lease-lock-or-fencing
+
+      - alert: CloudCtlUnknownCommitResult
+        expr: increase(publish_commit_unknown_total[5m]) > 0
+        labels:
+          severity: page
+          service: publish
+          slo: commit-integrity
+        annotations:
+          summary: An irreversible publish has an unknown commit result
+          runbook: docs/runbooks/on-call.md#unknown-commit-result
+
+      - alert: CloudCtlEvidenceIncomplete
+        expr: evidence_completeness_ratio{risk="high"} < 1
+        for: 5m
+        labels:
+          severity: page
+          service: evidence
+          slo: evidence-completeness
+        annotations:
+          summary: High-risk task evidence is incomplete
+          runbook: docs/runbooks/on-call.md#evidence-completeness
+
+      - alert: CloudCtlEdgeSpoolGrowing
+        expr: deriv(edge_spool_bytes[15m]) > 1048576
+        for: 15m
+        labels:
+          severity: ticket
+          service: edge
+          slo: edge-capacity
+        annotations:
+          summary: Edge spool is growing by more than 1 MiB per second
+          runbook: docs/runbooks/on-call.md#edge-spool-and-disk
+
+      - alert: CloudCtlTelemetryPipelineDown
+        expr: absent(up{job="otel-collector"} == 1)
+        for: 5m
+        labels:
+          severity: page
+          service: observability
+          slo: telemetry
+        annotations:
+          summary: Prometheus cannot scrape the OpenTelemetry collector
+          runbook: docs/runbooks/on-call.md#telemetry-pipeline

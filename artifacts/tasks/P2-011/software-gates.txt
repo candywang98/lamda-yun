@@ -1,0 +1,13 @@
+PASS: allowlisted runner contains no install, input, tap, swipe, account, or publish operation.
+PASS: physical LE2100 / Android 14 diagnostic completed with inventory, screenshot, and UI dump.
+PASS: command audit records only operation names and mutatingOperationsExecuted=false.
+PASS: focused runner and evidence suite completed with 43 passing tests.
+PASS: final Python regression completed with 232 passing tests.
+PASS: Ruff and Pyright passed for the changed software and tests.
+PASS: targeted Mypy passed for the offline evidence assembler and tests.
+PASS: acceptance gate rejects ADB_READ_ONLY_DIAGNOSTIC as a substitute for LAMDA_DRIVER.
+PASS: acceptance gate rejects UNAVAILABLE as a LAMDA version.
+BLOCKED: no LAMDA package was detected on the authorized device.
+BLOCKED: LAMDA service port 65000 is not listening.
+BLOCKED: LAMDA SDK/certificate evidence and a complete support matrix are unavailable.
+RESULT: softwareStatus=implemented, acceptanceStatus=blocked_hardware, hardwareEvidence=false.

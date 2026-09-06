@@ -1,0 +1,17 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "pending",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P0-008/summary.md",
+    "artifacts/tasks/P0-008/commands.log",
+    "artifacts/tasks/_verification-20260831/python-gates.log",
+    "artifacts/tasks/_verification-20260831/frontend-gates.log",
+    "packages/api-contracts/openapi.json",
+    "packages/api-contracts/typescript/src/client.ts",
+    "packages/api-contracts/typescript/src/types.ts",
+    "tests/contracts/test_openapi_contract.py"
+  ],
+  "note": "Software evidence exists for OpenAPI 合同与生成客户端, but the documented acceptance gap remains unresolved."
+}
+

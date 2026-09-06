@@ -1,0 +1,8 @@
+Control API database migrations.
+
+Run from the repository root with CLOUDCTL_DATABASE_URL set:
+
+    .venv/bin/alembic -c services/control-api/alembic.ini upgrade head
+
+The URL must use an async SQLAlchemy driver such as postgresql+asyncpg or
+sqlite+aiosqlite.

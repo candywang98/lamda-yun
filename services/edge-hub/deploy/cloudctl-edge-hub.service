@@ -1,0 +1,36 @@
+[Unit]
+Description=CloudCtl mutually authenticated Edge Hub
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=cloudctl-edge-hub
+Group=cloudctl-edge-hub
+WorkingDirectory=/opt/cloudctl-edge-hub/current
+Environment=PYTHONPATH=/opt/cloudctl-edge-hub/current/packages/edge-protocol/src:/opt/cloudctl-edge-hub/current/services/edge-hub/src
+ExecStart=/opt/cloudctl-edge-hub/venv/bin/python -m cloudctl_edge_hub --bind 0.0.0.0:7443 --hub-state-db /var/lib/cloudctl-edge-hub/hub-state.db --server-certificate /etc/cloudctl-edge-hub/tls/server.crt --server-private-key /etc/cloudctl-edge-hub/tls/server.key --client-ca-certificate /etc/cloudctl-edge-hub/tls/client-ca.crt
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=30s
+KillSignal=SIGTERM
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+UMask=0077
+StateDirectory=cloudctl-edge-hub
+StateDirectoryMode=0700
+ReadWritePaths=/var/lib/cloudctl-edge-hub
+
+[Install]
+WantedBy=multi-user.target

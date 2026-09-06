@@ -1,0 +1,8 @@
+PASS: account.authorization, publish.prepare, publish.commit, and publish.reconcile are mandatory.
+PASS: commitIntentId, correlationId, workflowId, and PASSED outcome are mandatory.
+PASS: evidence files are checksum-bound and must exist inside device-evidence.
+PASS: mock, emulator, pending, failed, or incomplete bundles are rejected.
+PASS: template/default and preview modes write no acceptance bundle and keep hardwareEvidence false.
+PASS: final bundle preparation requires AUTHORIZED_EXTERNAL_RUNNER, PHYSICAL_DEVICE, and matching SHA256 serial hashes.
+PASS: bundle metadata and evidence content are rejected when secret or private-key material is detected.
+BLOCKED: no authorized test account and physical device evidence exists.

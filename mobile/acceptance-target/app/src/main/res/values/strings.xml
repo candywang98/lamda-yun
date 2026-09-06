@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">CloudCtl Acceptance Target</string>
+    <string name="status_ready">READY_FOR_CLOUD_TASK</string>
+    <string name="input_hint">Structured input</string>
+    <string name="action_run">Run approved action</string>
+    <string name="result_complete">TASK_COMPLETED</string>
+    <string name="result_empty">TASK_COMPLETED_WITH_EMPTY_INPUT</string>
+</resources>

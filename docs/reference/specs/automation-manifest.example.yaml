@@ -1,0 +1,52 @@
+apiVersion: cloudctl.example/v1
+kind: AutomationPackage
+metadata:
+  name: authorized-content-publisher
+  version: 1.4.2
+  description: Publish authorized content through a target Android app.
+spec:
+  entrypoint: src.entrypoint:run
+  runtime:
+    python: ">=3.12,<3.13"
+    lamda: ">=10.6,<11"
+    android: ">=10,<=17"
+  targets:
+    - packageName: com.example.target
+      versions: ">=12.4,<13"
+  capabilities:
+    required:
+      - ui.selectors
+      - ui.dump
+      - screenshot
+      - app.lifecycle
+      - file.push
+    optional:
+      - ui.watcher
+      - virtual_display
+    forbidden:
+      - shell.arbitrary
+      - adb.remote
+      - frida
+      - mitm
+      - proxy.mutate
+  parametersSchema: schemas/parameters.schema.json
+  locatorBundles:
+    - locators/app-12.4.yaml
+    - locators/app-12.5.yaml
+  timeouts:
+    runSeconds: 900
+    stepSeconds: 60
+    reconciliationSeconds: 180
+  retry:
+    transientAttempts: 3
+    commitAttempts: 1
+  evidence:
+    screenshots: [preflight, before_commit, after_commit, failure]
+    uiDumpOnFailure: true
+    logLevel: INFO
+  submitPolicy:
+    mode: commit-intent-single-shot
+  signature:
+    algorithm: Ed25519
+    keyId: automation-prod-2026-01
+    value: BASE64_SIGNATURE_PLACEHOLDER

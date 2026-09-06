@@ -1,0 +1,72 @@
+
+> cloudctl@0.1.0 test /Users/wangziheng/Desktop/LAMDA云控系统_代码交接包_20260901/cloudctl-source
+> pnpm --recursive --if-present test
+
+Scope: 3 of 4 workspace projects
+packages/api-contracts/typescript test$ tsc -p tsconfig.json --noEmit
+packages/api-contracts/typescript test: Done
+apps/studio test$ vitest run
+apps/web test$ vitest run
+apps/web test:  RUN  v3.2.7 /Users/wangziheng/Desktop/LAMDA云控系统_代码交接包_20260901/cloudctl-source/apps/web
+apps/studio test:  RUN  v3.2.7 /Users/wangziheng/Desktop/LAMDA云控系统_代码交接包_20260901/cloudctl-source/apps/studio
+apps/web test: (node:24398) Warning: `--localstorage-file` was provided without a valid path
+apps/web test: (Use `node --trace-warnings ...` to show where the warning was created)
+apps/web test: (node:24403) Warning: `--localstorage-file` was provided without a valid path
+apps/web test: (Use `node --trace-warnings ...` to show where the warning was created)
+apps/web test: (node:24408) Warning: `--localstorage-file` was provided without a valid path
+apps/web test: (Use `node --trace-warnings ...` to show where the warning was created)
+apps/web test: (node:24404) Warning: `--localstorage-file` was provided without a valid path
+apps/web test: (Use `node --trace-warnings ...` to show where the warning was created)
+apps/web test: (node:24406) Warning: `--localstorage-file` was provided without a valid path
+apps/web test: (Use `node --trace-warnings ...` to show where the warning was created)
+apps/studio test:  ✓ tests/domain.spec.ts (4 tests) 3ms
+apps/studio test:  ✓ tests/relay.spec.ts (6 tests) 8ms
+apps/web test: (node:24400) Warning: `--localstorage-file` was provided without a valid path
+apps/web test: (Use `node --trace-warnings ...` to show where the warning was created)
+apps/web test: (node:24399) Warning: `--localstorage-file` was provided without a valid path
+apps/web test: (Use `node --trace-warnings ...` to show where the warning was created)
+apps/web test: (node:24410) Warning: `--localstorage-file` was provided without a valid path
+apps/web test: (Use `node --trace-warnings ...` to show where the warning was created)
+apps/web test: (node:24401) Warning: `--localstorage-file` was provided without a valid path
+apps/web test: (Use `node --trace-warnings ...` to show where the warning was created)
+apps/web test: (node:24396) Warning: `--localstorage-file` was provided without a valid path
+apps/web test: (Use `node --trace-warnings ...` to show where the warning was created)
+apps/web test:  ✓ tests/mobile-automation-boundary.spec.ts (2 tests) 4ms
+apps/web test:  ✓ tests/session.spec.ts (1 test) 9ms
+apps/web test:  ✓ tests/operations-catalog.spec.ts (6 tests) 13ms
+apps/web test:  ✓ tests/status-badge.spec.ts (2 tests) 75ms
+apps/studio test:  ✓ tests/app.spec.ts (3 tests) 901ms
+apps/studio test:    ✓ Studio workspace > labels the device stream as simulated and creates a short session  426ms
+apps/studio test:  ✓ tests/live-session.spec.ts (3 tests) 1024ms
+apps/studio test:    ✓ Studio live debug session > exchanges and erases the launch code, then audits evidence and revocation  419ms
+apps/studio test:  Test Files  4 passed (4)
+apps/studio test:       Tests  16 passed (16)
+apps/studio test:    Start at  19:49:54
+apps/studio test:    Duration  4.14s (transform 621ms, setup 2.76s, collect 375ms, tests 1.94s, environment 5.04s, prepare 1.04s)
+apps/web test:  ✓ tests/operations-shell.spec.ts (2 tests) 201ms
+apps/web test:  ✓ tests/router.spec.ts (6 tests) 6ms
+apps/web test:  ✓ tests/operations-fail-closed.spec.ts (1 test) 306ms
+apps/web test:    ✓ OperationsView production failure boundary > fails closed instead of falling back to Mock when a configured API fails  305ms
+apps/web test:  ✓ tests/display-settings.spec.ts (2 tests) 663ms
+apps/web test:    ✓ display settings > lists extra panels and persists hidden items  374ms
+apps/studio test: Done
+apps/web test: stderr | tests/operations-live.spec.ts > OperationsView live Control API path > uses Product API for product library, media orchestration, and archive
+apps/web test: [Vue Router warn]: No match found for location with path "/operations"
+apps/web test: (node:24463) Warning: `--localstorage-file` was provided without a valid path
+apps/web test: (Use `node --trace-warnings ...` to show where the warning was created)
+apps/web test:  ✓ tests/operations-live.spec.ts (3 tests) 671ms
+apps/web test:    ✓ OperationsView live Control API path > creates, audits and cancels a real backend task  525ms
+apps/web test:  ✓ tests/operation-parameters.spec.ts (2 tests) 3ms
+apps/web test:  ✓ tests/operations-view.spec.ts (7 tests) 724ms
+apps/web test:    ✓ OperationsView > filters, selects and creates a confirmed mock run  466ms
+apps/web test: (node:24467) Warning: `--localstorage-file` was provided without a valid path
+apps/web test: (Use `node --trace-warnings ...` to show where the warning was created)
+apps/web test:  ✓ tests/devices.spec.ts (5 tests) 4ms
+apps/web test: (node:24468) Warning: `--localstorage-file` was provided without a valid path
+apps/web test: (Use `node --trace-warnings ...` to show where the warning was created)
+apps/web test:  ✓ tests/operation-workbenches.spec.ts (1 test) 2ms
+apps/web test:  Test Files  13 passed (13)
+apps/web test:       Tests  40 passed (40)
+apps/web test:    Start at  19:49:54
+apps/web test:    Duration  5.11s (transform 2.59s, setup 7.20s, collect 10.23s, tests 2.68s, environment 14.74s, prepare 2.83s)
+apps/web test: Done

@@ -1,0 +1,29 @@
+{
+  "acceptanceStatus": "blocked_hardware",
+  "checks": {
+    "diskPressure": {
+      "detail": "SQLITE_FULL observed; committed sentinel survived and integrity_check=ok",
+      "insertedBeforeFailure": 29,
+      "status": "passed"
+    },
+    "edgeRestart": {
+      "detail": "STARTED command state survived close and reopen",
+      "status": "passed"
+    },
+    "leaseLoss": {
+      "detail": "higher fencing token invalidated the previous lease",
+      "status": "passed"
+    },
+    "networkOutage": {
+      "detail": "25 outbound events persisted offline and replayed in order",
+      "status": "passed"
+    }
+  },
+  "evidenceClass": "local_synthetic_chaos",
+  "generatedAt": "2026-08-31T05:13:32.623901+00:00",
+  "hardwareEvidence": false,
+  "schemaVersion": 1,
+  "softwareStatus": "passed",
+  "taskId": "P5-002",
+  "warning": "These bounded local checks do not inject faults into an authorized device, LAMDA session, production network, PostgreSQL, Temporal, or object store."
+}

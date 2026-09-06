@@ -1,0 +1,24 @@
+
+> cloudctl@0.1.0 lint /Users/wangziheng/Desktop/LAMDA云控系统_代码交接包_20260901/cloudctl-source
+> pnpm --recursive --if-present lint
+
+Scope: 3 of 4 workspace projects
+packages/api-contracts/typescript lint$ tsc -p tsconfig.json --noEmit
+packages/api-contracts/typescript lint: Done
+apps/studio lint$ eslint .
+apps/web lint$ eslint .
+apps/web lint: /Users/wangziheng/Desktop/LAMDA云控系统_代码交接包_20260901/cloudctl-source/apps/web/src/stores/session.ts
+apps/web lint:   10:16  error  '_permission' is defined but never used  @typescript-eslint/no-unused-vars
+apps/web lint: /Users/wangziheng/Desktop/LAMDA云控系统_代码交接包_20260901/cloudctl-source/apps/web/src/views/OperationsView.vue
+apps/web lint:    22:58  error  'operationsCatalog' is defined but never used         @typescript-eslint/no-unused-vars
+apps/web lint:   199:7   error  'productRevision' is assigned a value but never used  @typescript-eslint/no-unused-vars
+apps/web lint:   242:7   error  'guideSteps' is assigned a value but never used       @typescript-eslint/no-unused-vars
+apps/web lint: /Users/wangziheng/Desktop/LAMDA云控系统_代码交接包_20260901/cloudctl-source/apps/web/tests/operations-live.spec.ts
+apps/web lint:   7:40  error  'product' is assigned a value but never used  @typescript-eslint/no-unused-vars
+apps/web lint: ✖ 5 problems (5 errors, 0 warnings)
+apps/web lint: Failed
+/Users/wangziheng/Desktop/LAMDA云控系统_代码交接包_20260901/cloudctl-source/apps/web:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @cloudctl/web@0.1.0 lint: `eslint .`
+Exit status 1
+apps/studio lint: Done
+ ELIFECYCLE  Command failed with exit code 1.

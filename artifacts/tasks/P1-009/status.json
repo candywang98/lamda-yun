@@ -1,0 +1,18 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "pending",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P1-009/summary.md",
+    "artifacts/tasks/P1-009/commands.log",
+    "artifacts/tasks/_verification-20260831/frontend-gates.log",
+    "apps/web/src/views/TasksView.vue",
+    "apps/web/src/views/TaskDetailView.vue",
+    "apps/web/src/views/OperationsView.vue",
+    "apps/web/tests/router.spec.ts",
+    "apps/web/tests/operations-live.spec.ts",
+    "apps/web/e2e/smoke.spec.ts"
+  ],
+  "note": "Software evidence exists for 任务队列与运行详情 UI, but the documented acceptance gap remains unresolved."
+}
+

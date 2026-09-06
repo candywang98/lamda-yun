@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "1.0",
+  "transport": "ADB_READ_ONLY_DIAGNOSTIC",
+  "operations": [
+    "devices.list",
+    "inventory.ro.product.model",
+    "inventory.ro.build.version.release",
+    "inventory.ro.build.version.sdk",
+    "inventory.ro.product.device",
+    "target.package.inspect",
+    "lamda.package.detect",
+    "lamda.port.detect",
+    "screenshot.capture",
+    "ui.dump"
+  ],
+  "mutatingOperationsExecuted": false,
+  "rawCommandArgumentsRecorded": false
+}

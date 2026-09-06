@@ -1,0 +1,19 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "pending",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P0-007/summary.md",
+    "artifacts/tasks/P0-007/commands.log",
+    "artifacts/tasks/_verification-20260831/frontend-gates.log",
+    "apps/web/src/App.vue",
+    "apps/web/src/components/AppShell.vue",
+    "apps/web/src/router.ts",
+    "apps/web/src/styles.css",
+    "apps/web/tests/router.spec.ts",
+    "apps/web/tests/status-badge.spec.ts",
+    "apps/web/e2e/smoke.spec.ts"
+  ],
+  "note": "Software evidence exists for Vue Web 壳与设计系统, but the documented acceptance gap remains unresolved."
+}
+

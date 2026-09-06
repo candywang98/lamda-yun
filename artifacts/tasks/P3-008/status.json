@@ -1,0 +1,19 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "blocked_hardware",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P3-008/summary.md",
+    "artifacts/tasks/P3-008/commands.log",
+    "artifacts/tasks/_verification-20260831/python-gates.log",
+    "services/temporal-worker/src/cloudctl_worker/workflows.py",
+    "services/temporal-worker/src/cloudctl_worker/activities.py",
+    "services/control-api/src/cloudctl_api/services.py",
+    "tests/replay/test_backend_workflow_replay_safety.py",
+    "tests/integration/test_backend_control_api.py",
+    "artifacts/runtime/local-acceptance-2026-08-31.json",
+    "artifacts/runtime/browser-live-acceptance-2026-08-31.json"
+  ],
+  "note": "Software paths exist for Commit Intent、单次提交与结果对账; authorized hardware evidence is absent, so acceptance remains blocked_hardware."
+}
+

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">CloudCtl Device Policy</string>
+    <string name="device_admin_description">Manages company-owned dedicated CloudCtl devices.</string>
+</resources>
+

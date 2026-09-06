@@ -1,0 +1,16 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "pending",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P2-003/summary.md",
+    "artifacts/tasks/P2-003/commands.log",
+    "artifacts/tasks/_verification-20260831/python-gates.log",
+    "edge/gateway/src/cloudctl_edge/spool.py",
+    "edge/gateway/src/cloudctl_edge/cache.py",
+    "tests/edge_spool_test.py",
+    "tests/edge_runtime_test.py"
+  ],
+  "note": "Software evidence exists for Edge SQLite WAL Spool 与 Artifact Cache, but the documented acceptance gap remains unresolved."
+}
+

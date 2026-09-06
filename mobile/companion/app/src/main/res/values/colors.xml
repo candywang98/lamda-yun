@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="cloudctl_green">#176B53</color>
+    <color name="cloudctl_ink">#18201E</color>
+    <color name="cloudctl_surface">#F7F9F8</color>
+</resources>
+

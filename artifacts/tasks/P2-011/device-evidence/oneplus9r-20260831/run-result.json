@@ -1,0 +1,81 @@
+{
+  "schemaVersion": "1.0",
+  "taskId": "P2-011",
+  "source": "AUTHORIZED_EXTERNAL_RUNNER",
+  "executionMode": "PHYSICAL_DEVICE",
+  "diagnosticOnly": true,
+  "hardwareEvidence": false,
+  "acceptanceStatus": "blocked_hardware",
+  "deviceAttestation": {
+    "physical": true,
+    "emulator": false,
+    "serialHash": "7eb0f3955d4a946f0aac7d4c340089e69079a706cc95f707cb97ec5cb9f3f5d2",
+    "model": "LE2100"
+  },
+  "execution": {
+    "mode": "READ_ONLY_DIAGNOSTIC",
+    "startedAt": "2026-08-31T07:33:17.987621+00:00",
+    "completedAt": "2026-08-31T07:33:22.599361+00:00",
+    "correlationId": "p2-011-20260831T073317Z",
+    "workflowId": "p2-011-readonly-diagnostic",
+    "commitIntentId": "NOT_APPLICABLE",
+    "outcome": "PASSED",
+    "transport": "ADB_READ_ONLY_DIAGNOSTIC"
+  },
+  "actions": [
+    {
+      "name": "inventory.read",
+      "mode": "READ_ONLY"
+    },
+    {
+      "name": "screenshot.capture",
+      "mode": "READ_ONLY"
+    },
+    {
+      "name": "ui.dump",
+      "mode": "READ_ONLY"
+    }
+  ],
+  "checks": [
+    {
+      "id": "inventory.read",
+      "status": "PASS",
+      "evidenceRefs": [
+        "inventory.json"
+      ]
+    },
+    {
+      "id": "screenshot.capture",
+      "status": "PASS",
+      "evidenceRefs": [
+        "screenshot.png"
+      ]
+    },
+    {
+      "id": "ui.dump",
+      "status": "PASS",
+      "evidenceRefs": [
+        "ui.xml"
+      ]
+    },
+    {
+      "id": "no_mutation",
+      "status": "PASS",
+      "evidenceRefs": [
+        "command-audit.json"
+      ]
+    }
+  ],
+  "evidenceFiles": [
+    "inventory.json",
+    "screenshot.png",
+    "ui.xml",
+    "command-audit.json"
+  ],
+  "acceptanceReady": false,
+  "blockers": [
+    "No LAMDA package was detected on the authorized device",
+    "LAMDA service port 65000 is not listening on the authorized device",
+    "LAMDA SDK version is unavailable to the ADB diagnostic"
+  ]
+}

@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-31T04:09:07.754336+00:00",
+  "status": "passed",
+  "requestedComponent": "all",
+  "evidenceClass": "mock_only",
+  "hardwareEvidence": false,
+  "warning": "This report proves local process and HTTP contract behavior only. It is not evidence of an APK build, APK installation, a real LAMDA session, or authorized device control.",
+  "checks": [
+    {
+      "component": "edge-gateway",
+      "check": "network-free startup check",
+      "status": "passed",
+      "detail": "cloudctl_edge --check imported the composed runtime without network or hardware access"
+    },
+    {
+      "component": "control-api",
+      "check": "health",
+      "status": "passed",
+      "detail": "live and ready endpoints passed in memory mode"
+    },
+    {
+      "component": "control-api",
+      "check": "OpenAPI surface",
+      "status": "passed",
+      "detail": "14 required paths found"
+    },
+    {
+      "component": "control-api",
+      "check": "15 modules and 134 features",
+      "status": "passed",
+      "detail": "catalog=15, features=134, policies={'blocked': 22, 'mapped': 16, 'unmapped': 96}, localExecutors=['publish_plans.snapshot.validate', 'works.revision.validate']"
+    },
+    {
+      "component": "control-api",
+      "check": "operation create/list/get/cancel/audit",
+      "status": "passed",
+      "detail": "queued task was discoverable, canceled, and returned durable audit events"
+    },
+    {
+      "component": "control-api",
+      "check": "operation approval separation",
+      "status": "passed",
+      "detail": "self-approval was denied and an independent MFA approver released the task"
+    },
+    {
+      "component": "control-api",
+      "check": "debug session lifecycle",
+      "status": "passed",
+      "detail": "create/exchange/get/heartbeat/evidence/revoke passed; code replay and late heartbeat denied"
+    },
+    {
+      "component": "companion-api",
+      "check": "enrollment, health, and snapshot",
+      "status": "passed",
+      "detail": "one-time enrollment, device-bound auth, health upload, task and confirmation snapshot passed"
+    },
+    {
+      "component": "companion-api",
+      "check": "confirmation and emergency stop",
+      "status": "passed",
+      "detail": "approved confirmation and emergency stop were recorded through the mock supervisor"
+    }
+  ]
+}

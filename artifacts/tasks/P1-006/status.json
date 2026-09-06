@@ -1,0 +1,18 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "pending",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P1-006/summary.md",
+    "artifacts/tasks/P1-006/commands.log",
+    "artifacts/tasks/_verification-20260831/frontend-gates.log",
+    "apps/web/src/views/WorkEditorView.vue",
+    "apps/web/src/views/WatermarksView.vue",
+    "apps/web/src/views/OperationsView.vue",
+    "apps/web/tests/router.spec.ts",
+    "apps/web/tests/operations-view.spec.ts",
+    "apps/web/e2e/smoke.spec.ts"
+  ],
+  "note": "Software evidence exists for 作品编辑器与水印预览, but the documented acceptance gap remains unresolved."
+}
+

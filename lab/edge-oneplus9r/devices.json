@@ -1,0 +1,10 @@
+{
+  "devices": [
+    {
+      "deviceId": "oneplus9r-b0644fb5",
+      "host": "127.0.0.1",
+      "certificatePath": "/mnt/d/android-tools/cloudctl-pki/seoul-20260901/ca.crt",
+      "allowedPackages": []
+    }
+  ]
+}

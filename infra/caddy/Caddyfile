@@ -1,0 +1,35 @@
+{
+  auto_https off
+  servers {
+    metrics
+  }
+}
+
+:8080 {
+  encode zstd gzip
+
+  @api path /api/* /health/* /metrics
+  reverse_proxy @api control-api:8000
+
+  @events path /events/*
+  reverse_proxy @events control-api:8000 {
+    flush_interval -1
+  }
+
+  @edge path /edge/*
+  reverse_proxy @edge edge-hub:7443 {
+    transport http {
+      versions h2c
+    }
+  }
+
+  reverse_proxy web:80
+
+  header {
+    X-Content-Type-Options nosniff
+    X-Frame-Options DENY
+    Referrer-Policy no-referrer
+    Permissions-Policy "camera=(), microphone=(), geolocation=()"
+  }
+}
+

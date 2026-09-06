@@ -1,0 +1,15 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "pending",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P4-006/summary.md",
+    "artifacts/tasks/P4-006/commands.log",
+    "artifacts/tasks/P4-006/checksums.sha256",
+    "artifacts/tasks/P4-006/test-results.json",
+    "docs/security/threat-model.md",
+    "scripts/security-acceptance.py",
+    "tests/security/test_penetration_authorization.py"
+  ],
+  "note": "Local threat-model and authorization testing is implemented; independent production penetration, identity, network, and certificate validation remains pending."
+}

@@ -1,0 +1,160 @@
+<script setup lang="ts">
+import { computed, onMounted, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { controlApiConfigured, createControlApiClient } from '@/api/control'
+import { mapControlDevice } from '@/api/devices'
+import {
+  deviceLabel,
+  emptyListingCollectConfig,
+  loadListingCollectConfig,
+  recordListingCollectTask,
+  saveListingCollectConfig,
+  type ListingCollectDevice,
+} from '@/data/listing-info-collect'
+
+const router = useRouter()
+const form = reactive(emptyListingCollectConfig())
+const devices = ref<ListingCollectDevice[]>([])
+const errorMessage = ref('')
+const successMessage = ref('')
+
+const selectedCount = computed(() => form.deviceIds.filter((id) => devices.value.some((item) => item.id === id)).length)
+const selectedDevices = computed(() => devices.value.filter((item) => form.deviceIds.includes(item.id)))
+
+async function loadDevices() {
+  if (!controlApiConfigured) {
+    devices.value = []
+    return
+  }
+  try {
+    const api = createControlApiClient()
+    devices.value = (await api.devices()).map((item) => {
+      const mapped = mapControlDevice(item)
+      const account = mapped.account && mapped.account !== '通过账号 API 查看' ? mapped.account : ''
+      return { id: mapped.id, name: mapped.name, account, online: mapped.presence === 'ONLINE' }
+    })
+  } catch {
+    devices.value = []
+  }
+}
+
+function toggleDevice(id: string) {
+  form.deviceIds = form.deviceIds.includes(id)
+    ? form.deviceIds.filter((item) => item !== id)
+    : [...form.deviceIds, id]
+}
+
+function selectAllDevices() {
+  const ids = devices.value.map((item) => item.id)
+  form.deviceIds = form.deviceIds.length === ids.length ? [] : ids
+}
+
+function selectOnlineDevices() {
+  form.deviceIds = devices.value.filter((item) => item.online).map((item) => item.id)
+}
+
+function saveConfig() {
+  saveListingCollectConfig(form)
+  errorMessage.value = ''
+  successMessage.value = '配置已保存到当前浏览器'
+}
+
+function createTask() {
+  errorMessage.value = ''
+  successMessage.value = ''
+  if (form.deviceIds.length === 0) {
+    errorMessage.value = '请先选择执行设备'
+    return
+  }
+  saveListingCollectConfig(form)
+  recordListingCollectTask(form)
+  successMessage.value = `已保存采集计划，覆盖 ${selectedDevices.value.length} 台设备。不会登录闲鱼抓取曝光浏览数据。采集结果可在统计分析 → 宝贝流量变化查看。`
+}
+
+onMounted(async () => {
+  Object.assign(form, loadListingCollectConfig())
+  await loadDevices()
+  form.deviceIds = form.deviceIds.filter((id) => devices.value.some((item) => item.id === id))
+})
+</script>
+
+<template>
+  <section class="page">
+    <div class="card">
+      <h2>宝贝信息</h2>
+      <div class="row top">
+        <span class="label">执行设备</span>
+        <div>
+          <div v-if="devices.length === 0" class="hint">当前没有已接入设备。接入 Companion 后会出现在这里。</div>
+          <label v-for="device in devices" :key="device.id" class="chip">
+            <input type="checkbox" :checked="form.deviceIds.includes(device.id)" @change="toggleDevice(device.id)" />
+            {{ deviceLabel(device) }}
+            <small :class="device.online ? 'on' : 'off'">{{ device.online ? '在线' : '离线' }}</small>
+          </label>
+          <div class="links">
+            <button type="button" @click="selectAllDevices">全选/反选设备</button>
+            <button type="button" @click="selectOnlineDevices">全选在线设备</button>
+            <button type="button" @click="form.deviceIds = []">全部取消选择</button>
+            <span class="count">{{ selectedCount }}</span>
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <span class="label">执行应用</span>
+        <div>
+          <label class="radio" for="listing-app-main"><input id="listing-app-main" v-model="form.app" type="radio" value="main" /> 主闲鱼</label>
+          <label class="radio" for="listing-app-sub"><input id="listing-app-sub" v-model="form.app" type="radio" value="sub" /> 副闲鱼</label>
+          <label class="radio" for="listing-app-both"><input id="listing-app-both" v-model="form.app" type="radio" value="main-then-sub" /> 先主后副</label>
+        </div>
+      </div>
+      <div class="row">
+        <label class="label" for="listing-schedule">执行时间</label>
+        <select id="listing-schedule" v-model="form.schedule">
+          <option>立即执行</option>
+        </select>
+      </div>
+      <p v-if="errorMessage" class="flash error">{{ errorMessage }}</p>
+      <p v-if="successMessage" class="flash ok">{{ successMessage }}</p>
+      <div class="footer">
+        <button class="primary" type="button" @click="createTask">创建任务</button>
+        <button class="primary" type="button" @click="saveConfig">保存配置</button>
+      </div>
+    </div>
+    <div class="help">
+      <h3>使用说明</h3>
+      <ol>
+        <li>该任务用来采集您闲鱼的宝贝信息如：宝贝标题、曝光量、浏览量、想要数，采集后可在 <button class="link" type="button" @click="router.push('/operations/analytics/analytics-02')">统计分析-&gt;宝贝流量变化</button> 查看数据</li>
+        <li>请勿发布相同标题的宝贝，相同标题的宝贝系统仅统计一个</li>
+        <li>仅当设备在线时，才能创建定时执行任务和每天重复执行的任务</li>
+      </ol>
+    </div>
+  </section>
+</template>
+
+<style scoped>
+.page { display: grid; gap: 10px; color: #334155; }
+.card, .help { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; }
+.card { padding: 16px 18px 20px; display: grid; gap: 16px; }
+h2 { margin: 0; font-size: 15px; }
+.row { display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: 12px; align-items: center; }
+.row.top { align-items: start; }
+.label { color: #64748b; font-size: 13px; padding-top: 6px; }
+select { width: min(280px, 100%); height: 34px; padding: 0 10px; border: 1px solid #d1d5db; border-radius: 4px; font: inherit; }
+.radio, .chip { display: inline-flex; align-items: center; gap: 6px; margin: 0 12px 8px 0; }
+.chip { padding: 4px 8px; border: 1px solid #e5e7eb; border-radius: 6px; }
+.chip small { padding: 0 6px; border-radius: 4px; font-size: 11px; background: #f1f5f9; }
+.chip small.on { background: #dcfce7; color: #166534; }
+.chip small.off { color: #64748b; }
+.links { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 6px; color: #0f766e; font-size: 13px; }
+.links button, .link { border: 0; background: none; color: #0f766e; padding: 0; }
+.count { min-width: 22px; height: 22px; padding: 0 6px; border-radius: 4px; background: #f1f5f9; color: #334155; text-align: center; }
+.hint { color: #94a3b8; font-size: 12px; }
+.footer { padding-left: 100px; display: flex; gap: 10px; }
+.primary { height: 34px; padding: 0 16px; border: 0; border-radius: 4px; background: #0f766e; color: #fff; }
+.flash { margin: 0; padding-left: 100px; font-size: 13px; }
+.flash.error { color: #b91c1c; }
+.flash.ok { color: #166534; }
+.help { padding: 12px 14px 16px; }
+.help h3 { margin: 0 0 8px; font-size: 14px; }
+.help ol { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.8; }
+</style>

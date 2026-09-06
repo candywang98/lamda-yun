@@ -1,0 +1,18 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "blocked_hardware",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P2-008/summary.md",
+    "artifacts/tasks/P2-008/commands.log",
+    "artifacts/tasks/_verification-20260831/python-gates.log",
+    "packages/lamda-driver/src/cloudctl_lamda_driver/locator.py",
+    "packages/lamda-driver/src/cloudctl_lamda_driver/watcher.py",
+    "tests/edge_lamda_driver_test.py",
+    "tests/unit/test_automation_sdk_inputs.py",
+    "artifacts/runtime/local-acceptance-2026-08-31.json",
+    "artifacts/runtime/browser-live-acceptance-2026-08-31.json"
+  ],
+  "note": "Software paths exist for Locator Registry 与 Watcher 生命周期; authorized hardware evidence is absent, so acceptance remains blocked_hardware."
+}
+

@@ -1,0 +1,81 @@
+{
+  "annotations": {"list": []},
+  "editable": false,
+  "panels": [
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"max": 1, "min": 0, "unit": "percentunit"}},
+      "gridPos": {"h": 8, "w": 6, "x": 0, "y": 0},
+      "id": 1,
+      "targets": [{"expr": "cloudctl:control_api_availability:ratio_5m", "refId": "A"}],
+      "title": "Control API availability",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "s"}},
+      "gridPos": {"h": 8, "w": 6, "x": 6, "y": 0},
+      "id": 2,
+      "targets": [{"expr": "cloudctl:edge_command_ack:p95_seconds_5m", "refId": "A"}],
+      "title": "Edge command ACK p95",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "s"}},
+      "gridPos": {"h": 8, "w": 6, "x": 12, "y": 0},
+      "id": 3,
+      "targets": [{"expr": "cloudctl:schedule_deviation:p95_seconds_5m", "refId": "A"}],
+      "title": "Schedule deviation p95",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "s"}},
+      "gridPos": {"h": 8, "w": 6, "x": 18, "y": 0},
+      "id": 4,
+      "targets": [{"expr": "max(device_heartbeat_age_seconds)", "refId": "A"}],
+      "title": "Oldest device heartbeat",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "bytes"}},
+      "gridPos": {"h": 9, "w": 8, "x": 0, "y": 8},
+      "id": 5,
+      "targets": [{"expr": "sum by (edge_id) (edge_spool_bytes)", "refId": "A"}],
+      "title": "Edge spool bytes",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "percentunit"}},
+      "gridPos": {"h": 9, "w": 8, "x": 8, "y": 8},
+      "id": 6,
+      "targets": [{"expr": "min(evidence_completeness_ratio{risk=\"high\"})", "refId": "A"}],
+      "title": "High-risk evidence completeness",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {}},
+      "gridPos": {"h": 9, "w": 8, "x": 16, "y": 8},
+      "id": 7,
+      "targets": [
+        {"expr": "increase(lamda_lock_refresh_failures_total[1h])", "legendFormat": "lock refresh failures", "refId": "A"},
+        {"expr": "increase(publish_commit_unknown_total[1h])", "legendFormat": "unknown commits", "refId": "B"}
+      ],
+      "title": "Integrity failures",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["cloudctl", "slo", "operations"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timezone": "browser",
+  "title": "CloudCtl SLO and Operations",
+  "uid": "cloudctl-slo",
+  "version": 1
+}

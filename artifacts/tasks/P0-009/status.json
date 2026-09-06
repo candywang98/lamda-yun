@@ -1,0 +1,16 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "pending",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P0-009/summary.md",
+    "artifacts/tasks/P0-009/commands.log",
+    "artifacts/tasks/_verification-20260831/python-gates.log",
+    "packages/observability/src/cloudctl_observability/context.py",
+    "packages/observability/src/cloudctl_observability/logging.py",
+    "infra/otel/collector.yaml",
+    "infra/otel/prometheus.yml"
+  ],
+  "note": "Software evidence exists for OpenTelemetry 基线, but the documented acceptance gap remains unresolved."
+}
+

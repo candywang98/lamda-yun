@@ -1,0 +1,19 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "pending",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P1-003/summary.md",
+    "artifacts/tasks/P1-003/commands.log",
+    "artifacts/tasks/P1-003/test-results/software-gates.txt",
+    "services/control-api/src/cloudctl_api/db.py",
+    "services/control-api/src/cloudctl_api/schemas.py",
+    "services/control-api/src/cloudctl_api/routes.py",
+    "services/control-api/src/cloudctl_api/services.py",
+    "services/control-api/migrations/versions/20260831_0004_add_accounts_media_and_content_groups.py",
+    "tests/integration/test_backend_accounts_media_content.py",
+    "tests/integration/test_backend_control_api.py",
+    "tests/security/test_penetration_authorization.py"
+  ],
+  "note": "Tenant-scoped account authorization and device binding software are implemented. Acceptance awaits an authorized external platform account and production adapter health verification."
+}

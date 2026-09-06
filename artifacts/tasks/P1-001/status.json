@@ -1,0 +1,17 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "pending",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P1-001/summary.md",
+    "artifacts/tasks/P1-001/commands.log",
+    "artifacts/tasks/_verification-20260831/python-gates.log",
+    "services/control-api/src/cloudctl_api/routes.py",
+    "services/control-api/src/cloudctl_api/services.py",
+    "services/control-api/src/cloudctl_api/repository.py",
+    "tests/integration/test_backend_control_api.py",
+    "tests/security/test_control_api_auth.py"
+  ],
+  "note": "Software evidence exists for 租户、用户与审计模块, but the documented acceptance gap remains unresolved."
+}
+

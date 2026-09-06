@@ -1,0 +1,24 @@
+{
+  "sheets": [
+    "总览",
+    "开发任务",
+    "实施步骤",
+    "阶段安排",
+    "当前能力",
+    "审核问题",
+    "平台矩阵",
+    "验收用例",
+    "验证记录",
+    "待确认事项",
+    "清理记录"
+  ],
+  "tasks": 30,
+  "findings": 12,
+  "acceptanceCases": 18,
+  "estimatePersonDays": [
+    45,
+    84
+  ],
+  "formulaReferences": "validated; recalculates on opening in spreadsheet application",
+  "sha256": "67a664c92efc275f2db54ad3ed061ef29bab8a59e7f76dde19ffe3b3f80c83e6"
+}

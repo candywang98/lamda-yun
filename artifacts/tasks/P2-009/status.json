@@ -1,0 +1,18 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "blocked_hardware",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P2-009/summary.md",
+    "artifacts/tasks/P2-009/commands.log",
+    "artifacts/tasks/_verification-20260831/python-gates.log",
+    "edge/gateway/src/cloudctl_edge/evidence.py",
+    "edge/gateway/src/cloudctl_edge/spool.py",
+    "tests/edge_spool_test.py",
+    "tests/edge_executor_test.py",
+    "artifacts/runtime/local-acceptance-2026-08-31.json",
+    "artifacts/runtime/browser-live-acceptance-2026-08-31.json"
+  ],
+  "note": "Software paths exist for 证据采集、断网缓存与上传; authorized hardware evidence is absent, so acceptance remains blocked_hardware."
+}
+

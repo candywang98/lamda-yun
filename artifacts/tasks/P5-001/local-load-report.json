@@ -1,0 +1,31 @@
+{
+  "acceptanceStatus": "blocked_hardware",
+  "evidenceClass": "local_mock_load",
+  "generatedAt": "2026-08-31T05:13:32.607942+00:00",
+  "hardwareEvidence": false,
+  "metrics": {
+    "durationSeconds": 9.201654,
+    "errorRate": 0.0,
+    "p50LatencyMs": 266.33,
+    "p95LatencyMs": 430.609,
+    "p99LatencyMs": 520.215,
+    "pythonPeakAllocationBytes": 5662782,
+    "requestsPerSecond": 54.338,
+    "statusCounts": {
+      "200": 500
+    }
+  },
+  "parameters": {
+    "concurrency": 16,
+    "requestCount": 500
+  },
+  "schemaVersion": 1,
+  "softwareStatus": "passed",
+  "taskId": "P5-001",
+  "thresholds": {
+    "errorRateMaximum": 0.0,
+    "p95LatencyMsMaximum": 1000.0,
+    "pythonPeakAllocationBytesMaximum": 268435456
+  },
+  "warning": "This is a bounded in-process load probe. It is not a production capacity, long-soak, device, Android, or LAMDA acceptance result."
+}

@@ -1,0 +1,47 @@
+[
+  {
+    "path": "cloudctl-source/apps/web/src/api/client.ts",
+    "sha256": "332b9c34f787bfdc6409581c15ed1421fe19cffa947a6ca31c31f1c6151dbab2",
+    "action": "remove/supersede"
+  },
+  {
+    "path": "cloudctl-source/apps/web/src/data/mock.ts",
+    "sha256": "e3a2ec32b94c556ee7a03ab9d4920916d891fddc5c161525d100489fd37e93f9",
+    "action": "remove/supersede"
+  },
+  {
+    "path": "cloudctl-source/apps/web/tests/operations-live.spec.ts",
+    "sha256": "0ee59964b999d251b0263102d86703d64500a751f2bf1c6a51e6bd07e61a3f3e",
+    "action": "remove unused destructured binding"
+  },
+  {
+    "path": "cloudctl-source/docs/delivery/development-plan-v1-2026-09-05.md",
+    "sha256": "2ace22b536c34c3367899b6b3420f67ef1bd719c0afb1f75a7227bbf9319aeba",
+    "action": "remove/supersede"
+  },
+  {
+    "path": "LAMDA云控系统_V1开发进度表_20260905.xlsx",
+    "sha256": "be7806e5e1d4b7ae1a7709d0d0554f66949e6e2bab4ed44eceecd60e84136268",
+    "action": "remove/supersede"
+  },
+  {
+    "path": "LAMDA云控系统_V1开发进度表_20260905.xlsx.inspect.ndjson",
+    "sha256": "b955089f185ff06689cdb42fb3541ca647c1aa1421631679b286562405097743",
+    "action": "remove/supersede"
+  },
+  {
+    "path": ".sheet-work/create-plan.mjs",
+    "sha256": "cae7d568c2830d67e5bd061aa131c66ca58f4150e6ced0d2c54df8b3bfef14a8",
+    "action": "remove/supersede"
+  },
+  {
+    "path": ".sheet-work/rebuild-plan.mjs",
+    "sha256": "8fccb44a837bcf4757682800e940bc83b6b17a5116355b42f557edb2c9060cd8",
+    "action": "remove/supersede"
+  },
+  {
+    "path": ".sheet-work/update-progress.mjs",
+    "sha256": "aa10890acb4a1a8e2c0a9e119aa49439f9b547b0671281c9edafb9e0c1fa6e1e",
+    "action": "remove/supersede"
+  }
+]

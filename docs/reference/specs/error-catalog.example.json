@@ -1,0 +1,83 @@
+{
+  "version": "1.0",
+  "errors": [
+    {
+      "code": "TRANSIENT_NETWORK",
+      "retryable": true,
+      "defaultMaxAttempts": 3,
+      "userAction": "wait"
+    },
+    {
+      "code": "EDGE_OFFLINE",
+      "retryable": true,
+      "defaultMaxAttempts": 0,
+      "userAction": "wait_for_edge"
+    },
+    {
+      "code": "DEVICE_BUSY",
+      "retryable": true,
+      "defaultMaxAttempts": 0,
+      "userAction": "queue"
+    },
+    {
+      "code": "FENCING_TOKEN_STALE",
+      "retryable": false,
+      "defaultMaxAttempts": 1,
+      "userAction": "abort_old_runner"
+    },
+    {
+      "code": "LAMDA_CERT_AUTH",
+      "retryable": false,
+      "defaultMaxAttempts": 1,
+      "userAction": "rotate_or_reenroll"
+    },
+    {
+      "code": "LAMDA_LOCK_LOST",
+      "retryable": false,
+      "defaultMaxAttempts": 1,
+      "userAction": "stop_and_reconcile"
+    },
+    {
+      "code": "APP_VERSION_UNSUPPORTED",
+      "retryable": false,
+      "defaultMaxAttempts": 1,
+      "userAction": "change_device_or_package"
+    },
+    {
+      "code": "LOCATOR_NOT_FOUND",
+      "retryable": true,
+      "defaultMaxAttempts": 2,
+      "userAction": "inspect_ui_and_update_locator"
+    },
+    {
+      "code": "USER_ACTION_REQUIRED",
+      "retryable": false,
+      "defaultMaxAttempts": 1,
+      "userAction": "human_confirmation"
+    },
+    {
+      "code": "COMMIT_REJECTED",
+      "retryable": false,
+      "defaultMaxAttempts": 1,
+      "userAction": "fix_content_and_create_new_run"
+    },
+    {
+      "code": "COMMIT_UNKNOWN",
+      "retryable": false,
+      "defaultMaxAttempts": 1,
+      "userAction": "manual_reconciliation_never_auto_retry"
+    },
+    {
+      "code": "APK_SIGNER_MISMATCH",
+      "retryable": false,
+      "defaultMaxAttempts": 1,
+      "userAction": "security_review"
+    },
+    {
+      "code": "APK_INSTALL_FAILED",
+      "retryable": false,
+      "defaultMaxAttempts": 1,
+      "userAction": "inspect_session_and_rollback"
+    }
+  ]
+}

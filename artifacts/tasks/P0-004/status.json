@@ -1,0 +1,17 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "pending",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P0-004/summary.md",
+    "artifacts/tasks/P0-004/commands.log",
+    "artifacts/tasks/_verification-20260831/python-gates.log",
+    "services/control-api/src/cloudctl_api/db.py",
+    "services/control-api/migrations/versions/20260831_0001_initial_control_plane_schema.py",
+    "services/control-api/migrations/versions/20260831_0002_add_operation_approvals_and_debug_.py",
+    "services/control-api/migrations/versions/20260831_0003_add_debug_session_fencing_lease.py",
+    "tests/integration/test_control_api_migrations.py"
+  ],
+  "note": "Software evidence exists for PostgreSQL 基础模型与 Alembic, but the documented acceptance gap remains unresolved."
+}
+

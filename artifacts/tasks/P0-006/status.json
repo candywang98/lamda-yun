@@ -1,0 +1,18 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "pending",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P0-006/summary.md",
+    "artifacts/tasks/P0-006/commands.log",
+    "artifacts/tasks/_verification-20260831/python-gates.log",
+    "packages/domain/src/cloudctl_domain/errors.py",
+    "packages/domain/src/cloudctl_domain/events.py",
+    "services/outbox-dispatcher/src/cloudctl_outbox/dispatcher.py",
+    "services/control-api/src/cloudctl_api/operation_service.py",
+    "tests/integration/test_backend_outbox.py",
+    "tests/integration/test_backend_operations.py"
+  ],
+  "note": "Software evidence exists for API 错误、幂等与 Outbox 基建, but the documented acceptance gap remains unresolved."
+}
+

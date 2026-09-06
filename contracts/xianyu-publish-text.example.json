@@ -1,0 +1,68 @@
+{
+  "protocolVersion": "cloudctl.mobile/v1",
+  "taskId": "task-xianyu-publish-text-001",
+  "deviceId": "oneplus9r-b0644fb5",
+  "targetPackage": "com.taobao.idlefish",
+  "issuedAt": "2026-09-04T08:00:00Z",
+  "expiresAt": "2026-09-04T08:10:00Z",
+  "maxRunSeconds": 90,
+  "steps": [
+    {
+      "stepId": "find-home-sell",
+      "action": "ui.find",
+      "locatorRef": "xianyu_home_sell",
+      "timeoutMs": 8000
+    },
+    {
+      "stepId": "open-sell",
+      "action": "ui.tap",
+      "locatorRef": "xianyu_home_sell",
+      "postconditionLocatorRef": "xianyu_publish_entry",
+      "timeoutMs": 8000
+    },
+    {
+      "stepId": "open-publish",
+      "action": "ui.tap",
+      "locatorRef": "xianyu_publish_entry",
+      "postconditionLocatorRef": "xianyu_publish_page",
+      "timeoutMs": 8000
+    },
+    {
+      "stepId": "wait-publish-page",
+      "action": "ui.wait",
+      "locatorRef": "xianyu_publish_page",
+      "condition": "EXISTS",
+      "pollMs": 200,
+      "timeoutMs": 8000
+    },
+    {
+      "stepId": "fill-description",
+      "action": "ui.input",
+      "locatorRef": "xianyu_description",
+      "value": "自用闲置，功能正常，支持当面交易",
+      "replace": true,
+      "timeoutMs": 8000
+    },
+    {
+      "stepId": "fill-price",
+      "action": "ui.input",
+      "locatorRef": "xianyu_price",
+      "value": "128",
+      "replace": true,
+      "timeoutMs": 8000
+    },
+    {
+      "stepId": "capture-form",
+      "action": "ui.screenshot",
+      "label": "xianyu_publish_form",
+      "timeoutMs": 15000
+    },
+    {
+      "stepId": "mark-ready",
+      "action": "run.log",
+      "level": "INFO",
+      "messageCode": "XIANYU_PUBLISH_FORM_READY",
+      "timeoutMs": 1000
+    }
+  ]
+}

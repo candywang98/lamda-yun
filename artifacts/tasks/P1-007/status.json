@@ -1,0 +1,17 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "pending",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P1-007/summary.md",
+    "artifacts/tasks/P1-007/commands.log",
+    "artifacts/tasks/_verification-20260831/python-gates.log",
+    "services/control-api/src/cloudctl_api/db.py",
+    "services/control-api/src/cloudctl_api/routes.py",
+    "services/control-api/src/cloudctl_api/services.py",
+    "tests/integration/test_backend_control_api.py",
+    "tests/unit/test_backend_domain.py"
+  ],
+  "note": "Software evidence exists for 发布计划、目标与快照模型, but the documented acceptance gap remains unresolved."
+}
+

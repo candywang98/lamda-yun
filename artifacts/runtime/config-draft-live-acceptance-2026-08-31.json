@@ -1,0 +1,174 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-08-31T21:17:18+08:00",
+  "status": "passed",
+  "classification": "mock_only",
+  "hardwareEvidence": false,
+  "scope": {
+    "component": "operation_feature_config_draft",
+    "controlApiUrl": "http://127.0.0.1:8000/",
+    "webUrl": "http://127.0.0.1:5173/",
+    "repositoryMode": "memory",
+    "catalogFeatureCount": 134,
+    "apiProbeFeatureId": "assets-01",
+    "browserProbeFeatureId": "assets-01"
+  },
+  "apiAcceptance": {
+    "initialGet": {
+      "method": "GET",
+      "pathTemplate": "/api/v1/operations/features/{featureId}/config-draft",
+      "status": 200,
+      "exists": false,
+      "version": 0,
+      "passed": true
+    },
+    "authorizedCreate": {
+      "method": "PUT",
+      "pathTemplate": "/api/v1/operations/features/{featureId}/config-draft",
+      "roleClass": "automation_developer",
+      "status": 200,
+      "exists": true,
+      "expectedVersion": 0,
+      "returnedVersion": 1,
+      "configurationMatched": true,
+      "passed": true
+    },
+    "refreshReadback": {
+      "method": "GET",
+      "status": 200,
+      "exists": true,
+      "version": 1,
+      "configurationMatched": true,
+      "passed": true
+    },
+    "staleWrite": {
+      "method": "PUT",
+      "expectedVersion": 0,
+      "status": 409,
+      "errorCode": "CONFLICT",
+      "passed": true
+    },
+    "rbac": {
+      "readWithAssignedViewerRoleStatus": 200,
+      "writeWithViewerRoleStatus": 403,
+      "writeRequiresPermission": "automation.manage",
+      "authorizedWriterRoles": [
+        "automation_developer",
+        "security_admin"
+      ],
+      "passed": true
+    },
+    "tenantIsolation": {
+      "secondTenantInitialExists": false,
+      "secondTenantInitialVersion": 0,
+      "secondTenantWriteStatus": 200,
+      "secondTenantReturnedVersion": 1,
+      "firstTenantConfigurationUnchanged": true,
+      "firstTenantVersionUnchanged": true,
+      "passed": true
+    },
+    "validation": {
+      "dangerousKey": {
+        "sampleClass": "credential_or_execution_control_key",
+        "status": 422,
+        "passed": true
+      },
+      "maximumDepth": {
+        "probeDepth": 8,
+        "status": 422,
+        "passed": true
+      },
+      "maximumSerializedSize": {
+        "limitKiB": 64,
+        "status": 422,
+        "passed": true
+      },
+      "configuredLimits": {
+        "maximumDepth": 8,
+        "maximumNodes": 2048,
+        "maximumItemsPerContainer": 256,
+        "maximumStringCharacters": 8192
+      },
+      "passed": true
+    },
+    "audit": {
+      "readStatus": 200,
+      "resourceType": "operation_feature_config_draft",
+      "observedActions": [
+        "operation.feature_config_draft.created"
+      ],
+      "afterHashPresent": true,
+      "sensitiveValuesRecordedInEvidence": false,
+      "passed": true
+    },
+    "executionPolicyInvariant": {
+      "catalogCountBeforeAndAfterDraftWrites": 134,
+      "blockedFeature": {
+        "featureId": "collection-01",
+        "executionState": "blocked",
+        "executable": false,
+        "taskCreateStatus": 403
+      },
+      "uiOnlyFeature": {
+        "featureId": "system-home-01",
+        "executionState": "ui_only",
+        "executable": false,
+        "taskCreateStatus": 403
+      },
+      "passed": true
+    }
+  },
+  "browserAcceptance": {
+    "connectionBadge": "LIVE API",
+    "shellMode": "Live API · 租户隔离",
+    "environmentLabel": "生产视图 · Control API",
+    "writerRoleClass": "automation_developer",
+    "save": {
+      "feedback": "后端配置草稿已保存 · v2",
+      "returnedVersion": 2,
+      "passed": true
+    },
+    "reloadRecovery": {
+      "connectionDetail": "Control API 已连接，配置草稿 v2",
+      "version": 2,
+      "restoredValues": {
+        "watermarkTemplate": "售后说明",
+        "watermarkPosition": "居中",
+        "opacityPercent": 83,
+        "previewOnly": false
+      },
+      "passed": true
+    },
+    "restrictedPageControls": {
+      "uiOnlyExecutionEnabled": false,
+      "uiOnlyDraftSaveEnabled": true,
+      "blockedExecutionEnabled": false,
+      "blockedDraftSaveEnabled": true,
+      "passed": true
+    },
+    "passed": true
+  },
+  "verification": {
+    "focusedFrontendTests": {
+      "files": [
+        "tests/operations-live.spec.ts",
+        "tests/router.spec.ts"
+      ],
+      "testCount": 4,
+      "passed": true
+    },
+    "frontendTypecheck": {
+      "command": "vue-tsc -b",
+      "exitCode": 0,
+      "passed": true
+    }
+  },
+  "limitations": [
+    "The Control API used the in-memory repository and development identity headers; this is not production authentication or durable database evidence.",
+    "LIVE API denotes real local HTTP integration between the web console and Control API, not real device or third-party platform execution.",
+    "No Android APK was built, signed, installed, upgraded, or rolled back during this acceptance run.",
+    "No real LAMDA device transport, frame stream, input event, device evidence upload, or external executor callback was exercised.",
+    "The saved drafts prove tenant-scoped configuration persistence behavior only and do not grant execution permission to blocked or UI-only features.",
+    "No production database restart or cross-process durability test was performed because repositoryMode was memory."
+  ]
+}

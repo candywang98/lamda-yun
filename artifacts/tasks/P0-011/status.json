@@ -1,0 +1,17 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "pending",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P0-011/summary.md",
+    "artifacts/tasks/P0-011/commands.log",
+    "artifacts/tasks/_verification-20260831/python-gates.log",
+    "edge/gateway/src/cloudctl_edge/mock_device.py",
+    "edge/gateway/src/cloudctl_edge/runtime.py",
+    "tests/edge_runtime_test.py",
+    "tests/edge_gateway_test.py",
+    "tests/edge_executor_test.py"
+  ],
+  "note": "Software evidence exists for Mock Device/Mock Edge 与测试夹具, but the documented acceptance gap remains unresolved."
+}
+

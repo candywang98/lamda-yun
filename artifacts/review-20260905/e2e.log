@@ -1,0 +1,842 @@
+
+> cloudctl@0.1.0 e2e /Users/wangziheng/Desktop/LAMDA云控系统_代码交接包_20260901/cloudctl-source
+> pnpm --filter @cloudctl/web e2e && pnpm --filter @cloudctl/studio e2e
+
+
+> @cloudctl/web@0.1.0 e2e /Users/wangziheng/Desktop/LAMDA云控系统_代码交接包_20260901/cloudctl-source/apps/web
+> playwright test
+
+
+Running 30 tests using 2 workers
+
+(node:26458) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:26457) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘   2 [chromium] › e2e/smoke.spec.ts:4:1 › legacy CloudCtl URLs land in the single operations workspace (7.1s)
+(node:26564) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘   1 [chromium] › e2e/product.spec.ts:18:1 › 商品编辑页完成列表、编辑、媒体编排和归档冲突提示 (7.9s)
+(node:26574) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘   3 [chromium] › e2e/smoke.spec.ts:12:1 › root and device list URLs stay inside the operations workspace (6.0s)
+(node:26660) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘   4 [chromium] › e2e/smoke.spec.ts:22:1 › operations sidebar exposes all 15 modules through scrolling (5.8s)
+(node:26680) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘   5 [chromium] › e2e/smoke.spec.ts:45:1 › operation details expose PDF source, page workflow and domain fields (5.6s)
+(node:26727) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘   6 [chromium] › e2e/smoke.spec.ts:67:1 › operations catalog exposes all 134 unique pages and 111 source routes (5.7s)
+(node:26761) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘   7 [chromium] › e2e/smoke.spec.ts:86:3 › operation pages batch 1 renders exact PDF metadata (5.9s)
+(node:26841) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘   8 [chromium] › e2e/smoke.spec.ts:86:3 › operation pages batch 2 renders exact PDF metadata (5.7s)
+(node:26858) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘   9 [chromium] › e2e/smoke.spec.ts:86:3 › operation pages batch 3 renders exact PDF metadata (5.7s)
+(node:26921) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  10 [chromium] › e2e/smoke.spec.ts:86:3 › operation pages batch 4 renders exact PDF metadata (5.7s)
+(node:26939) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  11 [chromium] › e2e/smoke.spec.ts:86:3 › operation pages batch 5 renders exact PDF metadata (5.7s)
+(node:26996) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  12 [chromium] › e2e/smoke.spec.ts:86:3 › operation pages batch 6 renders exact PDF metadata (5.6s)
+(node:27023) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  13 [chromium] › e2e/smoke.spec.ts:86:3 › operation pages batch 7 renders exact PDF metadata (5.5s)
+(node:27067) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  14 [chromium] › e2e/smoke.spec.ts:86:3 › operation pages batch 8 renders exact PDF metadata (5.6s)
+(node:27088) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  15 [chromium] › e2e/smoke.spec.ts:101:1 › unknown operation URLs redirect to the catalog (5.6s)
+(node:27153) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  16 [mobile] › e2e/product.spec.ts:18:1 › 商品编辑页完成列表、编辑、媒体编排和归档冲突提示 (5.7s)
+(node:27184) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  17 [mobile] › e2e/smoke.spec.ts:4:1 › legacy CloudCtl URLs land in the single operations workspace (5.6s)
+(node:27293) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  18 [mobile] › e2e/smoke.spec.ts:12:1 › root and device list URLs stay inside the operations workspace (5.5s)
+(node:27315) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  20 [mobile] › e2e/smoke.spec.ts:45:1 › operation details expose PDF source, page workflow and domain fields (5.7s)
+(node:27386) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  21 [mobile] › e2e/smoke.spec.ts:67:1 › operations catalog exposes all 134 unique pages and 111 source routes (5.7s)
+(node:27470) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  -  22 [mobile] › e2e/smoke.spec.ts:86:3 › operation pages batch 1 renders exact PDF metadata
+  -  23 [mobile] › e2e/smoke.spec.ts:86:3 › operation pages batch 2 renders exact PDF metadata
+  -  24 [mobile] › e2e/smoke.spec.ts:86:3 › operation pages batch 3 renders exact PDF metadata
+  -  25 [mobile] › e2e/smoke.spec.ts:86:3 › operation pages batch 4 renders exact PDF metadata
+  -  26 [mobile] › e2e/smoke.spec.ts:86:3 › operation pages batch 5 renders exact PDF metadata
+  -  27 [mobile] › e2e/smoke.spec.ts:86:3 › operation pages batch 6 renders exact PDF metadata
+  -  28 [mobile] › e2e/smoke.spec.ts:86:3 › operation pages batch 7 renders exact PDF metadata
+  -  29 [mobile] › e2e/smoke.spec.ts:86:3 › operation pages batch 8 renders exact PDF metadata
+  ✘  30 [mobile] › e2e/smoke.spec.ts:101:1 › unknown operation URLs redirect to the catalog (5.5s)
+  ✘  19 [mobile] › e2e/smoke.spec.ts:22:1 › operations sidebar exposes all 15 modules through scrolling (30.1s)
+
+
+  1) [chromium] › e2e/product.spec.ts:18:1 › 商品编辑页完成列表、编辑、媒体编排和归档冲突提示 ──────────────────────────────
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText('E2E 测试商品')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByText('E2E 测试商品')
+
+
+      32 |
+      33 |   await page.goto('/operations/product-editor/product-editor-01')
+    > 34 |   await expect(page.getByText('E2E 测试商品')).toBeVisible()
+         |                                            ^
+      35 |   await page.getByRole('button', { name: '打开', exact: true }).click()
+      36 |   await expect(page.getByLabel('商品标题')).toHaveValue('E2E 测试商品')
+      37 |   await page.getByLabel('媒体资产 ID').fill('media-e2e-2')
+        at /Users/wangziheng/Desktop/LAMDA云控系统_代码交接包_20260901/cloudctl-source/apps/web/e2e/product.spec.ts:34:44
+
+    Error Context: test-results/product-商品编辑页完成列表、编辑、媒体编排和归档冲突提示-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/product-商品编辑页完成列表、编辑、媒体编排和归档冲突提示-chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/product-商品编辑页完成列表、编辑、媒体编排和归档冲突提示-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [chromium] › e2e/smoke.spec.ts:4:1 › legacy CloudCtl URLs land in the single operations workspace 
+
+    Error: expect(page).toHaveURL(expected) failed
+
+    Expected pattern: /\/operations\/system-home\/system-home-02/
+    Received string:  "http://127.0.0.1:4173/login?redirect=/dashboard"
+    Timeout: 5000ms
+
+    Call log:
+      - Expect "toHaveURL" with timeout 5000ms
+        14 × locator resolved to <html lang="zh-CN">…</html>
+           - unexpected value "http://127.0.0.1:4173/login?redirect=/dashboard"
+
+
+      4 | test('legacy CloudCtl URLs land in the single operations workspace', async ({ page }) => {
+      5 |   await page.goto('/mobile-automation', { waitUntil: 'domcontentloaded' })
+    > 6 |   await expect(page).toHaveURL(/\/operations\/system-home\/system-home-02/)
+        |                      ^
+      7 |   await expect(page.locator('.yy-shell')).toBeVisible()
+      8 |   await expect(page.getByText('云控工作台')).toBeVisible()
+      9 |   await expect(page.locator('body')).not.toContainText('Internal Server Error')
+        at /Users/wangziheng/Desktop/LAMDA云控系统_代码交接包_20260901/cloudctl-source/apps/web/e2e/smoke.spec.ts:6:22
+
+    Error Context: test-results/smoke-legacy-CloudCtl-URLs-9ed45-single-operations-workspace-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/smoke-legacy-CloudCtl-URLs-9ed45-single-operations-workspace-chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/smoke-legacy-CloudCtl-URLs-9ed45-single-operations-workspace-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3) [chromium] › e2e/smoke.spec.ts:12:1 › root and device list URLs stay inside the operations workspace 
+
+    Error: expect(page).toHaveURL(expected) failed
+
+    Expected pattern: /\/operations$/
+    Received string:  "http://127.0.0.1:4173/login?redirect=/dashboard"
+    Timeout: 5000ms
+
+    Call log:
+      - Expect "toHaveURL" with timeout 5000ms
+        14 × locator resolved to <html lang="zh-CN">…</html>
+           - unexpected value "http://127.0.0.1:4173/login?redirect=/dashboard"
+
+
+      12 | test('root and device list URLs stay inside the operations workspace', async ({ page }) => {
+      13 |   await page.goto('/', { waitUntil: 'domcontentloaded' })
+    > 14 |   await expect(page).toHaveURL(/\/operations$/)
+         |                      ^
+      15 |   await expect(page.locator('.yy-shell')).toBeVisible()
+      16 |
+      17 |   await page.goto('/devices', { waitUntil: 'domcontentloaded' })
+        at /Users/wangziheng/Desktop/LAMDA云控系统_代码交接包_20260901/cloudctl-source/apps/web/e2e/smoke.spec.ts:14:22
+
+    Error Context: test-results/smoke-root-and-device-list-fc0e5-de-the-operations-workspace-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/smoke-root-and-device-list-fc0e5-de-the-operations-workspace-chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/smoke-root-and-device-list-fc0e5-de-the-operations-workspace-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  4) [chromium] › e2e/smoke.spec.ts:22:1 › operations sidebar exposes all 15 modules through scrolling 
+
+    Error: expect(locator).toHaveCount(expected) failed
+
+    Locator:  locator('.operation-module-nav')
+    Expected: 15
+    Received: 0
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toHaveCount" with timeout 5000ms
+      - waiting for locator('.operation-module-nav')
+        14 × locator resolved to 0 elements
+           - unexpected value "0"
+
+
+      26 |   const navigation = page.locator('.yy-nav, .nav-scroll').first()
+      27 |   const moduleLinks = page.locator('.operation-module-nav')
+    > 28 |   await expect(moduleLinks).toHaveCount(15)
+         |                             ^
+      29 |   await expect(page.getByText('云控工作台')).toBeVisible()
+      30 |   await expect(page.getByText('原始页面路由')).toBeVisible()
+      31 |
+        at /Users/wangziheng/Desktop/LAMDA云控系统_代码交接包_20260901/cloudctl-source/apps/web/e2e/smoke.spec.ts:28:29
+
+    Error Context: test-results/smoke-operations-sidebar-e-d8552-5-modules-through-scrolling-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/smoke-operations-sidebar-e-d8552-5-modules-through-scrolling-chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/smoke-operations-sidebar-e-d8552-5-modules-through-scrolling-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  5) [chromium] › e2e/smoke.spec.ts:45:1 › operation details expose PDF source, page workflow and domain fields 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText('竞品页面依据')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByText('竞品页面依据')
+
+
+      46 |   if (testInfo.project.name === 'mobile') await page.setViewportSize({ width: 390, height: 844 })
+      47 |   await page.goto('/operations/product-editor/product-editor-03')
+    > 48 |   await expect(page.getByText('竞品页面依据')).toBeVisible()
+         |                                          ^
+      49 |   await expect(page.getByText('#/set/system/watermark')).toBeVisible()
+      50 |   await expect(page.getByLabel('水印模板')).toBeVisible()
+      51 |   await expect(page.getByLabel('不透明度（%）')).toHaveValue('72')
+        at /Users/wangziheng/Desktop/LAMDA云控系统_代码交接包_20260901/cloudctl-source/apps/web/e2e/smoke.spec.ts:48:42
+
+    Error Context: test-results/smoke-operation-details-ex-6eaa9--workflow-and-domain-fields-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/smoke-operation-details-ex-6eaa9--workflow-and-domain-fields-chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/smoke-operation-details-ex-6eaa9--workflow-and-domain-fields-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  6) [chromium] › e2e/smoke.spec.ts:67:1 › operations catalog exposes all 134 unique pages and 111 source routes 
+
+    Error: expect(locator).toHaveCount(expected) failed
+
+    Locator:  locator('.operation-link-list a')
+    Expected: 134
+    Received: 0
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toHaveCount" with timeout 5000ms
+      - waiting for locator('.operation-link-list a')
+        14 × locator resolved to 0 elements
+           - unexpected value "0"
+
+
+      68 |   await page.goto('/operations')
+      69 |   const operationLinks = page.locator('.operation-link-list a')
+    > 70 |   await expect(operationLinks).toHaveCount(134)
+         |                                ^
+      71 |
+      72 |   const paths = await operationLinks.evaluateAll((links) => links.map((link) => new URL((link as HTMLAnchorElement).href).pathname))
+      73 |   expect(new Set(paths).size).toBe(134)
+        at /Users/wangziheng/Desktop/LAMDA云控系统_代码交接包_20260901/cloudctl-source/apps/web/e2e/smoke.spec.ts:70:32
+
+    Error Context: test-results/smoke-operations-catalog-e-309aa-pages-and-111-source-routes-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/smoke-operations-catalog-e-309aa-pages-and-111-source-routes-chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/smoke-operations-catalog-e-309aa-pages-and-111-source-routes-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  7) [chromium] › e2e/smoke.spec.ts:86:3 › operation pages batch 1 renders exact PDF metadata ──────
+
+    Error: expect(locator).toHaveText(expected) failed
+
+    Locator: locator('.page-header h2')
+    Expected: "产品介绍"
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toHaveText" with timeout 5000ms
+      - waiting for locator('.page-header h2')
+
+
+      90 |     for (const operation of operations) {
+      91 |       await page.goto(operationPath(operation), { waitUntil: 'domcontentloaded' })
+    > 92 |       await expect(page.locator('.page-header h2')).toHaveText(operation.title)
+         |                                                     ^
+      93 |       const sourcePanel = page.locator('.operation-source-panel')
+      94 |       await expect(sourcePanel).toContainText(`PDF 第 ${operation.sourcePage} 页`)
+      95 |       await expect(sourcePanel.locator('code')).toHaveText(operation.sourceRoute)
+        at /Users/wangziheng/Desktop/LAMDA云控系统_代码交接包_20260901/cloudctl-source/apps/web/e2e/smoke.spec.ts:92:53
+
+    Error Context: test-results/smoke-operation-pages-batch-1-renders-exact-PDF-metadata-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/smoke-operation-pages-batch-1-renders-exact-PDF-metadata-chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/smoke-operation-pages-batch-1-renders-exact-PDF-metadata-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  8) [chromium] › e2e/smoke.spec.ts:86:3 › operation pages batch 2 renders exact PDF metadata ──────
+
+    Error: expect(locator).toHaveText(expected) failed
+
+    Locator: locator('.page-header h2')
+    Expected: "设备列表"
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toHaveText" with timeout 5000ms
+      - waiting for locator('.page-header h2')
+
+
+      90 |     for (const operation of operations) {
+      91 |       await page.goto(operationPath(operation), { waitUntil: 'domcontentloaded' })
+    > 92 |       await expect(page.locator('.page-header h2')).toHaveText(operation.title)
+         |                                                     ^
+      93 |       const sourcePanel = page.locator('.operation-source-panel')
+      94 |       await expect(sourcePanel).toContainText(`PDF 第 ${operation.sourcePage} 页`)
+      95 |       await expect(sourcePanel.locator('code')).toHaveText(operation.sourceRoute)
+        at /Users/wangziheng/Desktop/LAMDA云控系统_代码交接包_20260901/cloudctl-source/apps/web/e2e/smoke.spec.ts:92:53
+
+    Error Context: test-results/smoke-operation-pages-batch-2-renders-exact-PDF-metadata-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/smoke-operation-pages-batch-2-renders-exact-PDF-metadata-chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/smoke-operation-pages-batch-2-renders-exact-PDF-metadata-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  9) [chromium] › e2e/smoke.spec.ts:86:3 › operation pages batch 3 renders exact PDF metadata ──────
+
+    Error: expect(locator).toHaveText(expected) failed
+
+    Locator: locator('.page-header h2')
+    Expected: "系统授权"
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toHaveText" with timeout 5000ms
+      - waiting for locator('.page-header h2')
+
+
+      90 |     for (const operation of operations) {
+      91 |       await page.goto(operationPath(operation), { waitUntil: 'domcontentloaded' })
+    > 92 |       await expect(page.locator('.page-header h2')).toHaveText(operation.title)
+         |                                                     ^
+      93 |       const sourcePanel = page.locator('.operation-source-panel')
+      94 |       await expect(sourcePanel).toContainText(`PDF 第 ${operation.sourcePage} 页`)
+      95 |       await expect(sourcePanel.locator('code')).toHaveText(operation.sourceRoute)
+        at /Users/wangziheng/Desktop/LAMDA云控系统_代码交接包_20260901/cloudctl-source/apps/web/e2e/smoke.spec.ts:92:53
+
+    Error Context: test-results/smoke-operation-pages-batch-3-renders-exact-PDF-metadata-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/smoke-operation-pages-batch-3-renders-exact-PDF-metadata-chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/smoke-operation-pages-batch-3-renders-exact-PDF-metadata-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  10) [chromium] › e2e/smoke.spec.ts:86:3 › operation pages batch 4 renders exact PDF metadata ─────
+
+    Error: expect(locator).toHaveText(expected) failed
+
+    Locator: locator('.page-header h2')
+    Expected: "常见问题"
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toHaveText" with timeout 5000ms
+      - waiting for locator('.page-header h2')
+
+
+      90 |     for (const operation of operations) {
+      91 |       await page.goto(operationPath(operation), { waitUntil: 'domcontentloaded' })
+    > 92 |       await expect(page.locator('.page-header h2')).toHaveText(operation.title)
+         |                                                     ^
+      93 |       const sourcePanel = page.locator('.operation-source-panel')
+      94 |       await expect(sourcePanel).toContainText(`PDF 第 ${operation.sourcePage} 页`)
+      95 |       await expect(sourcePanel.locator('code')).toHaveText(operation.sourceRoute)
+        at /Users/wangziheng/Desktop/LAMDA云控系统_代码交接包_20260901/cloudctl-source/apps/web/e2e/smoke.spec.ts:92:53
+
+    Error Context: test-results/smoke-operation-pages-batch-4-renders-exact-PDF-metadata-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/smoke-operation-pages-batch-4-renders-exact-PDF-metadata-chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/smoke-operation-pages-batch-4-renders-exact-PDF-metadata-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  11) [chromium] › e2e/smoke.spec.ts:86:3 › operation pages batch 5 renders exact PDF metadata ─────
+
+    Error: expect(locator).toHaveText(expected) failed
+
+    Locator: locator('.page-header h2')
+    Expected: "常用工具"
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toHaveText" with timeout 5000ms
+      - waiting for locator('.page-header h2')
+
+
+      90 |     for (const operation of operations) {
+      91 |       await page.goto(operationPath(operation), { waitUntil: 'domcontentloaded' })
+    > 92 |       await expect(page.locator('.page-header h2')).toHaveText(operation.title)
+         |                                                     ^
+      93 |       const sourcePanel = page.locator('.operation-source-panel')
+      94 |       await expect(sourcePanel).toContainText(`PDF 第 ${operation.sourcePage} 页`)
+      95 |       await expect(sourcePanel.locator('code')).toHaveText(operation.sourceRoute)
+        at /Users/wangziheng/Desktop/LAMDA云控系统_代码交接包_20260901/cloudctl-source/apps/web/e2e/smoke.spec.ts:92:53
+
+    Error Context: test-results/smoke-operation-pages-batch-5-renders-exact-PDF-metadata-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/smoke-operation-pages-batch-5-renders-exact-PDF-metadata-chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/smoke-operation-pages-batch-5-renders-exact-PDF-metadata-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  12) [chromium] › e2e/smoke.spec.ts:86:3 › operation pages batch 6 renders exact PDF metadata ─────
+
+    Error: expect(locator).toHaveText(expected) failed
+
+    Locator: locator('.page-header h2')
+    Expected: "更新日志"
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toHaveText" with timeout 5000ms
+      - waiting for locator('.page-header h2')
+
+
+      90 |     for (const operation of operations) {
+      91 |       await page.goto(operationPath(operation), { waitUntil: 'domcontentloaded' })
+    > 92 |       await expect(page.locator('.page-header h2')).toHaveText(operation.title)
+         |                                                     ^
+      93 |       const sourcePanel = page.locator('.operation-source-panel')
+      94 |       await expect(sourcePanel).toContainText(`PDF 第 ${operation.sourcePage} 页`)
+      95 |       await expect(sourcePanel.locator('code')).toHaveText(operation.sourceRoute)
+        at /Users/wangziheng/Desktop/LAMDA云控系统_代码交接包_20260901/cloudctl-source/apps/web/e2e/smoke.spec.ts:92:53
+
+    Error Context: test-results/smoke-operation-pages-batch-6-renders-exact-PDF-metadata-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/smoke-operation-pages-batch-6-renders-exact-PDF-metadata-chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/smoke-operation-pages-batch-6-renders-exact-PDF-metadata-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  13) [chromium] › e2e/smoke.spec.ts:86:3 › operation pages batch 7 renders exact PDF metadata ─────
+
+    Error: expect(locator).toHaveText(expected) failed
+
+    Locator: locator('.page-header h2')
+    Expected: "超级擦亮"
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toHaveText" with timeout 5000ms
+      - waiting for locator('.page-header h2')
+
+
+      90 |     for (const operation of operations) {
+      91 |       await page.goto(operationPath(operation), { waitUntil: 'domcontentloaded' })
+    > 92 |       await expect(page.locator('.page-header h2')).toHaveText(operation.title)
+         |                                                     ^
+      93 |       const sourcePanel = page.locator('.operation-source-panel')
+      94 |       await expect(sourcePanel).toContainText(`PDF 第 ${operation.sourcePage} 页`)
+      95 |       await expect(sourcePanel.locator('code')).toHaveText(operation.sourceRoute)
+        at /Users/wangziheng/Desktop/LAMDA云控系统_代码交接包_20260901/cloudctl-source/apps/web/e2e/smoke.spec.ts:92:53
+
+    Error Context: test-results/smoke-operation-pages-batch-7-renders-exact-PDF-metadata-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/smoke-operation-pages-batch-7-renders-exact-PDF-metadata-chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/smoke-operation-pages-batch-7-renders-exact-PDF-metadata-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  14) [chromium] › e2e/smoke.spec.ts:86:3 › operation pages batch 8 renders exact PDF metadata ─────
+
+    Error: expect(locator).toHaveText(expected) failed
+
+    Locator: locator('.page-header h2')
+    Expected: "建议反馈"
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toHaveText" with timeout 5000ms
+      - waiting for locator('.page-header h2')
+
+
+      90 |     for (const operation of operations) {
+      91 |       await page.goto(operationPath(operation), { waitUntil: 'domcontentloaded' })
+    > 92 |       await expect(page.locator('.page-header h2')).toHaveText(operation.title)
+         |                                                     ^
+      93 |       const sourcePanel = page.locator('.operation-source-panel')
+      94 |       await expect(sourcePanel).toContainText(`PDF 第 ${operation.sourcePage} 页`)
+      95 |       await expect(sourcePanel.locator('code')).toHaveText(operation.sourceRoute)
+        at /Users/wangziheng/Desktop/LAMDA云控系统_代码交接包_20260901/cloudctl-source/apps/web/e2e/smoke.spec.ts:92:53
+
+    Error Context: test-results/smoke-operation-pages-batch-8-renders-exact-PDF-metadata-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/smoke-operation-pages-batch-8-renders-exact-PDF-metadata-chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/smoke-operation-pages-batch-8-renders-exact-PDF-metadata-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  15) [chromium] › e2e/smoke.spec.ts:101:1 › unknown operation URLs redirect to the catalog ────────
+
+    Error: expect(page).toHaveURL(expected) failed
+
+    Expected pattern: /\/operations$/
+    Received string:  "http://127.0.0.1:4173/login?redirect=/dashboard"
+    Timeout: 5000ms
+
+    Call log:
+      - Expect "toHaveURL" with timeout 5000ms
+        14 × locator resolved to <html lang="zh-CN">…</html>
+           - unexpected value "http://127.0.0.1:4173/login?redirect=/dashboard"
+
+
+      101 | test('unknown operation URLs redirect to the catalog', async ({ page }) => {
+      102 |   await page.goto('/operations/not-a-module/not-an-operation')
+    > 103 |   await expect(page).toHaveURL(/\/operations$/)
+          |                      ^
+      104 |   await expect(page.locator('.page-header h2')).toHaveText('运营功能目录')
+      105 | })
+      106 |
+        at /Users/wangziheng/Desktop/LAMDA云控系统_代码交接包_20260901/cloudctl-source/apps/web/e2e/smoke.spec.ts:103:22
+
+    Error Context: test-results/smoke-unknown-operation-URLs-redirect-to-the-catalog-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/smoke-unknown-operation-URLs-redirect-to-the-catalog-chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/smoke-unknown-operation-URLs-redirect-to-the-catalog-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  16) [mobile] › e2e/product.spec.ts:18:1 › 商品编辑页完成列表、编辑、媒体编排和归档冲突提示 ───────────────────────────────
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText('E2E 测试商品')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByText('E2E 测试商品')
+
+
+      32 |
+      33 |   await page.goto('/operations/product-editor/product-editor-01')
+    > 34 |   await expect(page.getByText('E2E 测试商品')).toBeVisible()
+         |                                            ^
+      35 |   await page.getByRole('button', { name: '打开', exact: true }).click()
+      36 |   await expect(page.getByLabel('商品标题')).toHaveValue('E2E 测试商品')
+      37 |   await page.getByLabel('媒体资产 ID').fill('media-e2e-2')
+        at /Users/wangziheng/Desktop/LAMDA云控系统_代码交接包_20260901/cloudctl-source/apps/web/e2e/product.spec.ts:34:44
+
+    Error Context: test-results/product-商品编辑页完成列表、编辑、媒体编排和归档冲突提示-mobile/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/product-商品编辑页完成列表、编辑、媒体编排和归档冲突提示-mobile/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/product-商品编辑页完成列表、编辑、媒体编排和归档冲突提示-mobile/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  17) [mobile] › e2e/smoke.spec.ts:4:1 › legacy CloudCtl URLs land in the single operations workspace 
+
+    Error: expect(page).toHaveURL(expected) failed
+
+    Expected pattern: /\/operations\/system-home\/system-home-02/
+    Received string:  "http://127.0.0.1:4173/login?redirect=/dashboard"
+    Timeout: 5000ms
+
+    Call log:
+      - Expect "toHaveURL" with timeout 5000ms
+        14 × locator resolved to <html lang="zh-CN">…</html>
+           - unexpected value "http://127.0.0.1:4173/login?redirect=/dashboard"
+
+
+      4 | test('legacy CloudCtl URLs land in the single operations workspace', async ({ page }) => {
+      5 |   await page.goto('/mobile-automation', { waitUntil: 'domcontentloaded' })
+    > 6 |   await expect(page).toHaveURL(/\/operations\/system-home\/system-home-02/)
+        |                      ^
+      7 |   await expect(page.locator('.yy-shell')).toBeVisible()
+      8 |   await expect(page.getByText('云控工作台')).toBeVisible()
+      9 |   await expect(page.locator('body')).not.toContainText('Internal Server Error')
+        at /Users/wangziheng/Desktop/LAMDA云控系统_代码交接包_20260901/cloudctl-source/apps/web/e2e/smoke.spec.ts:6:22
+
+    Error Context: test-results/smoke-legacy-CloudCtl-URLs-9ed45-single-operations-workspace-mobile/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/smoke-legacy-CloudCtl-URLs-9ed45-single-operations-workspace-mobile/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/smoke-legacy-CloudCtl-URLs-9ed45-single-operations-workspace-mobile/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  18) [mobile] › e2e/smoke.spec.ts:12:1 › root and device list URLs stay inside the operations workspace 
+
+    Error: expect(page).toHaveURL(expected) failed
+
+    Expected pattern: /\/operations$/
+    Received string:  "http://127.0.0.1:4173/login?redirect=/dashboard"
+    Timeout: 5000ms
+
+    Call log:
+      - Expect "toHaveURL" with timeout 5000ms
+        14 × locator resolved to <html lang="zh-CN">…</html>
+           - unexpected value "http://127.0.0.1:4173/login?redirect=/dashboard"
+
+
+      12 | test('root and device list URLs stay inside the operations workspace', async ({ page }) => {
+      13 |   await page.goto('/', { waitUntil: 'domcontentloaded' })
+    > 14 |   await expect(page).toHaveURL(/\/operations$/)
+         |                      ^
+      15 |   await expect(page.locator('.yy-shell')).toBeVisible()
+      16 |
+      17 |   await page.goto('/devices', { waitUntil: 'domcontentloaded' })
+        at /Users/wangziheng/Desktop/LAMDA云控系统_代码交接包_20260901/cloudctl-source/apps/web/e2e/smoke.spec.ts:14:22
+
+    Error Context: test-results/smoke-root-and-device-list-fc0e5-de-the-operations-workspace-mobile/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/smoke-root-and-device-list-fc0e5-de-the-operations-workspace-mobile/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/smoke-root-and-device-list-fc0e5-de-the-operations-workspace-mobile/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  19) [mobile] › e2e/smoke.spec.ts:22:1 › operations sidebar exposes all 15 modules through scrolling 
+
+    Test timeout of 30000ms exceeded.
+
+    Error: locator.click: Test timeout of 30000ms exceeded.
+    Call log:
+      - waiting for locator('.mobile-menu')
+
+
+      22 | test('operations sidebar exposes all 15 modules through scrolling', async ({ page }, testInfo) => {
+      23 |   await page.goto('/operations')
+    > 24 |   if (testInfo.project.name === 'mobile') await page.locator('.mobile-menu').click()
+         |                                                                              ^
+      25 |
+      26 |   const navigation = page.locator('.yy-nav, .nav-scroll').first()
+      27 |   const moduleLinks = page.locator('.operation-module-nav')
+        at /Users/wangziheng/Desktop/LAMDA云控系统_代码交接包_20260901/cloudctl-source/apps/web/e2e/smoke.spec.ts:24:78
+
+    Error Context: test-results/smoke-operations-sidebar-e-d8552-5-modules-through-scrolling-mobile/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/smoke-operations-sidebar-e-d8552-5-modules-through-scrolling-mobile/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/smoke-operations-sidebar-e-d8552-5-modules-through-scrolling-mobile/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  20) [mobile] › e2e/smoke.spec.ts:45:1 › operation details expose PDF source, page workflow and domain fields 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText('竞品页面依据')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByText('竞品页面依据')
+
+
+      46 |   if (testInfo.project.name === 'mobile') await page.setViewportSize({ width: 390, height: 844 })
+      47 |   await page.goto('/operations/product-editor/product-editor-03')
+    > 48 |   await expect(page.getByText('竞品页面依据')).toBeVisible()
+         |                                          ^
+      49 |   await expect(page.getByText('#/set/system/watermark')).toBeVisible()
+      50 |   await expect(page.getByLabel('水印模板')).toBeVisible()
+      51 |   await expect(page.getByLabel('不透明度（%）')).toHaveValue('72')
+        at /Users/wangziheng/Desktop/LAMDA云控系统_代码交接包_20260901/cloudctl-source/apps/web/e2e/smoke.spec.ts:48:42
+
+    Error Context: test-results/smoke-operation-details-ex-6eaa9--workflow-and-domain-fields-mobile/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/smoke-operation-details-ex-6eaa9--workflow-and-domain-fields-mobile/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/smoke-operation-details-ex-6eaa9--workflow-and-domain-fields-mobile/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  21) [mobile] › e2e/smoke.spec.ts:67:1 › operations catalog exposes all 134 unique pages and 111 source routes 
+
+    Error: expect(locator).toHaveCount(expected) failed
+
+    Locator:  locator('.operation-link-list a')
+    Expected: 134
+    Received: 0
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toHaveCount" with timeout 5000ms
+      - waiting for locator('.operation-link-list a')
+        14 × locator resolved to 0 elements
+           - unexpected value "0"
+
+
+      68 |   await page.goto('/operations')
+      69 |   const operationLinks = page.locator('.operation-link-list a')
+    > 70 |   await expect(operationLinks).toHaveCount(134)
+         |                                ^
+      71 |
+      72 |   const paths = await operationLinks.evaluateAll((links) => links.map((link) => new URL((link as HTMLAnchorElement).href).pathname))
+      73 |   expect(new Set(paths).size).toBe(134)
+        at /Users/wangziheng/Desktop/LAMDA云控系统_代码交接包_20260901/cloudctl-source/apps/web/e2e/smoke.spec.ts:70:32
+
+    Error Context: test-results/smoke-operations-catalog-e-309aa-pages-and-111-source-routes-mobile/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/smoke-operations-catalog-e-309aa-pages-and-111-source-routes-mobile/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/smoke-operations-catalog-e-309aa-pages-and-111-source-routes-mobile/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  22) [mobile] › e2e/smoke.spec.ts:101:1 › unknown operation URLs redirect to the catalog ──────────
+
+    Error: expect(page).toHaveURL(expected) failed
+
+    Expected pattern: /\/operations$/
+    Received string:  "http://127.0.0.1:4173/login?redirect=/dashboard"
+    Timeout: 5000ms
+
+    Call log:
+      - Expect "toHaveURL" with timeout 5000ms
+        14 × locator resolved to <html lang="zh-CN">…</html>
+           - unexpected value "http://127.0.0.1:4173/login?redirect=/dashboard"
+
+
+      101 | test('unknown operation URLs redirect to the catalog', async ({ page }) => {
+      102 |   await page.goto('/operations/not-a-module/not-an-operation')
+    > 103 |   await expect(page).toHaveURL(/\/operations$/)
+          |                      ^
+      104 |   await expect(page.locator('.page-header h2')).toHaveText('运营功能目录')
+      105 | })
+      106 |
+        at /Users/wangziheng/Desktop/LAMDA云控系统_代码交接包_20260901/cloudctl-source/apps/web/e2e/smoke.spec.ts:103:22
+
+    Error Context: test-results/smoke-unknown-operation-URLs-redirect-to-the-catalog-mobile/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/smoke-unknown-operation-URLs-redirect-to-the-catalog-mobile/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/smoke-unknown-operation-URLs-redirect-to-the-catalog-mobile/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  22 failed
+    [chromium] › e2e/product.spec.ts:18:1 › 商品编辑页完成列表、编辑、媒体编排和归档冲突提示 ───────────────────────────────
+    [chromium] › e2e/smoke.spec.ts:4:1 › legacy CloudCtl URLs land in the single operations workspace 
+    [chromium] › e2e/smoke.spec.ts:12:1 › root and device list URLs stay inside the operations workspace 
+    [chromium] › e2e/smoke.spec.ts:22:1 › operations sidebar exposes all 15 modules through scrolling 
+    [chromium] › e2e/smoke.spec.ts:45:1 › operation details expose PDF source, page workflow and domain fields 
+    [chromium] › e2e/smoke.spec.ts:67:1 › operations catalog exposes all 134 unique pages and 111 source routes 
+    [chromium] › e2e/smoke.spec.ts:86:3 › operation pages batch 1 renders exact PDF metadata ───────
+    [chromium] › e2e/smoke.spec.ts:86:3 › operation pages batch 2 renders exact PDF metadata ───────
+    [chromium] › e2e/smoke.spec.ts:86:3 › operation pages batch 3 renders exact PDF metadata ───────
+    [chromium] › e2e/smoke.spec.ts:86:3 › operation pages batch 4 renders exact PDF metadata ───────
+    [chromium] › e2e/smoke.spec.ts:86:3 › operation pages batch 5 renders exact PDF metadata ───────
+    [chromium] › e2e/smoke.spec.ts:86:3 › operation pages batch 6 renders exact PDF metadata ───────
+    [chromium] › e2e/smoke.spec.ts:86:3 › operation pages batch 7 renders exact PDF metadata ───────
+    [chromium] › e2e/smoke.spec.ts:86:3 › operation pages batch 8 renders exact PDF metadata ───────
+    [chromium] › e2e/smoke.spec.ts:101:1 › unknown operation URLs redirect to the catalog ──────────
+    [mobile] › e2e/product.spec.ts:18:1 › 商品编辑页完成列表、编辑、媒体编排和归档冲突提示 ─────────────────────────────────
+    [mobile] › e2e/smoke.spec.ts:4:1 › legacy CloudCtl URLs land in the single operations workspace 
+    [mobile] › e2e/smoke.spec.ts:12:1 › root and device list URLs stay inside the operations workspace 
+    [mobile] › e2e/smoke.spec.ts:22:1 › operations sidebar exposes all 15 modules through scrolling 
+    [mobile] › e2e/smoke.spec.ts:45:1 › operation details expose PDF source, page workflow and domain fields 
+    [mobile] › e2e/smoke.spec.ts:67:1 › operations catalog exposes all 134 unique pages and 111 source routes 
+    [mobile] › e2e/smoke.spec.ts:101:1 › unknown operation URLs redirect to the catalog ────────────
+  8 skipped
+/Users/wangziheng/Desktop/LAMDA云控系统_代码交接包_20260901/cloudctl-source/apps/web:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @cloudctl/web@0.1.0 e2e: `playwright test`
+Exit status 1
+ ELIFECYCLE  Command failed with exit code 1.

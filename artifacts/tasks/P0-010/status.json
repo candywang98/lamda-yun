@@ -1,0 +1,18 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "pending",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P0-010/summary.md",
+    "artifacts/tasks/P0-010/commands.log",
+    "artifacts/tasks/_verification-20260831/python-gates.log",
+    "artifacts/tasks/_verification-20260831/frontend-gates.log",
+    ".github/workflows/ci.yml",
+    "scripts/check-security-boundaries.sh",
+    "scripts/build-source-archive.py",
+    "tests/security/test_source_archive.py",
+    "tests/security/test_repository_boundaries.py"
+  ],
+  "note": "Software evidence exists for CI 质量/依赖/供应链门禁, but the documented acceptance gap remains unresolved."
+}
+

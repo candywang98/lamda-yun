@@ -1,0 +1,17 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "pending",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P5-005/summary.md",
+    "artifacts/tasks/P5-005/commands.log",
+    "artifacts/tasks/P5-005/checksums.sha256",
+    "artifacts/tasks/P5-005/local-dr-drill.json",
+    "scripts/operational-acceptance.py",
+    "scripts/export-audit.py",
+    "docs/runbooks/disaster-recovery.md",
+    "docs/runbooks/audit-export.md",
+    "tests/ops/test_audit_export.py"
+  ],
+  "note": "Runbooks, synthetic recovery verification, and secured audit export tooling are implemented; production restore/RPO/RTO/export retention remain pending."
+}

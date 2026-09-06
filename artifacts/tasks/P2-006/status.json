@@ -1,0 +1,18 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "blocked_hardware",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P2-006/summary.md",
+    "artifacts/tasks/P2-006/commands.log",
+    "artifacts/tasks/_verification-20260831/python-gates.log",
+    "edge/gateway/src/cloudctl_edge/device_registry.py",
+    "edge/gateway/src/cloudctl_edge/runtime.py",
+    "tests/edge_runtime_test.py",
+    "tests/edge_gateway_test.py",
+    "artifacts/runtime/local-acceptance-2026-08-31.json",
+    "artifacts/runtime/browser-live-acceptance-2026-08-31.json"
+  ],
+  "note": "Software paths exist for 设备发现、能力探测与心跳; authorized hardware evidence is absent, so acceptance remains blocked_hardware."
+}
+

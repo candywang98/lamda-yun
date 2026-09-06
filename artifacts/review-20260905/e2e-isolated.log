@@ -1,0 +1,197 @@
+[WebServer] (node:27899) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 28 tests using 2 workers
+
+(node:27907) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:27906) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   2 [chromium] › e2e/smoke.spec.ts:4:1 › legacy CloudCtl URLs land in the single operations workspace (1.7s)
+  ✓   1 [chromium] › e2e/smoke.spec.ts:12:1 › root and device list URLs stay inside the operations workspace (1.9s)
+  ✘   3 [chromium] › e2e/smoke.spec.ts:22:1 › operations sidebar exposes all 15 modules through scrolling (778ms)
+  ✘   4 [chromium] › e2e/smoke.spec.ts:45:1 › operation details expose PDF source, page workflow and domain fields (1.2s)
+(node:27972) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:27979) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   5 [chromium] › e2e/smoke.spec.ts:67:1 › operations catalog exposes all 134 unique pages and 111 source routes (798ms)
+  ✓   6 [chromium] › e2e/smoke.spec.ts:86:3 › operation pages batch 1 renders exact PDF metadata (3.0s)
+  ✓   7 [chromium] › e2e/smoke.spec.ts:86:3 › operation pages batch 2 renders exact PDF metadata (2.6s)
+  ✓   8 [chromium] › e2e/smoke.spec.ts:86:3 › operation pages batch 3 renders exact PDF metadata (2.6s)
+  ✓   9 [chromium] › e2e/smoke.spec.ts:86:3 › operation pages batch 4 renders exact PDF metadata (2.5s)
+  ✓  10 [chromium] › e2e/smoke.spec.ts:86:3 › operation pages batch 5 renders exact PDF metadata (2.4s)
+  ✓  11 [chromium] › e2e/smoke.spec.ts:86:3 › operation pages batch 6 renders exact PDF metadata (2.4s)
+  ✓  12 [chromium] › e2e/smoke.spec.ts:86:3 › operation pages batch 7 renders exact PDF metadata (4.1s)
+  ✓  13 [chromium] › e2e/smoke.spec.ts:86:3 › operation pages batch 8 renders exact PDF metadata (4.2s)
+  ✓  14 [chromium] › e2e/smoke.spec.ts:101:1 › unknown operation URLs redirect to the catalog (388ms)
+(node:28118) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:28119) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  15 [mobile] › e2e/smoke.spec.ts:4:1 › legacy CloudCtl URLs land in the single operations workspace (557ms)
+  ✓  16 [mobile] › e2e/smoke.spec.ts:12:1 › root and device list URLs stay inside the operations workspace (722ms)
+  ✘  17 [mobile] › e2e/smoke.spec.ts:22:1 › operations sidebar exposes all 15 modules through scrolling (745ms)
+  ✘  18 [mobile] › e2e/smoke.spec.ts:45:1 › operation details expose PDF source, page workflow and domain fields (522ms)
+(node:28163) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:28164) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  -  20 [mobile] › e2e/smoke.spec.ts:86:3 › operation pages batch 1 renders exact PDF metadata
+  -  21 [mobile] › e2e/smoke.spec.ts:86:3 › operation pages batch 2 renders exact PDF metadata
+  ✓  19 [mobile] › e2e/smoke.spec.ts:67:1 › operations catalog exposes all 134 unique pages and 111 source routes (1.0s)
+  -  22 [mobile] › e2e/smoke.spec.ts:86:3 › operation pages batch 3 renders exact PDF metadata
+  -  23 [mobile] › e2e/smoke.spec.ts:86:3 › operation pages batch 4 renders exact PDF metadata
+  -  24 [mobile] › e2e/smoke.spec.ts:86:3 › operation pages batch 5 renders exact PDF metadata
+  -  25 [mobile] › e2e/smoke.spec.ts:86:3 › operation pages batch 6 renders exact PDF metadata
+  -  26 [mobile] › e2e/smoke.spec.ts:86:3 › operation pages batch 7 renders exact PDF metadata
+  -  27 [mobile] › e2e/smoke.spec.ts:86:3 › operation pages batch 8 renders exact PDF metadata
+  ✓  28 [mobile] › e2e/smoke.spec.ts:101:1 › unknown operation URLs redirect to the catalog (335ms)
+
+
+  1) [chromium] › e2e/smoke.spec.ts:22:1 › operations sidebar exposes all 15 modules through scrolling 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText('原始页面路由')
+    Expected: visible
+    Error: strict mode violation: getByText('原始页面路由') resolved to 2 elements:
+        1) <span>原始页面路由</span> aka getByText('原始页面路由', { exact: true })
+        2) <strong>原始页面路由对照竞品登录后可见菜单</strong> aka getByText('原始页面路由对照竞品登录后可见菜单')
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByText('原始页面路由')
+
+
+      28 |   await expect(moduleLinks).toHaveCount(15)
+      29 |   await expect(page.getByText('云控工作台')).toBeVisible()
+    > 30 |   await expect(page.getByText('原始页面路由')).toBeVisible()
+         |                                          ^
+      31 |
+      32 |   const dimensions = await navigation.evaluate((element) => ({
+      33 |     clientHeight: element.clientHeight,
+        at /Users/wangziheng/Desktop/LAMDA云控系统_代码交接包_20260901/cloudctl-source/apps/web/e2e/smoke.spec.ts:30:42
+
+    Error Context: ../../artifacts/review-20260905/browser-results/smoke-operations-sidebar-e-d8552-5-modules-through-scrolling-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../artifacts/review-20260905/browser-results/smoke-operations-sidebar-e-d8552-5-modules-through-scrolling-chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ../../artifacts/review-20260905/browser-results/smoke-operations-sidebar-e-d8552-5-modules-through-scrolling-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [chromium] › e2e/smoke.spec.ts:45:1 › operation details expose PDF source, page workflow and domain fields 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText('#/set/system/watermark')
+    Expected: visible
+    Error: strict mode violation: getByText('#/set/system/watermark') resolved to 2 elements:
+        1) <p>产品编辑 · #/set/system/watermark</p> aka getByText('产品编辑 · #/set/system/watermark')
+        2) <code>#/set/system/watermark</code> aka getByText('#/set/system/watermark', { exact: true })
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByText('#/set/system/watermark')
+
+
+      47 |   await page.goto('/operations/product-editor/product-editor-03')
+      48 |   await expect(page.getByText('竞品页面依据')).toBeVisible()
+    > 49 |   await expect(page.getByText('#/set/system/watermark')).toBeVisible()
+         |                                                          ^
+      50 |   await expect(page.getByLabel('水印模板')).toBeVisible()
+      51 |   await expect(page.getByLabel('不透明度（%）')).toHaveValue('72')
+      52 |   await expect(page.getByRole('list', { name: '页面工作流程' })).toContainText('检查不同尺寸预览')
+        at /Users/wangziheng/Desktop/LAMDA云控系统_代码交接包_20260901/cloudctl-source/apps/web/e2e/smoke.spec.ts:49:58
+
+    Error Context: ../../artifacts/review-20260905/browser-results/smoke-operation-details-ex-6eaa9--workflow-and-domain-fields-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../artifacts/review-20260905/browser-results/smoke-operation-details-ex-6eaa9--workflow-and-domain-fields-chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ../../artifacts/review-20260905/browser-results/smoke-operation-details-ex-6eaa9--workflow-and-domain-fields-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3) [mobile] › e2e/smoke.spec.ts:22:1 › operations sidebar exposes all 15 modules through scrolling 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText('原始页面路由')
+    Expected: visible
+    Error: strict mode violation: getByText('原始页面路由') resolved to 2 elements:
+        1) <span>原始页面路由</span> aka getByText('原始页面路由', { exact: true })
+        2) <strong>原始页面路由对照竞品登录后可见菜单</strong> aka getByText('原始页面路由对照竞品登录后可见菜单')
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByText('原始页面路由')
+
+
+      28 |   await expect(moduleLinks).toHaveCount(15)
+      29 |   await expect(page.getByText('云控工作台')).toBeVisible()
+    > 30 |   await expect(page.getByText('原始页面路由')).toBeVisible()
+         |                                          ^
+      31 |
+      32 |   const dimensions = await navigation.evaluate((element) => ({
+      33 |     clientHeight: element.clientHeight,
+        at /Users/wangziheng/Desktop/LAMDA云控系统_代码交接包_20260901/cloudctl-source/apps/web/e2e/smoke.spec.ts:30:42
+
+    Error Context: ../../artifacts/review-20260905/browser-results/smoke-operations-sidebar-e-d8552-5-modules-through-scrolling-mobile/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../artifacts/review-20260905/browser-results/smoke-operations-sidebar-e-d8552-5-modules-through-scrolling-mobile/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ../../artifacts/review-20260905/browser-results/smoke-operations-sidebar-e-d8552-5-modules-through-scrolling-mobile/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  4) [mobile] › e2e/smoke.spec.ts:45:1 › operation details expose PDF source, page workflow and domain fields 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText('#/set/system/watermark')
+    Expected: visible
+    Error: strict mode violation: getByText('#/set/system/watermark') resolved to 2 elements:
+        1) <p>产品编辑 · #/set/system/watermark</p> aka getByText('产品编辑 · #/set/system/watermark')
+        2) <code>#/set/system/watermark</code> aka getByText('#/set/system/watermark', { exact: true })
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByText('#/set/system/watermark')
+
+
+      47 |   await page.goto('/operations/product-editor/product-editor-03')
+      48 |   await expect(page.getByText('竞品页面依据')).toBeVisible()
+    > 49 |   await expect(page.getByText('#/set/system/watermark')).toBeVisible()
+         |                                                          ^
+      50 |   await expect(page.getByLabel('水印模板')).toBeVisible()
+      51 |   await expect(page.getByLabel('不透明度（%）')).toHaveValue('72')
+      52 |   await expect(page.getByRole('list', { name: '页面工作流程' })).toContainText('检查不同尺寸预览')
+        at /Users/wangziheng/Desktop/LAMDA云控系统_代码交接包_20260901/cloudctl-source/apps/web/e2e/smoke.spec.ts:49:58
+
+    Error Context: ../../artifacts/review-20260905/browser-results/smoke-operation-details-ex-6eaa9--workflow-and-domain-fields-mobile/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../artifacts/review-20260905/browser-results/smoke-operation-details-ex-6eaa9--workflow-and-domain-fields-mobile/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ../../artifacts/review-20260905/browser-results/smoke-operation-details-ex-6eaa9--workflow-and-domain-fields-mobile/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  4 failed
+    [chromium] › e2e/smoke.spec.ts:22:1 › operations sidebar exposes all 15 modules through scrolling 
+    [chromium] › e2e/smoke.spec.ts:45:1 › operation details expose PDF source, page workflow and domain fields 
+    [mobile] › e2e/smoke.spec.ts:22:1 › operations sidebar exposes all 15 modules through scrolling 
+    [mobile] › e2e/smoke.spec.ts:45:1 › operation details expose PDF source, page workflow and domain fields 
+  8 skipped
+  16 passed (22.9s)
+undefined
+/Users/wangziheng/Desktop/LAMDA云控系统_代码交接包_20260901/cloudctl-source/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: playwright test -c playwright.review.config.ts

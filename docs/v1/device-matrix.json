@@ -1,0 +1,109 @@
+{
+  "version": "1.0",
+  "collected_at": "2026-09-05T23:10:00Z",
+  "devices": [
+    {
+      "device_id": "b0644fb5",
+      "manufacturer": "OnePlus",
+      "model": "LE2100",
+      "marketing_name": "OnePlus 9R",
+      "android_version": "14",
+      "api_level": 34,
+      "build_id": "UKQ1.230924.001",
+      "screen_resolution": "1080x2400",
+      "screen_density": 480,
+      "connection_type": "usb",
+      "status": "online",
+      "companion_apk": {
+        "installed": true,
+        "package_name": "com.company.cloudctl.companion",
+        "version_name": "0.1.0",
+        "version_code": 1,
+        "min_sdk": 29,
+        "target_sdk": 35,
+        "debuggable": true,
+        "signing_version": 2,
+        "accessibility_service": {
+          "declared": true,
+          "service_name": "com.company.cloudctl.companion/.automation.CloudCtlAccessibilityService",
+          "enabled": false,
+          "requires_user_action": true
+        }
+      },
+      "target_apps": {
+        "xianyu": {
+          "package_name": "com.taobao.idlefish",
+          "installed": false,
+          "version": null
+        },
+        "xiaohongshu": {
+          "package_name": "com.xingin.xhs",
+          "installed": false,
+          "version": null
+        },
+        "douyin": {
+          "package_name": "com.ss.android.ugc.aweme",
+          "installed": false,
+          "version": null
+        },
+        "wechat": {
+          "package_name": "com.tencent.mm",
+          "installed": false,
+          "version": null
+        }
+      },
+      "test_accounts": {
+        "note": "平台账号信息保存在安全的凭据存储中，不记录在此文件",
+        "xianyu": {
+          "configured": false,
+          "fingerprint": null
+        },
+        "xiaohongshu": {
+          "configured": false,
+          "fingerprint": null
+        },
+        "douyin": {
+          "configured": false,
+          "fingerprint": null
+        },
+        "wechat": {
+          "configured": false,
+          "fingerprint": null
+        }
+      },
+      "permissions": {
+        "accessibility_service": "not_enabled",
+        "notification_access": "unknown",
+        "foreground_service": "unknown",
+        "battery_optimization": "unknown"
+      },
+      "enrollment": {
+        "enrolled": false,
+        "control_api_endpoint": null,
+        "device_fingerprint": null,
+        "last_heartbeat": null
+      },
+      "notes": [
+        "Companion APK 0.1.0 已安装（debug 版本）",
+        "无障碍服务已声明但未启用，需要用户手动授权",
+        "四个目标平台应用均未安装",
+        "设备未注册到 Control API"
+      ],
+      "next_steps": [
+        "在设备设置中启用 Companion 无障碍服务",
+        "安装至少一个目标平台应用（建议闲鱼）",
+        "配置 Control API 端点",
+        "执行设备注册流程",
+        "运行健康检查任务"
+      ]
+    }
+  ],
+  "summary": {
+    "total_devices": 1,
+    "online_devices": 1,
+    "companion_installed": 1,
+    "accessibility_enabled": 0,
+    "enrolled_devices": 0,
+    "ready_for_testing": 0
+  }
+}

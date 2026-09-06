@@ -1,0 +1,15 @@
+{
+  "name": "cloudctl",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@10.15.0",
+  "scripts": {
+    "contracts": "pnpm --filter @cloudctl/api-contracts build",
+    "dev": "pnpm --parallel --filter @cloudctl/web --filter @cloudctl/studio dev",
+    "build": "pnpm --recursive --if-present build",
+    "lint": "pnpm --recursive --if-present lint",
+    "typecheck": "pnpm --recursive --if-present typecheck",
+    "test": "pnpm --recursive --if-present test",
+    "e2e": "pnpm --filter @cloudctl/web e2e && pnpm --filter @cloudctl/studio e2e"
+  }
+}

@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">CloudCtl Companion</string>
+    <string name="accessibility_service_description">Executes only signed, structured CloudCtl actions for explicitly allowlisted apps.</string>
+</resources>

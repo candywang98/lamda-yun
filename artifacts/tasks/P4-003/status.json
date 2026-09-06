@@ -1,0 +1,18 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "blocked_hardware",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P4-003/summary.md",
+    "artifacts/tasks/P4-003/commands.log",
+    "artifacts/tasks/_verification-20260831/python-gates.log",
+    "mobile/dpc/app/src/main/java/com/company/cloudctl/dpc/PolicyController.kt",
+    "mobile/dpc/app/src/main/java/com/company/cloudctl/dpc/AllowlistParser.kt",
+    "tests/mobile_project_test.py",
+    "mobile/dpc/app/src/test/java/com/company/cloudctl/dpc/AllowlistParserTest.kt",
+    "artifacts/runtime/local-acceptance-2026-08-31.json",
+    "artifacts/runtime/browser-live-acceptance-2026-08-31.json"
+  ],
+  "note": "Software paths exist for 可选 Android Enterprise DPC Profile; authorized hardware evidence is absent, so acceptance remains blocked_hardware."
+}
+

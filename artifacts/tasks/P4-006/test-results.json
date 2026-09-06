@@ -1,0 +1,39 @@
+{
+  "acceptanceStatus": "pending_external",
+  "checks": [
+    {
+      "command": [
+        "bash",
+        "scripts/check-security-boundaries.sh"
+      ],
+      "durationSeconds": 9.697616,
+      "exitCode": 0,
+      "output": "Security boundary checks passed.",
+      "status": "passed"
+    },
+    {
+      "command": [
+        "/mnt/c/Users/Administrator/Documents/Codex/2026-08-30/apk/work/cloudctl/.venv/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/security/test_control_api_auth.py",
+        "tests/security/test_repository_boundaries.py",
+        "tests/security/test_penetration_authorization.py",
+        "tests/integration/test_backend_operations.py",
+        "tests/integration/test_backend_debug_sessions.py"
+      ],
+      "durationSeconds": 16.307981,
+      "exitCode": 0,
+      "output": ".............................                                            [100%]\n29 passed in 13.65s",
+      "status": "passed"
+    }
+  ],
+  "evidenceClass": "local_security_automation",
+  "generatedAt": "2026-08-31T05:19:07.106406+00:00",
+  "hardwareEvidence": false,
+  "schemaVersion": 1,
+  "softwareStatus": "passed",
+  "taskId": "P4-006",
+  "warning": "Automated local security checks do not replace an independent penetration test, production identity-provider validation, or authorized device certificate testing."
+}

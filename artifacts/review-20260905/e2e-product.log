@@ -1,0 +1,14 @@
+
+> @cloudctl/web@0.1.0 e2e:product /Users/wangziheng/Desktop/LAMDA云控系统_代码交接包_20260901/cloudctl-source/apps/web
+> playwright test -c playwright.product.config.ts
+
+[WebServer] (node:27696) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 1 test using 1 worker
+
+(node:27711) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 e2e/product.spec.ts:18:1 › 商品编辑页完成列表、编辑、媒体编排和归档冲突提示 (824ms)
+
+  1 passed (1.9s)

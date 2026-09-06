@@ -1,0 +1,19 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "blocked_hardware",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P4-001/summary.md",
+    "artifacts/tasks/P4-001/commands.log",
+    "artifacts/tasks/_verification-20260831/python-gates.log",
+    "mobile/companion/app/src/main/java/com/company/cloudctl/companion/data/CompanionRepository.kt",
+    "mobile/companion/app/src/main/java/com/company/cloudctl/companion/network/EnrollmentParser.kt",
+    "mobile/companion/app/src/main/java/com/company/cloudctl/companion/network/EdgeClient.kt",
+    "tests/mobile_project_test.py",
+    "mobile/companion/app/src/test/java/com/company/cloudctl/companion/network/EnrollmentParserTest.kt",
+    "artifacts/runtime/local-acceptance-2026-08-31.json",
+    "artifacts/runtime/browser-live-acceptance-2026-08-31.json"
+  ],
+  "note": "Software paths exist for Kotlin Companion 入网与设备绑定; authorized hardware evidence is absent, so acceptance remains blocked_hardware."
+}
+

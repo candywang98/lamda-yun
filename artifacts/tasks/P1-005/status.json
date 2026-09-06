@@ -1,0 +1,18 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "pending",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P1-005/summary.md",
+    "artifacts/tasks/P1-005/commands.log",
+    "artifacts/tasks/P1-005/test-results/software-gates.txt",
+    "services/control-api/src/cloudctl_api/db.py",
+    "services/control-api/src/cloudctl_api/schemas.py",
+    "services/control-api/src/cloudctl_api/routes.py",
+    "services/control-api/src/cloudctl_api/services.py",
+    "services/control-api/migrations/versions/20260831_0004_add_accounts_media_and_content_groups.py",
+    "tests/integration/test_backend_accounts_media_content.py",
+    "tests/integration/test_backend_control_api.py"
+  ],
+  "note": "Content, immutable revision, archive, group, and membership software are implemented. Acceptance awaits deployed persistence and web workflow validation."
+}

@@ -1,0 +1,13 @@
+from collections.abc import AsyncIterator
+
+from . import edge_control_pb2 as pb
+
+class EdgeControlStub:
+    def __init__(self, channel: object) -> None: ...
+    def Connect(
+        self, request_iterator: AsyncIterator[pb.EdgeToCloud]
+    ) -> AsyncIterator[pb.CloudToEdge]: ...
+
+class EdgeControlServicer: ...
+
+def add_EdgeControlServicer_to_server(servicer: object, server: object) -> None: ...

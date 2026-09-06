@@ -1,0 +1,179 @@
+from pathlib import Path
+import json
+ROOT=Path(__file__).resolve().parents[2]
+OUT=ROOT/'docs/v1'
+items=[]
+def add(n,title,phase,deps,days,existing,files,steps,checks,accept,block=''):
+ items.append(dict(id=f'V1-{n:02}',title=title,phase=phase,dependencies=[f'V1-{x:02}' for x in deps],estimate_low=days[0],estimate_high=days[1],status='blocked' if block else 'todo',existing=existing,files=files,steps=steps,verification_commands=checks,acceptance=accept,blocker=block,evidence=f'artifacts/v1/V1-{n:02}/',owner='待分配'))
+P='services/control-api/src/cloudctl_api/'
+K='mobile/companion/app/src/main/java/com/company/cloudctl/companion/'
+add(1,'建立可复现工程基线并修复真实检查失败','M0 基线',[],(1,2),'Python 392 / Web 40 / Studio 16 / APK 41 单测通过；静态检查与部分浏览器用例失败',
+['pyproject.toml','.github/workflows/ci.yml','scripts/check-security-boundaries.sh','apps/web/playwright.config.ts','apps/web/e2e/smoke.spec.ts'],
+['保存本轮日志作为基线；记录 Python/pnpm/JDK/SDK 版本与依赖清单，建立不包含 lab/凭据的源码 Git 检查点。','按 Ruff/Pyright 日志定位问题；对 Outbox 构造参数、gRPC 方法真实签名逐项核对，禁止只加 type: ignore。','修复 BSD grep 扫描失败：错误必须非零退出；临时夹具覆盖违规 import、设备端口、密钥样式，夹具不含真实密钥。','Playwright 独占端口并验证页面属于 CloudCtl；产品用例只使用产品配置；核对侧栏滚动和页面文案现状后调整真实交互断言。','补完整锁定和安装说明；在干净测试环境验证，而不是删除当前工作虚拟环境。'],
+['.venv/bin/python -m pytest -q','.venv/bin/ruff check .','.venv/bin/ruff format --check .','.venv/bin/pyright','pnpm lint','pnpm typecheck','pnpm test','pnpm build','bash scripts/check-security-boundaries.sh','pnpm --filter @cloudctl/web e2e:product'],
+'上述命令全绿；浏览器 smoke 在独占端口运行且无新增 skip；扫描器故障不能返回成功。')
+add(2,'冻结 APK 直连主线和 V1 业务范围','M0 基线',[],(.5,1),'ADR 0003 已接受 APK 本地执行，README/旧规则仍描述 LAMDA 主线',
+['AGENTS.md','README.md','docs/adr/0003-mobile-local-execution.md','docs/v1/02-实施方案.md'],
+['逐条列出旧架构与 ADR 0003 冲突，写新的 ADR 说明适用范围及取代关系。','将设备任务定为 Companion 直连；已有 API 平台执行走服务端；两者共享业务 Target。','保留 LAMDA/Edge 诊断边界，但生产首版不依赖 USB，不同时在手机上跑两个 Runner。','明确闲鱼商品、小红书图文、抖音视频、公众号文章均属于完整 V1；其他竞品目录冻结。'],
+['rg -n "Mobile-local|Companion|LAMDA|V1" AGENTS.md README.md docs/adr'],
+'每种执行方式有唯一所有者、同一提交语义和明确文档入口；无相互矛盾的强制路线。')
+add(3,'盘点用户真实商品库和素材库','M0 基线',[],(.5,1),'本轮未找到实际来源连接器，库类型、地址、字段和授权未知',
+['docs/v1/source-profile.json（新增）','docs/v1/source-mapping.md（新增）'],
+['由库管理员提供只读入口，填写实施方案第3节的来源类型、范围、稳定主键、附件获取方式与规模。','只读抽样10商品/20素材，脱敏记录字段名、类型、空值、金额单位、附件顺序和原件可访问性。','确定两个库之间关联键及删除、冲突处理；来源字段默认只读，平台覆盖另存。','拿到真实权限后做一次只读请求并保存脱敏响应结构；未提供入口时保留阻塞，不猜测飞书或数据库。'],
+['读取 source-profile.json 并校验必填项；按实际来源官方文档执行只读采样（端点待盘点）'],
+'真实入口、主键与字段映射确认；原图/视频可读取；凭据只存 secret_ref。','需要用户现有库的只读入口、类型和字段样本')
+add(4,'恢复真机验收前置条件','M0 基线',[],(.5,1),'OnePlus Android14在线；APK 0.1.0 debug；项目无障碍服务未启用',
+[K+'MainActivity.kt',K+'service/CompanionSyncService.kt','docs/v1/device-matrix.json（新增）'],
+['记录当前手机、APK、四个App版本；核对APK所绑定API环境与本轮源码构建摘要。','在手机系统设置中由用户/授权管理员启用项目无障碍服务；确认通知、前台服务和电池状态。','用现有注册流程绑定受控测试设备，不覆盖其他账号或卸载应用。','运行只读健康/截图任务，核对服务端任务ID与手机日志；记录平台账号指纹但不抄录密码。'],
+['adb devices -l','adb -s b0644fb5 shell settings get secure enabled_accessibility_services','./mobile/companion/build-external.sh testDebugUnitTest lintDebug'],
+'项目服务已启用，HTTPS绑定正确，真实健康任务有回执；不把ADB在线当自动化通过。')
+add(5,'来源连接器协议和字段映射','M1 来源与内容',[2,3],(1,2),'复用Product/Media/Content领域，不另建业务库',
+[P+'source_schemas.py（新增）',P+'source_service.py（新增）',P+'db.py','services/control-api/migrations/versions/（新增迁移）'],
+['定义 SourceConnection/SourceRecordLink/SyncRun/SyncError 的字段与租户唯一键。','新增连接测试和preview接口，预览只返回规范记录与逐行错误，不写业务商品。','定义 read_page(cursor)、fetch_asset(ref)、normalize_record(record) 协议；只实现盘点确认的一种来源。','映射版本不可变；来源凭据经secret_ref解析，日志脱敏；分页游标只从来源响应取得。'],
+['新增 tests/integration/test_source_connections.py：预览不写库、跨租户、权限失效、字段错误','.venv/bin/python -m pytest -q tests/integration/test_source_connections.py'],
+'一页真实样本可转换为标准数据；错误精确到外部ID/字段；无明文凭据。')
+add(6,'幂等增量同步与附件入库','M1 来源与内容',[5],(2,3),'已有媒体上传和SHA去重可复用',
+[P+'source_service.py',P+'media_store.py',P+'services.py','services/outbox-dispatcher/src/cloudctl_outbox/'],
+['以tenant+connection+externalId唯一映射；同hash跳过，不同hash新建修订。','分页业务提交后推进游标；来源下载先临时文件校验再注册资产。','对过期附件地址向来源重新取一次；下载失败保留行级错误与重试入口。','来源删除仅tombstone；发布引用不丢失；可选回写单独任务且按targetId幂等。','使用进程中断夹具覆盖游标写入前后崩溃，重复页不得重复创建。'],
+['新增 tests/integration/test_source_sync.py','.venv/bin/python -m pytest -q tests/integration/test_source_sync.py tests/integration/test_backend_accounts_media_content.py'],
+'首轮导入、重复导入、修改、删除和崩溃恢复通过；至少10条真实来源记录与附件一致。')
+add(7,'Web 来源连接与同步错误界面','M1 来源与内容',[5,6],(1,2),'现有工作台缺来源库连接体验',
+['apps/web/src/views/SourceConnectionsView.vue（新增）','apps/web/src/router.ts','packages/api-contracts/typescript/src/'],
+['从OpenAPI生成来源接口类型；表单只显示脱敏连接和字段映射。','新增测试连接、预览10条、确认同步、最后同步时间与错误列表。','点击行级错误能显示外部记录ID、字段和修复建议；重试复用syncRun操作键。','刷新页面从API恢复状态，禁止本地假同步进度。'],
+['python scripts/export_openapi.py（使用项目虚拟环境）','pnpm contracts','pnpm typecheck','pnpm --filter @cloudctl/web test'],
+'非技术用户能确认来源、预览映射、启动同步并找到错误记录；页面刷新不丢任务。')
+add(8,'完善媒体就绪状态和大文件处理','M1 来源与内容',[2],(1,2),'MediaAsset/Upload/Derivative/Tag/Group已存在',
+[P+'media_store.py',P+'services.py',P+'schemas.py','tests/integration/test_backend_accounts_media_content.py'],
+['检查上传完成校验：真实字节、大小、MIME、hash和租户引用必须一致。','定义 PROCESSING/READY/FAILED；查明现有衍生物是否有执行工人，没有则补缩略图/视频元数据活动。','大视频采用流式传输和长度上限；使用100MB测试文件验证峰值内存，不以测试大小代替平台限制。','失败临时文件清理；被计划/商品引用的资产不物理删除。'],
+['.venv/bin/python -m pytest -q tests/integration/test_backend_accounts_media_content.py','运行100MB流式上传下载基准并记录峰值内存、耗时'],
+'仅真实校验完成资产可发布；缩略图/尺寸/时长可显示；hash错误被拒绝。')
+add(9,'Web 素材选择器与引用提示','M1 来源与内容',[8],(1,2),'目前编辑表单仍需要输入mediaAssetIds',
+['apps/web/src/components/MediaPicker.vue（新增）','apps/web/src/views/OperationsView.vue','packages/api-contracts/typescript/src/'],
+['提供图片/视频缩略图、标签分组搜索、上传状态与分页。','选择时输出assetId有序数组，不要求用户复制ID；封面单独标识。','显示引用数量，归档时告知具体商品/计划；失败媒体不可选。','沿用现有媒体接口与TanStack Query，不另建本地媒体真相。'],
+['pnpm typecheck','新增组件测试：分页、顺序、封面、未就绪禁用','pnpm --filter @cloudctl/web test'],
+'用户能选图/视频、排序、设封面且保存后重开一致。')
+add(10,'商品原子保存、不可变修订与资源类型纠正','M1 来源与内容',[1,8],(1.5,3),'Product已存在，Web保存后仍调旧Content下发',
+[P+'db.py',P+'services.py',P+'schemas.py','apps/web/src/views/OperationsView.vue','tests/integration/test_backend_accounts_media_content.py'],
+['先增加失败回归：保存新Product再发往旧Content路径，明确类型不匹配；不使用预制共享ID掩盖。','复用Product行，加不可变ProductRevision并回填当前版本；历史未知版本不可伪造。','商品字段和媒体顺序在一个事务保存，expectedRevision不匹配返回409；金额用Decimal。','改Web只维护productId/productRevision；删除对Content下发的商品调用，待V1-14接入正式Plan入口。','平台覆盖补成色/运费/发货地，使用schema校验；不扩展ERP。'],
+['.venv/bin/python -m pytest -q tests/integration/test_backend_accounts_media_content.py','pnpm --filter @cloudctl/web e2e:product','pnpm typecheck'],
+'新增/编辑/图片排序原子一致；并发409；Product不会再作为Content查询；旧发布快照可读。')
+add(11,'内容包与平台覆盖编辑','M1 来源与内容',[9],(1,2),'已有ContentRevision和媒体关联',
+[P+'content_payload.py',P+'schemas.py','apps/web/src/views/OperationsView.vue','tests/unit/test_content_payload.py'],
+['复用ContentRevision，定义图文、单视频、公众号文章三类结构。','每平台保存title/body/media/cover/hashtags覆盖；不改共享原始素材。','公众号HTML清洗，图片只引用本租户资产；标题超限阻断而非截断。','保存新修订并提供按平台预览；未支持组合明确标不支持。'],
+['.venv/bin/python -m pytest -q tests/unit/test_content_payload.py','pnpm --filter @cloudctl/web test'],
+'同一内容可形成三种合法平台预览；编辑覆盖不会污染其他平台或旧修订。')
+add(12,'账号能力、身份核对与设备绑定','M2 发布核心',[2,4],(1.5,3),'已有账号记录与设备绑定，不等同真实平台授权',
+[P+'db.py',P+'services.py',P+'mobile_service.py',K+'automation/TargetLocatorRegistry.kt'],
+['读取现有account/binding实体，扩展channel/scope/status/verifiedAt/identityFingerprint，不复制账号表。','区分ANDROID登录指纹与API OAuth scope；未支持/过期/撤销分别返回稳定码。','提交前核对当前账号指纹及绑定设备，遇到切号/登录失效阻断。','Web显示授权来源、最后检查时间与恢复入口；Token保留服务端secret_ref。'],
+['新增 tests/integration/test_account_capabilities.py','.venv/bin/python -m pytest -q tests/integration/test_account_capabilities.py','真机核对一个账号并模拟身份不一致（不自动切换账号）'],
+'账号名相同不当成同一账号；失效、错号、错设备都不能申请提交许可。')
+add(13,'统一目标状态机与错误合同','M2 发布核心',[2],(1,2),'已有PublishState和MobileTask状态，不能直接互相复制',
+['packages/domain/src/cloudctl_domain/',P+'schemas.py',P+'mobile_schemas.py','contracts/'],
+['列出现有所有状态及调用方，写新旧映射表与允许转移矩阵。','加入PREPARED/DRAFT_SAVED/平台接收/审核中/公开成功语义，决定兼容存储方式。','定义失败是否可重试及提交边界，UNKNOWN只允许查询/人工对账。','增加模式PREPARE_ONLY/SAVE_DRAFT/PUBLISH；契约同步到Python/TS/Kotlin。'],
+['.venv/bin/python -m pytest -q tests/unit/test_backend_domain.py tests/contracts/test_openapi_contract.py','pnpm contracts','pnpm typecheck'],
+'非法倒退转移被拒绝；填表SUCCEEDED不能使Target变公开成功。')
+add(14,'计划校验、快照冻结与Product发布入口','M2 发布核心',[10,11,12,13],(2,3),'Plan/Snapshot/Target/Approval/Outbox表已有',
+[P+'services.py',P+'routes.py',P+'schemas.py',P+'db.py','tests/integration/test_backend_control_api.py'],
+['扩展现有Plan合同以source.kind分派ProductRevision/ContentRevision，避免重复Plan体系。','校验source租户、媒体READY、账号能力、设备绑定、平台格式并生成previewHash。','同事务写Plan/Target/不可变快照/审批/outbox；每个目标保存不同platform覆盖。','Idempotency-Key同摘要返回原资源，异摘要409；禁用Date.now作为网络重试的新key。','记录快照hash、账号指纹、媒体顺序、执行器版本；提交后编辑不改变快照。'],
+['.venv/bin/python -m pytest -q tests/integration/test_backend_control_api.py tests/integration/test_backend_accounts_media_content.py','新增Product到Plan到Target集成用例'],
+'新商品通过正式发布入口建计划；重复请求只有一个Plan；来源修改不影响冻结内容。')
+add(15,'复用Outbox编排并验证PostgreSQL互斥','M2 发布核心',[14],(1.5,3),'Temporal/Outbox已有；本轮未证明真PostgreSQL和历史replay',
+['services/temporal-worker/src/cloudctl_worker/','services/outbox-dispatcher/src/cloudctl_outbox/',P+'mobile_service.py','tests/replay/'],
+['消费既有outbox为Target选择API或APK执行器；同event_id仅处理一次。','固定账号再设备的锁顺序，PG租约fence递增；API目标不伪造deviceId。','在临时PostgreSQL数据库跑实际Alembic升级及并发领取，不操作现有线上库。','准备真实Temporal历史并用Replayer验证；单元AST检查保留但不冒充replay。'],
+['.venv/bin/python -m pytest -q tests/integration/test_backend_outbox.py tests/replay','在隔离测试PostgreSQL上执行alembic upgrade head/current及新增并发测试'],
+'并发领取仍单Runner；Outbox至少一次投递不重复业务；有PG和真实历史重放日志。')
+add(16,'APK任务协议持久化与恢复补齐','M2 发布核心',[13,15],(1.5,3),'AutomationStore、CloudTaskClient、SyncService已存在',
+[K+'automation/AutomationTask.kt',K+'data/AutomationStore.kt',K+'network/CloudTaskClient.kt',K+'service/CompanionSyncService.kt'],
+['扩展版本化任务合同包含targetId/snapshotHash/accountFingerprint/channel；未知版本拒绝。','核对taskId+canonical digest的持久化去重，重复相同内容返回旧回执，异内容拒绝。','状态先落本地DB再ACK，事件携带唯一ID/序号；旧fence不可继续执行。','进程恢复按PREPARING/COMMIT_STARTED分支，准备可恢复，提交已开始只对账。'],
+['./mobile/companion/build-external.sh testDebugUnitTest lintDebug','新增AutomationStore进程恢复/异摘要/旧fence测试'],
+'重启不会丢任务或重复最终动作；未知协议失败关闭。')
+add(17,'任务绑定的媒体授权与流式投递','M2 发布核心',[8,14,16],(1.5,3),'已有下载校验/MediaStore导出；当前仅限制到租户',
+[P+'mobile_service.py',P+'mobile_routes.py',K+'media/MediaDelivery.kt',K+'data/MediaDeliveryCoordinator.kt'],
+['新增delivery grant绑定target/task/device/manifestHash/到期，下载请求必须属于清单。','按snapshot中媒体ID和hash生成manifest，不接受设备随意指定同租户资产。','流式下载.part，长度/hash校验后原子安装；缓存命中必须重验绑定与hash。','在本地持久化URI映射，重复领取复用；失败和取消只删除本任务产物。'],
+['.venv/bin/python -m pytest -q tests/integration/test_mobile_task_api.py','./mobile/companion/build-external.sh testDebugUnitTest','真机100MB视频传输及断网/hash错误验收'],
+'同租户其他任务媒体无法下载；重复投递不重复导出；坏文件不进入平台。')
+add(18,'闲鱼精确选图，消除索引盲选','M3 闲鱼',[4,17],(2,4),'现有gallery_select_N只按第N个选择节点',
+[P+'xianyu_publish.py',K+'automation/TargetLocatorRegistry.kt',K+'automation/CloudCtlAccessibilityService.kt',K+'media/MediaGalleryExporter.kt'],
+['采集当前闲鱼选择器UI结构；记录相机入口、相册筛选、文件可见信息和排序。','建立assetId/hash/URI到可验证选项的映射，优先受控相册和唯一标识。','编译选择步骤前验证所有素材已导出；选后核对顺序/封面/数量和图像身份。','混入30张旧图及一张新干扰图验证；没有可靠映射时转USER_ACTION_REQUIRED，不再用索引兜底。'],
+['.venv/bin/python -m pytest -q tests/unit/test_xianyu_publish_recipe.py','./mobile/companion/build-external.sh testDebugUnitTest','OnePlus+闲鱼7.27.90执行A/B/C素材和干扰图验收'],
+'实际选中A/B/C且顺序一致；不确定时不提交。')
+add(19,'闲鱼完整商品预填和预览证据','M3 闲鱼',[10,12,18],(1.5,3),'已有描述/价格配方，缺完整字段回读',
+[P+'xianyu_publish.py',K+'automation/TargetLocatorRegistry.kt','contracts/xianyu-publish-text.example.json'],
+['根据实际UI补标题/描述/价格/成色/运费/发货地，字段存在性由当前类目决定。','每次打开面板和确认字段都有后置条件；输入后读回Decimal价格和运费。','显式处理键盘、草稿恢复和权限弹窗；账号检查失败立即暂停。','结束上传预览截图与摘要，标PREPARED而非发布成功；保留用户确认入口。'],
+['.venv/bin/python -m pytest -q tests/unit/test_xianyu_publish_recipe.py','真机单商品三图字段读回、草稿恢复、必填缺失验收'],
+'商品、媒体、价格、运费和账号可逐项核对，预填不触发最终发布。')
+add(20,'最终提交许可与最多一次执行','M3 闲鱼',[13,16,19],(2,4),'数据库CommitIntent存在，APK最终发布协议未闭环',
+[P+'services.py',P+'mobile_service.py',P+'db.py',K+'data/AutomationStore.kt',K+'automation/LocalAutomationExecutor.kt'],
+['复用CommitIntent，加target唯一约束/一次提交许可；核对现有attempt_no不能允许第二次最终提交。','许可绑定snapshot/审批/账号/fence/到期；过期、错号、取消请求拒绝。','APK先持久化COMMIT_STARTED再点唯一发布节点；该动作不可用通用步骤重试。','分别在许可前、日志落盘后、点击后断网/杀进程，恢复不再次点击。','API Publisher采用同等提交账本语义，避免API失败后自动切APK重复发送。'],
+['新增 tests/integration/test_publish_commit_permit.py','.venv/bin/python -m pytest -q tests/integration/test_publish_commit_permit.py','./mobile/companion/build-external.sh testDebugUnitTest','真机提交断点验收（受控内容、用户确认）'],
+'每Target最多一次提交尝试；重复许可/任务/重启均无重复发布。')
+add(21,'结果对账、审核状态与人工处理','M3 闲鱼',[20],(1.5,3),'现有MobileTask终态不能证明平台发布结果',
+[P+'services.py',P+'mobile_service.py','services/temporal-worker/src/cloudctl_worker/',K+'automation/'],
+['定义结构化平台回执：externalId/url、平台接收/审核/公开状态、证据hash、账号指纹。','闲鱼按当前账号商品列表/详情核对标题图价格；不以一条toast证明成功。','查询有上限和下次时间；超时无证据转UNKNOWN，人工可附结果链接/原因。','人工标记记录操作者、证据和审计，不暗中触发重发。'],
+['新增 tests/integration/test_publish_reconciliation.py','真机成功/平台拒绝/审核中/响应丢失验收'],
+'填表、已接收、审核中、公开成功、未知严格分开；UNKNOWN不自动重发。')
+add(22,'Web 一次确认发布向导和结果页','M3 闲鱼',[9,11,14,21],(2,3),'现有发布路由重定向到通用OperationsView',
+['apps/web/src/views/PublishWizardView.vue（新增）','apps/web/src/views/PublishPlanView.vue（新增）','apps/web/src/router.ts','packages/api-contracts/typescript/src/'],
+['独立路由保留planId/targetId，选来源修订、平台账号、媒体和平台覆盖。','调用validate展示每目标previewHash与阻塞字段；用户一次确认后submit。','保存稳定幂等键直到拿到planId；网络重试复用；新计划才生成新键。','结果页刷新读真实API，显示部分失败/审核/UNKNOWN及证据；重试按钮只允许准备阶段。'],
+['pnpm contracts','pnpm typecheck','pnpm --filter @cloudctl/web test','新增真实API+测试数据库的Publish E2E（不拦截所有请求）'],
+'能从真实Product建计划到查看结果；双击无重复；无mock回执；阶段名称准确。')
+add(23,'平台权限探测与适配器注册合同','M4 三内容平台',[2,12,13],(1,2),'除闲鱼外未见已接入的移动定位器',
+['packages/automation-sdk/src/cloudctl_automation_sdk/',P+'platform_capabilities.py（新增）','docs/v1/platform-capabilities.json（新增）'],
+['记录四平台账号实际授权/scope、渠道、格式、限制、审核方式与文档日期。','定义validate/prepare/before_commit/commit_once/reconcile/cleanup公共合同，禁止API提交后自动切UI。','检查小红书分享SDK是否只唤起分享；公众号需实际后台权限，不能由微信安装推导。','版本未验证/权限未给标UNSUPPORTED或待授权；只阻塞相关平台，不阻塞其他Target。'],
+['新增适配器合同测试：未知平台/错误scope/错误channel/过期版本','逐账号保存脱敏权限探测证据'],
+'每个平台有已证实渠道或明确阻塞；公开资料和账号实际权限分栏。')
+add(24,'小红书图文发布适配器','M4 三内容平台',[11,17,20,21,23],(3,5),'本机小红书8.50.1；执行器尚未接入',
+[K+'automation/TargetLocatorRegistry.kt',P+'publishers/xiaohongshu.py（新增）','docs/compatibility/'],
+['按V1-23选择实际可用分享/API/UI路线；记录能力限制，不安装未经验证第三方私有API。','完成账号核对、精确多图选择、标题正文话题预填、预览。','共用提交许可，唤起分享仅记prepared；最终提交单次执行。','在本账号笔记页对账，记录审核/公开状态；采集发布成功及未知场景证据。'],
+['新增tests/unit/test_xiaohongshu_publisher.py','Android单测及8.50.1真机图文全链路验收'],
+'指定图文发布到指定账号；有外部结果证据；审核中不显示公开成功。')
+add(25,'抖音视频发布适配器','M4 三内容平台',[11,17,20,21,23],(3,5),'本机抖音39.6.0；需核查video.create授权',
+[P+'publishers/douyin.py（新增）',K+'automation/TargetLocatorRegistry.kt','docs/compatibility/'],
+['验证实际OAuth scope；有正式权限用API，否则按已授权UI路线实现。','API先上传并保存video_id，UI精确选择指定视频；验证时长/格式/封面，限制来自能力配置。','填写标题/话题/可见范围，生成预览hash；调用共用提交账本。','上传成功不等于发布成功；保存item_id并查询审核/可见状态；请求丢失不再次创建。'],
+['新增tests/unit/test_douyin_publisher.py','对真实授权账户进行单视频发布、超限、授权失效和审核状态验收'],
+'完整视频到指定账号；上传、提交、审核三阶段可追溯；无跨渠道重复。')
+add(26,'微信公众号文章发布适配器','M4 三内容平台',[11,20,21,23],(3,5),'官方文档正文本轮未取得；账号资格未知',
+[P+'publishers/wechat_official.py（新增）','docs/v1/wechat-permissions.md（新增）'],
+['先从用户公众号后台和官方文档确认草稿/发布/状态查询权限、端点与参数，保存日期；不据第三方博客锁合同。','上传封面和正文图，HTML清洗/内联样式/图片地址替换；生成草稿并预览。','有发布能力才使用共用许可提交，记录publish/article ID和状态；只会创建草稿则标DRAFT_SAVED。','公众号文章发布与粉丝群发分开；无权限则明确阻塞完整发布，按平台后台合法手工流程补验收。'],
+['新增tests/unit/test_wechat_official_publisher.py','真实公众号草稿、发布、状态查询与权限不足验收'],
+'文章发布有可核验URL/ID；只有草稿权限不得把该任务标done。')
+add(27,'多平台多账号排队与部分失败','M5 完整V1',[15,22,24,25,26],(1.5,3),'已有批次操作骨架，需统一真正的PublishTarget',
+[P+'services.py','services/temporal-worker/src/cloudctl_worker/','apps/web/src/views/PublishPlanView.vue'],
+['同一计划按平台账号展开Target，冻结每个目标内容覆盖。','设备和账号串行；不同设备可并行，默认并发1，配置上限验证。','汇总成功/失败/未知/等待；失败不回滚或重发成功项。','取消只在安全点；恢复后保持原targetId与快照，不创建隐性新目标。'],
+['新增tests/integration/test_multi_platform_publish.py','真实四平台受控批次和一个目标失败场景'],
+'一次确认可排队四平台，部分失败可定位；同设备无并行写；成功项不重复发布。')
+add(28,'断网重启、无USB和账号异常恢复','M5 完整V1',[27],(2,4),'基础恢复单测已有，真实长链证据不足',
+[K+'data/AutomationStore.kt',K+'service/CompanionSyncService.kt','docs/v1/hardware-acceptance.md（新增）'],
+['手机使用独立网络，断USB并停开发Edge；Web通过HTTPS提交受控计划。','准备中/提交后分别断网和终止进程，核对本地DB与云端事件。','测试权限关闭、锁屏、电量限制、存储不足、App版本变化，显示可恢复原因而非无限重试。','执行24h观察，记录送达率/耗时/未知率和故障；不将一台手机外推所有Android。'],
+['实施方案A06-A18真实验收，日志包含设备/版本/task/target/时间和hash'],
+'无USB任务能独立运行；提交不重复；账号异常暂停；24h报告可复核。')
+add(29,'Release 构建、部署备份与回滚','M5 完整V1',[1,28],(1.5,3),'当前已装debug APK；服务部署与本地版本未比对',
+['mobile/companion/app/build.gradle.kts','infra/','scripts/backup.sh','scripts/restore.sh','docs/runbooks/'],
+['配置release signing secret_ref、递增versionCode；产物记录SHA和签名摘要，debuggable=false。','生产认证关闭dev bypass；前端固定角色改为真实会话/权限，API地址和TLS指纹改环境配置；验证租户隔离、API TLS、对象存储和后台任务环境。','在测试部署做PG备份恢复和schema回滚/前滚演练；不在用户真实库试破坏性迁移。','安装同签名升级验证绑定/任务保留，记录回滚可行性，不强制换签名或降级。'],
+['release assemble/lint（签名由实际环境注入）','adb shell dumpsys package com.company.cloudctl.companion（验版本与flags）','隔离环境备份恢复及灰度运行检查'],
+'安装可核对release；部署摘要对应源码；有已演练恢复步骤。')
+add(30,'完整V1业务验收和来源回写','M5 完整V1',[6,7,27,28,29],(1,2),'完整端到端里程碑本轮验收0/8',
+['docs/v1/acceptance-report.md（新增）','docs/v1/tasks.json','docs/v1/03-逐项任务卡.md'],
+['从用户真实来源库选新商品/素材，经Web一次确认发往四个已授权目标。','逐目标核对账号、内容、素材、平台结果URL/ID；审核尚未结束的保持进行中。','可选来源回写target结果，失败重试仅回写，不重新发布；不给来源覆盖内容字段。','按八个里程碑更新证据覆盖，只将全部通过者标done；整理操作说明、错误处理和后续范围。'],
+['执行实施方案A01-A18；复核所有任务依赖、日志、证据和构建摘要'],
+'8个完整业务里程碑均有证据；四平台都能明确区分草稿/审核/公开结果；用户能独立操作。')
+# Regenerating task cards must not reset accepted work or assignments.
+existing_path=OUT/'tasks.json'
+if existing_path.exists():
+ prior={t['id']:t for t in json.loads(existing_path.read_text())['tasks']}
+ for task in items:
+  old=prior.get(task['id'],{})
+  for field in ('status','owner','blocker','progress_notes','verified_at','acceptance_evidence'):
+   if field in old:task[field]=old[field]
+ids={t['id'] for t in items}
+for t in items:
+ assert all(d in ids and d<t['id'] for d in t['dependencies']),t['id']
+(OUT/'tasks.json').write_text(json.dumps({'baseline':'2026-09-05','policy':'estimates are person-days, external waits excluded; no implementation task accepted in this review','tasks':items},ensure_ascii=False,indent=2))
+lines=['# V1 逐项任务卡','', '基线：2026-09-05。所有路径相对 cloudctl-source。新增文件为提案；实施前核对最新代码。', '', '每张卡完成时都要保存实际退出码、测试摘要、变更清单和证据；命令中的自然语言项是待实现验收步骤，不能复制为 shell。所有 Python 命令使用项目 `.venv/bin/python`。', '', '状态：todo/doing/blocked/blocked_hardware/review/done。当前任务没有完成验收，已有能力列仅表示可复用的基础。', '']
+for t in items:
+ lines += [f"## {t['id']} · {t['title']}",'',f"- 阶段：{t['phase']}；依赖：{', '.join(t['dependencies']) or '无'}；状态：{t['status']}。",f"- 估算：{t['estimate_low']}–{t['estimate_high']} 人日（非承诺工期）。",f"- 已有基础：{t['existing']}",f"- 文件范围：{'；'.join('`'+x+'`' for x in t['files'])}",f"- 输入条件：{'所有依赖验收完成' if t['dependencies'] else '读完当前审核及实施方案'}。{t['blocker']}",'','实施步骤：','']
+ lines += [f'{i}. {s}' for i,s in enumerate(t['steps'],1)]
+ lines += ['','验证要求：','']+['- '+c for c in t['verification_commands']]
+ lines += ['',f"验收：{t['acceptance']}",'',f"证据目录：`{t['evidence']}`。失败回退：源码回到本卡前检查点；数据库仅在隔离验证后使用本卡迁移的回退/前滚方案；已发生的平台发布不通过重跑任务回退。",'']
+(OUT/'03-逐项任务卡.md').write_text('\n'.join(lines))
+print('tasks',len(items),'person-days',sum(x['estimate_low'] for x in items),sum(x['estimate_high'] for x in items))

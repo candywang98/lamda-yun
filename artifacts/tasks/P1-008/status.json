@@ -1,0 +1,16 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "pending",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P1-008/summary.md",
+    "artifacts/tasks/P1-008/commands.log",
+    "artifacts/tasks/_verification-20260831/python-gates.log",
+    "services/control-api/src/cloudctl_api/services.py",
+    "services/temporal-worker/src/cloudctl_worker/contracts.py",
+    "tests/integration/test_backend_control_api.py",
+    "tests/replay/test_backend_workflow_replay_safety.py"
+  ],
+  "note": "Software evidence exists for 发布幂等键与不可变快照冻结, but the documented acceptance gap remains unresolved."
+}
+

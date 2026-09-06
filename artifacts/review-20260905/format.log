@@ -1,0 +1,736 @@
+unformatted: File would be reformatted
+   --> docs/delivery/development-plan-v1-2026-09-05.md:149:1
+    |
+148 |     platform: str
+149 +
+150 |     def validate(self, payload: PublishPayload) -> ValidationResult: ...
+    |
+
+unformatted: File would be reformatted
+  --> edge/gateway/src/cloudctl_edge/adb_debug.py:86:42
+   |
+85 |                 raise AdbDebugError("UI tree does not accept caller parameters")
+   -             content = await self._runner(
+   -                 self._argv("exec-out", "uiautomator", "dump", "/dev/tty")
+   -             )
+86 +             content = await self._runner(self._argv("exec-out", "uiautomator", "dump", "/dev/tty"))
+87 |             self._validate_capture(content)
+   |
+
+unformatted: File would be reformatted
+   --> edge/gateway/src/cloudctl_edge/spool.py:261:79
+    |
+260 |             self._connection.execute(
+    -                 "UPDATE debug_grants SET revoked_at = COALESCE(revoked_at, ?) "
+    -                 "WHERE session_id = ?",
+261 +                 "UPDATE debug_grants SET revoked_at = COALESCE(revoked_at, ?) WHERE session_id = ?",
+262 |                 (datetime.now(UTC).isoformat(), session_id),
+    |
+
+unformatted: File would be reformatted
+   --> scripts/benchmark_media_references.py:17:29
+    |
+16  | from cloudctl_api.app import create_app
+    - from cloudctl_api.db import ContentItemRow, ContentRevisionMediaRow, ContentRevisionRow, MediaAssetRow
+17  + from cloudctl_api.db import (
+18  +     ContentItemRow,
+19  +     ContentRevisionMediaRow,
+20  +     ContentRevisionRow,
+21  +     MediaAssetRow,
+22  + )
+23  | from cloudctl_api.settings import Settings
+--------------------------------------------------------------------------------
+31  |     with tempfile.TemporaryDirectory(prefix="cloudctl-benchmark-") as directory:
+    -         app = create_app(Settings(
+    -             env="test", repository_mode="sqlite", sqlite_path=Path(directory) / "bench.db",
+    -             dev_auth_bypass=True,
+    -         ))
+32  +         app = create_app(
+33  +             Settings(
+34  +                 env="test",
+35  +                 repository_mode="sqlite",
+36  +                 sqlite_path=Path(directory) / "bench.db",
+37  +                 dev_auth_bypass=True,
+38  +             )
+39  +         )
+40  |         async with app.router.lifespan_context(app):
+41  |             database = app.state.database
+42  |             now = datetime.now(UTC)
+43  |             async with database.unit_of_work() as session:
+    -                 await session.execute(insert(MediaAssetRow), [
+    -                     dict(id=name, tenant_id=TENANT, sha256=digest * 64, object_key=name,
+    -                          content_type="image/jpeg", size_bytes=32, metadata_json={}, created_at=now)
+    -                     for name, digest in (("target", "a"), ("other", "b"))
+    -                 ])
+    -                 await session.execute(insert(ContentItemRow), [
+    -                     dict(id="content", tenant_id=TENANT, title="Benchmark", created_by=USER,
+    -                          status="ACTIVE", created_at=now)
+    -                 ])
+44  +                 await session.execute(
+45  +                     insert(MediaAssetRow),
+46  +                     [
+47  +                         dict(
+48  +                             id=name,
+49  +                             tenant_id=TENANT,
+50  +                             sha256=digest * 64,
+51  +                             object_key=name,
+52  +                             content_type="image/jpeg",
+53  +                             size_bytes=32,
+54  +                             metadata_json={},
+55  +                             created_at=now,
+56  +                         )
+57  +                         for name, digest in (("target", "a"), ("other", "b"))
+58  +                     ],
+59  +                 )
+60  +                 await session.execute(
+61  +                     insert(ContentItemRow),
+62  +                     [
+63  +                         dict(
+64  +                             id="content",
+65  +                             tenant_id=TENANT,
+66  +                             title="Benchmark",
+67  +                             created_by=USER,
+68  +                             status="ACTIVE",
+69  +                             created_at=now,
+70  +                         )
+71  +                     ],
+72  +                 )
+73  |                 for start in range(0, size, 500):
+74  |                     indexes = range(start, min(start + 500, size))
+    -                     await session.execute(insert(ContentRevisionRow), [
+    -                         dict(id=f"revision-{i:08}", tenant_id=TENANT, content_id="content",
+    -                              revision_no=i + 1, payload={"mediaAssetIds": ["target" if i < matches else "other"]},
+    -                              payload_sha256="c" * 64, created_by=USER, created_at=now)
+    -                         for i in indexes
+    -                     ])
+    -                     await session.execute(insert(ContentRevisionMediaRow), [
+    -                         dict(id=f"reference-{i:08}", tenant_id=TENANT, content_id="content",
+    -                              content_revision_id=f"revision-{i:08}",
+    -                              media_asset_id="target" if i < matches else "other", created_at=now)
+    -                         for i in indexes
+    -                     ])
+75  +                     await session.execute(
+76  +                         insert(ContentRevisionRow),
+77  +                         [
+78  +                             dict(
+79  +                                 id=f"revision-{i:08}",
+80  +                                 tenant_id=TENANT,
+81  +                                 content_id="content",
+82  +                                 revision_no=i + 1,
+83  +                                 payload={"mediaAssetIds": ["target" if i < matches else "other"]},
+84  +                                 payload_sha256="c" * 64,
+85  +                                 created_by=USER,
+86  +                                 created_at=now,
+87  +                             )
+88  +                             for i in indexes
+89  +                         ],
+90  +                     )
+91  +                     await session.execute(
+92  +                         insert(ContentRevisionMediaRow),
+93  +                         [
+94  +                             dict(
+95  +                                 id=f"reference-{i:08}",
+96  +                                 tenant_id=TENANT,
+97  +                                 content_id="content",
+98  +                                 content_revision_id=f"revision-{i:08}",
+99  +                                 media_asset_id="target" if i < matches else "other",
+100 +                                 created_at=now,
+101 +                             )
+102 +                             for i in indexes
+103 +                         ],
+104 +                     )
+105 |             async with database.engine.connect() as connection:
+106 |                 await connection.execute(text("ANALYZE"))
+    -                 plan = [list(row) for row in await connection.execute(text(
+    -                     "EXPLAIN QUERY PLAN SELECT * FROM content_revision_media "
+    -                     "WHERE tenant_id = :tenant AND media_asset_id = :asset"
+    -                 ), {"tenant": TENANT, "asset": "target"})]
+107 +                 plan = [
+108 +                     list(row)
+109 +                     for row in await connection.execute(
+110 +                         text(
+111 +                             "EXPLAIN QUERY PLAN SELECT * FROM content_revision_media "
+112 +                             "WHERE tenant_id = :tenant AND media_asset_id = :asset"
+113 +                         ),
+114 +                         {"tenant": TENANT, "asset": "target"},
+115 +                     )
+116 +                 ]
+117 |                 version = await connection.scalar(text("SELECT sqlite_version()"))
+    -             headers = {"X-Tenant-Id": TENANT, "X-User-Id": USER, "X-Roles": "viewer", "X-MFA": "false"}
+118 +             headers = {
+119 +                 "X-Tenant-Id": TENANT,
+120 +                 "X-User-Id": USER,
+121 +                 "X-Roles": "viewer",
+122 +                 "X-MFA": "false",
+123 +             }
+124 |             timings = []
+125 |             async with httpx.AsyncClient(
+    -                 transport=httpx.ASGITransport(app=app), base_url="http://benchmark", trust_env=False,
+126 +                 transport=httpx.ASGITransport(app=app),
+127 +                 base_url="http://benchmark",
+128 +                 trust_env=False,
+129 |             ) as client:
+130 |                 for iteration in range(35):
+131 |                     start = perf_counter()
+    -                     response = await client.get("/api/v1/media/assets/target/references", headers=headers)
+132 +                     response = await client.get(
+133 +                         "/api/v1/media/assets/target/references", headers=headers
+134 +                     )
+135 |                     elapsed = (perf_counter() - start) * 1000
+--------------------------------------------------------------------------------
+139 |                         timings.append(elapsed)
+    -             return dict(rows=size, matches=matches, samples=len(timings), warmup=5,
+    -                         p50_ms=round(statistics.median(timings), 3),
+    -                         p95_ms=round(sorted(timings)[math.ceil(len(timings) * .95) - 1], 3),
+    -                         max_ms=round(max(timings), 3), sqlite_version=version,
+    -                         query_plan=plan)
+140 +             return dict(
+141 +                 rows=size,
+142 +                 matches=matches,
+143 +                 samples=len(timings),
+144 +                 warmup=5,
+145 +                 p50_ms=round(statistics.median(timings), 3),
+146 +                 p95_ms=round(sorted(timings)[math.ceil(len(timings) * 0.95) - 1], 3),
+147 +                 max_ms=round(max(timings), 3),
+148 +                 sqlite_version=version,
+149 +                 query_plan=plan,
+150 +             )
+151 |
+152 |
+153 | async def main() -> None:
+    -     result = dict(measured_at=datetime.now(UTC).isoformat(), python=platform.python_version(),
+    -                   system=platform.platform(), database="temporary file-backed SQLite",
+    -                   concurrency=1, transport="in-process ASGI", cases=[])
+154 +     result = dict(
+155 +         measured_at=datetime.now(UTC).isoformat(),
+156 +         python=platform.python_version(),
+157 +         system=platform.platform(),
+158 +         database="temporary file-backed SQLite",
+159 +         concurrency=1,
+160 +         transport="in-process ASGI",
+161 +         cases=[],
+162 +     )
+163 |     for size, matches in ((1000, 10), (10000, 10), (1000, 1000)):
+    |
+
+unformatted: File would be reformatted
+   --> scripts/debug_device_rpc_smoke.py:110:28
+    |
+109 |             await websocket.send(
+    -                 json.dumps(
+    -                     {"type": "debug.auth", "sessionId": session_id, "token": relay_token}
+    -                 )
+110 +                 json.dumps({"type": "debug.auth", "sessionId": session_id, "token": relay_token})
+111 |             )
+--------------------------------------------------------------------------------
+115 |
+    -             await websocket.send(
+    -                 json.dumps({"type": "view.layout", "sessionId": session_id})
+    -             )
+116 +             await websocket.send(json.dumps({"type": "view.layout", "sessionId": session_id}))
+117 |             layout_accepted = json.loads(await asyncio.wait_for(websocket.recv(), timeout=10))
+--------------------------------------------------------------------------------
+125 |
+    -             await websocket.send(
+    -                 json.dumps({"type": "view.frame", "sessionId": session_id})
+    -             )
+126 +             await websocket.send(json.dumps({"type": "view.frame", "sessionId": session_id}))
+127 |             frame_accepted = json.loads(await asyncio.wait_for(websocket.recv(), timeout=10))
+    |
+
+unformatted: File would be reformatted
+  --> scripts/debug_rpc_smoke.py:69:28
+   |
+68 |             await websocket.send(
+   -                 json.dumps(
+   -                     {"type": "debug.auth", "sessionId": session_id, "token": relay_token}
+   -                 )
+69 +                 json.dumps({"type": "debug.auth", "sessionId": session_id, "token": relay_token})
+70 |             )
+   |
+
+unformatted: File would be reformatted
+   --> services/control-api/src/cloudctl_api/mobile_routes.py:108:30
+    |
+107 | @operator_router.get("/devices/{device_id}/preview")
+    - async def get_device_preview(
+    -     device_id: str, actor: ActorDep, mobile: Service
+    - ) -> dict[str, Any]:
+108 + async def get_device_preview(device_id: str, actor: ActorDep, mobile: Service) -> dict[str, Any]:
+109 |     return await mobile.preview_status(actor, device_id)
+    |
+
+unformatted: File would be reformatted
+   --> services/control-api/src/cloudctl_api/mobile_schemas.py:72:43
+    |
+71  |     action: Literal["ui.tap"]
+    -     postcondition_ref: str | None = Field(default=None, alias="postconditionLocatorRef", min_length=1, max_length=128)
+72  +     postcondition_ref: str | None = Field(
+73  +         default=None, alias="postconditionLocatorRef", min_length=1, max_length=128
+74  +     )
+75  |
+--------------------------------------------------------------------------------
+196 | class MobileMediaDelivery(StrictModel):
+    -     delivery_id: str = Field(alias="deliveryId", min_length=1, max_length=128, pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
+197 +     delivery_id: str = Field(
+198 +         alias="deliveryId",
+199 +         min_length=1,
+200 +         max_length=128,
+201 +         pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+202 +     )
+203 |     asset_ids: list[str] = Field(alias="assetIds", min_length=1, max_length=50)
+--------------------------------------------------------------------------------
+207 |     def bounded_unique_assets(cls, value: list[str]) -> list[str]:
+    -         if any(not item or len(item) > 128 or not re.fullmatch(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$", item) for item in value):
+208 +         if any(
+209 +             not item
+210 +             or len(item) > 128
+211 +             or not re.fullmatch(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$", item)
+212 +             for item in value
+213 +         ):
+214 |             raise ValueError("assetIds contain an invalid ID")
+--------------------------------------------------------------------------------
+220 | class MobileMediaManifestRequest(StrictModel):
+    -     delivery_id: str = Field(alias="deliveryId", min_length=1, max_length=128, pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
+221 +     delivery_id: str = Field(
+222 +         alias="deliveryId",
+223 +         min_length=1,
+224 +         max_length=128,
+225 +         pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+226 +     )
+227 |     asset_ids: list[str] = Field(alias="assetIds", min_length=1, max_length=50)
+--------------------------------------------------------------------------------
+237 |
+238 +
+239 | class MobilePublishListingRequest(StrictModel):
+    |
+
+unformatted: File would be reformatted
+   --> services/control-api/src/cloudctl_api/mobile_service.py:68:30
+    |
+67  |
+    -     async def media_manifest(self, current: MobileBindingRow, delivery_id: str, asset_ids: list[str]) -> dict[str, Any]:
+68  +     async def media_manifest(
+69  +         self, current: MobileBindingRow, delivery_id: str, asset_ids: list[str]
+70  +     ) -> dict[str, Any]:
+71  |         async with self.database.unit_of_work() as session:
+    -             rows = list((await session.execute(
+    -                 select(MediaAssetRow).where(
+    -                     MediaAssetRow.tenant_id == current.tenant_id,
+    -                     MediaAssetRow.id.in_(asset_ids),
+    -                 )
+    -             )).scalars())
+72  +             rows = list(
+73  +                 (
+74  +                     await session.execute(
+75  +                         select(MediaAssetRow).where(
+76  +                             MediaAssetRow.tenant_id == current.tenant_id,
+77  +                             MediaAssetRow.id.in_(asset_ids),
+78  +                         )
+79  +                     )
+80  +                 ).scalars()
+81  +             )
+82  |         by_id = {row.id: row for row in rows}
+--------------------------------------------------------------------------------
+100 |
+    -     async def download_media(self, current: MobileBindingRow, asset_id: str) -> tuple[bytes, str, str]:
+101 +     async def download_media(
+102 +         self, current: MobileBindingRow, asset_id: str
+103 +     ) -> tuple[bytes, str, str]:
+104 |         if self.object_store is None:
+--------------------------------------------------------------------------------
+259 |         async with self.database.unit_of_work() as session:
+    -             accounts = list((await session.execute(
+    -                 select(PlatformAccountRow).where(
+    -                     PlatformAccountRow.tenant_id == binding.tenant_id,
+    -                 ).order_by(PlatformAccountRow.id)
+    -             )).scalars())
+    -             bindings = list((await session.execute(
+    -                 select(AccountDeviceBindingRow).where(
+    -                     AccountDeviceBindingRow.tenant_id == binding.tenant_id,
+    -                     AccountDeviceBindingRow.device_id == binding.device_id,
+    -                     AccountDeviceBindingRow.status == "BOUND",
+    -                 )
+    -             )).scalars())
+260 +             accounts = list(
+261 +                 (
+262 +                     await session.execute(
+263 +                         select(PlatformAccountRow)
+264 +                         .where(
+265 +                             PlatformAccountRow.tenant_id == binding.tenant_id,
+266 +                         )
+267 +                         .order_by(PlatformAccountRow.id)
+268 +                     )
+269 +                 ).scalars()
+270 +             )
+271 +             bindings = list(
+272 +                 (
+273 +                     await session.execute(
+274 +                         select(AccountDeviceBindingRow).where(
+275 +                             AccountDeviceBindingRow.tenant_id == binding.tenant_id,
+276 +                             AccountDeviceBindingRow.device_id == binding.device_id,
+277 +                             AccountDeviceBindingRow.status == "BOUND",
+278 +                         )
+279 +                     )
+280 +                 ).scalars()
+281 +             )
+282 |         bound_ids = {row.account_id for row in bindings}
+--------------------------------------------------------------------------------
+289 |                 "status": row.status,
+    -                 "authorized": row.status == "AUTHORIZED" and (
+    -                     row.expires_at is None or _aware(row.expires_at) > now
+    -                 ),
+290 +                 "authorized": row.status == "AUTHORIZED"
+291 +                 and (row.expires_at is None or _aware(row.expires_at) > now),
+292 |                 "expiresAt": row.expires_at,
+--------------------------------------------------------------------------------
+396 |                 if media_delivery is not None:
+    -                     media_rows = list((await session.execute(
+    -                         select(MediaAssetRow).where(
+    -                             MediaAssetRow.tenant_id == tenant_id,
+    -                             MediaAssetRow.id.in_(media_delivery.asset_ids),
+    -                         )
+    -                     )).scalars())
+397 +                     media_rows = list(
+398 +                         (
+399 +                             await session.execute(
+400 +                                 select(MediaAssetRow).where(
+401 +                                     MediaAssetRow.tenant_id == tenant_id,
+402 +                                     MediaAssetRow.id.in_(media_delivery.asset_ids),
+403 +                                 )
+404 +                             )
+405 +                         ).scalars()
+406 +                     )
+407 |                     if len(media_rows) != len(media_delivery.asset_ids):
+--------------------------------------------------------------------------------
+675 |
+    -     async def preview_frame(
+    -         self, actor: Actor, device_id: str
+    -     ) -> tuple[bytes, str, str] | None:
+676 +     async def preview_frame(self, actor: Actor, device_id: str) -> tuple[bytes, str, str] | None:
+677 |         require_permissions(actor.roles, Permission.DEVICE_READ)
+    |
+
+unformatted: File would be reformatted
+   --> services/control-api/src/cloudctl_api/operation_service.py:411:49
+    |
+410 |         if definition.key == "xianyu.listing.publish" and self.mobile_task_service is not None:
+    -             await self._dispatch_xianyu_listing(
+    -                 actor, idempotency_key, resource_ids, parameters
+    -             )
+411 +             await self._dispatch_xianyu_listing(actor, idempotency_key, resource_ids, parameters)
+412 |         return view, True
+    |
+
+unformatted: File would be reformatted
+    --> services/control-api/src/cloudctl_api/services.py:1673:78
+     |
+1672 |                     media_asset_ids=media_ids or None,
+     -                     delivery_id=f"delivery-xianyu-{content.id}-{revision.id}" if media_ids else None,
+1673 +                     delivery_id=f"delivery-xianyu-{content.id}-{revision.id}"
+1674 +                     if media_ids
+1675 +                     else None,
+1676 |                 )
+     |
+
+unformatted: File would be reformatted
+   --> services/control-api/src/cloudctl_api/xianyu_publish.py:109:45
+    |
+108 |     used.update(
+    -         str(step["postconditionLocatorRef"])
+    -         for step in steps
+    -         if "postconditionLocatorRef" in step
+109 +         str(step["postconditionLocatorRef"]) for step in steps if "postconditionLocatorRef" in step
+110 |     )
+--------------------------------------------------------------------------------
+142 |     if media_asset_ids is not None:
+    -         if not media_asset_ids or len(media_asset_ids) > 50 or len(set(media_asset_ids)) != len(media_asset_ids):
+143 +         if (
+144 +             not media_asset_ids
+145 +             or len(media_asset_ids) > 50
+146 +             or len(set(media_asset_ids)) != len(media_asset_ids)
+147 +         ):
+148 |             raise ValueError("media_asset_ids must be unique and contain 1 to 50 items")
+    |
+
+unformatted: File would be reformatted
+   --> services/edge-hub/src/cloudctl_edge_hub/debug_delivery.py:202:47
+    |
+201 |                 relay_token=(
+    -                     str(payload["relayToken"])
+    -                     if payload.get("relayToken") is not None
+    -                     else None
+202 +                     str(payload["relayToken"]) if payload.get("relayToken") is not None else None
+203 |                 ),
+--------------------------------------------------------------------------------
+208 |             raise SessionError("invalid debug grant event payload") from exc
+    -
+209 |
+    |
+
+unformatted: File would be reformatted
+  --> services/edge-hub/src/cloudctl_edge_hub/identity.py:50:30
+   |
+49 |
+   -     def verify_control_plane(
+   -         self, auth_context: Mapping[str, Iterable[bytes]]
+   -     ) -> str:
+50 +     def verify_control_plane(self, auth_context: Mapping[str, Iterable[bytes]]) -> str:
+51 |         """Require a dedicated control-plane certificate for unary admin RPCs."""
+   |
+
+unformatted: File would be reformatted
+   --> services/edge-hub/src/cloudctl_edge_hub/main.py:159:1
+    |
+158 |         delivery = DebugGrantDelivery(hub, delivery_store)
+159 +
+160 |     async def handle_debug_event(event: dict[str, object]) -> None:
+--------------------------------------------------------------------------------
+169 |             await delivery.revoke_from_event(payload)
+170 +
+171 |     service = EdgeControlService(
+    |
+
+unformatted: File would be reformatted
+   --> services/edge-hub/src/cloudctl_edge_hub/sqlite_debug_store.py:33:1
+    |
+32  |         async with self._lock:
+33  +
+34  |             def write() -> None:
+--------------------------------------------------------------------------------
+47  |                         "INSERT INTO debug_delivery VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+    -                         (record.session_id, record.edge_id, record.device_id,
+    -                          ",".join(record.capabilities), record.expires_at.isoformat(), record.state,
+    -                          record.error_code, record.detail, record.cloud_sequence, record.lease_id,
+    -                          record.fencing_token, record.relay_token_digest),
+48  +                         (
+49  +                             record.session_id,
+50  +                             record.edge_id,
+51  +                             record.device_id,
+52  +                             ",".join(record.capabilities),
+53  +                             record.expires_at.isoformat(),
+54  +                             record.state,
+55  +                             record.error_code,
+56  +                             record.detail,
+57  +                             record.cloud_sequence,
+58  +                             record.lease_id,
+59  +                             record.fencing_token,
+60  +                             record.relay_token_digest,
+61  +                         ),
+62  |                     )
+63  +
+64  |             write()
+--------------------------------------------------------------------------------
+75  |         async with self._lock:
+76  +
+77  |             def read() -> tuple[object, ...] | None:
+--------------------------------------------------------------------------------
+81  |                     ).fetchone()
+82  +
+83  |             row = read()
+84  |             current = self._record(row) if row is not None else None
+85  |             if current is None:
+86  |                 raise SessionError(f"unknown debug session delivery {session_id}")
+    -             updated = replace(current, state=state, error_code=error_code, detail=detail,
+    -                               cloud_sequence=cloud_sequence or current.cloud_sequence)
+87  +             updated = replace(
+88  +                 current,
+89  +                 state=state,
+90  +                 error_code=error_code,
+91  +                 detail=detail,
+92  +                 cloud_sequence=cloud_sequence or current.cloud_sequence,
+93  +             )
+94  +
+95  |             def write() -> None:
+--------------------------------------------------------------------------------
+107 |                     )
+108 +
+109 |             write()
+--------------------------------------------------------------------------------
+118 |                 return row
+119 +
+120 |         row = read()
+--------------------------------------------------------------------------------
+125 |         return DebugDeliveryRecord(
+    -             session_id=str(row[0]), edge_id=str(row[1]), device_id=str(row[2]),
+126 +             session_id=str(row[0]),
+127 +             edge_id=str(row[1]),
+128 +             device_id=str(row[2]),
+129 |             capabilities=tuple(str(row[3]).split(",")),
+    -             expires_at=datetime.fromisoformat(str(row[4])).astimezone(UTC), state=str(row[5]),
+    -             error_code=row[6], detail=row[7], cloud_sequence=row[8], lease_id=row[9],
+    -             fencing_token=row[10], relay_token_digest=row[11],
+130 +             expires_at=datetime.fromisoformat(str(row[4])).astimezone(UTC),
+131 +             state=str(row[5]),
+132 +             error_code=row[6],
+133 +             detail=row[7],
+134 +             cloud_sequence=row[8],
+135 +             lease_id=row[9],
+136 +             fencing_token=row[10],
+137 +             relay_token_digest=row[11],
+138 |         )
+    |
+
+unformatted: File would be reformatted
+  --> services/edge-hub/src/cloudctl_edge_hub/sqlite_hub_store.py:34:40
+   |
+33 |         self._lock = asyncio.Lock()
+   -         self._subscribers: defaultdict[
+   -             str, set[asyncio.Queue[pb.CloudToEdge]]
+   -         ] = defaultdict(set)
+34 +         self._subscribers: defaultdict[str, set[asyncio.Queue[pb.CloudToEdge]]] = defaultdict(set)
+35 |         try:
+   |
+
+unformatted: File would be reformatted
+  --> tests/edge_adb_debug_test.py:28:29
+   |
+27 |         pb.DebugRelayFrame(
+   -             session_id="s1", device_id="phone", request_id="r1", kind="tap",
+   -             capability="input.tap", payload=b'{"x":12,"y":34}',
+28 +             session_id="s1",
+29 +             device_id="phone",
+30 +             request_id="r1",
+31 +             kind="tap",
+32 +             capability="input.tap",
+33 +             payload=b'{"x":12,"y":34}',
+34 |         )
+   |
+
+unformatted: File would be reformatted
+   --> tests/edge_debug_frame_path_test.py:28:34
+   |
+27 |
+   -     scheduler = CommandScheduler(
+   -         spool, RunnerSupervisor(spool, _UnusedExecutor(), task_sink)
+   -     )
+28 +     scheduler = CommandScheduler(spool, RunnerSupervisor(spool, _UnusedExecutor(), task_sink))
+29 |     sessions = DebugSessionManager()
+--------------------------------------------------------------------------------
+94 |
+   -     scheduler = CommandScheduler(
+   -         spool, RunnerSupervisor(spool, _UnusedExecutor(), task_sink)
+   -     )
+95 +     scheduler = CommandScheduler(spool, RunnerSupervisor(spool, _UnusedExecutor(), task_sink))
+96 |
+   |
+
+unformatted: File would be reformatted
+   --> tests/edge_debug_relay_test.py:150:24
+    |
+149 |         "e1",
+    -         pb.EdgeToCloud(
+    -             command_ack=pb.CommandAck(command_id="cmd-ack", state="ACCEPTED")
+    -         ),
+150 +         pb.EdgeToCloud(command_ack=pb.CommandAck(command_id="cmd-ack", state="ACCEPTED")),
+151 |     )
+    |
+
+unformatted: File would be reformatted
+  --> tests/edge_debug_wss_integration_test.py:85:24
+   |
+84 |     transport = Transport()
+   -     relay = DebugRelay(store, transport, config=DebugRelayConfig(origins=("https://studio.example",)))
+85 +     relay = DebugRelay(
+86 +         store, transport, config=DebugRelayConfig(origins=("https://studio.example",))
+87 +     )
+88 |     cert_path, key_path = _certificate(tmp_path)
+   |
+
+unformatted: File would be reformatted
+  --> tests/edge_hub_sqlite_store_test.py:44:30
+   |
+43 |     store = SqliteHubStore(path)
+   -     await store.append_cloud(
+   -         "edge-a", pb.CloudToEdge(cancel=pb.CancelCommand(command_id="one"))
+   -     )
+   -     await store.append_cloud(
+   -         "edge-a", pb.CloudToEdge(cancel=pb.CancelCommand(command_id="two"))
+   -     )
+44 +     await store.append_cloud("edge-a", pb.CloudToEdge(cancel=pb.CancelCommand(command_id="one")))
+45 +     await store.append_cloud("edge-a", pb.CloudToEdge(cancel=pb.CancelCommand(command_id="two")))
+46 |     await store.acknowledge_cloud("edge-a", 1)
+   |
+
+unformatted: File would be reformatted
+  --> tests/edge_tls_server_name_test.py:63:25
+   |
+62 |     )
+   -     monkeypatch.setattr(
+   -         "cloudctl_edge.control_stream.grpc.aio.secure_channel", fake_secure_channel
+   -     )
+63 +     monkeypatch.setattr("cloudctl_edge.control_stream.grpc.aio.secure_channel", fake_secure_channel)
+64 |     identity = EdgeCredentials(
+--------------------------------------------------------------------------------
+93 |
+   -     monkeypatch.setattr(
+   -         "cloudctl_edge.control_stream.grpc.aio.secure_channel", fake_secure_channel
+   -     )
+94 +     monkeypatch.setattr("cloudctl_edge.control_stream.grpc.aio.secure_channel", fake_secure_channel)
+95 |     secure_channel(
+   |
+
+unformatted: File would be reformatted
+   --> tests/integration/test_backend_accounts_media_content.py:623:15
+    |
+622 |         headers=operator,
+    -         json={"logicalName": "media-dispatch-phone", "androidVersion": "14", "companionVersion": "1.0.0"},
+623 +         json={
+624 +             "logicalName": "media-dispatch-phone",
+625 +             "androidVersion": "14",
+626 +             "companionVersion": "1.0.0",
+627 +         },
+628 |     )
+--------------------------------------------------------------------------------
+632 |         headers=operator,
+    -         json={"sha256": "e" * 64, "objectKey": "listing/dispatch-cover.jpg", "contentType": "image/jpeg", "sizeBytes": 10},
+633 +         json={
+634 +             "sha256": "e" * 64,
+635 +             "objectKey": "listing/dispatch-cover.jpg",
+636 +             "contentType": "image/jpeg",
+637 +             "sizeBytes": 10,
+638 +         },
+639 |     )
+    |
+
+unformatted: File would be reformatted
+  --> tests/mobile_project_test.py:56:49
+   |
+55 |     assert '"/companion/v2/devices/heartbeat"' in client
+   -     assert "batteryOptimizationIgnored" in next(source_root.rglob("CompanionSyncService.kt")).read_text(encoding="utf-8")
+56 +     assert "batteryOptimizationIgnored" in next(
+57 +         source_root.rglob("CompanionSyncService.kt")
+58 +     ).read_text(encoding="utf-8")
+59 |     assert "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" in (
+60 |         ROOT / "mobile/companion/app/src/main/AndroidManifest.xml"
+61 |     ).read_text(encoding="utf-8")
+   -     assert "USER_UNLOCKED" in (ROOT / "mobile/companion/app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
+62 +     assert "USER_UNLOCKED" in (
+63 +         ROOT / "mobile/companion/app/src/main/AndroidManifest.xml"
+64 +     ).read_text(encoding="utf-8")
+65 |     assert '"Authorization" to "Bearer' in client
+   |
+
+unformatted: File would be reformatted
+  --> tests/unit/test_debug_stream_sink.py:32:23
+   |
+31 |     await sink.publish(
+   -         EventEnvelope(
+   -             "evt-2", "tenant-1", "other", "x", "other.event", {}, datetime.now(UTC)
+   -         )
+32 +         EventEnvelope("evt-2", "tenant-1", "other", "x", "other.event", {}, datetime.now(UTC))
+33 |     )
+   |
+
+unformatted: File would be reformatted
+  --> tests/unit/test_xianyu_publish_recipe.py:15:12
+   |
+14 |
+   - CONTRACT = (
+   -     Path(__file__).resolve().parents[2] / "contracts" / "xianyu-publish-text.example.json"
+   - )
+15 + CONTRACT = Path(__file__).resolve().parents[2] / "contracts" / "xianyu-publish-text.example.json"
+16 |
+   |
+
+27 files would be reformatted, 268 files already formatted

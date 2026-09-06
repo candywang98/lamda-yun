@@ -1,0 +1,41 @@
+=== V1-01 验收测试 - Sat Sep  5 21:49:00 CST 2026 ===
+
+1. Python 测试
+........................................................................ [ 18%]
+........................................................................ [ 36%]
+........................................................................ [ 55%]
+........................................................................ [ 73%]
+........................................................................ [ 91%]
+................................                                         [100%]
+392 passed in 14.38s
+✓ PASSED
+
+2. Ruff check
+All checks passed!
+✓ PASSED
+
+3. Ruff format
+160 files already formatted
+✓ PASSED
+
+4. Pyright
+0 errors, 0 warnings, 0 informations
+✓ PASSED
+
+5. pnpm lint
+✓ PASSED
+
+6. pnpm typecheck
+✓ PASSED
+
+7. pnpm test
+✓ PASSED
+
+8. pnpm build
+✓ PASSED
+
+9. Security boundaries
+Security boundary checks passed.
+✓ PASSED
+
+=== 所有验收测试完成 ===

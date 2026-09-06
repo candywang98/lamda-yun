@@ -1,0 +1,107 @@
+name: cloudctl
+
+services:
+  postgres:
+    image: postgres:${POSTGRES_IMAGE_TAG:-18-alpine}
+    environment:
+      POSTGRES_DB: cloudctl
+      POSTGRES_USER: cloudctl
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cloudctl}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cloudctl -d cloudctl"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  minio:
+    image: minio/minio:${MINIO_IMAGE_TAG:-latest}
+    command: server /data --console-address :9001
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-cloudctl}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-cloudctl-local-only}
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+    volumes:
+      - minio-data:/data
+
+  temporal:
+    image: temporalio/auto-setup:${TEMPORAL_IMAGE_TAG:-1.28.1}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB: postgres12
+      DB_PORT: 5432
+      POSTGRES_USER: cloudctl
+      POSTGRES_PWD: ${POSTGRES_PASSWORD:-cloudctl}
+      POSTGRES_SEEDS: postgres
+      DYNAMIC_CONFIG_FILE_PATH: config/dynamicconfig/development-sql.yaml
+    ports:
+      - "127.0.0.1:7233:7233"
+
+  temporal-ui:
+    image: temporalio/ui:${TEMPORAL_UI_IMAGE_TAG:-2.34.0}
+    depends_on:
+      - temporal
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_CORS_ORIGINS: http://localhost:5173
+    ports:
+      - "127.0.0.1:8088:8080"
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:${OTEL_IMAGE_TAG:-0.120.0}
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ../otel/collector.yaml:/etc/otelcol/config.yaml:ro
+    ports:
+      - "127.0.0.1:4317:4317"
+      - "127.0.0.1:4318:4318"
+      - "127.0.0.1:9464:9464"
+
+  prometheus:
+    image: prom/prometheus:${PROMETHEUS_IMAGE_TAG:-v3.2.1}
+    command: ["--config.file=/etc/prometheus/prometheus.yml"]
+    depends_on:
+      - alertmanager
+    volumes:
+      - ../otel/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../otel/slo-rules.yml:/etc/prometheus/rules/cloudctl-slo.yml:ro
+    ports:
+      - "127.0.0.1:9090:9090"
+
+  alertmanager:
+    image: quay.io/prometheus/alertmanager:${ALERTMANAGER_IMAGE_TAG:-v0.28.1}
+    command: ["--config.file=/etc/alertmanager/alertmanager.yml"]
+    volumes:
+      - ../otel/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    ports:
+      - "127.0.0.1:9093:9093"
+
+  grafana:
+    image: grafana/grafana:${GRAFANA_IMAGE_TAG:-11.5.2}
+    depends_on:
+      - prometheus
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-cloudctl-local-only}
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+    volumes:
+      - ../otel/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/cloudctl.yaml:ro
+      - ../otel/grafana-dashboards.yaml:/etc/grafana/provisioning/dashboards/cloudctl.yaml:ro
+      - ../otel/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "127.0.0.1:3001:3000"
+
+volumes:
+  postgres-data:
+  minio-data:

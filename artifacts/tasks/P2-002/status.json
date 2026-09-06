@@ -1,0 +1,17 @@
+{
+  "softwareStatus": "implemented",
+  "acceptanceStatus": "pending",
+  "hardwareEvidence": false,
+  "evidence": [
+    "artifacts/tasks/P2-002/summary.md",
+    "artifacts/tasks/P2-002/commands.log",
+    "artifacts/tasks/_verification-20260831/python-gates.log",
+    "packages/edge-protocol/spec/edge-control.proto",
+    "services/edge-hub/src/cloudctl_edge_hub/grpc_service.py",
+    "edge/gateway/src/cloudctl_edge/control_stream.py",
+    "tests/edge_protocol_test.py",
+    "tests/edge_hub_test.py"
+  ],
+  "note": "Software evidence exists for Edge Hub 双向 gRPC 流与序列 ACK, but the documented acceptance gap remains unresolved."
+}
+

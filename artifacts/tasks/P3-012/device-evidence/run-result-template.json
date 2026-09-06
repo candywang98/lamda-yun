@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "1.0",
+  "taskId": "P3-012",
+  "source": "DRY_RUN_TEMPLATE",
+  "executionMode": "DRY_RUN",
+  "deviceAttestation": {
+    "physical": false,
+    "emulator": false,
+    "serialHash": "REQUIRED_SHA256"
+  },
+  "execution": {
+    "startedAt": null,
+    "completedAt": null,
+    "correlationId": "REQUIRED",
+    "workflowId": "REQUIRED",
+    "commitIntentId": "REQUIRED",
+    "outcome": "PENDING_HARDWARE"
+  },
+  "actions": [
+    {"name": "publish.prepare", "mode": "PREPARE"},
+    {"name": "publish.commit", "mode": "COMMIT_SINGLE_SHOT"},
+    {"name": "publish.reconcile", "mode": "RECONCILE"}
+  ],
+  "checks": [
+    {"id": "account.authorization", "status": "PENDING", "evidenceRefs": []},
+    {"id": "publish.commit", "status": "PENDING", "evidenceRefs": []},
+    {"id": "publish.prepare", "status": "PENDING", "evidenceRefs": []},
+    {"id": "publish.reconcile", "status": "PENDING", "evidenceRefs": []}
+  ],
+  "evidenceFiles": []
+}
