@@ -41,6 +41,7 @@ from .mobile_schemas import DevicePreviewUpload, MobileDeviceHeartbeat, MobileTa
 from .xianyu_publish import build_text_publish_task
 
 ACTIVE_STATES = ("CLAIMED", "RUNNING")
+TERMINAL_BUSINESS_STATES = frozenset({"SUCCEEDED", "FAILED", "CANCELLED", "EXPIRED"})
 COMPANION_PACKAGE = "com.company.cloudctl.companion"
 XIANYU_PACKAGE = "com.taobao.idlefish"
 XHS_PACKAGE = "com.xingin.xhs"
@@ -926,6 +927,11 @@ class MobileTaskService:
                 return self._event_view(existing), False
             if sequence != task.last_sequence + 1:
                 raise ConflictError("mobile task event sequence has a gap")
+            # Replays above remain idempotent even if reconciliation started later.
+            if task.business_state == "RECONCILING" and event_type in {
+                "PAUSE_REQUESTED", "PAUSED_WAITING_USER", "RESUME_CHECK"
+            }:
+                raise ConflictError("uncertain result must be reconciled before changing task state")
             if event_type == "PAUSE_REQUESTED":
                 task.business_state = "PAUSE_REQUESTED"
             elif event_type == "PAUSED_WAITING_USER":
@@ -973,6 +979,8 @@ class MobileTaskService:
             row = await session.get(MobileTaskRow, task_id, with_for_update=True)
             self._validate_owned_task(row, binding)
             assert row is not None
+            if row.business_state == "RECONCILING":
+                raise ConflictError("uncertain result must be resolved by explicit reconciliation")
             if row.status in {"SUCCEEDED", "FAILED"}:
                 if (
                     row.status == status
@@ -1203,6 +1211,8 @@ class MobileTaskService:
 
     @staticmethod
     def _validate_active_lease(row: MobileTaskRow, lease_id: str) -> None:
+        if row.business_state in TERMINAL_BUSINESS_STATES:
+            raise ConflictError("terminal mobile task cannot accept runner updates")
         if row.status not in ACTIVE_STATES or row.lease_id != lease_id:
             raise ConflictError("mobile task lease does not match")
         if row.lease_expires_at is None or _aware(row.lease_expires_at) <= _now():
@@ -1250,7 +1260,7 @@ class MobileTaskService:
             "detail": row.detail,
             "createdAt": row.created_at,
             "startedAt": row.started_at,
-            "completedAt": row.completed_at,
+            "completedAt": _aware(row.completed_at) if row.completed_at is not None else None,
         }
         control_epoch = metadata.get("controlEpoch")
         if (

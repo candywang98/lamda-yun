@@ -293,6 +293,8 @@ class PlatformTaskService:
                 if current == "CANCELLED":
                     return self._business_view(row)
                 raise ConflictError("terminal platform task cannot be canceled")
+            if current == "RECONCILING":
+                raise ConflictError("uncertain result must be reconciled before cancellation")
             if current in {"QUEUED", "WAITING_MATERIALS", "PREFLIGHT", "PAUSE_REQUESTED", "PAUSED_WAITING_USER"}:
                 row.status = "FAILED"
                 row.business_state = "CANCELLED"
@@ -312,6 +314,8 @@ class PlatformTaskService:
             source = await session.get(MobileTaskRow, task_id, with_for_update=True)
             if source is None or source.tenant_id != str(actor.tenant_id):
                 raise NotFoundError("platform task was not found")
+            if source.business_state == "RECONCILING":
+                raise ConflictError("uncertain result must be reconciled before retry")
             if source.business_state != "FAILED" and source.status != "FAILED":
                 raise ConflictError("only a failed task can be retried")
             if source.error_code in UNSAFE_RETRY_CODES:
@@ -343,8 +347,8 @@ class PlatformTaskService:
             if row is None or row.tenant_id != str(actor.tenant_id):
                 raise NotFoundError("platform task was not found")
             current = row.business_state or RUNNER_TO_BUSINESS.get(row.status, row.status)
-            if current == "SUCCEEDED" or row.status == "SUCCEEDED":
-                raise ConflictError("succeeded tasks cannot enter reconciliation")
+            if current in TERMINAL_BUSINESS or row.status == "SUCCEEDED":
+                raise ConflictError("terminal tasks cannot enter reconciliation")
             row.business_state = "RECONCILING"
             row.stall_reason = reason
             row.reconciliation = {
@@ -362,6 +366,8 @@ class PlatformTaskService:
             row = await session.get(MobileTaskRow, task_id, with_for_update=True)
             if row is None or row.tenant_id != str(actor.tenant_id):
                 raise NotFoundError("platform task was not found")
+            if row.business_state in TERMINAL_BUSINESS:
+                raise ConflictError("terminal tasks cannot be reconciled again")
             if row.business_state != "RECONCILING" and row.error_code not in {"COMMIT_UNKNOWN", "RECONCILING"}:
                 raise ConflictError("only RECONCILING tasks can be reconciled")
             history = list((row.reconciliation or {}).get("history") or [])
@@ -412,6 +418,8 @@ class PlatformTaskService:
             current = row.business_state or RUNNER_TO_BUSINESS.get(row.status, row.status)
             if current in TERMINAL_BUSINESS:
                 raise ConflictError("terminal platform task cannot be paused")
+            if current == "RECONCILING":
+                raise ConflictError("uncertain result must be reconciled before pause")
             if current == "PAUSED_WAITING_USER":
                 return self._business_view(row)
             row.business_state = "PAUSE_REQUESTED"
@@ -427,6 +435,8 @@ class PlatformTaskService:
             current = row.business_state or RUNNER_TO_BUSINESS.get(row.status, row.status)
             if current in TERMINAL_BUSINESS or row.status in {"SUCCEEDED", "FAILED"}:
                 raise ConflictError("terminal platform task cannot be pause-acked")
+            if current == "RECONCILING":
+                raise ConflictError("uncertain result must be reconciled before pause acknowledgement")
             if current in {"CANCEL_REQUESTED"}:
                 raise ConflictError("cancelled task cannot be pause-acked")
             if lease_id and row.lease_id and row.lease_id != lease_id:
