@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, Header, Request, Response, status
 
 from .auth import current_actor
 from .db import MobileBindingRow
+from .mobile_actions import IntentRequest, MobileActionService, OutcomeRequest
 from .mobile_schemas import (
     DevicePreviewSessionCreate,
     DevicePreviewUpload,
@@ -285,3 +286,33 @@ async def fail(
 async def unbind(current: Binding, mobile: Service) -> Response:
     await mobile.unbind(current)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+def actions(request: Request, mobile: Service) -> MobileActionService:
+    return MobileActionService(mobile, request.app.state.settings.automation_signing_public_keys)
+
+
+Actions = Annotated[MobileActionService, Depends(actions)]
+
+
+@companion_router.post("/tasks/{task_id}/actions/intent")
+async def action_intent(
+    task_id: str, body: IntentRequest, current: Binding, ledger: Actions, response: Response
+) -> dict[str, Any]:
+    result, created = await ledger.intent(current, task_id, body)
+    response.status_code = 201 if created else 200
+    return result
+
+
+@companion_router.post("/tasks/{task_id}/actions/{action_key}/outcome")
+async def action_outcome(
+    task_id: str, action_key: str, body: OutcomeRequest, current: Binding, ledger: Actions
+) -> dict[str, Any]:
+    return await ledger.outcome(current, task_id, action_key, body)
+
+
+@companion_router.get("/tasks/{task_id}/actions/{action_key}")
+async def get_action(
+    task_id: str, action_key: str, current: Binding, ledger: Actions
+) -> dict[str, Any]:
+    return await ledger.get(current, task_id, action_key)

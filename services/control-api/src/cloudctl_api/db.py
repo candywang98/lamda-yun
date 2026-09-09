@@ -771,6 +771,35 @@ class MobileTaskRow(Base, TimestampMixin):
     )
 
 
+class MobileActionCommitRow(Base, TimestampMixin):
+    __tablename__ = "mobile_action_commit"
+    action_key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    task_id: Mapped[str] = mapped_column(String(36), ForeignKey("mobile_task.id"), nullable=False)
+    device_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    account_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    binding_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    recipe_version_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    recipe_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    snapshot_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    action_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    parameter_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    lease_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    before_evidence: Mapped[str] = mapped_column(String(500), nullable=False)
+    reported_evidence: Mapped[str | None] = mapped_column(String(500))
+    resolution_revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    resolution_evidence: Mapped[str | None] = mapped_column(Text)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    __table_args__ = (
+        UniqueConstraint("task_id", "action_id", name="uq_mobile_action_task_state"),
+        CheckConstraint("status IN ('INTENT', 'APPLIED', 'UNKNOWN', 'NOT_SUBMITTED')",
+                        name="ck_mobile_action_status"),
+        CheckConstraint("resolution_revision >= 0", name="ck_mobile_action_revision"),
+    )
+
+
 class MobileTaskEventRow(Base):
     __tablename__ = "mobile_task_event"
     id: Mapped[str] = mapped_column(String(36), primary_key=True)

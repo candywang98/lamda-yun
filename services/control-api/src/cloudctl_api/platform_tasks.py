@@ -20,11 +20,13 @@ from .db import (
     Database,
     DeviceLeaseRow,
     DeviceRow,
+    MobileActionCommitRow,
     MobileTaskEventRow,
     MobileTaskRow,
     ProductMediaRow,
     ProductRow,
 )
+from .mobile_actions import audit_action
 from .mobile_schemas import MobileTaskCreate
 from .mobile_service import COMPANION_PACKAGE, XIANYU_PACKAGE, MobileTaskService
 from .xianyu_publish import build_text_publish_task, listing_copy_from_parameters
@@ -370,6 +372,25 @@ class PlatformTaskService:
                 raise ConflictError("terminal tasks cannot be reconciled again")
             if row.business_state != "RECONCILING" and row.error_code not in {"COMMIT_UNKNOWN", "RECONCILING"}:
                 raise ConflictError("only RECONCILING tasks can be reconciled")
+            actions = list(await session.scalars(
+                select(MobileActionCommitRow)
+                .where(MobileActionCommitRow.task_id == row.id)
+                .with_for_update()
+            ))
+            if request.decision == "CONFIRMED_NOT_SUBMITTED" and any(
+                action.status == "APPLIED" for action in actions
+            ):
+                raise ConflictError("reported APPLIED evidence contradicts NOT_SUBMITTED")
+            if request.decision != "KEEP_WAITING":
+                for action in actions:
+                    action.status = (
+                        "APPLIED" if request.decision == "CONFIRMED_APPLIED" else "NOT_SUBMITTED"
+                    )
+                    action.resolution_revision += 1
+                    action.resolution_evidence = request.evidence
+                    action.resolved_at = now
+                    action.updated_at = now
+                    audit_action(session, action, str(actor.user_id), "resolved")
             history = list((row.reconciliation or {}).get("history") or [])
             history.append(
                 {
