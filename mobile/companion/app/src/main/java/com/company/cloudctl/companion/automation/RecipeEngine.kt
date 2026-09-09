@@ -26,7 +26,7 @@ data class RecipePackage(
 
 class RecipeEngine(
     private val ui: LocalAutomationUi,
-    private val engineVersion: Int = 1,
+    private val engineVersion: Int = VERSION,
     private val elapsedMs: () -> Long,
 ) {
     fun parse(encoded: String, expectedHash: String? = null): RecipePackage {
@@ -40,7 +40,7 @@ class RecipeEngine(
         require(hash == computed) { "recipe hash does not match canonical graph" }
         require(expectedHash == null || expectedHash == hash) { "recipe hash mismatch" }
         val minEngine = manifest.getInt("minEngineVersion")
-        require(minEngine <= engineVersion) { CommandV1Parser.UNSUPPORTED_RECIPE }
+        require(minEngine in 1..engineVersion) { CommandV1Parser.UNSUPPORTED_RECIPE }
         val statesJson = graph.getJSONArray("states")
         val states = LinkedHashMap<String, RecipeState>()
         for (index in 0 until statesJson.length()) {
@@ -63,7 +63,9 @@ class RecipeEngine(
             hash = hash,
             minEngineVersion = minEngine,
             app = manifest.getString("app"),
-            commandTypes = setOf(manifest.getJSONArray("commandTypes").getString(0)),
+            commandTypes = manifest.getJSONArray("commandTypes").let { types ->
+                (0 until types.length()).map { types.getString(it) }.toSet()
+            },
             startStateId = graph.getString("startStateId"),
             maxIterations = graph.getInt("maxIterations").also { require(it in 1..200) },
             maxDurationMs = graph.getLong("maxDurationMs"),
@@ -125,6 +127,7 @@ class RecipeEngine(
     }
 
     companion object {
+        const val VERSION = 1
         private val ALLOWED_ACTIONS = setOf("tap", "input", "scroll", "extract", "wait", "launch", "media", "log", "checkpoint")
         private val TERMINAL = setOf("SUCCEEDED", "FAILED", "WAITING_USER")
         fun sha256(value: String): String = sha256Bytes(value.toByteArray(Charsets.UTF_8))

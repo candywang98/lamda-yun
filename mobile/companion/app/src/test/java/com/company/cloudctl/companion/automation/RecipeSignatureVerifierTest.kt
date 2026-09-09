@@ -1,6 +1,7 @@
 package com.company.cloudctl.companion.automation
 
 import com.company.cloudctl.companion.updates.RecipePackageManager
+import com.company.cloudctl.companion.updates.RecipeReference
 import org.json.JSONObject
 import java.nio.file.Files
 import java.util.Base64
@@ -36,7 +37,7 @@ class RecipeSignatureVerifierTest {
         RecipeSignatureVerifier.verifyPackage(root, keys)
         val directory = Files.createTempDirectory("published-recipe").toFile()
         try {
-            val result = RecipePackageManager(directory, keys).install("published-probe", root.toString())
+            val result = RecipePackageManager(directory, keys).install(RecipeReference("published-probe", root.getJSONObject("manifest").getString("hash"), 1), root.toString())
             assertEquals(hash, result.getString("sha256"))
             assertTrue(directory.resolve("versions/published-probe/package.json").isFile)
         } finally {
@@ -72,12 +73,12 @@ class RecipeSignatureVerifierTest {
         val directory = parent.resolve("recipes")
         try {
             assertFailsWith<IllegalStateException> {
-                RecipePackageManager(directory, emptyMap()).install("untrusted", packageJson().toString())
+                RecipePackageManager(directory, emptyMap()).install(RecipeReference("untrusted", packageJson().getJSONObject("manifest").getString("hash"), 1), packageJson().toString())
             }
             val tampered = packageJson()
             tampered.getJSONObject("graph").put("maxIterations", 7)
             assertFailsWith<IllegalArgumentException> {
-                RecipePackageManager(directory, keys).install("tampered", tampered.toString())
+                RecipePackageManager(directory, keys).install(RecipeReference("tampered", packageJson().getJSONObject("manifest").getString("hash"), 1), tampered.toString())
             }
             assertFalse(directory.exists())
         } finally {
@@ -93,7 +94,7 @@ class RecipeSignatureVerifierTest {
             val tampered = packageJson()
             tampered.getJSONObject("signature").put("digest", Base64.getEncoder().encodeToString(ByteArray(64)))
             assertFailsWith<IllegalArgumentException> {
-                RecipePackageManager(directory, keys).install("tampered", tampered.toString())
+                RecipePackageManager(directory, keys).install(RecipeReference("tampered", packageJson().getJSONObject("manifest").getString("hash"), 1), tampered.toString())
             }
             assertFalse(directory.exists())
         } finally {

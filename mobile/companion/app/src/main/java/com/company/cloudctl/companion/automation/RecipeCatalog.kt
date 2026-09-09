@@ -10,7 +10,15 @@ object RecipeCatalog {
         verified[versionId] = encoded
     }
 
+    @Volatile
+    private var active: Map<String, String> = emptyMap()
+
+    fun activate(mapping: Map<String, String>) { active = mapping.toMap() }
+
+    fun activeVersion(commandType: String): String? = active[commandType]
+
     fun clear() {
+        active = emptyMap()
         verified.clear()
     }
 
@@ -22,7 +30,10 @@ object RecipeCatalog {
         val manifest = root.getJSONObject("manifest")
         require(manifest.getString("hash") == command.recipeSha256) { "recipe hash mismatch" }
         require(manifest.getString("app") == command.targetPackage) { "recipe app does not match command" }
-        require(manifest.getJSONArray("commandTypes").getString(0) == command.commandType) {
+        require(command.engineMinVersion in 1..RecipeEngine.VERSION &&
+            manifest.getInt("minEngineVersion") == command.engineMinVersion) { "recipe engine mismatch" }
+        val types = manifest.getJSONArray("commandTypes")
+        require((0 until types.length()).any { types.getString(it) == command.commandType }) {
             CommandV1Parser.UNSUPPORTED_RECIPE
         }
         return encoded
