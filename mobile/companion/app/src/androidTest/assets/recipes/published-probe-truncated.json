@@ -1,0 +1,32 @@
+{
+  "apiVersion": "cloudctl.recipe/v1",
+  "kind": "LocalRecipePackage",
+  "manifest": {
+    "id": "recipe-device-probe-signed",
+    "version": "1.0.1",
+    "hash": "825921a415b7b0eaeb832ce1fb6e97847f9f981a45bb57db990491f1001ebd1f",
+    "signingKeyId": "phase1-recipe-1",
+    "minEngineVersion": 1,
+    "platform": "companion",
+    "app": "com.company.cloudctl.companion",
+    "commandTypes": [
+      "device.probe_capabilities.v1"
+    ]
+  },
+  "graph": {
+    "startStateId": "probe",
+    "maxIterations": 8,
+    "maxDurationMs": 30000,
+    "states": [
+      {
+        "stateId": "probe",
+        "action": "log",
+        "onSuccess": "SUCCEEDED",
+        "terminal": true
+      }
+    ]
+  },
+  "signature": {
+    "algorithm": "Ed25519",
+    "keyId": "phase1-recipe-1",
+    "digest": "zrAyx8sUIFy9P0sJ
