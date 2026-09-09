@@ -22,6 +22,7 @@ from sqlalchemy.exc import IntegrityError
 
 from .db import (
     AccountDeviceBindingRow,
+    AuditEventRow,
     AutomationVersionRow,
     Database,
     DeviceLeaseRow,
@@ -179,7 +180,21 @@ class MobileTaskService:
                 )
             )
             if deployment is None:
-                raise NotFoundError("recipe package was not found for this device")
+                pinned = await session.scalar(
+                    select(MobileTaskRow.id).where(
+                        MobileTaskRow.tenant_id == current.tenant_id,
+                        MobileTaskRow.device_id == current.device_id,
+                        MobileTaskRow.recipe_pin["versionId"].as_string() == version_id,
+                        MobileTaskRow.status.not_in(
+                            ("SUCCEEDED", "FAILED", "CANCELLED", "CANCELED", "EXPIRED")
+                        ),
+                        MobileTaskRow.business_state.not_in(
+                            ("SUCCEEDED", "FAILED", "CANCELLED", "CANCELED", "EXPIRED")
+                        ),
+                    )
+                )
+                if pinned is None:
+                    raise NotFoundError("recipe package was not found for this device")
             package = await session.scalar(
                 select(AutomationVersionRow).where(
                     AutomationVersionRow.tenant_id == current.tenant_id,
@@ -188,7 +203,9 @@ class MobileTaskService:
             )
             if package is None or package.manifest.get("kind") != "LocalRecipePackage":
                 raise NotFoundError("recipe package was not found for this device")
-            payload = json.dumps(package.manifest, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+            payload = json.dumps(
+                package.manifest, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+            ).encode()
             return payload, package.artifact_sha256
 
     @staticmethod
@@ -725,6 +742,7 @@ class MobileTaskService:
                             "RESUME_CHECK",
                             "CANCEL_REQUESTED",
                             "WAITING_MATERIALS",
+                            "RECONCILING",
                         }
                     ),
                 )
@@ -788,6 +806,10 @@ class MobileTaskService:
                 break
             if row is None:
                 return None
+            if row.command_type and row.attempt > 0 and row.recipe_pin is None:
+                raise ConflictError(
+                    "legacy task has no persisted recipe pin; reconcile before continuing"
+                )
             row.status = "CLAIMED"
             row.business_state = "PREFLIGHT"
             row.lease_id = str(uuid.uuid4())
@@ -816,10 +838,30 @@ class MobileTaskService:
                 metadata = dict(row.steps[0])
                 metadata["controlEpoch"] = device.fencing_counter
                 row.steps = [metadata, *row.steps[1:]]
-            published = await self._published_recipe_ref(
-                session, binding.tenant_id, binding.device_id, row.command_type
-            )
-            return self._task_view(row, companion_claim=True, published_recipe=published)
+            if row.recipe_pin is None and row.command_type:
+                from .builtin_recipes import builtin_recipe_ref
+
+                published = await self._published_recipe_ref(
+                    session, binding.tenant_id, binding.device_id, row.command_type
+                )
+                row.recipe_pin = published or builtin_recipe_ref(row.command_type)
+                session.add(
+                    AuditEventRow(
+                        id=str(uuid.uuid4()),
+                        tenant_id=binding.tenant_id,
+                        actor_id=binding.id,
+                        actor_type="companion",
+                        action="recipe.task.pinned",
+                        resource_type="mobile_task",
+                        resource_id=row.id,
+                        request_id=row.id,
+                        device_id=binding.device_id,
+                        result="SUCCEEDED",
+                        metadata_json={"deviceId": binding.device_id, "recipe": row.recipe_pin},
+                        occurred_at=now,
+                    )
+                )
+            return self._task_view(row, companion_claim=True)
 
     async def heartbeat(
         self,
@@ -1171,7 +1213,6 @@ class MobileTaskService:
         row: MobileTaskRow,
         *,
         companion_claim: bool = False,
-        published_recipe: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         from .command_v1 import PROTOCOL_VERSION, command_v1_from_task
 
@@ -1234,7 +1275,7 @@ class MobileTaskService:
                     control_epoch=control_epoch,
                     lease_expires_at=_aware(row.lease_expires_at),
                     media_delivery_id=(row.command_payload or {}).get("mediaDeliveryId"),
-                    published_recipe=published_recipe,
+                    published_recipe=row.recipe_pin,
                 )
             except ValueError:
                 command = None

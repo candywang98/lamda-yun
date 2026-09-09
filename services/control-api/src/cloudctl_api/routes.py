@@ -50,6 +50,7 @@ from .schemas import (
     ProductUpdate,
     PublishPlanCreate,
     RecipePublishRequest,
+    RecipeRollbackRequest,
     RevisionCreate,
     RoleUpdate,
     TargetStateUpdate,
@@ -585,6 +586,21 @@ async def register_recipe_package(
     body: dict[str, Any] = Body(...),
 ) -> dict[str, Any]:
     return await control.register_recipe(actor, body)
+
+
+@router.get("/recipes")
+async def list_recipes(actor: ActorDependency, control: ServiceDependency) -> dict[str, Any]:
+    return await control.list_recipes(actor)
+
+
+@router.post("/recipes/{version_id}:rollback")
+async def rollback_recipe(
+    version_id: str,
+    body: RecipeRollbackRequest,
+    actor: ActorDependency,
+    control: ServiceDependency,
+) -> dict[str, Any]:
+    return await control.rollback_recipe(actor, version_id, body)
 
 
 @router.get("/recipes/{version_id}")

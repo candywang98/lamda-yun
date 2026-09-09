@@ -160,6 +160,7 @@ def test_upgrade_and_downgrade_preserve_legacy_operation_rows(tmp_path: Path) ->
             "device_id",
             "idempotency_key",
             "request_sha256",
+            "recipe_pin",
             "requested_by",
             "target_package",
             "steps",

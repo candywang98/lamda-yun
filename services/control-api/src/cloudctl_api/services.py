@@ -29,6 +29,7 @@ from cloudctl_domain import (
 )
 from cloudctl_domain.states import TERMINAL_STATES, assert_safe_cancel
 from sqlalchemy import delete, func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .apk_policy import evaluate_apk_policy, verify_analysis_signature
@@ -61,6 +62,7 @@ from .db import (
     PublishPlanRow,
     PublishSnapshotRow,
     PublishTargetRow,
+    RecipeDeploymentActionRow,
     RecipeDeploymentRow,
     TenantRow,
     UserRow,
@@ -100,6 +102,7 @@ from .schemas import (
     ProductUpdate,
     PublishPlanCreate,
     RecipePublishRequest,
+    RecipeRollbackRequest,
     RevisionCreate,
     RoleUpdate,
     UserCreate,
@@ -2534,103 +2537,227 @@ class ControlService:
             )
             return self._recipe_view(row)
 
+    async def list_recipes(self, actor: Actor) -> dict[str, Any]:
+        require_permissions(actor.roles, Permission.RECIPE_PUBLISH)
+        async with self.database.unit_of_work() as session:
+            tenant_id = str(actor.tenant_id)
+            rows = list(
+                await session.scalars(
+                    select(AutomationVersionRow)
+                    .where(AutomationVersionRow.tenant_id == tenant_id)
+                    .order_by(
+                        AutomationVersionRow.created_at.desc(), AutomationVersionRow.id.desc()
+                    )
+                )
+            )
+            deployments = list(
+                await session.scalars(
+                    select(RecipeDeploymentRow)
+                    .where(RecipeDeploymentRow.tenant_id == tenant_id)
+                    .order_by(RecipeDeploymentRow.created_at, RecipeDeploymentRow.id)
+                )
+            )
+            return {
+                "items": [
+                    self._recipe_view(
+                        row, [item for item in deployments if item.version_id == row.id]
+                    )
+                    for row in rows
+                    if self._is_local_recipe(row)
+                ]
+            }
+
     async def publish_recipe(
         self, actor: Actor, version_id: str, request: RecipePublishRequest
     ) -> dict[str, Any]:
-        require_permissions(actor.roles, Permission.RECIPE_PUBLISH)
-        async with self.database.unit_of_work() as session:
-            repository = ControlRepository(session, actor)
-            row = await repository.automation_version(version_id)
-            if not self._is_local_recipe(row):
-                raise ValidationError("automation packages cannot be published as device recipes")
-            command_types = list(row.manifest.get("manifest", {}).get("commandTypes") or [])
-            if not command_types:
-                raise ValidationError("recipe package has no commandTypes")
-            deployments: list[RecipeDeploymentRow] = []
-            for device_id in request.target_device_ids:
-                await repository.device(device_id)
-                existing = await session.scalar(
-                    select(RecipeDeploymentRow).where(
-                        RecipeDeploymentRow.tenant_id == repository.tenant_id,
-                        RecipeDeploymentRow.device_id == device_id,
-                        RecipeDeploymentRow.idempotency_key == request.idempotency_key,
-                    )
-                )
-                if existing is not None:
-                    if existing.version_id != row.id:
-                        raise ConflictError("idempotency key already used for a different recipe version")
-                    deployments.append(existing)
-                    continue
-                previous = await session.scalar(
-                    select(RecipeDeploymentRow).where(
-                        RecipeDeploymentRow.tenant_id == repository.tenant_id,
-                        RecipeDeploymentRow.device_id == device_id,
-                        RecipeDeploymentRow.command_type == command_types[0],
-                        RecipeDeploymentRow.status == "PUBLISHED",
-                    )
-                )
-                previous_id = previous.version_id if previous is not None else None
-                if previous is not None and previous.version_id != row.id:
-                    previous.status = "REVOKED"
-                if previous is not None and previous.version_id == row.id:
-                    deployments.append(previous)
-                    continue
-                deployment = RecipeDeploymentRow(
-                    id=repository.new_id(),
-                    tenant_id=repository.tenant_id,
-                    version_id=row.id,
-                    device_id=device_id,
-                    command_type=command_types[0],
-                    status="PUBLISHED",
-                    idempotency_key=request.idempotency_key,
-                    previous_version_id=previous_id,
-                    published_by=str(actor.user_id),
-                    created_at=_now(),
-                )
-                repository.add(deployment)
-                deployments.append(deployment)
-            repository.audit(
-                action="recipe.version.published",
-                resource_type="automation_package_version",
-                resource_id=row.id,
-                after={
-                    "device_ids": list(request.target_device_ids),
-                    "idempotency_key": request.idempotency_key,
-                },
-            )
-            return self._recipe_view(row, deployments)
+        return await self._change_recipe(actor, version_id, request, "publish")
 
     async def revoke_recipe(
         self, actor: Actor, version_id: str, request: RecipePublishRequest
     ) -> dict[str, Any]:
+        return await self._change_recipe(actor, version_id, request, "revoke")
+
+    async def rollback_recipe(
+        self, actor: Actor, version_id: str, request: RecipeRollbackRequest
+    ) -> dict[str, Any]:
+        return await self._change_recipe(actor, version_id, request, "rollback")
+
+    async def _change_recipe(
+        self, actor: Actor, version_id: str, request: RecipePublishRequest, action: str
+    ) -> dict[str, Any]:
         require_permissions(actor.roles, Permission.RECIPE_PUBLISH)
-        async with self.database.unit_of_work() as session:
-            repository = ControlRepository(session, actor)
-            row = await repository.automation_version(version_id)
-            if not self._is_local_recipe(row):
-                raise ValidationError("automation packages cannot be revoked as device recipes")
-            deployments: list[RecipeDeploymentRow] = []
-            for device_id in request.target_device_ids:
-                await repository.device(device_id)
-                current = await session.scalar(
+        device_ids = sorted(set(request.target_device_ids))
+        expected = (
+            request.expected_current_version_id
+            if isinstance(request, RecipeRollbackRequest)
+            else None
+        )
+        fingerprint = canonical_hash(
+            {
+                "action": action,
+                "versionId": version_id,
+                "deviceIds": device_ids,
+                "expected": expected,
+            }
+        )
+        try:
+            async with self.database.unit_of_work() as session:
+                repository = ControlRepository(session, actor)
+                row = await repository.automation_version(version_id)
+                if not self._is_local_recipe(row):
+                    raise ValidationError(
+                        "automation packages cannot be deployed as device recipes"
+                    )
+                # Sorted device locks serialize both mapping changes and first claim, and
+                # give overlapping multi-device requests a consistent lock order.
+                for device_id in device_ids:
+                    await repository.device(device_id, for_update=True)
+                key = (repository.tenant_id, request.idempotency_key)
+                replay = await session.get(RecipeDeploymentActionRow, key)
+                if replay is not None:
+                    if replay.request_sha256 != fingerprint:
+                        raise ConflictError(
+                            "idempotency key already used for a different recipe action"
+                        )
+                    return replay.response
+                legacy = await session.scalar(
                     select(RecipeDeploymentRow).where(
                         RecipeDeploymentRow.tenant_id == repository.tenant_id,
-                        RecipeDeploymentRow.device_id == device_id,
-                        RecipeDeploymentRow.version_id == row.id,
-                        RecipeDeploymentRow.status == "PUBLISHED",
+                        RecipeDeploymentRow.idempotency_key == request.idempotency_key,
                     )
                 )
-                if current is None:
-                    continue
-                current.status = "REVOKED"
-                deployments.append(current)
-            repository.audit(
-                action="recipe.version.revoked",
-                resource_type="automation_package_version",
-                resource_id=row.id,
-                after={"device_ids": list(request.target_device_ids)},
-            )
-            return self._recipe_view(row, deployments)
+                if legacy is not None:
+                    raise ConflictError("idempotency key belongs to a historical deployment")
+                if action != "revoke":
+                    # Re-check trust and engine requirements at activation, including rollback.
+                    public_key = self.settings.automation_signing_public_keys.get(
+                        row.signature_key_id
+                    )
+                    if public_key is None:
+                        raise ValidationError("recipe package uses an untrusted signing key")
+                    try:
+                        validate_recipe_package(row.manifest, public_key_base64=public_key)
+                    except ValueError as exc:
+                        raise ValidationError(str(exc)) from exc
+                command_types = sorted(set(row.manifest["manifest"]["commandTypes"]))
+                changes = []
+                for device_id in device_ids:
+                    for command_type in command_types:
+                        current = await session.scalar(
+                            select(RecipeDeploymentRow).where(
+                                RecipeDeploymentRow.tenant_id == repository.tenant_id,
+                                RecipeDeploymentRow.device_id == device_id,
+                                RecipeDeploymentRow.command_type == command_type,
+                                RecipeDeploymentRow.status == "PUBLISHED",
+                            )
+                        )
+                        if action == "rollback":
+                            if current is None or current.version_id != expected:
+                                raise ConflictError("expected current recipe version is stale")
+                            if version_id == expected:
+                                raise ConflictError(
+                                    "rollback target must differ from current version"
+                                )
+                            history = await session.scalar(
+                                select(RecipeDeploymentRow).where(
+                                    RecipeDeploymentRow.tenant_id == repository.tenant_id,
+                                    RecipeDeploymentRow.device_id == device_id,
+                                    RecipeDeploymentRow.command_type == command_type,
+                                    RecipeDeploymentRow.version_id == version_id,
+                                    RecipeDeploymentRow.status == "REVOKED",
+                                )
+                            )
+                            if history is None:
+                                raise ConflictError(
+                                    "rollback target has no deployment history for device command"
+                                )
+                        changes.append((device_id, command_type, current))
+                now = _now()
+                deployments = []
+                before = []
+                for device_id, command_type, current in changes:
+                    before.append(
+                        {
+                            "deviceId": device_id,
+                            "commandType": command_type,
+                            "versionId": current.version_id if current else None,
+                        }
+                    )
+                    if action == "revoke":
+                        if current is not None and current.version_id == version_id:
+                            current.status = "REVOKED"
+                            current.updated_at = now
+                            deployments.append(current)
+                        continue
+                    if current is not None and current.version_id == version_id:
+                        deployments.append(current)
+                        continue
+                    if current is not None:
+                        current.status = "REVOKED"
+                        current.updated_at = now
+                        # Retire before INSERT to satisfy the partial unique index.
+                        await session.flush()
+                    deployment = RecipeDeploymentRow(
+                        id=repository.new_id(),
+                        tenant_id=repository.tenant_id,
+                        version_id=version_id,
+                        device_id=device_id,
+                        command_type=command_type,
+                        status="PUBLISHED",
+                        idempotency_key=request.idempotency_key,
+                        previous_version_id=current.version_id if current else None,
+                        published_by=str(actor.user_id),
+                        created_at=now,
+                        updated_at=now,
+                    )
+                    repository.add(deployment)
+                    deployments.append(deployment)
+                response = self._recipe_view(row, deployments)
+                session.add(
+                    RecipeDeploymentActionRow(
+                        tenant_id=repository.tenant_id,
+                        idempotency_key=request.idempotency_key,
+                        request_sha256=fingerprint,
+                        action=action,
+                        version_id=version_id,
+                        actor_id=str(actor.user_id),
+                        response=response,
+                        created_at=now,
+                    )
+                )
+                repository.audit(
+                    action={
+                        "publish": "recipe.version.published",
+                        "revoke": "recipe.version.revoked",
+                        "rollback": "recipe.version.rolled_back",
+                    }[action],
+                    resource_type="automation_package_version",
+                    resource_id=row.id,
+                    before={"deployments": before},
+                    after={
+                        "device_ids": device_ids,
+                        "idempotency_key": request.idempotency_key,
+                        "expected_current_version_id": expected,
+                        "version_id": version_id,
+                        "deployments": response["deployments"],
+                    },
+                    metadata={
+                        "device_ids": device_ids,
+                        "idempotency_key": request.idempotency_key,
+                        "expected_current_version_id": expected,
+                        "version_id": version_id,
+                    },
+                )
+                return response
+        except IntegrityError as exc:
+            # Disjoint device requests can still race on a tenant-wide action key.
+            async with self.database.unit_of_work() as session:
+                replay = await session.get(
+                    RecipeDeploymentActionRow, (str(actor.tenant_id), request.idempotency_key)
+                )
+                if replay is not None and replay.request_sha256 == fingerprint:
+                    return replay.response
+            raise ConflictError("concurrent recipe deployment changed; refresh and retry") from exc
 
     async def get_recipe(self, actor: Actor, version_id: str) -> dict[str, Any]:
         require_permissions(actor.roles, Permission.RECIPE_PUBLISH)
@@ -3587,6 +3714,7 @@ class ControlService:
             "version": row.version,
             "artifactSha256": row.artifact_sha256,
             "signingKeyId": row.signature_key_id,
+            "createdAt": _aware(row.created_at).isoformat(),
             "package": row.manifest,
             "deployments": [
                 {
@@ -3596,8 +3724,19 @@ class ControlService:
                     "status": item.status,
                     "previousVersionId": item.previous_version_id,
                     "idempotencyKey": item.idempotency_key,
+                    "publishedBy": item.published_by,
+                    "createdAt": _aware(item.created_at).isoformat(),
+                    "updatedAt": _aware(item.updated_at).isoformat(),
                 }
-                for item in deployments or []
+                for item in sorted(
+                    deployments or [],
+                    key=lambda item: (
+                        _aware(item.created_at),
+                        item.device_id,
+                        item.command_type,
+                        item.id,
+                    ),
+                )
             ],
         }
 

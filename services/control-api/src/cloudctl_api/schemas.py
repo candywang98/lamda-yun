@@ -410,3 +410,9 @@ class EventView(ApiModel):
     aggregate_id: str = Field(alias="aggregateId")
     payload: dict[str, Any]
     occurred_at: datetime = Field(alias="occurredAt")
+
+
+class RecipeRollbackRequest(RecipePublishRequest):
+    expected_current_version_id: str = Field(
+        alias="expectedCurrentVersionId", min_length=1, max_length=128
+    )
