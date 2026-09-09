@@ -396,17 +396,48 @@ class RecipeDeploymentRow(Base, TimestampMixin):
     version_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("automation_package_version.id"), index=True, nullable=False
     )
-    device_id: Mapped[str] = mapped_column(String(36), ForeignKey("device.id"), index=True, nullable=False)
+    device_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("device.id"), index=True, nullable=False
+    )
     command_type: Mapped[str] = mapped_column(String(160), nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False)
     idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
     previous_version_id: Mapped[str | None] = mapped_column(String(36))
     published_by: Mapped[str] = mapped_column(String(36), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     __table_args__ = (
-        UniqueConstraint("tenant_id", "device_id", "idempotency_key"),
+        UniqueConstraint(
+            "tenant_id",
+            "device_id",
+            "command_type",
+            "idempotency_key",
+            name="uq_recipe_deploy_command_key",
+        ),
+        Index(
+            "uq_recipe_deploy_published",
+            "tenant_id",
+            "device_id",
+            "command_type",
+            unique=True,
+            postgresql_where=text("status = 'PUBLISHED'"),
+            sqlite_where=text("status = 'PUBLISHED'"),
+        ),
         CheckConstraint("status IN ('PUBLISHED','REVOKED')", name="recipe_deployment_status"),
         Index("ix_recipe_deploy_active", "tenant_id", "device_id", "command_type", "status"),
     )
+
+
+class RecipeDeploymentActionRow(Base, TimestampMixin):
+    __tablename__ = "recipe_deployment_action"
+    tenant_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    idempotency_key: Mapped[str] = mapped_column(String(128), primary_key=True)
+    request_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    action: Mapped[str] = mapped_column(String(32), nullable=False)
+    version_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("automation_package_version.id"), nullable=False
+    )
+    actor_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    response: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
 
 
 class ApkArtifactRow(Base, TimestampMixin):
@@ -706,6 +737,7 @@ class MobileTaskRow(Base, TimestampMixin):
     device_id_at_execution: Mapped[str | None] = mapped_column(String(36))
     command_type: Mapped[str | None] = mapped_column(String(80), index=True)
     command_payload: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    recipe_pin: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     business_state: Mapped[str] = mapped_column(String(32), default="QUEUED", index=True, nullable=False)
     control_mode: Mapped[str] = mapped_column(String(16), default="AUTO", nullable=False)
     batch_id: Mapped[str | None] = mapped_column(String(36), index=True)
