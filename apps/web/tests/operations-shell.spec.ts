@@ -11,6 +11,7 @@ describe('OperationsShell', () => {
     const router = createRouter({
       history: createMemoryHistory(),
       routes: [
+        { path: '/recipes', name: 'recipe-versions', component: { template: '<div>版本管理</div>' } },
         { path: '/operations', name: 'operations-catalog', component: { template: '<div>目录</div>' } },
         { path: '/operations/:moduleId/:operationId', name: 'operation-detail', component: { template: '<div>功能</div>' } },
       ],
@@ -20,6 +21,7 @@ describe('OperationsShell', () => {
     render(OperationsShell, { global: { plugins: [createPinia(), router] } })
 
     expect(screen.getByText('云控工作台')).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'Recipe 版本管理' }).getAttribute('href')).toBe('/recipes')
     expect(document.querySelectorAll('.operation-module-nav')).toHaveLength(15)
     expect(operationModules.map((module) => module.label)).toEqual([
       '系统主页', '任务队列', '产品编辑', '采集管理', '商品管理', '帖子管理', '订单管理', '统计分析',

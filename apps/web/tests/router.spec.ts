@@ -4,11 +4,18 @@ import { coreRoutes, operationRoutes } from '@/router'
 
 describe('core route contract', () => {
   it('keeps legacy CloudCtl paths only as redirects into the operations workspace', () => {
-    expect(coreRoutes).toHaveLength(20)
-    expect(new Set(coreRoutes.map((route) => route.path)).size).toBe(20)
+    expect(coreRoutes).toHaveLength(21)
+    expect(new Set(coreRoutes.map((route) => route.path)).size).toBe(21)
     expect(coreRoutes.find((route) => route.name === 'mobile-automation')?.redirect).toBe('/operations/system-home/system-home-02')
     expect(coreRoutes.find((route) => route.name === 'devices')?.redirect).toBe('/operations/system-home/system-home-02')
     expect(coreRoutes.find((route) => route.name === 'device-detail')?.component).toBeTruthy()
+  })
+
+  it('exposes Recipe version management as a working page', async () => {
+    const testRouter = createRouter({ history: createMemoryHistory(), routes: coreRoutes })
+    await testRouter.push('/recipes')
+    expect(testRouter.currentRoute.value.name).toBe('recipe-versions')
+    expect(coreRoutes.find((route) => route.name === 'recipe-versions')?.component).toBeTruthy()
   })
 
   it('gives each page a visible title and navigation section', () => {

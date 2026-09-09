@@ -4,6 +4,7 @@ import OperationsCatalogView from '@/views/OperationsCatalogView.vue'
 import OperationsView from '@/views/OperationsView.vue'
 import DisplaySettingsView from '@/views/DisplaySettingsView.vue'
 import SourceConnectionsView from '@/views/SourceConnectionsView.vue'
+import RecipeVersionsView from '@/views/RecipeVersionsView.vue'
 import { findOperation } from '@/data/operations-catalog'
 
 const deviceList = '/operations/system-home/system-home-02'
@@ -11,6 +12,7 @@ const taskQueue = '/operations/task-queue/task-queue-01'
 const catalog = '/operations'
 
 export const coreRoutes: RouteRecordRaw[] = [
+  { path: '/recipes', name: 'recipe-versions', component: RecipeVersionsView, meta: { title: 'Recipe 版本管理', section: '版本管理' } },
   { path: '/', name: 'dashboard', redirect: catalog, meta: { title: '运营功能目录', section: '运营目录' } },
   { path: '/devices', name: 'devices', redirect: deviceList, meta: { title: '设备列表', section: '运营目录' } },
   { path: '/devices/:id', name: 'device-detail', component: DeviceDetailView, meta: { title: '设备详情 / 远控', section: '运营目录' } },

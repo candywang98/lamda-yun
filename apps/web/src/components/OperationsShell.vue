@@ -59,9 +59,11 @@ const visibleModules = computed(() => display.visibleModules())
 const currentOperation = computed(() => findOperation(String(route.params.moduleId ?? ''), String(route.params.operationId ?? '')))
 const catalogOpen = computed(() => route.name === 'operations-catalog')
 const settingsOpen = computed(() => route.name === 'operations-display-settings')
+const recipesOpen = computed(() => route.name === 'recipe-versions')
 const remoteOpen = computed(() => route.name === 'device-detail')
 const pageTitle = computed(() => {
   if (currentOperation.value) return currentOperation.value.title
+  if (recipesOpen.value) return 'Recipe 版本管理'
   if (settingsOpen.value) return '显示设置'
   if (remoteOpen.value) return '设备详情 / 远控'
   return '运营功能目录'
@@ -103,6 +105,7 @@ watch(currentOperation, (operation) => {
       <nav class="nav-scroll yy-nav">
         <RouterLink to="/operations" class="yy-catalog-link" :class="{ active: catalogOpen }" @click="session.sidebarOpen = false">全部功能</RouterLink>
         <RouterLink to="/operations/settings/display" class="yy-catalog-link" :class="{ active: settingsOpen }" @click="session.sidebarOpen = false"><Settings2 :size="14" />显示设置</RouterLink>
+        <RouterLink to="/recipes" class="yy-catalog-link" :class="{ active: recipesOpen }" @click="session.sidebarOpen = false"><Package :size="14" />Recipe 版本管理</RouterLink>
         <section v-for="module in visibleModules" :key="module.id" class="yy-module-block">
           <button
             class="nav-link operation-module-nav yy-module"
@@ -148,6 +151,7 @@ watch(currentOperation, (operation) => {
       <div class="yy-tabs" aria-label="已打开页面">
         <RouterLink to="/operations" class="yy-tab" :class="{ active: catalogOpen }">全部功能</RouterLink>
         <RouterLink to="/operations/settings/display" class="yy-tab" :class="{ active: settingsOpen }">显示设置</RouterLink>
+        <RouterLink v-if="recipesOpen" to="/recipes" class="yy-tab active">Recipe 版本管理</RouterLink>
         <RouterLink v-if="remoteOpen" :to="route.fullPath" class="yy-tab active">设备详情 / 远控</RouterLink>
         <div v-for="tab in workspace.tabs" :key="tab.id" class="yy-tab" :class="{ active: tab.id === currentOperation?.id }">
           <RouterLink :to="tab.to">{{ tab.title }}</RouterLink>
