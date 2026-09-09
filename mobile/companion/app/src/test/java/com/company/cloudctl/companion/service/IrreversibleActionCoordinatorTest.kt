@@ -12,12 +12,16 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
+@org.robolectric.annotation.Config(sdk = [35])
 class IrreversibleActionCoordinatorTest {
     private lateinit var context: Context
     private lateinit var store: AutomationStore
@@ -42,7 +46,7 @@ class IrreversibleActionCoordinatorTest {
     @Test
     fun `fresh fake action runs once and does not emit reconciling`() = runBlocking {
         val calls = AtomicInteger(0)
-        val first = coordinator.executeOnce(ACTION_KEY, TASK_ID, HASH) {
+        val first = coordinator.executeOnce(ACTION_KEY, TASK_ID, HASH, confirmApplied = true) {
             calls.incrementAndGet()
         }
         assertEquals(IrreversibleActionGate.DECISION_APPLIED, first.decision)
@@ -52,7 +56,7 @@ class IrreversibleActionCoordinatorTest {
         assertEquals("RUNNING", inboxState())
         assertFalse(store.hasBlockingHead())
 
-        val second = coordinator.executeOnce(ACTION_KEY, TASK_ID, HASH) {
+        val second = coordinator.executeOnce(ACTION_KEY, TASK_ID, HASH, confirmApplied = true) {
             calls.incrementAndGet()
         }
         assertEquals(IrreversibleActionGate.DECISION_SKIPPED_APPLIED, second.decision)
@@ -63,13 +67,12 @@ class IrreversibleActionCoordinatorTest {
     }
 
     @Test
-    fun `confirmation loss writes reconciling and stays running not paused`() = runBlocking {
+    fun `default confirmation writes durable reconciliation`() = runBlocking {
         val calls = AtomicInteger(0)
         val lost = coordinator.executeOnce(
             actionKey = ACTION_KEY,
             taskId = TASK_ID,
             parameterHash = HASH,
-            confirmApplied = false,
         ) { calls.incrementAndGet() }
 
         assertEquals(IrreversibleActionGate.DECISION_UNKNOWN, lost.decision)
@@ -79,8 +82,8 @@ class IrreversibleActionCoordinatorTest {
         assertEquals(1, events.size)
         assertEquals(ACTION_KEY, events.single().getJSONObject("payload").getString("actionKey"))
         assertTrue(events.single().getJSONObject("payload").getBoolean("blockedResume"))
-        assertEquals("RUNNING", inboxState())
-        assertFalse(store.hasBlockingHead())
+        assertEquals("RECONCILING", inboxState())
+        assertTrue(store.hasBlockingHead())
     }
 
     @Test
@@ -90,7 +93,6 @@ class IrreversibleActionCoordinatorTest {
             actionKey = ACTION_KEY,
             taskId = TASK_ID,
             parameterHash = HASH,
-            confirmApplied = false,
         ) { calls.incrementAndGet() }
 
         reopen()
@@ -101,8 +103,8 @@ class IrreversibleActionCoordinatorTest {
         assertEquals(IrreversibleActionGate.DECISION_RECONCILE_REQUIRED, blocked.decision)
         assertFalse(blocked.actionInvoked)
         assertEquals(1, calls.get())
-        assertEquals("RUNNING", inboxState())
-        assertFalse(store.hasBlockingHead())
+        assertEquals("RECONCILING", inboxState())
+        assertTrue(store.hasBlockingHead())
         assertNullClaim()
         assertTrue(reconcilingEvents().isNotEmpty())
     }
@@ -120,8 +122,8 @@ class IrreversibleActionCoordinatorTest {
         assertEquals(IrreversibleActionGate.STATUS_INTENT, blocked.journalStatus)
         assertFalse(blocked.actionInvoked)
         assertEquals(0, calls.get())
-        assertEquals("RUNNING", inboxState())
-        assertFalse(store.hasBlockingHead())
+        assertEquals("RECONCILING", inboxState())
+        assertTrue(store.hasBlockingHead())
         val payload = reconcilingEvents().single().getJSONObject("payload")
         assertEquals(ACTION_KEY, payload.getString("actionKey"))
         assertEquals("INTENT", payload.getString("journalStatus"))
@@ -136,11 +138,39 @@ class IrreversibleActionCoordinatorTest {
                 calls.incrementAndGet()
             }
         }
-        assertTrue(rejected.message!!.contains("parameter"))
+        assertTrue(rejected.message!!.contains("identity"))
         assertEquals(0, calls.get())
-        assertEquals("RUNNING", inboxState())
-        assertFalse(store.hasBlockingHead())
+        assertEquals("RECONCILING", inboxState())
+        assertTrue(store.hasBlockingHead())
         assertEquals(EVENT, reconcilingEvents().single().getString("eventType"))
+    }
+
+    @Test
+    fun `cancellation persists reconciliation event before propagating`() = runBlocking {
+        val cancelled = CancellationException("cancelled")
+        val thrown = assertFailsWith<CancellationException> {
+            coordinator.executeOnce(ACTION_KEY, TASK_ID, HASH) { throw cancelled }
+        }
+        assertEquals(cancelled.message, thrown.message)
+        reopen()
+        assertEquals("RECONCILING", inboxState())
+        assertEquals("UNKNOWN", store.actionJournal(ACTION_KEY)?.status)
+        assertEquals("UNKNOWN", reconcilingEvents().single().getJSONObject("payload").getString("journalStatus"))
+        store.finish(TASK_ID, true)
+        store.finish(TASK_ID, false)
+        assertEquals("RECONCILING", inboxState())
+        assertEquals(1, store.pendingEvents().size)
+    }
+
+    @Test
+    fun `timeout persists reconciliation before rethrow and does not replay`() = runBlocking {
+        assertFailsWith<TimeoutCancellationException> {
+            coordinator.executeOnce(ACTION_KEY, TASK_ID, HASH, timeoutMs = 50) { delay(5_000) }
+        }
+        reopen()
+        assertEquals("RECONCILING", inboxState())
+        assertEquals(1, reconcilingEvents().size)
+        assertFalse(coordinator.executeOnce(ACTION_KEY, TASK_ID, HASH) { error("must not repeat") }.actionInvoked)
     }
 
     private fun reopen() {

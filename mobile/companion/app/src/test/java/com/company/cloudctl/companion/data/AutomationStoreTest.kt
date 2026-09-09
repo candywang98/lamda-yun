@@ -17,6 +17,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
+@org.robolectric.annotation.Config(sdk = [35])
 class AutomationStoreTest {
     private lateinit var context: Context
     private lateinit var store: AutomationStore
@@ -291,6 +292,56 @@ class AutomationStoreTest {
         store.markDelivered(store.pendingEvents().single().id)
         assertEquals("TERMINAL_CONFIRMED", taskState("task-1"))
         assertTrue(store.pendingEvents().isEmpty())
+    }
+
+    @Test
+    fun `unresolved intent and unknown block ordinary exits across reopen`() {
+        for (unknown in listOf(false, true)) {
+            store.close()
+            context.deleteDatabase(DATABASE_NAME)
+            store = AutomationStore(context)
+            store.enqueueTask("task-1", "payload", "lease-1", 0)
+            store.claimNext()
+            store.recordActionIntent("action", "task-1", "hash")
+            if (unknown) store.markActionUnknown("action")
+            store.enqueueTask("task-2", "other", "lease-2", 0)
+            assertTrue(store.hasBlockingHead())
+            assertNull(store.claimNext())
+            store.close()
+            store = AutomationStore(context)
+            assertEquals(AutomationStore.STATE_RECONCILING, taskState("task-1"))
+            store.recoverInterruptedRuns()
+            assertTrue(store.hasBlockingHead())
+            assertNull(store.claimNext())
+            assertNull(store.claimResume())
+            assertNull(store.claimResume("task-1"))
+            assertFalse(store.markResumeCheck("task-1", "replacement"))
+            assertFailsWith<IllegalArgumentException> { store.markPaused("task-1", null, 0, null) }
+            assertFalse(store.enqueueTask("task-1", "payload", "lease-1", 0))
+            assertFalse(store.enqueueTask("task-1", "payload", "replacement", 20))
+            store.finish("task-1", true)
+            store.finish("task-1", false)
+            assertEquals(AutomationStore.STATE_RECONCILING, taskState("task-1"))
+            assertTrue(store.pendingEvents().isEmpty())
+            assertEquals(if (unknown) "UNKNOWN" else "INTENT", store.actionJournal("action")?.status)
+            assertEquals("lease-1", store.readableDatabase.rawQuery(
+                "SELECT lease_id FROM task_inbox WHERE task_id='task-1'", emptyArray(),
+            ).use { it.moveToFirst(); it.getString(0) })
+        }
+    }
+
+    @Test
+    fun `legacy terminal state with unresolved intent reopens as reconciliation`() {
+        store.enqueueTask("task-1", "payload", "lease-1", 0)
+        store.claimNext()
+        store.finish("task-1", true)
+        val terminal = store.pendingEvents().single()
+        store.recordActionIntent("action", "task-1", "hash")
+        store.close()
+        store = AutomationStore(context)
+        store.markDelivered(terminal.id)
+        assertEquals(AutomationStore.STATE_RECONCILING, taskState("task-1"))
+        assertTrue(store.hasBlockingHead())
     }
 
     private fun taskState(taskId: String): String = store.readableDatabase.rawQuery(

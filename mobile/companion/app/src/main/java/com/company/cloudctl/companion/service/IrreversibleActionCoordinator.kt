@@ -4,12 +4,13 @@ import com.company.cloudctl.companion.automation.IrreversibleActionGate
 import com.company.cloudctl.companion.automation.IrreversibleActionOutcome
 import com.company.cloudctl.companion.data.AutomationStore
 import org.json.JSONObject
+import kotlinx.coroutines.CancellationException
 
 /**
  * Bridges the local once-gate onto Companion outbox events.
  *
  * Unknown or rejected irreversible attempts persist a RECONCILING event while the
- * inbox row stays RUNNING. This does not pause, resume, or touch real recipes.
+ * inbox row stays RECONCILING. This does not pause, resume, or touch real recipes.
  */
 class IrreversibleActionCoordinator(
     private val store: AutomationStore,
@@ -20,7 +21,7 @@ class IrreversibleActionCoordinator(
         taskId: String,
         parameterHash: String,
         timeoutMs: Long = IrreversibleActionGate.DEFAULT_TIMEOUT_MS,
-        confirmApplied: Boolean = true,
+        confirmApplied: Boolean = false,
         action: suspend () -> Unit,
     ): IrreversibleActionOutcome {
         val outcome = try {
@@ -32,6 +33,17 @@ class IrreversibleActionCoordinator(
                 confirmApplied = confirmApplied,
                 action = action,
             )
+        } catch (cancelled: CancellationException) {
+            persistReconciling(
+                actionKey, taskId,
+                IrreversibleActionOutcome(
+                    IrreversibleActionGate.DECISION_UNKNOWN,
+                    IrreversibleActionGate.STATUS_UNKNOWN,
+                    true,
+                    "action cancelled after intent",
+                ),
+            )
+            throw cancelled
         } catch (rejected: IllegalArgumentException) {
             persistReconciling(
                 actionKey = actionKey,
@@ -67,7 +79,7 @@ class IrreversibleActionCoordinator(
         store.recordStepEvent(
             taskId = taskId,
             stepId = actionKey,
-            state = "RUNNING",
+            state = AutomationStore.STATE_RECONCILING,
             detailCode = "RECONCILING",
             eventType = EVENT_RECONCILING,
             stepIndex = null,

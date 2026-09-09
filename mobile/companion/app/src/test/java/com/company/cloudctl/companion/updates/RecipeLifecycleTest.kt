@@ -132,7 +132,9 @@ class RecipeLifecycleTest {
         idle(); assertOld()
         store.markActionApplied("action-1")
         lifecycle.activatePending()
-        assertEquals(newer.versionId, RecipeCatalog.activeVersion(type))
+        // Confirming the journal alone does not reconcile the task after an uncertain finish.
+        assertOld()
+        assertTrue(store.hasBlockingHead())
     }
 
     @Test fun unknownIrreversibleOutcomeKeepsActivationBlockedAcrossRestart() {
@@ -280,6 +282,27 @@ class RecipeLifecycleTest {
         }
         restart()
         assertTrue(store.claimNext()!!.payload.contains(old.versionId))
+    }
+
+    @Test fun unresolvedCommitPinsCatalogAfterFinishReplacementLeaseAndReopen() {
+        sync(old); queue(); store.claimNext()
+        store.recordActionIntent("commit", "task-1", "hash")
+        sync(newer)
+        restart()
+        assertOld()
+        assertTrue(store.hasBlockingHead())
+        assertFalse(store.markResumeCheck("task-1", "lease-new"))
+        assertFalse(store.enqueueTask("task-1", taskPayload(old), "lease-new", 20))
+        store.finish("task-1", true)
+        lifecycle.activatePending()
+        assertOld()
+        store.markActionUnknown("commit")
+        restart()
+        store.finish("task-1", false)
+        lifecycle.activatePending()
+        assertOld()
+        assertNotNull(store.pendingRecipeCatalog())
+        assertNull(store.claimNext())
     }
 
     @Test fun replacementLeaseCannotChangeFrozenRecipeAndSingleRunnerIsEnforced() {

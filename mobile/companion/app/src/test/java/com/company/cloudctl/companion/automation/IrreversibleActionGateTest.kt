@@ -11,12 +11,15 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
+@org.robolectric.annotation.Config(sdk = [35])
 class IrreversibleActionGateTest {
     private lateinit var context: Context
     private lateinit var store: AutomationStore
@@ -41,7 +44,7 @@ class IrreversibleActionGateTest {
     @Test
     fun `fresh intent invokes injected action once and confirms applied`() = runBlocking {
         val calls = AtomicInteger(0)
-        val first = gate.executeOnce(ACTION_KEY, TASK_ID, HASH) {
+        val first = gate.executeOnce(ACTION_KEY, TASK_ID, HASH, confirmApplied = true) {
             calls.incrementAndGet()
         }
         assertEquals(IrreversibleActionGate.DECISION_APPLIED, first.decision)
@@ -49,7 +52,7 @@ class IrreversibleActionGateTest {
         assertTrue(first.actionInvoked)
         assertEquals(1, calls.get())
 
-        val second = gate.executeOnce(ACTION_KEY, TASK_ID, HASH) {
+        val second = gate.executeOnce(ACTION_KEY, TASK_ID, HASH, confirmApplied = true) {
             calls.incrementAndGet()
         }
         assertEquals(IrreversibleActionGate.DECISION_SKIPPED_APPLIED, second.decision)
@@ -61,14 +64,14 @@ class IrreversibleActionGateTest {
     @Test
     fun `applied journal skips without invoking action after reopen`() = runBlocking {
         val calls = AtomicInteger(0)
-        gate.executeOnce(ACTION_KEY, TASK_ID, HASH) { calls.incrementAndGet() }
+        gate.executeOnce(ACTION_KEY, TASK_ID, HASH, confirmApplied = true) { calls.incrementAndGet() }
         assertEquals(1, calls.get())
 
         store.close()
         store = AutomationStore(context)
         gate = IrreversibleActionGate(store)
 
-        val skipped = gate.executeOnce(ACTION_KEY, TASK_ID, HASH) { calls.incrementAndGet() }
+        val skipped = gate.executeOnce(ACTION_KEY, TASK_ID, HASH, confirmApplied = true) { calls.incrementAndGet() }
         assertEquals(IrreversibleActionGate.DECISION_SKIPPED_APPLIED, skipped.decision)
         assertEquals(IrreversibleActionGate.STATUS_APPLIED, skipped.journalStatus)
         assertFalse(skipped.actionInvoked)
@@ -80,7 +83,7 @@ class IrreversibleActionGateTest {
         val calls = AtomicInteger(0)
         assertEquals("INTENT", store.recordActionIntent(ACTION_KEY, TASK_ID, HASH))
 
-        val blocked = gate.executeOnce(ACTION_KEY, TASK_ID, HASH) { calls.incrementAndGet() }
+        val blocked = gate.executeOnce(ACTION_KEY, TASK_ID, HASH, confirmApplied = true) { calls.incrementAndGet() }
         assertEquals(IrreversibleActionGate.DECISION_RECONCILE_REQUIRED, blocked.decision)
         assertEquals(IrreversibleActionGate.STATUS_INTENT, blocked.journalStatus)
         assertFalse(blocked.actionInvoked)
@@ -93,7 +96,7 @@ class IrreversibleActionGateTest {
         store.recordActionIntent(ACTION_KEY, TASK_ID, HASH)
         store.markActionUnknown(ACTION_KEY)
 
-        val blocked = gate.executeOnce(ACTION_KEY, TASK_ID, HASH) { calls.incrementAndGet() }
+        val blocked = gate.executeOnce(ACTION_KEY, TASK_ID, HASH, confirmApplied = true) { calls.incrementAndGet() }
         assertEquals(IrreversibleActionGate.DECISION_RECONCILE_REQUIRED, blocked.decision)
         assertEquals(IrreversibleActionGate.STATUS_UNKNOWN, blocked.journalStatus)
         assertFalse(blocked.actionInvoked)
@@ -122,7 +125,7 @@ class IrreversibleActionGateTest {
     @Test
     fun `action throw keeps unknown and second call does not invoke`() = runBlocking {
         val calls = AtomicInteger(0)
-        val failed = gate.executeOnce(ACTION_KEY, TASK_ID, HASH) {
+        val failed = gate.executeOnce(ACTION_KEY, TASK_ID, HASH, confirmApplied = true) {
             calls.incrementAndGet()
             error("injected failure")
         }
@@ -131,7 +134,7 @@ class IrreversibleActionGateTest {
         assertTrue(failed.actionInvoked)
         assertEquals(1, calls.get())
 
-        val blocked = gate.executeOnce(ACTION_KEY, TASK_ID, HASH) { calls.incrementAndGet() }
+        val blocked = gate.executeOnce(ACTION_KEY, TASK_ID, HASH, confirmApplied = true) { calls.incrementAndGet() }
         assertEquals(IrreversibleActionGate.DECISION_RECONCILE_REQUIRED, blocked.decision)
         assertEquals(IrreversibleActionGate.STATUS_UNKNOWN, blocked.journalStatus)
         assertFalse(blocked.actionInvoked)
@@ -141,20 +144,21 @@ class IrreversibleActionGateTest {
     @Test
     fun `timeout keeps unknown and does not replay after reopen`() = runBlocking {
         val calls = AtomicInteger(0)
-        val timedOut = gate.executeOnce(ACTION_KEY, TASK_ID, HASH, timeoutMs = 40L) {
-            calls.incrementAndGet()
-            delay(200L)
+        assertFailsWith<TimeoutCancellationException> {
+            gate.executeOnce(ACTION_KEY, TASK_ID, HASH, timeoutMs = 50) {
+                calls.incrementAndGet()
+                delay(5_000)
+            }
         }
-        assertEquals(IrreversibleActionGate.DECISION_UNKNOWN, timedOut.decision)
-        assertEquals(IrreversibleActionGate.STATUS_UNKNOWN, timedOut.journalStatus)
-        assertTrue(timedOut.actionInvoked)
+        assertEquals(IrreversibleActionGate.STATUS_UNKNOWN, store.actionJournal(ACTION_KEY)?.status)
+        assertTrue(store.hasBlockingHead())
         assertEquals(1, calls.get())
 
         store.close()
         store = AutomationStore(context)
         gate = IrreversibleActionGate(store)
 
-        val blocked = gate.executeOnce(ACTION_KEY, TASK_ID, HASH) { calls.incrementAndGet() }
+        val blocked = gate.executeOnce(ACTION_KEY, TASK_ID, HASH, confirmApplied = true) { calls.incrementAndGet() }
         assertEquals(IrreversibleActionGate.DECISION_RECONCILE_REQUIRED, blocked.decision)
         assertFalse(blocked.actionInvoked)
         assertEquals(1, calls.get())
@@ -167,7 +171,6 @@ class IrreversibleActionGateTest {
             actionKey = ACTION_KEY,
             taskId = TASK_ID,
             parameterHash = HASH,
-            confirmApplied = false,
         ) {
             calls.incrementAndGet()
         }
@@ -180,11 +183,27 @@ class IrreversibleActionGateTest {
         store = AutomationStore(context)
         gate = IrreversibleActionGate(store)
 
-        val blocked = gate.executeOnce(ACTION_KEY, TASK_ID, HASH) { calls.incrementAndGet() }
+        val blocked = gate.executeOnce(ACTION_KEY, TASK_ID, HASH, confirmApplied = true) { calls.incrementAndGet() }
         assertEquals(IrreversibleActionGate.DECISION_RECONCILE_REQUIRED, blocked.decision)
         assertEquals(IrreversibleActionGate.STATUS_UNKNOWN, blocked.journalStatus)
         assertFalse(blocked.actionInvoked)
         assertEquals(1, calls.get())
+    }
+
+    @Test
+    fun `external cancellation propagates and survives database reopen`() = runBlocking {
+        val cancellation = CancellationException("parent cancelled")
+        val thrown = assertFailsWith<CancellationException> {
+            gate.executeOnce(ACTION_KEY, TASK_ID, HASH, confirmApplied = true) { throw cancellation }
+        }
+        assertEquals(cancellation.message, thrown.message)
+        store.close()
+        store = AutomationStore(context)
+        gate = IrreversibleActionGate(store)
+        assertEquals("UNKNOWN", store.actionJournal(ACTION_KEY)?.status)
+        assertTrue(store.hasBlockingHead())
+        val repeat = gate.executeOnce(ACTION_KEY, TASK_ID, HASH) { error("must not repeat") }
+        assertFalse(repeat.actionInvoked)
     }
 
     private companion object {

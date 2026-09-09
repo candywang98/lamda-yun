@@ -1,7 +1,7 @@
 package com.company.cloudctl.companion.automation
 
 import com.company.cloudctl.companion.data.AutomationStore
-import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withTimeout
 
 data class IrreversibleActionOutcome(
@@ -19,7 +19,7 @@ class IrreversibleActionGate(
         taskId: String,
         parameterHash: String,
         timeoutMs: Long = DEFAULT_TIMEOUT_MS,
-        confirmApplied: Boolean = true,
+        confirmApplied: Boolean = false,
         action: suspend () -> Unit,
     ): IrreversibleActionOutcome {
         val recorded = store.recordActionIntent(actionKey, taskId, parameterHash)
@@ -71,14 +71,9 @@ class IrreversibleActionGate(
                     reason = "explicit confirmation",
                 )
             }
-        } catch (_: TimeoutCancellationException) {
+        } catch (cancelled: CancellationException) {
             store.markActionUnknown(actionKey)
-            IrreversibleActionOutcome(
-                decision = DECISION_UNKNOWN,
-                journalStatus = STATUS_UNKNOWN,
-                actionInvoked = true,
-                reason = "action timed out",
-            )
+            throw cancelled
         } catch (failure: Throwable) {
             store.markActionUnknown(actionKey)
             IrreversibleActionOutcome(

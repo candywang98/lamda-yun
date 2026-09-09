@@ -30,6 +30,34 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
         db.execSQL("PRAGMA foreign_keys=ON")
     }
 
+    override fun onOpen(db: SQLiteDatabase) {
+        super.onOpen(db)
+        // A process may die between intent and recording its outcome. Never recover it as runnable.
+        db.execSQL(
+            "UPDATE task_inbox SET state=?,terminal_state=NULL WHERE task_id IN " +
+                "(SELECT task_id FROM action_journal WHERE status IN ('INTENT','UNKNOWN'))",
+            arrayOf(STATE_RECONCILING),
+        )
+    }
+
+    private fun SQLiteDatabase.hasUnresolvedAction(taskId: String? = null): Boolean =
+        rawQuery(
+            "SELECT 1 FROM action_journal WHERE status IN ('INTENT','UNKNOWN')" +
+                (if (taskId == null) "" else " AND task_id=?") + " LIMIT 1",
+            if (taskId == null) emptyArray() else arrayOf(taskId),
+        ).use { it.moveToFirst() }
+
+    private fun SQLiteDatabase.isReconciling(taskId: String): Boolean =
+        row("SELECT state FROM task_inbox WHERE task_id=?", arrayOf(taskId)) == STATE_RECONCILING ||
+            hasUnresolvedAction(taskId)
+
+    private fun SQLiteDatabase.markReconcilingLocked(taskId: String) {
+        execSQL(
+            "UPDATE task_inbox SET state=?,terminal_state=NULL,updated_at=? WHERE task_id=?",
+            arrayOf(STATE_RECONCILING, Instant.now().toString(), taskId),
+        )
+    }
+
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
             "CREATE TABLE task_inbox(" +
@@ -114,6 +142,10 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
                     "UPDATE task_inbox SET payload_sha256=? WHERE task_id=? AND payload_sha256=''",
                     arrayOf(payload.sha256(), taskId),
                 )
+                if (isReconciling(taskId)) {
+                    markReconcilingLocked(taskId)
+                    return@transaction false
+                }
                 if (existing.leaseId == leaseId) {
                     false
                 } else {
@@ -172,10 +204,10 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
 
     fun claimNext(): PendingTask? = transaction {
         val blocked = rawQuery(
-            "SELECT 1 FROM task_inbox WHERE state IN (?,?,?) LIMIT 1",
-            arrayOf(STATE_RUNNING, STATE_PAUSED, STATE_RESUME_CHECK),
+            "SELECT 1 FROM task_inbox WHERE state IN (?,?,?,?) LIMIT 1",
+            arrayOf(STATE_RUNNING, STATE_PAUSED, STATE_RESUME_CHECK, STATE_RECONCILING),
         ).use { it.moveToFirst() }
-        if (blocked) return@transaction null
+        if (blocked || hasUnresolvedAction()) return@transaction null
         val task = rawQuery(
             "SELECT task_id,payload,lease_id FROM task_inbox WHERE state=? ORDER BY received_at,rowid LIMIT 1",
             arrayOf(STATE_QUEUED),
@@ -207,6 +239,7 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
         payload: JSONObject = JSONObject(),
     ) = transaction {
         val now = Instant.now().toString()
+        if (eventType == STATE_RECONCILING) markReconcilingLocked(taskId)
         insertJournalLocked(taskId, stepId, state, detailCode, now)
         enqueueStepEventLocked(taskId, eventType, stepIndex, payload, now)
     }
@@ -224,6 +257,7 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
         val now = Instant.now().toString()
         val current = row("SELECT state FROM task_inbox WHERE task_id=?", arrayOf(taskId))
             ?: error("Unknown task")
+        require(!isReconciling(taskId)) { "Task requires reconciliation" }
         require(current == STATE_RUNNING) { "Task is not running" }
         enqueueStepEventLocked(
             taskId,
@@ -240,6 +274,10 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
     }
 
     fun markResumeCheck(taskId: String, leaseId: String): Boolean = transaction {
+        if (isReconciling(taskId)) {
+            markReconcilingLocked(taskId)
+            return@transaction false
+        }
         val current = rawQuery(
             "SELECT state,lease_id FROM task_inbox WHERE task_id=?",
             arrayOf(taskId),
@@ -266,7 +304,7 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
     }
 
     fun claimResume(taskId: String? = null): PendingTask? = transaction {
-        if (row("SELECT 1 FROM task_inbox WHERE state=? LIMIT 1", arrayOf(STATE_RUNNING)) != null) {
+        if (hasUnresolvedAction() || row("SELECT 1 FROM task_inbox WHERE state IN (?,?) LIMIT 1", arrayOf(STATE_RUNNING, STATE_RECONCILING)) != null) {
             return@transaction null
         }
         val task = if (taskId == null) {
@@ -296,9 +334,9 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
     }
 
     fun hasBlockingHead(): Boolean = readableDatabase.rawQuery(
-        "SELECT 1 FROM task_inbox WHERE state IN (?,?) LIMIT 1",
-        arrayOf(STATE_PAUSED, STATE_RESUME_CHECK),
-    ).use { it.moveToFirst() }
+        "SELECT 1 FROM task_inbox WHERE state IN (?,?,?) LIMIT 1",
+        arrayOf(STATE_PAUSED, STATE_RESUME_CHECK, STATE_RECONCILING),
+    ).use { it.moveToFirst() } || readableDatabase.hasUnresolvedAction()
 
     fun finish(
         taskId: String,
@@ -308,6 +346,10 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
         detail: String = "Companion terminated the task safely",
     ) =
         transaction {
+            if (isReconciling(taskId)) {
+                markReconcilingLocked(taskId)
+                return@transaction
+            }
             val leaseId = row("SELECT lease_id FROM task_inbox WHERE task_id=?", arrayOf(taskId))
                 ?: error("Unknown task")
             val now = Instant.now().toString()
@@ -405,7 +447,11 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
             "SELECT task_id,lease_id FROM task_inbox WHERE state=?",
             arrayOf(STATE_RUNNING),
         ).use { buildList { while (it.moveToNext()) add(it.getString(0) to it.getString(1)) } }
-        for ((taskId, leaseId) in interrupted) {
+        for ((taskId, _) in interrupted) {
+            if (isReconciling(taskId)) {
+                markReconcilingLocked(taskId)
+                continue
+            }
             val now = Instant.now().toString()
             execSQL(
                 "UPDATE task_inbox SET state=?,updated_at=? WHERE task_id=?",
@@ -455,6 +501,7 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
         }
         require(
             leaseAndSequence.third == STATE_RUNNING ||
+                (eventType == STATE_RECONCILING && leaseAndSequence.third == STATE_RECONCILING) ||
                 (
                     eventType in setOf("RESUME_CHECK", "PAUSED_WAITING_USER") &&
                         leaseAndSequence.third in setOf(STATE_RUNNING, STATE_PAUSED, STATE_RESUME_CHECK)
@@ -683,7 +730,10 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
         }
         when (existing.status) {
             "APPLIED" -> "APPLIED"
-            "INTENT", "UNKNOWN" -> "UNKNOWN"
+            "INTENT", "UNKNOWN" -> {
+                markReconcilingLocked(taskId)
+                "UNKNOWN"
+            }
             else -> error("Illegal action journal status ${existing.status} for $actionKey")
         }
     }
@@ -712,6 +762,7 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
             )
             else -> error("Illegal action journal transition ${existing.status} -> UNKNOWN for $actionKey")
         }
+        markReconcilingLocked(existing.taskId)
     }
 
     private fun SQLiteDatabase.actionJournalLocked(actionKey: String): ActionJournalRecord? =
@@ -852,6 +903,7 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
         }
         const val STATE_QUEUED = "QUEUED"
         const val STATE_RUNNING = "RUNNING"
+        const val STATE_RECONCILING = "RECONCILING"
         const val STATE_PAUSED = "PAUSED_WAITING_USER"
         const val STATE_RESUME_CHECK = "RESUME_CHECK"
         const val STATE_TERMINAL_PENDING = "TERMINAL_PENDING_UPLOAD"
