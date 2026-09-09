@@ -19,8 +19,11 @@
     ]
   },
   "preflight": {
-    "state": "WAIT_BASELINE",
-    "reason": "The current repository has one dirty shared worktree. Create a reviewed recoverable baseline before parallel writers.",
+    "state": "COMPLETE",
+    "reason": "Source and plans pushed as 8143664; frozen contract and three isolated worktrees prepared from 364c264.",
+    "baselineSha": "364c264e21dfcc0464a8537b95f2445af9f35fcf",
+    "contractVersion": "recipe-version/20260909.1",
+    "evidenceDir": "artifacts/tasks/P14-multi-agent/PREFLIGHT/",
     "required": [
       "review dirty tracked and untracked files",
       "exclude caches, APKs, SQLite/WAL, runtime dumps and secrets",
