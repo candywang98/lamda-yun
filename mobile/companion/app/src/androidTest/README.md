@@ -13,11 +13,13 @@ Three AndroidJUnit4 tests use real RecipePackageManager, RecipeLifecycle and Aut
 
 Each case checks persisted active/pending snapshots, the active version, old bytes and canonical hash, signature-verified loading, exact-command lookup without downloading, and absence of a new package. Reopening closes SQLite, clears the in-memory recipe catalog and creates fresh storage/lifecycle instances.
 
-Isolation uses only InstrumentationRegistry.getInstrumentation().context (test APK). A ContextWrapper routes SQLite into a unique directory under that context's cacheDir, alongside isolated package files. Cleanup removes only that directory after closing the store; no deleteDatabase calls or targetContext access.
+Fixtures use the test APK context. Instrumentation runs with the target UID, so files use a unique disposable directory under the target cache. A ContextWrapper redirects both SQLite open overloads into that directory, alongside isolated package files, and asserts the database parent path. Cleanup removes only this directory after closing the store; no production database or recipe directory is opened or deleted.
+
+Root device verification (2026-09-10): initial run failed before test execution because the test APK cache was unavailable. After the cache-path correction, OnePlus 9R Android 14 returned `OK (3 tests)` in 0.689s. This is real-device storage fault injection (callback IOException, truncated JSON and stale temp file), not yet evidence of an interrupted live HTTPS transfer.
 
 Fixture `assets/recipes/published-probe.json` is a byte-for-byte copy of the baseline's `src/test/resources/recipes/published-probe.json` (signed manifest version 1.0.1, phase1-recipe-1 public key from RecipeLifecycleTest). The truncated asset is its prefix, ending inside the signature digest string. Old/new references intentionally share the valid body's hash but use distinct server version IDs. No private keys are included.
 
-Validation performed: `git diff --check`, exit 0. Instrumentation tests authored: 3; tests executed: 0. No build, ADB, device operation, deployment, or runtime evidence collected. Compilation and Android execution remain unverified; hardware acceptance remains blocked_hardware.
+Original worker handoff only verified `git diff --check` (exit 0) and ran no tests. Root subsequently built the instrumentation APK and ran all three tests successfully on the authorized OnePlus; see the root verification above. Whole-P14 acceptance additionally requires the runtime evidence indexed under `artifacts/tasks/P14-multi-agent/P14-INTEGRATION-ACCEPTANCE/`.
 
 Parent-only verification, from mobile/companion:
 

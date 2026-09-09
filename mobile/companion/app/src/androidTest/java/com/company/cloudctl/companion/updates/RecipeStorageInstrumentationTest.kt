@@ -24,7 +24,7 @@ import java.io.File
 import java.io.IOException
 import java.nio.file.Files
 
-/** Real filesystem/SQLite tests; no task execution, networking, or target-app storage. */
+/** Real filesystem/SQLite tests; no task execution, networking, or production databases. */
 @RunWith(AndroidJUnit4::class)
 class RecipeStorageInstrumentationTest {
     private lateinit var directory: File
@@ -45,9 +45,12 @@ class RecipeStorageInstrumentationTest {
 
     @Before fun setUp() {
         val testContext = InstrumentationRegistry.getInstrumentation().context
-        directory = Files.createTempDirectory(testContext.cacheDir.toPath(), "recipe-storage-").toFile()
-        // AutomationStore has a fixed database name. Redirect both Android database-open
-        // overloads into this test's unique directory, using only the TEST APK context.
+        // Instrumentation runs with the target UID; the test APK's private cache
+        // may not exist or be writable. Only use a unique disposable cache subtree.
+        val cache = InstrumentationRegistry.getInstrumentation().targetContext.cacheDir
+        directory = Files.createTempDirectory(cache.toPath(), "recipe-storage-").toFile()
+        // AutomationStore has a fixed database name. Redirect both database-open
+        // overloads into this directory; never open the target's business database.
         databaseContext = object : ContextWrapper(testContext) {
             override fun getDatabasePath(name: String): File {
                 require(name == AutomationStore.DATABASE_NAME)
