@@ -5,6 +5,8 @@ import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import org.json.JSONObject
+import com.company.cloudctl.companion.updates.RecipeLifecycleStore
+import com.company.cloudctl.companion.automation.CanonicalJson
 import java.security.MessageDigest
 import java.time.Instant
 
@@ -22,7 +24,7 @@ data class ActionJournalRecord(
     val parameterHash: String,
 )
 
-class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, null, VERSION) {
+class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, null, VERSION), RecipeLifecycleStore {
     override fun onConfigure(db: SQLiteDatabase) {
         db.enableWriteAheadLogging()
         db.execSQL("PRAGMA foreign_keys=ON")
@@ -51,12 +53,45 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
         )
         createCheckpointAndJournalTables(db)
         createIndexes(db)
+        createRecipeCatalogTable(db)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         if (oldVersion < 2) migrateVersion1To2(db)
         if (oldVersion < 3) createCheckpointAndJournalTables(db)
+        if (oldVersion < 4) createRecipeCatalogTable(db)
         check(newVersion == VERSION) { "Unsupported automation database version $newVersion" }
+    }
+
+    override fun activeRecipeCatalog(): String = readableDatabase.row(
+        "SELECT active FROM recipe_catalog WHERE id=1", emptyArray(),
+    ) ?: EMPTY_RECIPE_CATALOG
+
+    override fun pendingRecipeCatalog(): String? = readableDatabase.row(
+        "SELECT pending FROM recipe_catalog WHERE id=1", emptyArray(),
+    )
+
+    override fun stageRecipeCatalog(encoded: String) = transaction {
+        execSQL("UPDATE recipe_catalog SET pending=? WHERE id=1", arrayOf(encoded))
+    }
+
+    override fun activatePendingRecipeCatalog(): String = transaction {
+        // Includes queued claims and unacknowledged terminal/reconciliation work. A task's
+        // immutable payload remains the version source regardless of these catalog pointers.
+        val busy = rawQuery(
+            "SELECT 1 FROM task_inbox WHERE state NOT IN (?,?,?,?) LIMIT 1",
+            arrayOf(STATE_TERMINAL_CONFIRMED, STATE_TERMINAL_REJECTED, "SUCCEEDED", "FAILED"),
+        ).use { it.moveToFirst() } || rawQuery(
+            "SELECT 1 FROM action_journal WHERE status IN ('INTENT','UNKNOWN') LIMIT 1",
+            emptyArray(),
+        ).use { it.moveToFirst() }
+        if (!busy) execSQL("UPDATE recipe_catalog SET active=pending,pending=NULL WHERE id=1 AND pending IS NOT NULL")
+        row("SELECT active FROM recipe_catalog WHERE id=1", emptyArray()) ?: EMPTY_RECIPE_CATALOG
+    }
+
+    private fun createRecipeCatalogTable(db: SQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS recipe_catalog(id INTEGER PRIMARY KEY CHECK(id=1),active TEXT NOT NULL,pending TEXT)")
+        db.execSQL("INSERT OR IGNORE INTO recipe_catalog(id,active) VALUES(1,?)", arrayOf(EMPTY_RECIPE_CATALOG))
     }
 
     fun enqueueTask(taskId: String, payload: String, leaseId: String, lastSequence: Int): Boolean =
@@ -137,8 +172,8 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
 
     fun claimNext(): PendingTask? = transaction {
         val blocked = rawQuery(
-            "SELECT 1 FROM task_inbox WHERE state IN (?,?) LIMIT 1",
-            arrayOf(STATE_PAUSED, STATE_RESUME_CHECK),
+            "SELECT 1 FROM task_inbox WHERE state IN (?,?,?) LIMIT 1",
+            arrayOf(STATE_RUNNING, STATE_PAUSED, STATE_RESUME_CHECK),
         ).use { it.moveToFirst() }
         if (blocked) return@transaction null
         val task = rawQuery(
@@ -231,6 +266,9 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
     }
 
     fun claimResume(taskId: String? = null): PendingTask? = transaction {
+        if (row("SELECT 1 FROM task_inbox WHERE state=? LIMIT 1", arrayOf(STATE_RUNNING)) != null) {
+            return@transaction null
+        }
         val task = if (taskId == null) {
             rawQuery(
                 "SELECT task_id,payload,lease_id FROM task_inbox WHERE state=? ORDER BY received_at,rowid LIMIT 1",
@@ -756,8 +794,9 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
         .joinToString("") { "%02x".format(it) }
 
     companion object {
-        private const val DATABASE_NAME = "cloudctl-automation.sqlite3"
-        private const val VERSION = 3
+        internal const val EMPTY_RECIPE_CATALOG = "{\"protocolVersion\":\"cloudctl.recipe/v1\",\"items\":[]}"
+        internal const val DATABASE_NAME = "cloudctl-automation.sqlite3"
+        private const val VERSION = 4
 
         internal fun resultTypeForClaimPayload(payload: String): String {
             if (payload.isBlank() || !payload.trimStart().startsWith("{")) {
@@ -781,13 +820,20 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
             if (left == right) return true
             val leftJson = runCatching { JSONObject(left) }.getOrNull() ?: return false
             val rightJson = runCatching { JSONObject(right) }.getOrNull() ?: return false
-            val leftId = leftJson.optString("taskId")
-            val rightId = rightJson.optString("taskId")
-            if (leftId.isNotBlank() && leftId == rightId) return true
             return executionFingerprint(leftJson) == executionFingerprint(rightJson)
         }
 
         private fun executionFingerprint(value: JSONObject): String {
+            val command = value.optJSONObject("command") ?: value.takeIf {
+                it.optString("protocolVersion") == "cloudctl.command/v1"
+            }
+            if (command != null) {
+                val normalized = JSONObject(command.toString())
+                normalized.remove("attemptId")
+                normalized.remove("lease")
+                // Recipe version/hash/engine, snapshot and all execution parameters stay frozen.
+                return CanonicalJson.dumps(normalized)
+            }
             val steps = value.optJSONArray("steps") ?: org.json.JSONArray()
             val normalizedSteps = org.json.JSONArray()
             for (index in 0 until steps.length()) {
@@ -796,13 +842,13 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
                 copy.remove("controlEpoch")
                 normalizedSteps.put(copy)
             }
-            return JSONObject()
+            return CanonicalJson.dumps(JSONObject()
+                .put("recipe", value.optJSONObject("recipe") ?: JSONObject.NULL)
                 .put("taskId", value.optString("taskId"))
                 .put("deviceId", value.optString("deviceId"))
                 .put("targetPackage", value.optString("targetPackage"))
                 .put("steps", normalizedSteps)
-                .put("mediaDelivery", value.optJSONObject("mediaDelivery") ?: JSONObject.NULL)
-                .toString()
+                .put("mediaDelivery", value.optJSONObject("mediaDelivery") ?: JSONObject.NULL))
         }
         const val STATE_QUEUED = "QUEUED"
         const val STATE_RUNNING = "RUNNING"

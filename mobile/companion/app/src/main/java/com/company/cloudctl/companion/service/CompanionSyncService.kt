@@ -24,7 +24,6 @@ import com.company.cloudctl.companion.automation.CloudCtlAccessibilityService
 import com.company.cloudctl.companion.automation.CommandV1
 import com.company.cloudctl.companion.automation.ExecutionControl
 import com.company.cloudctl.companion.automation.ExecutorFailure
-import com.company.cloudctl.companion.automation.RecipeCatalog
 import com.company.cloudctl.companion.automation.RecipeEngine
 import com.company.cloudctl.companion.automation.RecipePackage
 import com.company.cloudctl.companion.automation.ResumeValidator
@@ -47,6 +46,8 @@ import com.company.cloudctl.companion.network.OutboxRetryPolicy
 import com.company.cloudctl.companion.network.NetworkAvailability
 import com.company.cloudctl.companion.security.SecretStore
 import com.company.cloudctl.companion.updates.RecipePackageManager
+import com.company.cloudctl.companion.updates.RecipeLifecycle
+import com.company.cloudctl.companion.updates.RecipeDownload
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -69,6 +70,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 class CompanionSyncService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private lateinit var recipes: RecipeLifecycle
     private lateinit var store: AutomationStore
     private lateinit var runtimeStatus: RuntimeStatusStore
     private lateinit var networkAvailability: NetworkAvailability
@@ -86,6 +88,10 @@ class CompanionSyncService : Service() {
         networkAvailability = NetworkAvailability(this)
         mediaDeliveryCoordinator = MediaDeliveryCoordinator(this)
         store.recoverInterruptedRuns()
+        recipes = RecipeLifecycle(RecipePackageManager(File(filesDir, "recipes"), recipePublicKeys()), store)
+        runCatching { recipes.restore() }.onFailure {
+            android.util.Log.e("CompanionSync", "Recipe restoration failed", it)
+        }
         createNotificationChannel()
         ServiceCompat.startForeground(
             this,
@@ -247,9 +253,8 @@ class CompanionSyncService : Service() {
                     runResume(client, resume)
                     continue
                 }
-                if (store.hasBlockingHead()) {
-                    delay(IDLE_POLL_INTERVAL_MILLIS)
-                    continue
+                runCatching { recipes.activatePending() }.onFailure {
+                    android.util.Log.e("CompanionSync", "Recipe activation deferred", it)
                 }
                 if (networkAvailability.isValidated()) {
                     try {
@@ -258,9 +263,8 @@ class CompanionSyncService : Service() {
                         throw cancelled
                     } catch (error: Exception) {
                         android.util.Log.e("CompanionSync", "Recipe synchronization failed", error)
-                        throw error
                     }
-                    claimed = withContext(Dispatchers.IO) { client.claim() }
+                    if (!store.hasBlockingHead()) claimed = withContext(Dispatchers.IO) { client.claim() }
                 }
                 if (claimed != null) {
                     val acceptedDeviceId = try {
@@ -566,29 +570,12 @@ class CompanionSyncService : Service() {
     }
 
     private fun syncRecipes(client: CloudTaskClient) {
-        val listing = client.listActiveRecipes()
-        val items = listing.optJSONArray("items") ?: return
-        val keys = recipePublicKeys()
-        if (keys.isEmpty()) return
-        val manager = RecipePackageManager(File(filesDir, "recipes"), keys)
-        for (index in 0 until items.length()) {
-            val item = items.getJSONObject(index)
-            val versionId = item.getString("versionId")
-            val expected = item.getString("sha256").lowercase()
-            val downloaded = client.downloadRecipe(versionId)
-            val headerHash = downloaded.headers["x-content-sha256"]?.lowercase()
-            require(headerHash == expected) { "recipe download checksum mismatch" }
-            val body = downloaded.body.toString(Charsets.UTF_8)
-            val alreadyInstalled = File(filesDir, "recipes/versions/$versionId/package.json").isFile
-            val installed = manager.install(versionId, body)
-            require(installed.getString("sha256") == expected) { "recipe install hash mismatch" }
-            if (!alreadyInstalled) {
-                android.util.Log.i(
-                    "CompanionSync",
-                    "Recipe installed versionId=$versionId sha256=$expected downloadHeaderSha256=$headerHash",
-                )
-            }
-        }
+        recipes.synchronize(client.listActiveRecipes().toString()) { versionId -> downloadRecipe(client, versionId) }
+    }
+
+    private fun downloadRecipe(client: CloudTaskClient, versionId: String): RecipeDownload {
+        val downloaded = client.downloadRecipe(versionId)
+        return RecipeDownload(downloaded.body.toString(Charsets.UTF_8), downloaded.headers["x-content-sha256"])
     }
 
     private fun recipePublicKeys(): Map<String, String> {
@@ -621,7 +608,9 @@ class CompanionSyncService : Service() {
         var recipeProgress: RecipeResumeProgress? = null
         var parsedRecipe: RecipePackage? = null
         try {
-            val recipeJson = RecipeCatalog.jsonFor(command)
+            val recipeJson = withContext(Dispatchers.IO) {
+                recipes.ensureCommand(command) { versionId -> downloadRecipe(client, versionId) }
+            }
             val engine = RecipeEngine(service, elapsedMs = { android.os.SystemClock.elapsedRealtime() })
             val recipe = engine.parse(recipeJson, expectedHash = command.recipeSha256)
             parsedRecipe = recipe
