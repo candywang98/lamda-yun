@@ -345,12 +345,30 @@ class RecipeLifecycleTest {
         })
     }
 
+    @Test fun versionFourDatabaseUpgradeRetainsCatalogAndPendingTask() {
+        sync(old)
+        queue()
+        store.writableDatabase.execSQL("DROP TABLE controlled_action")
+        store.writableDatabase.execSQL("ALTER TABLE event_outbox DROP COLUMN superseded_at")
+        store.writableDatabase.execSQL("ALTER TABLE event_outbox DROP COLUMN superseded_reason")
+        store.writableDatabase.version = 4
+        restart()
+        assertEquals(5, store.readableDatabase.version)
+        assertOld()
+        assertTrue(store.claimNext()!!.payload.contains(old.versionId))
+        assertNull(store.controlledActionIdentity("not-present"))
+    }
+
     @Test fun versionThreeDatabaseUpgradeRetainsPinnedTasks() {
         queue()
+        // Reconstruct the real v3 schema, excluding both later schema additions.
+        store.writableDatabase.execSQL("DROP TABLE controlled_action")
+        store.writableDatabase.execSQL("ALTER TABLE event_outbox DROP COLUMN superseded_at")
+        store.writableDatabase.execSQL("ALTER TABLE event_outbox DROP COLUMN superseded_reason")
         store.writableDatabase.execSQL("DROP TABLE recipe_catalog")
         store.writableDatabase.version = 3
         restart()
-        assertEquals(4, store.readableDatabase.version)
+        assertEquals(5, store.readableDatabase.version)
         assertEquals(AutomationStore.EMPTY_RECIPE_CATALOG, store.activeRecipeCatalog())
         assertTrue(store.claimNext()!!.payload.contains(old.versionId))
     }

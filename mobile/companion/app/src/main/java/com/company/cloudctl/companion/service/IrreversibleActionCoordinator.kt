@@ -1,5 +1,6 @@
 package com.company.cloudctl.companion.service
 
+import com.company.cloudctl.companion.automation.ControlledActionIdentity
 import com.company.cloudctl.companion.automation.IrreversibleActionGate
 import com.company.cloudctl.companion.automation.IrreversibleActionOutcome
 import com.company.cloudctl.companion.data.AutomationStore
@@ -22,6 +23,7 @@ class IrreversibleActionCoordinator(
         parameterHash: String,
         timeoutMs: Long = IrreversibleActionGate.DEFAULT_TIMEOUT_MS,
         confirmApplied: Boolean = false,
+        controlledIdentity: ControlledActionIdentity? = null,
         action: suspend () -> Unit,
     ): IrreversibleActionOutcome {
         val outcome = try {
@@ -31,6 +33,7 @@ class IrreversibleActionCoordinator(
                 parameterHash = parameterHash,
                 timeoutMs = timeoutMs,
                 confirmApplied = confirmApplied,
+                controlledIdentity = controlledIdentity,
                 action = action,
             )
         } catch (cancelled: CancellationException) {
@@ -58,7 +61,7 @@ class IrreversibleActionCoordinator(
             )
             throw rejected
         }
-        if (needsReconciliation(outcome)) {
+        if (needsReconciliation(outcome) && outcome.journalStatus != IrreversibleActionGate.STATUS_NOT_SUBMITTED) {
             persistReconciling(actionKey, taskId, outcome)
         }
         return outcome

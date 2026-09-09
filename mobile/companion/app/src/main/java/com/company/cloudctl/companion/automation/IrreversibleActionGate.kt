@@ -20,10 +20,14 @@ class IrreversibleActionGate(
         parameterHash: String,
         timeoutMs: Long = DEFAULT_TIMEOUT_MS,
         confirmApplied: Boolean = false,
+        controlledIdentity: ControlledActionIdentity? = null,
         action: suspend () -> Unit,
     ): IrreversibleActionOutcome {
-        val recorded = store.recordActionIntent(actionKey, taskId, parameterHash)
+        val recorded = store.recordActionIntent(actionKey, taskId, parameterHash, controlledIdentity)
         return when (recorded) {
+            STATUS_NOT_SUBMITTED -> IrreversibleActionOutcome(
+                DECISION_RECONCILE_REQUIRED, STATUS_NOT_SUBMITTED, false, "resolved not submitted; old action is not executable",
+            )
             STATUS_APPLIED -> IrreversibleActionOutcome(
                 decision = DECISION_SKIPPED_APPLIED,
                 journalStatus = STATUS_APPLIED,
@@ -86,6 +90,7 @@ class IrreversibleActionGate(
     }
 
     companion object {
+        const val STATUS_NOT_SUBMITTED = "NOT_SUBMITTED"
         const val STATUS_INTENT = "INTENT"
         const val STATUS_UNKNOWN = "UNKNOWN"
         const val STATUS_APPLIED = "APPLIED"

@@ -1,5 +1,8 @@
 package com.company.cloudctl.companion.data
 
+import com.company.cloudctl.companion.automation.ControlledActionIdentity
+import com.company.cloudctl.companion.network.ActionCommit
+import com.company.cloudctl.companion.network.ActionCommitStatus
 import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
@@ -35,14 +38,14 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
         // A process may die between intent and recording its outcome. Never recover it as runnable.
         db.execSQL(
             "UPDATE task_inbox SET state=?,terminal_state=NULL WHERE task_id IN " +
-                "(SELECT task_id FROM action_journal WHERE status IN ('INTENT','UNKNOWN'))",
+                "(SELECT task_id FROM action_journal WHERE (status IN ('INTENT','UNKNOWN') OR action_key IN (SELECT action_key FROM controlled_action WHERE resolution_revision=0)))",
             arrayOf(STATE_RECONCILING),
         )
     }
 
     private fun SQLiteDatabase.hasUnresolvedAction(taskId: String? = null): Boolean =
         rawQuery(
-            "SELECT 1 FROM action_journal WHERE status IN ('INTENT','UNKNOWN')" +
+            "SELECT 1 FROM action_journal WHERE (status IN ('INTENT','UNKNOWN') OR action_key IN (SELECT action_key FROM controlled_action WHERE resolution_revision=0))" +
                 (if (taskId == null) "" else " AND task_id=?") + " LIMIT 1",
             if (taskId == null) emptyArray() else arrayOf(taskId),
         ).use { it.moveToFirst() }
@@ -82,12 +85,14 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
         createCheckpointAndJournalTables(db)
         createIndexes(db)
         createRecipeCatalogTable(db)
+        createControlledActionTables(db)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         if (oldVersion < 2) migrateVersion1To2(db)
         if (oldVersion < 3) createCheckpointAndJournalTables(db)
         if (oldVersion < 4) createRecipeCatalogTable(db)
+        if (oldVersion < 5) createControlledActionTables(db)
         check(newVersion == VERSION) { "Unsupported automation database version $newVersion" }
     }
 
@@ -110,7 +115,7 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
             "SELECT 1 FROM task_inbox WHERE state NOT IN (?,?,?,?) LIMIT 1",
             arrayOf(STATE_TERMINAL_CONFIRMED, STATE_TERMINAL_REJECTED, "SUCCEEDED", "FAILED"),
         ).use { it.moveToFirst() } || rawQuery(
-            "SELECT 1 FROM action_journal WHERE status IN ('INTENT','UNKNOWN') LIMIT 1",
+            "SELECT 1 FROM action_journal WHERE (status IN ('INTENT','UNKNOWN') OR action_key IN (SELECT action_key FROM controlled_action WHERE resolution_revision=0)) LIMIT 1",
             emptyArray(),
         ).use { it.moveToFirst() }
         if (!busy) execSQL("UPDATE recipe_catalog SET active=pending,pending=NULL WHERE id=1 AND pending IS NOT NULL")
@@ -367,7 +372,7 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
     fun pendingEvents(now: Instant = Instant.now(), limit: Int = 50): List<OutboxEvent> {
         val candidates = readableDatabase.rawQuery(
             "SELECT id,path,payload,attempt_count,next_attempt_at FROM event_outbox " +
-                "WHERE delivered_at IS NULL AND permanent_failure_at IS NULL ORDER BY id LIMIT ?",
+                "WHERE delivered_at IS NULL AND superseded_at IS NULL AND permanent_failure_at IS NULL ORDER BY id LIMIT ?",
             arrayOf(limit.coerceIn(1, 100).toString()),
         ).use { cursor ->
             buildList {
@@ -391,12 +396,12 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
 
     fun markDelivered(id: Long) = transaction {
         val terminalTaskId = rawQuery(
-            "SELECT task_id FROM event_outbox WHERE id=? AND is_terminal=1 AND delivered_at IS NULL",
+            "SELECT task_id FROM event_outbox WHERE id=? AND is_terminal=1 AND delivered_at IS NULL AND superseded_at IS NULL",
             arrayOf(id.toString()),
         ).use { if (it.moveToFirst()) it.getString(0) else null }
         val now = Instant.now().toString()
         execSQL(
-            "UPDATE event_outbox SET delivered_at=?,last_error=NULL WHERE id=? AND delivered_at IS NULL",
+            "UPDATE event_outbox SET delivered_at=?,last_error=NULL WHERE id=? AND delivered_at IS NULL AND superseded_at IS NULL",
             arrayOf(now, id),
         )
         if (terminalTaskId != null) {
@@ -410,19 +415,19 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
     fun recordDeliveryFailure(id: Long, error: String, nextAttemptAt: Instant) =
         writableDatabase.execSQL(
             "UPDATE event_outbox SET attempt_count=attempt_count+1,next_attempt_at=?,last_error=? " +
-                "WHERE id=? AND delivered_at IS NULL AND permanent_failure_at IS NULL",
+                "WHERE id=? AND delivered_at IS NULL AND superseded_at IS NULL AND permanent_failure_at IS NULL",
             arrayOf(nextAttemptAt.toString(), error.take(MAX_ERROR_LENGTH), id),
         )
 
     fun markPermanentlyRejected(id: Long, error: String) = transaction {
         val rejected = rawQuery(
-            "SELECT task_id,is_terminal FROM event_outbox WHERE id=? AND delivered_at IS NULL",
+            "SELECT task_id,is_terminal FROM event_outbox WHERE id=? AND delivered_at IS NULL AND superseded_at IS NULL",
             arrayOf(id.toString()),
         ).use { if (it.moveToFirst()) it.getString(0) to (it.getInt(1) == 1) else null }
         val now = Instant.now().toString()
         execSQL(
             "UPDATE event_outbox SET attempt_count=attempt_count+1,last_error=?,permanent_failure_at=? " +
-                "WHERE id=? AND delivered_at IS NULL AND permanent_failure_at IS NULL",
+                "WHERE id=? AND delivered_at IS NULL AND superseded_at IS NULL AND permanent_failure_at IS NULL",
             arrayOf(error.take(MAX_ERROR_LENGTH), now, id),
         )
         if (rejected?.first != null) {
@@ -430,7 +435,7 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
             // longer be delivered without violating its event sequence.
             execSQL(
                 "UPDATE event_outbox SET last_error=?,permanent_failure_at=? " +
-                    "WHERE task_id=? AND id>? AND delivered_at IS NULL AND permanent_failure_at IS NULL",
+                    "WHERE task_id=? AND id>? AND delivered_at IS NULL AND superseded_at IS NULL AND permanent_failure_at IS NULL",
                 arrayOf("PREVIOUS_EVENT_REJECTED", now, rejected.first, id),
             )
         }
@@ -465,7 +470,7 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
         val grouped = linkedMapOf<String, MutableList<OutboxEvent>>()
         readableDatabase.rawQuery(
             "SELECT id,path,payload,attempt_count,next_attempt_at,IFNULL(task_id,'') FROM event_outbox " +
-                "WHERE delivered_at IS NULL AND permanent_failure_at IS NULL ORDER BY id",
+                "WHERE delivered_at IS NULL AND superseded_at IS NULL AND permanent_failure_at IS NULL ORDER BY id",
             emptyArray(),
         ).use { cursor ->
             while (cursor.moveToNext()) {
@@ -694,6 +699,51 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
         )
     }
 
+    private fun createControlledActionTables(db: SQLiteDatabase) {
+        db.execSQL("CREATE TABLE controlled_action(action_key TEXT PRIMARY KEY,identity_json TEXT NOT NULL," +
+            "resolution_revision INTEGER NOT NULL DEFAULT 0,resolution_evidence TEXT,resolved_at TEXT," +
+            "FOREIGN KEY(action_key) REFERENCES action_journal(action_key))")
+        db.execSQL("ALTER TABLE event_outbox ADD COLUMN superseded_at TEXT")
+        db.execSQL("ALTER TABLE event_outbox ADD COLUMN superseded_reason TEXT")
+    }
+
+    fun persistedTask(taskId: String): PendingTask? = readableDatabase.rawQuery(
+        "SELECT task_id,payload,lease_id FROM task_inbox WHERE task_id=?", arrayOf(taskId),
+    ).use { if (it.moveToFirst()) PendingTask(it.getString(0), it.getString(1), it.getString(2)) else null }
+
+    fun controlledActionIdentity(actionKey: String): ControlledActionIdentity? = readableDatabase.row(
+        "SELECT identity_json FROM controlled_action WHERE action_key=?", arrayOf(actionKey),
+    )?.let { ControlledActionIdentity.fromJson(JSONObject(it)) }
+
+    /** Called only with a row fetched through the authenticated remote ledger. */
+    internal fun applyControlledActionResolution(action: ActionCommit): Boolean = transaction {
+        val identity = controlledActionIdentity(action.actionKey) ?: return@transaction false
+        if (!action.matches(identity) || action.resolutionRevision <= 0 ||
+            action.resolutionEvidence.isNullOrBlank() || action.resolvedAt.isNullOrBlank() ||
+            action.status !in setOf(ActionCommitStatus.APPLIED, ActionCommitStatus.NOT_SUBMITTED)) return@transaction false
+        val previousRevision = row("SELECT resolution_revision FROM controlled_action WHERE action_key=?",
+            arrayOf(action.actionKey))!!.toLong()
+        val journal = actionJournalLocked(action.actionKey) ?: return@transaction false
+        if (previousRevision > 0) return@transaction previousRevision == action.resolutionRevision && journal.status == action.status.name
+        // A positive applied observation must never be rewritten as not submitted.
+        if (journal.status == "APPLIED" && action.status == ActionCommitStatus.NOT_SUBMITTED) return@transaction false
+        val now = Instant.now().toString()
+        execSQL("UPDATE controlled_action SET resolution_revision=?,resolution_evidence=?,resolved_at=? WHERE action_key=?",
+            arrayOf(action.resolutionRevision, action.resolutionEvidence, action.resolvedAt, action.actionKey))
+        execSQL("UPDATE action_journal SET status=?,updated_at=? WHERE action_key=?",
+            arrayOf(action.status.name, now, action.actionKey))
+        if (!hasUnresolvedAction(identity.taskId)) {
+            val terminal = if (action.status == ActionCommitStatus.APPLIED) TERMINAL_SUCCEEDED else TERMINAL_FAILED
+            execSQL("UPDATE task_inbox SET state=?,terminal_state=?,updated_at=? WHERE task_id=?",
+                arrayOf(STATE_TERMINAL_CONFIRMED, terminal, now, identity.taskId))
+            execSQL("UPDATE event_outbox SET superseded_at=?,superseded_reason=? WHERE task_id=? " +
+                "AND delivered_at IS NULL AND superseded_at IS NULL",
+                arrayOf(now, "SERVER_ACTION_RESOLUTION:" + action.resolutionRevision, identity.taskId))
+            insertJournalLocked(identity.taskId, identity.actionId, terminal, "SERVER_ACTION_RESOLUTION", now)
+        }
+        true
+    }
+
     fun actionJournal(actionKey: String): ActionJournalRecord? =
         readableDatabase.rawQuery(
             "SELECT action_key,task_id,status,parameter_hash FROM action_journal WHERE action_key=?",
@@ -711,9 +761,24 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
             }
         }
 
-    fun recordActionIntent(actionKey: String, taskId: String, parameterHash: String): String = transaction {
+    fun recordActionIntent(
+        actionKey: String, taskId: String, parameterHash: String,
+        controlledIdentity: ControlledActionIdentity? = null,
+    ): String = transaction {
+        if (controlledIdentity != null) {
+            require(controlledIdentity.actionKey == actionKey && controlledIdentity.taskId == taskId &&
+                controlledIdentity.parameterHash == parameterHash) { "Controlled identity mismatch" }
+            val saved = controlledActionIdentity(actionKey)
+            require(saved == null || saved == controlledIdentity) { "Controlled identity mismatch" }
+            require(saved != null || actionJournalLocked(actionKey) == null) { "Missing controlled identity" }
+        }
         val existing = actionJournalLocked(actionKey)
         if (existing == null) {
+            if (controlledIdentity != null) {
+                require(row("SELECT state FROM task_inbox WHERE task_id=?", arrayOf(taskId)) == STATE_RUNNING) {
+                    "Controlled action requires a running task"
+                }
+            }
             val now = Instant.now().toString()
             insertOrThrow("action_journal", null, ContentValues().apply {
                 put("action_key", actionKey)
@@ -723,6 +788,14 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
                 put("created_at", now)
                 put("updated_at", now)
             })
+            if (controlledIdentity != null) {
+                insertOrThrow("controlled_action", null, ContentValues().apply {
+                    put("action_key", actionKey)
+                    put("identity_json", controlledIdentity.toJson().toString())
+                    put("resolution_revision", 0)
+                })
+                markReconcilingLocked(taskId)
+            }
             return@transaction "INTENT"
         }
         require(existing.taskId == taskId && existing.parameterHash == parameterHash) {
@@ -730,6 +803,7 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
         }
         when (existing.status) {
             "APPLIED" -> "APPLIED"
+            "NOT_SUBMITTED" -> "NOT_SUBMITTED"
             "INTENT", "UNKNOWN" -> {
                 markReconcilingLocked(taskId)
                 "UNKNOWN"
@@ -847,7 +921,7 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
     companion object {
         internal const val EMPTY_RECIPE_CATALOG = "{\"protocolVersion\":\"cloudctl.recipe/v1\",\"items\":[]}"
         internal const val DATABASE_NAME = "cloudctl-automation.sqlite3"
-        private const val VERSION = 4
+        private const val VERSION = 5
 
         internal fun resultTypeForClaimPayload(payload: String): String {
             if (payload.isBlank() || !payload.trimStart().startsWith("{")) {
