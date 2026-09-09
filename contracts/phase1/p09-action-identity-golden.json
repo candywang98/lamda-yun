@@ -1,0 +1,12 @@
+{
+  "contract": "p09-ledger/20260910.1",
+  "taskId": "00000000-0000-7000-8000-000000000101",
+  "commandType": "device.probe_capabilities.v1",
+  "accountId": "00000000-0000-7000-8000-000000000202",
+  "bindingVersion": 3,
+  "snapshotSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "recipeSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "actionId": "probe",
+  "actionKey": "9f0109e8eff18337aff6a1d410d4c4f4ecff01bdc1808cad8710202c22470e17",
+  "parameterHash": "c9257b2eb7ed1a1eece57e9f9a50c24920701f08aa0e7af56e8d263a7bf283d4"
+}
