@@ -291,6 +291,11 @@ class AutomationPromotionRequest(ApiModel):
     evidence: RolloutEvidenceCreate
 
 
+class RecipePublishRequest(ApiModel):
+    target_device_ids: list[str] = Field(alias="targetDeviceIds", min_length=1, max_length=32)
+    idempotency_key: str = Field(alias="idempotencyKey", min_length=8, max_length=128)
+
+
 class ApkFinding(ApiModel):
     rule_id: str = Field(alias="ruleId", min_length=1, max_length=160)
     severity: Literal["INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL"]

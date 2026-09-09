@@ -1,7 +1,7 @@
 import { controlApiConfigured, createControlApiClient } from '@/api/control'
 import { mapControlDevice } from '@/api/devices'
 
-export type XianyuApp = 'main' | 'sub' | 'main-then-sub'
+export type XianyuApp = 'main'
 export type XianyuSchedule = '立即执行'
 
 export interface XianyuTaskDevice {

@@ -10,6 +10,7 @@ from cloudctl_api import create_app
 from cloudctl_api.media_store import InMemoryObjectStore
 from cloudctl_api.settings import Settings
 from fastapi import FastAPI
+from sqlalchemy import event
 
 TENANT = "00000000-0000-7000-8000-000000000111"
 USER = "00000000-0000-7000-8000-000000000222"
@@ -196,6 +197,64 @@ async def api() -> AsyncIterator[tuple[httpx.AsyncClient, FastAPI]]:
             yield client, app
 
 
+@pytest.mark.asyncio
+async def test_content_media_flushes_parent_revision_before_reference() -> None:
+    app = create_app(Settings(env="test", repository_mode="memory", dev_auth_bypass=True))
+
+    @event.listens_for(app.state.control_service.database.engine.sync_engine, "connect")
+    def enable_foreign_keys(dbapi_connection: object, _connection_record: object) -> None:
+        cursor = dbapi_connection.cursor()  # type: ignore[attr-defined]
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
+    async with app.router.lifespan_context(app):
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            editor = headers("content_editor")
+            asset = await client.post(
+                "/api/v1/media/assets:register",
+                headers=editor,
+                json={
+                    "sha256": "9" * 64,
+                    "objectKey": "posts/foreign-key-order.jpg",
+                    "contentType": "image/jpeg",
+                    "sizeBytes": 10,
+                },
+            )
+            assert asset.status_code == 201, asset.text
+            created = await client.post(
+                "/api/v1/content",
+                headers=editor,
+                json={
+                    "title": "带图帖子",
+                    "payload": {
+                        "kind": "post",
+                        "body": "验证父修订先于媒体关联写入",
+                        "mediaAssetIds": [asset.json()["id"]],
+                        "targetApp": "unspecified",
+                        "draftState": "草稿",
+                    },
+                },
+            )
+            assert created.status_code == 201, created.text
+            assert created.json()["revision"]["payload"]["mediaAssetIds"] == [asset.json()["id"]]
+            revised = await client.post(
+                f"/api/v1/content/{created.json()['id']}/revisions",
+                headers=editor,
+                json={
+                    "payload": {
+                        "kind": "post",
+                        "body": "再次编辑带图帖子",
+                        "mediaAssetIds": [asset.json()["id"]],
+                        "targetApp": "unspecified",
+                        "draftState": "待复核",
+                    },
+                },
+            )
+            assert revised.status_code == 201, revised.text
+            assert revised.json()["revision"]["revision_no"] == 2
+
+
 async def create_device(client: httpx.AsyncClient) -> str:
     security = headers("security_admin")
     edge_response = await client.post(
@@ -300,6 +359,73 @@ async def test_account_authorization_binding_and_revocation(
         json={"deviceId": device_id, "confirmationNote": "Must remain suspended."},
     )
     assert rejected_binding.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_one_bound_account_per_device_platform_and_history_preserved(
+    api: tuple[httpx.AsyncClient, FastAPI],
+) -> None:
+    client, _ = api
+    device_id = await create_device(client)
+    operator = headers("device_operator")
+
+    async def create_account(platform: str, subject: str, label: str) -> str:
+        response = await client.post(
+            "/api/v1/accounts",
+            headers=operator,
+            json={
+                "platform": platform,
+                "externalSubjectRef": subject,
+                "displayLabel": label,
+                "secretRef": f"vault://cloudctl/accounts/{subject}",
+                "authorizationBasis": "Owner authorized managed publishing.",
+            },
+        )
+        assert response.status_code == 201, response.text
+        return str(response.json()["id"])
+
+    xianyu_a = await create_account("xianyu", "xianyu-a", "闲鱼甲")
+    xianyu_b = await create_account("xianyu", "xianyu-b", "闲鱼乙")
+    xhs = await create_account("xiaohongshu", "xhs-a", "小红书甲")
+
+    first = await client.post(
+        f"/api/v1/accounts/{xianyu_a}/bindings",
+        headers=operator,
+        json={"deviceId": device_id, "confirmationNote": "Bind xianyu A."},
+    )
+    assert first.status_code == 201, first.text
+    assert first.json()["bindingVersion"] == 1
+    assert first.json()["platform"] == "xianyu"
+
+    xhs_bind = await client.post(
+        f"/api/v1/accounts/{xhs}/bindings",
+        headers=operator,
+        json={"deviceId": device_id, "confirmationNote": "Bind xiaohongshu."},
+    )
+    assert xhs_bind.status_code == 201, xhs_bind.text
+
+    rebound = await client.post(
+        f"/api/v1/accounts/{xianyu_b}/bindings",
+        headers=operator,
+        json={"deviceId": device_id, "confirmationNote": "Replace with xianyu B."},
+    )
+    assert rebound.status_code == 201, rebound.text
+    assert rebound.json()["status"] == "BOUND"
+
+    listed = await client.get("/api/v1/accounts", headers=headers("viewer"))
+    assert listed.status_code == 200, listed.text
+    by_id = {row["id"]: row for row in listed.json()}
+    assert any(item["status"] == "UNBOUND" for item in by_id[xianyu_a]["bindings"])
+    assert any(item["status"] == "BOUND" for item in by_id[xianyu_b]["bindings"])
+    assert any(item["status"] == "BOUND" for item in by_id[xhs]["bindings"])
+    assert all(item.get("historical") is True for item in by_id[xianyu_a]["bindings"])
+
+    ownership = await client.get(
+        f"/api/v1/accounts/{xianyu_a}/ownership", headers=headers("viewer")
+    )
+    assert ownership.status_code == 200, ownership.text
+    assert ownership.json()["unbound"] is True
+    assert ownership.json()["account"]["id"] == xianyu_a
 
 
 @pytest.mark.asyncio

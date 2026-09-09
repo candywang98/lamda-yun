@@ -1,5 +1,6 @@
-import { CloudCtlApiError, type ProductCreate, type ProductUpdate, type ProductView } from '@cloudctl/api-contracts'
+import type { ProductCreate, ProductUpdate, ProductView } from '@cloudctl/api-contracts'
 import { controlApiConfigured, createControlApiClient } from '@/api/control'
+import { localBusinessDataAllowed, requireApiMode } from '@/api/runtime-mode'
 
 const STORAGE_KEY = 'cloudctl.local-products'
 
@@ -15,60 +16,43 @@ function loadLocal(): ProductView[] {
 }
 
 function saveLocal(products: ProductView[]) {
+  if (!localBusinessDataAllowed()) {
+    throw new Error('生产环境禁止将商品写入 localStorage')
+  }
   localStorage.setItem(STORAGE_KEY, JSON.stringify(products))
-}
-
-function isMissingApi(error: unknown): boolean {
-  return error instanceof CloudCtlApiError && (error.status === 404 || error.status === 501)
 }
 
 export function createProductCatalog() {
   const api = createControlApiClient()
-  let usingLocal = !controlApiConfigured
 
   return {
-    usingLocal: () => usingLocal,
+    usingLocal: () => !controlApiConfigured && localBusinessDataAllowed(),
     async list(): Promise<ProductView[]> {
-      if (!controlApiConfigured) {
-        usingLocal = true
-        return loadLocal()
-      }
-      try {
+      if (controlApiConfigured) {
         const items = await api.products()
-        usingLocal = false
         return items.filter((item) => item.status !== 'ARCHIVED')
-      } catch (error) {
-        if (!isMissingApi(error)) throw error
-        usingLocal = true
-        return loadLocal()
       }
+      if (!localBusinessDataAllowed()) return []
+      return loadLocal()
     },
     async get(productId: string): Promise<ProductView> {
-      if (!usingLocal && controlApiConfigured) {
-        try {
-          return await api.product(productId)
-        } catch (error) {
-          if (!isMissingApi(error)) throw error
-          usingLocal = true
-        }
+      if (controlApiConfigured) {
+        return api.product(productId)
       }
+      if (!localBusinessDataAllowed()) throw new Error('商品不存在')
       const found = loadLocal().find((item) => item.id === productId)
       if (!found) throw new Error('商品不存在')
       return found
     },
     async save(input: { id?: string | null; payload: ProductCreate; expectedRevision?: number }): Promise<ProductView> {
-      if (!usingLocal && controlApiConfigured) {
-        try {
-          if (input.id) {
-            const body: ProductUpdate = { ...input.payload, expectedRevision: input.expectedRevision ?? 1 }
-            return await api.updateProduct(input.id, body)
-          }
-          return await api.createProduct(input.payload)
-        } catch (error) {
-          if (!isMissingApi(error)) throw error
-          usingLocal = true
+      if (controlApiConfigured) {
+        if (input.id) {
+          const body: ProductUpdate = { ...input.payload, expectedRevision: input.expectedRevision ?? 1 }
+          return api.updateProduct(input.id, body)
         }
+        return api.createProduct(input.payload)
       }
+      requireApiMode('保存商品')
       const now = new Date().toISOString()
       const current = loadLocal()
       if (input.id) {
@@ -106,20 +90,11 @@ export function createProductCatalog() {
       return created
     },
     async archive(productIds: string[], reason: string): Promise<void> {
-      if (!usingLocal && controlApiConfigured) {
-        try {
-          await api.batchDeleteProducts({ productIds, reason })
-          return
-        } catch (error) {
-          if (!isMissingApi(error)) {
-            for (const productId of productIds) {
-              await api.archiveProduct(productId, { reason })
-            }
-            return
-          }
-          usingLocal = true
-        }
+      if (controlApiConfigured) {
+        await api.batchDeleteProducts({ productIds, reason })
+        return
       }
+      requireApiMode('归档商品')
       saveLocal(loadLocal().filter((item) => !productIds.includes(item.id)))
     },
     async duplicate(product: ProductView): Promise<ProductView> {
@@ -131,7 +106,7 @@ export function createProductCatalog() {
           category: product.category,
           price: product.price,
           stock: product.stock,
-          mediaAssetIds: [],
+          mediaAssetIds: product.mediaAssetIds ?? [],
           attributes: product.attributes ?? {},
         },
       })

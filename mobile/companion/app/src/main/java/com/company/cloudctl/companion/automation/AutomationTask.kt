@@ -65,7 +65,12 @@ object AutomationTaskParser {
     fun parse(encoded: String): AutomationTask {
         require(encoded.toByteArray().size <= 256 * 1024) { "Task payload exceeds limit" }
         val root = JSONObject(encoded)
-        requireKeys(root, setOf("protocolVersion", "taskId", "deviceId", "targetPackage", "issuedAt", "expiresAt", "maxRunSeconds", "steps") + optional(root, "mediaDelivery"))
+        requireKeys(
+            root,
+            setOf("protocolVersion", "taskId", "deviceId", "targetPackage", "issuedAt", "expiresAt", "maxRunSeconds", "steps") +
+                optional(root, "mediaDelivery") +
+                optional(root, "commandType"),
+        )
         if (root.has("mediaDelivery")) {
             require(root.optJSONObject("mediaDelivery") != null) { "Media delivery must be an object" }
             validateMediaDelivery(root.getJSONObject("mediaDelivery"))
@@ -107,7 +112,7 @@ object AutomationTaskParser {
                     stepId,
                     timeout,
                     locator(value, keys),
-                    value.optString("postconditionLocatorRef").takeIf(String::isNotBlank)?.let { locatorPattern.requireMatch(it) },
+                    optionalString(value, "postconditionLocatorRef")?.let { locatorPattern.requireMatch(it) },
                 )
             }
             "ui.input" -> {
@@ -161,6 +166,11 @@ object AutomationTaskParser {
     private inline fun <reified T : Enum<T>> enumValue(value: String): T = enumValues<T>().firstOrNull { it.name == value }
         ?: error("Unsupported enum value")
     private fun optional(value: JSONObject, key: String) = if (value.has(key)) setOf(key) else emptySet()
+
+    private fun optionalString(value: JSONObject, key: String): String? {
+        if (!value.has(key) || value.isNull(key)) return null
+        return value.opt(key) as? String
+    }
 
     private fun validateMediaDelivery(value: JSONObject) {
         requireKeys(value, setOf("deliveryId", "assetIds"))

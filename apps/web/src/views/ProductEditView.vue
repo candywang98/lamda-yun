@@ -3,9 +3,11 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { ProductView } from '@cloudctl/api-contracts'
 import { createProductCatalog } from '@/api/product-catalog'
+import { controlApiConfigured } from '@/api/control'
+import { uploadMediaFile } from '@/api/media-assets'
+import MediaThumb from '@/components/MediaThumb.vue'
 import {
   attributesPayload,
-  compressImageFile,
   emptyAttributes,
   normalizePrice,
   parseAttributes,
@@ -95,12 +97,46 @@ function removeTag(list: string[], index: number) {
   list.splice(index, 1)
 }
 
+async function normalizeProductImage(file: File): Promise<File> {
+  const name = file.name.toLowerCase()
+  const looksLikeWebp = file.type === 'image/webp' || name.endsWith('.webp') || name.includes('.jpg_.webp')
+  const messyName = /!/.test(file.name) || name.includes('.jpg_q')
+  if (!looksLikeWebp && !messyName) return file
+  if (!looksLikeWebp) {
+    const ext = file.type === 'image/png' ? 'png' : file.type === 'image/jpeg' ? 'jpg' : 'bin'
+    return new File([file], `product-${Date.now()}.${ext}`, { type: file.type || 'application/octet-stream' })
+  }
+  const bitmap = await createImageBitmap(file)
+  const canvas = document.createElement('canvas')
+  canvas.width = bitmap.width
+  canvas.height = bitmap.height
+  const context = canvas.getContext('2d')
+  if (!context) throw new Error('无法转码图片')
+  context.drawImage(bitmap, 0, 0)
+  const blob = await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((next) => (next ? resolve(next) : reject(new Error('WebP 转 JPEG 失败'))), 'image/jpeg', 0.9)
+  })
+  return new File([blob], `product-${Date.now()}.jpg`, { type: 'image/jpeg' })
+}
+
 async function onPickImages(event: Event) {
   const input = event.target as HTMLInputElement
   const files = [...(input.files ?? [])]
   input.value = ''
-  for (const file of files.slice(0, 9 - form.attributes.images.length)) {
-    form.attributes.images.push(await compressImageFile(file))
+  if (!controlApiConfigured) {
+    errorMessage.value = '未配置 Control API，禁止把图片写成 blob/dataURL'
+    return
+  }
+  errorMessage.value = ''
+  try {
+    for (const file of files.slice(0, 9 - form.attributes.imageAssetIds.length)) {
+      const normalized = await normalizeProductImage(file)
+      const asset = await uploadMediaFile(normalized, { role: 'product-image' })
+      form.attributes.imageAssetIds.push(asset.id)
+      form.attributes.images.push(asset.id)
+    }
+  } catch (error) {
+    errorMessage.value = `图片上传失败：${error instanceof Error ? error.message : String(error)}`
   }
 }
 
@@ -109,21 +145,29 @@ async function onPickVideo(event: Event) {
   const file = input.files?.[0]
   input.value = ''
   if (!file) return
+  if (!controlApiConfigured) {
+    errorMessage.value = '未配置 Control API，禁止把视频写成 blob URL'
+    return
+  }
+  const asset = await uploadMediaFile(file, { role: 'product-video' })
   form.attributes.videoName = file.name
-  form.attributes.videoUrl = URL.createObjectURL(file)
+  form.attributes.videoAssetId = asset.id
+  form.attributes.videoUrl = asset.id
 }
 
 function clearImages() {
   form.attributes.images = []
+  form.attributes.imageAssetIds = []
 }
 
 function moveImage(index: number, offset: number) {
   const next = index + offset
-  if (next < 0 || next >= form.attributes.images.length) return
-  const copy = [...form.attributes.images]
+  if (next < 0 || next >= form.attributes.imageAssetIds.length) return
+  const copy = [...form.attributes.imageAssetIds]
   const [item] = copy.splice(index, 1)
   copy.splice(next, 0, item!)
-  form.attributes.images = copy
+  form.attributes.imageAssetIds = copy
+  form.attributes.images = [...copy]
 }
 
 async function saveProduct() {
@@ -146,7 +190,10 @@ async function saveProduct() {
         category: form.attributes.groupName.trim() || '默认分组',
         price: normalizePrice(form.price),
         stock: Number(form.stock) || 0,
-        mediaAssetIds: current.value?.mediaAssetIds ?? [],
+        mediaAssetIds: [
+          ...form.attributes.imageAssetIds,
+          ...(form.attributes.videoAssetId ? [form.attributes.videoAssetId] : []),
+        ],
         attributes: attributesPayload(form.attributes),
       },
     })
@@ -240,12 +287,12 @@ onMounted(() => {
           </div>
           <small>Windows 按 Ctrl 多选，Mac 按 Command 多选。上传后第一张为封面，可上移下移排序。</small>
           <div class="gallery">
-            <div v-for="(image, index) in form.attributes.images" :key="index" class="thumb">
-              <img :src="image" alt="" />
-              <button class="x" type="button" @click="form.attributes.images.splice(index, 1)">×</button>
+            <div v-for="(image, index) in form.attributes.imageAssetIds" :key="image" class="thumb">
+              <MediaThumb :asset-id="image" :size="108" :alt="`图片 ${index + 1}`" />
+              <button class="x" type="button" @click="form.attributes.imageAssetIds.splice(index, 1); form.attributes.images.splice(index, 1)">×</button>
               <div class="thumb-ops">
                 <button type="button" :disabled="index === 0" @click="moveImage(index, -1)">←</button>
-                <button type="button" :disabled="index === form.attributes.images.length - 1" @click="moveImage(index, 1)">→</button>
+                <button type="button" :disabled="index === form.attributes.imageAssetIds.length - 1" @click="moveImage(index, 1)">→</button>
               </div>
             </div>
           </div>
@@ -265,12 +312,12 @@ onMounted(() => {
         <div class="grow">
           <div class="actions">
             <button type="button" @click="videoInput?.click()">上传</button>
-            <button type="button" @click="form.attributes.videoUrl = ''; form.attributes.videoName = ''">暂无</button>
-            <button class="danger" type="button" @click="form.attributes.videoUrl = ''; form.attributes.videoName = ''">清除</button>
+            <button type="button" @click="form.attributes.videoUrl = ''; form.attributes.videoName = ''; form.attributes.videoAssetId = ''">暂无</button>
+            <button class="danger" type="button" @click="form.attributes.videoUrl = ''; form.attributes.videoName = ''; form.attributes.videoAssetId = ''">清除</button>
             <input ref="videoInput" class="hidden" type="file" accept="video/mp4" @change="onPickVideo" />
           </div>
           <small>视频上传后会直接显示视频播放控件。采集宝贝后视频不会立刻显示，会有一分钟左右的上传转码过程。</small>
-          <video v-if="form.attributes.videoUrl" :src="form.attributes.videoUrl" controls />
+          <p v-if="form.attributes.videoAssetId" class="hint">已入库 MediaAsset {{ form.attributes.videoAssetId }}</p>
           <p v-else-if="form.attributes.videoName" class="hint">已选择 {{ form.attributes.videoName }}</p>
         </div>
       </div>

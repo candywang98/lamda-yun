@@ -8,10 +8,20 @@ export type Role =
   | 'SecurityAdmin'
 
 export type Permission =
+  | 'content.read'
+  | 'content.write'
   | 'content:write'
+  | 'publish.create'
   | 'publish:create'
+  | 'publish.approve'
   | 'publish:approve'
+  | 'device.read'
+  | 'device.control'
   | 'device:operate'
+  | 'task.create'
+  | 'recipe.publish'
+  | 'data.delete'
+  | 'automation.manage'
   | 'automation:develop'
   | 'security:admin'
 

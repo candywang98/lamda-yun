@@ -44,7 +44,9 @@ class Settings(BaseSettings):
     )
     debug_relay_url: str = "wss://127.0.0.1:7443/debug"
     event_poll_seconds: float = Field(default=1.0, ge=0.05, le=30.0)
-    object_store_mode: Literal["memory", "s3"] = "memory"
+    object_store_mode: Literal["memory", "s3", "filesystem"] = "memory"
+    object_store_dir: Path = Path(".cloudctl/media")
+    public_base_url: str | None = None
     s3_endpoint: str | None = None
     s3_bucket: str = "cloudctl"
     s3_region: str = "us-east-1"

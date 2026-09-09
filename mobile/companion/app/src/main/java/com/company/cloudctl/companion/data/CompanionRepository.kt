@@ -265,8 +265,13 @@ class CompanionRepository(
             context.contentResolver,
             Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
         ).orEmpty()
-        val service = "${context.packageName}/${context.packageName}.automation.CloudCtlAccessibilityService"
-        return enabled.split(':').any { it.equals(service, ignoreCase = true) }
+        val packageName = context.packageName
+        val relative = ".automation.CloudCtlAccessibilityService"
+        val candidates = setOf(
+            "$packageName/$packageName$relative",
+            "$packageName/$relative",
+        )
+        return enabled.split(':').any { candidates.any { candidate -> it.equals(candidate, ignoreCase = true) } }
     }
 
     private companion object {

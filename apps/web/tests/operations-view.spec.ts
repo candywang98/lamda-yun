@@ -9,6 +9,15 @@ vi.mock('@/api/control', () => ({
   createControlApiClient: () => ({}),
 }))
 
+vi.mock('@/api/runtime-mode', () => ({
+  controlApiConfigured: false,
+  operationsMockEnabled: true,
+  runtimeDataMode: 'mock',
+  localBusinessDataAllowed: () => true,
+  requireApiMode: () => undefined,
+  requireWritableApi: () => undefined,
+}))
+
 import OperationsView from '@/views/OperationsView.vue'
 
 async function renderRoute(path: string) {
@@ -148,7 +157,7 @@ describe('OperationsView', () => {
   it('retires xianyu post publish instead of showing the old form', async () => {
     await renderRoute('/operations/post-management/post-management-07')
     expect(screen.getByRole('heading', { name: '发布闲鱼' })).toBeTruthy()
-    expect(screen.getByText(/闲鱼已下线帖子相关能力/)).toBeTruthy()
+    expect(screen.getByText(/等待真机可用性验证/)).toBeTruthy()
     expect(screen.queryByRole('heading', { name: '发布某鱼帖子' })).toBeNull()
     expect(screen.queryByText('竞品页面依据')).toBeNull()
   })
@@ -203,7 +212,7 @@ describe('OperationsView', () => {
   it('aligns xianyu polish form', async () => {
     await renderRoute('/operations/xy-tasks/xy-tasks-03')
     expect(screen.getByRole('heading', { name: '某鱼擦亮商品' })).toBeTruthy()
-    expect(screen.getByLabelText('先主后副')).toBeTruthy()
+    expect(screen.queryByLabelText('先主后副')).toBeNull()
     expect(screen.getByLabelText('擦亮间隔')).toBeTruthy()
     expect(screen.queryByText('竞品页面依据')).toBeNull()
   })
@@ -380,7 +389,7 @@ describe('OperationsView', () => {
     await renderRoute('/operations/analytics/analytics-01')
     expect(screen.getByRole('heading', { name: '宝贝信息' })).toBeTruthy()
     expect(screen.getByLabelText('主闲鱼')).toBeTruthy()
-    expect(screen.getByLabelText('先主后副')).toBeTruthy()
+    expect(screen.queryByLabelText('先主后副')).toBeNull()
     expect(screen.getByRole('button', { name: '创建任务' })).toBeTruthy()
     expect(screen.getByRole('button', { name: '保存配置' })).toBeTruthy()
     expect(screen.getByText(/请勿发布相同标题的宝贝/)).toBeTruthy()
@@ -390,7 +399,7 @@ describe('OperationsView', () => {
   it('shows xiaohongshu note publish form without competitor chrome', async () => {
     await renderRoute('/operations/post-management/post-management-08')
     expect(screen.getByRole('heading', { name: '发布红薯笔记' })).toBeTruthy()
-    expect(screen.getByLabelText('红薯多开')).toBeTruthy()
+    expect(screen.queryByLabelText('红薯多开')).toBeNull()
     expect(screen.getByLabelText('存草稿')).toBeTruthy()
     expect(screen.getByRole('button', { name: '设置水印' })).toBeTruthy()
     expect(screen.queryByText('竞品页面依据')).toBeNull()

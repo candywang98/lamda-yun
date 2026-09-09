@@ -5,6 +5,7 @@ import type {
   AutomationPromotionRequest,
   BatchOperationCreate,
   CommitIntentCreate,
+  ContentArchiveRequest,
   ContentCreate,
   ContentGroupCreate,
   ContentGroupView,
@@ -30,9 +31,22 @@ import type {
   JsonObject,
   LeaseRequest,
   MaintenanceRequest,
+  MediaAssetView,
   MediaCreate,
+  MediaUploadCreate,
+  MediaUploadGrant,
+  PlatformTaskCreate,
+  PlatformTaskPause,
+  PlatformTaskReconcile,
+  PlatformTaskResume,
+  PlatformTaskView,
   ProductArchiveRequest,
+  ProductBatchDelete,
+  ProductBatchUpdateGroup,
+  ProductBatchUpdatePrice,
   ProductCreate,
+  ProductFilterRequest,
+  ProductImportRequest,
   ProductMediaUpdate,
   ProductView,
   ProductUpdate,
@@ -90,6 +104,34 @@ export class CloudCtlApiError extends Error {
   }
 }
 
+function responseTextPreview(value: string): string {
+  const normalized = value.replace(/\s+/g, ' ').trim()
+  if (!normalized) return ''
+  return normalized.length > 500 ? `${normalized.slice(0, 497)}...` : normalized
+}
+
+function responseProblem(response: Response, payload: unknown, rawBody: string): ProblemDetails {
+  const object = payload && typeof payload === 'object' ? payload as Partial<ProblemDetails> : undefined
+  const statusLabel = response.statusText.trim()
+  const preview = responseTextPreview(rawBody)
+  const fallbackDetail = preview
+    ? `Request failed with HTTP ${response.status}: ${preview}`
+    : `Request failed with HTTP ${response.status}${statusLabel ? ` ${statusLabel}` : ''}`
+
+  return {
+    type: typeof object?.type === 'string' ? object.type : 'about:blank',
+    title: typeof object?.title === 'string' ? object.title : statusLabel || 'Request failed',
+    status: typeof object?.status === 'number' ? object.status : response.status,
+    code: typeof object?.code === 'string' ? object.code : `HTTP_${response.status}`,
+    detail: typeof object?.detail === 'string' ? object.detail : fallbackDetail,
+    correlation_id: typeof object?.correlation_id === 'string'
+      ? object.correlation_id
+      : response.headers.get('x-request-id') ?? '',
+    retryable: typeof object?.retryable === 'boolean' ? object.retryable : response.status >= 500,
+    fields: object?.fields && typeof object.fields === 'object' ? object.fields : {},
+  }
+}
+
 export class CloudCtlApiClient {
   private readonly baseUrl: string
   private readonly fetcher: typeof globalThis.fetch
@@ -129,6 +171,26 @@ export class CloudCtlApiClient {
 
   devices(): Promise<JsonObject[]> {
     return this.request('/api/v1/devices')
+  }
+
+  accounts(): Promise<JsonObject[]> {
+    return this.request('/api/v1/accounts')
+  }
+
+  accountOwnership(accountId: string): Promise<JsonObject> {
+    return this.request(`/api/v1/accounts/${segment(accountId)}/ownership`)
+  }
+
+  createTaskSchedule(body: JsonObject): Promise<JsonObject> {
+    return this.request('/api/v1/task-schedules', { method: 'POST', body })
+  }
+
+  taskSchedules(): Promise<JsonObject[]> {
+    return this.request('/api/v1/task-schedules')
+  }
+
+  fireTaskSchedule(scheduleId: string, body: JsonObject): Promise<JsonObject> {
+    return this.request(`/api/v1/task-schedules/${segment(scheduleId)}:fire`, { method: 'POST', body })
   }
 
   setMaintenance(deviceId: string, body: MaintenanceRequest): Promise<JsonObject> {
@@ -211,7 +273,15 @@ export class CloudCtlApiClient {
   }
 
   createMedia(body: MediaCreate): Promise<JsonObject> {
+    return this.request('/api/v1/media/assets:register', { method: 'POST', body })
+  }
+
+  initiateMediaUpload(body: MediaUploadCreate): Promise<MediaUploadGrant> {
     return this.request('/api/v1/media/uploads', { method: 'POST', body })
+  }
+
+  completeMediaUpload(uploadId: string): Promise<MediaAssetView> {
+    return this.request(`/api/v1/media/uploads/${segment(uploadId)}:complete`, { method: 'POST', body: {} })
   }
 
   products(): Promise<ProductView[]> {
@@ -273,6 +343,10 @@ export class CloudCtlApiClient {
 
   createRevision(contentId: string, body: RevisionCreate): Promise<ContentView> {
     return this.request(`/api/v1/content/${segment(contentId)}/revisions`, { method: 'POST', body })
+  }
+
+  archiveContent(contentId: string, body: ContentArchiveRequest): Promise<ContentView> {
+    return this.request(`/api/v1/content/${segment(contentId)}:archive`, { method: 'POST', body })
   }
 
   createContentGroup(body: ContentGroupCreate): Promise<ContentGroupView> {
@@ -528,6 +602,43 @@ export class CloudCtlApiClient {
     return this.request(path, options?.signal ? { signal: options.signal } : {})
   }
 
+  listPlatformTasks(options?: {
+    after?: string
+    limit?: number
+    deviceId?: string
+    state?: string
+    signal?: AbortSignal
+  }): Promise<PlatformTaskView[]> {
+    const query = new URLSearchParams()
+    if (options?.after) query.set('after', options.after)
+    if (options?.limit !== undefined) query.set('limit', String(options.limit))
+    if (options?.deviceId) query.set('device_id', options.deviceId)
+    if (options?.state) query.set('state', options.state)
+    const queryString = query.toString()
+    const path = `/api/v1/platform-tasks${queryString ? `?${queryString}` : ''}`
+    return this.request(path, options?.signal ? { signal: options.signal } : {})
+  }
+
+  getPlatformTask(taskId: string, signal?: AbortSignal): Promise<PlatformTaskView> {
+    return this.request(`/api/v1/platform-tasks/${segment(taskId)}`, signal ? { signal } : {})
+  }
+
+  createPlatformTask(body: PlatformTaskCreate): Promise<PlatformTaskView[]> {
+    return this.request('/api/v1/platform-tasks', { method: 'POST', body })
+  }
+
+  pausePlatformTask(taskId: string, body: PlatformTaskPause): Promise<PlatformTaskView> {
+    return this.request(`/api/v1/platform-tasks/${segment(taskId)}:pause`, { method: 'POST', body })
+  }
+
+  resumePlatformTask(taskId: string, body: PlatformTaskResume): Promise<PlatformTaskView> {
+    return this.request(`/api/v1/platform-tasks/${segment(taskId)}:resume`, { method: 'POST', body })
+  }
+
+  reconcilePlatformTask(taskId: string, body: PlatformTaskReconcile): Promise<PlatformTaskView> {
+    return this.request(`/api/v1/platform-tasks/${segment(taskId)}:reconcile`, { method: 'POST', body })
+  }
+
   private debugRelayHeaders(): Record<string, string> {
     const relayToken = this.options.debugRelayToken?.()
     return relayToken ? { 'X-Debug-Relay-Token': relayToken } : {}
@@ -565,8 +676,16 @@ export class CloudCtlApiClient {
     if (init.signal) requestInit.signal = init.signal
     const response = await this.fetcher(`${this.baseUrl}${path}`, requestInit)
     if (response.status === 204) return undefined as T
-    const payload: unknown = await response.json()
-    if (!response.ok) throw new CloudCtlApiError(response.status, payload as ProblemDetails)
+    const rawBody = await response.text()
+    let payload: unknown
+    try {
+      payload = rawBody ? JSON.parse(rawBody) : undefined
+    } catch {
+      if (!response.ok) throw new CloudCtlApiError(response.status, responseProblem(response, undefined, rawBody))
+      const preview = responseTextPreview(rawBody)
+      throw new Error(`Invalid JSON response (HTTP ${response.status})${preview ? `: ${preview}` : ''}`)
+    }
+    if (!response.ok) throw new CloudCtlApiError(response.status, responseProblem(response, payload, rawBody))
     return payload as T
   }
 }

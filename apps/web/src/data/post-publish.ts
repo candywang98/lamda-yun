@@ -12,7 +12,7 @@ export interface PostPublishConfig {
   deviceIds: string[]
   postIds: string[]
   allocation: PostPublishAllocation
-  app: 'main' | 'sub'
+  app: 'main'
   multiOpen: boolean
   autoVideo: boolean
   watermark: boolean
@@ -31,14 +31,14 @@ export function emptyPublishConfig(partial: Partial<PostPublishConfig> = {}): Po
     deviceIds: [],
     postIds: [],
     allocation: 'default',
-    app: 'main',
-    multiOpen: false,
     autoVideo: false,
     watermark: false,
     intervalSeconds: 1,
     formMode: 'direct',
     schedule: '立即执行',
     ...partial,
+    app: 'main' as const,
+    multiOpen: false,
   }
 }
 

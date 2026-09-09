@@ -1,0 +1,204 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cloudctl.example/contracts/phase1/command-v1.schema.json",
+  "title": "CloudCtl CommandV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocolVersion",
+    "taskId",
+    "attemptId",
+    "commandType",
+    "deviceId",
+    "accountId",
+    "bindingVersion",
+    "snapshot",
+    "recipe",
+    "targetPackage",
+    "requiredCapabilities",
+    "lease",
+    "parameters"
+  ],
+  "properties": {
+    "protocolVersion": { "const": "cloudctl.command/v1" },
+    "taskId": { "$ref": "#/$defs/id" },
+    "attemptId": { "$ref": "#/$defs/id" },
+    "commandType": {
+      "type": "string",
+      "enum": [
+        "xianyu.publish_listing.v1",
+        "xianyu.collect_orders.v1",
+        "xiaohongshu.publish_note.v1",
+        "device.probe_capabilities.v1"
+      ]
+    },
+    "deviceId": { "$ref": "#/$defs/id" },
+    "accountId": { "$ref": "#/$defs/id" },
+    "bindingVersion": { "type": "integer", "minimum": 1 },
+    "snapshot": { "$ref": "#/$defs/snapshot" },
+    "recipe": { "$ref": "#/$defs/recipe" },
+    "targetPackage": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 255,
+      "pattern": "^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+$"
+    },
+    "requiredCapabilities": {
+      "type": "array",
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "accessibility",
+          "mediaProjection",
+          "network",
+          "foregroundService"
+        ]
+      }
+    },
+    "lease": { "$ref": "#/$defs/lease" },
+    "mediaDeliveryId": { "$ref": "#/$defs/id" },
+    "legacyStepsEnabled": { "type": "boolean", "default": false },
+    "parameters": { "type": "object" }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "commandType": { "const": "xianyu.publish_listing.v1" } }
+      },
+      "then": {
+        "properties": {
+          "parameters": { "$ref": "#/$defs/xianyuPublishListing" },
+          "targetPackage": { "const": "com.taobao.idlefish" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "commandType": { "const": "xianyu.collect_orders.v1" } }
+      },
+      "then": {
+        "properties": {
+          "parameters": { "$ref": "#/$defs/xianyuCollectOrders" },
+          "targetPackage": { "const": "com.taobao.idlefish" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "commandType": { "const": "xiaohongshu.publish_note.v1" } }
+      },
+      "then": {
+        "properties": {
+          "parameters": { "$ref": "#/$defs/xiaohongshuPublishNote" },
+          "targetPackage": { "const": "com.xingin.xhs" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "commandType": { "const": "device.probe_capabilities.v1" } }
+      },
+      "then": {
+        "properties": {
+          "parameters": { "$ref": "#/$defs/emptyObject" }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "sha256"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "recipe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["versionId", "sha256", "engineMinVersion"],
+      "properties": {
+        "versionId": { "$ref": "#/$defs/id" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "engineMinVersion": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        }
+      }
+    },
+    "lease": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["controlEpoch", "expiresAt"],
+      "properties": {
+        "controlEpoch": { "type": "integer", "minimum": 1 },
+        "expiresAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "emptyObject": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    },
+    "xianyuPublishListing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["listingBody", "price"],
+      "properties": {
+        "listingBody": { "type": "string", "minLength": 1, "maxLength": 1024 },
+        "price": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]{1,2})?$" },
+        "mediaAssetIds": {
+          "type": "array",
+          "maxItems": 50,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/id" }
+        }
+      }
+    },
+    "xianyuCollectOrders": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "limit"],
+      "properties": {
+        "role": { "enum": ["ALL_VISIBLE", "BUYER", "SELLER"] },
+        "limit": { "type": ["integer", "null"], "minimum": 1, "maximum": 5000 }
+      }
+    },
+    "xiaohongshuPublishNote": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "body"],
+      "properties": {
+        "title": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "body": { "type": "string", "minLength": 1, "maxLength": 4000 },
+        "tags": {
+          "type": "array",
+          "maxItems": 20,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 32 }
+        },
+        "mediaAssetIds": {
+          "type": "array",
+          "maxItems": 18,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/id" }
+        }
+      }
+    }
+  }
+}

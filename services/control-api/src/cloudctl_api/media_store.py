@@ -7,6 +7,7 @@ import base64
 import hashlib
 import importlib
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Protocol, cast
 
 from .settings import Settings
@@ -86,6 +87,68 @@ class InMemoryObjectStore:
 
     def put(self, object_key: str, content: bytes, content_type: str) -> None:
         self.objects[object_key] = (content, content_type)
+
+
+class FilesystemObjectStore:
+    def __init__(self, root: Path) -> None:
+        self.root = Path(root)
+        self.root.mkdir(parents=True, exist_ok=True)
+
+    def _path(self, object_key: str) -> Path:
+        relative = Path(object_key)
+        if relative.is_absolute() or ".." in relative.parts or not object_key.strip():
+            raise ValueError("invalid object key")
+        return self.root.joinpath(*relative.parts)
+
+    def _type_path(self, path: Path) -> Path:
+        return path.with_name(f"{path.name}.content-type")
+
+    async def create_upload(
+        self,
+        object_key: str,
+        *,
+        content_type: str,
+        size_bytes: int,
+        sha256: str,
+        expires_seconds: int,
+    ) -> UploadGrant:
+        del object_key, size_bytes, expires_seconds
+        return UploadGrant(
+            url="filesystem://local",
+            headers={"Content-Type": content_type, "X-Checksum-SHA256": sha256},
+        )
+
+    async def head(self, object_key: str) -> StoredObject | None:
+        path = self._path(object_key)
+        if not path.is_file():
+            return None
+        content = path.read_bytes()
+        type_path = self._type_path(path)
+        content_type = (
+            type_path.read_text(encoding="utf-8").strip()
+            if type_path.is_file()
+            else "application/octet-stream"
+        )
+        return StoredObject(
+            size_bytes=len(content),
+            sha256=hashlib.sha256(content).hexdigest(),
+            content_type=content_type,
+        )
+
+    async def get(self, object_key: str) -> DownloadedObject | None:
+        stored = await self.head(object_key)
+        if stored is None:
+            return None
+        return DownloadedObject(
+            content=self._path(object_key).read_bytes(),
+            content_type=stored.content_type,
+        )
+
+    def put(self, object_key: str, content: bytes, content_type: str) -> None:
+        path = self._path(object_key)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(content)
+        self._type_path(path).write_text(content_type, encoding="utf-8")
 
 
 class S3ObjectStore:
@@ -178,4 +241,6 @@ class S3ObjectStore:
 def create_object_store(settings: Settings) -> ObjectStore:
     if settings.object_store_mode == "s3":
         return S3ObjectStore(settings)
+    if settings.object_store_mode == "filesystem":
+        return FilesystemObjectStore(settings.object_store_dir)
     return InMemoryObjectStore()

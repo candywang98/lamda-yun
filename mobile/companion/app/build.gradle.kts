@@ -30,6 +30,11 @@ android {
         debug {
             // This public RFC 8032 vector is only for deterministic local unit tests.
             buildConfigField("String", "APP_UPDATE_PUBLIC_KEY", "\"$debugUpdatePublicKey\"")
+            buildConfigField(
+                "String",
+                "RECIPE_SIGNING_PUBLIC_KEYS",
+                "\"{\\\"test-automation-1\\\":\\\"A6EHv/POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg=\\\",\\\"phase1-recipe-1\\\":\\\"LZxWUG0N3Ke3PiBS2nGPZm0PMVa2lIJfJQynfu/oR4M=\\\"}\"",
+            )
         }
         release {
             isMinifyEnabled = true
@@ -38,6 +43,7 @@ android {
                 "APP_UPDATE_PUBLIC_KEY",
                 "\"${configuredUpdatePublicKey.getOrElse("")}\"",
             )
+            buildConfigField("String", "RECIPE_SIGNING_PUBLIC_KEYS", "\"{}\"")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
@@ -79,6 +85,7 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.1")
+    implementation("org.bouncycastle:bcprov-jdk18on:1.85.2")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlin:kotlin-test:2.1.0")

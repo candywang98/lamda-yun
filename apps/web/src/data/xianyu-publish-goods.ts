@@ -30,7 +30,7 @@ export interface XianyuPublishGoodsConfig {
   deviceIds: string[]
   productIds: string[]
   allocation: PublishAllocation
-  app: Exclude<XianyuApp, 'main-then-sub'>
+  app: 'main'
   smartVideo: OnOff
   music: (typeof VIDEO_MUSIC_OPTIONS)[number]
   circle: string
@@ -63,7 +63,6 @@ export function emptyPublishGoodsConfig(partial: Partial<XianyuPublishGoodsConfi
     deviceIds: [],
     productIds: [],
     allocation: 'even',
-    app: 'main',
     smartVideo: 'off',
     music: '随机音乐',
     circle: '',
@@ -87,6 +86,7 @@ export function emptyPublishGoodsConfig(partial: Partial<XianyuPublishGoodsConfi
     addressPool: '',
     schedule: '立即执行',
     ...partial,
+    app: 'main' as const,
   }
 }
 

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import ScheduleEditor, { type ScheduleDraft } from '@/components/ScheduleEditor.vue'
 import { controlApiConfigured, createControlApiClient } from '@/api/control'
 import { mapControlDevice } from '@/api/devices'
 import {
@@ -17,6 +18,14 @@ const form = reactive(emptyListingCollectConfig())
 const devices = ref<ListingCollectDevice[]>([])
 const errorMessage = ref('')
 const successMessage = ref('')
+const schedule = ref<ScheduleDraft>({
+  kind: 'IMMEDIATE',
+  timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Shanghai',
+  onceAt: '',
+  rrule: 'FREQ=DAILY;INTERVAL=1',
+  missPolicy: 'QUEUE_ONE',
+  startDeadlineMinutes: 30,
+})
 
 const selectedCount = computed(() => form.deviceIds.filter((id) => devices.value.some((item) => item.id === id)).length)
 const selectedDevices = computed(() => devices.value.filter((item) => form.deviceIds.includes(item.id)))
@@ -103,16 +112,10 @@ onMounted(async () => {
         <span class="label">执行应用</span>
         <div>
           <label class="radio" for="listing-app-main"><input id="listing-app-main" v-model="form.app" type="radio" value="main" /> 主闲鱼</label>
-          <label class="radio" for="listing-app-sub"><input id="listing-app-sub" v-model="form.app" type="radio" value="sub" /> 副闲鱼</label>
-          <label class="radio" for="listing-app-both"><input id="listing-app-both" v-model="form.app" type="radio" value="main-then-sub" /> 先主后副</label>
+          <p class="hint">一期每设备仅绑定一个闲鱼账号，副闲鱼/先主后副已禁用。</p>
         </div>
       </div>
-      <div class="row">
-        <label class="label" for="listing-schedule">执行时间</label>
-        <select id="listing-schedule" v-model="form.schedule">
-          <option>立即执行</option>
-        </select>
-      </div>
+      <ScheduleEditor v-model="schedule" :device-count="form.deviceIds.length" :offline-queued="true" />
       <p v-if="errorMessage" class="flash error">{{ errorMessage }}</p>
       <p v-if="successMessage" class="flash ok">{{ successMessage }}</p>
       <div class="footer">

@@ -2,8 +2,10 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { createPostCatalog } from '@/api/post-catalog'
-import { compressImageFile } from '@/data/product-fields'
-import { emptyPost, type PostRecord } from '@/data/post-fields'
+import { controlApiConfigured } from '@/api/control'
+import { resolveMediaPreviewUrl, uploadMediaFile } from '@/api/media-assets'
+import { emptyPost, postImageIds, type PostRecord } from '@/data/post-fields'
+import MediaThumb from '@/components/MediaThumb.vue'
 import { DEFAULT_POST_GROUP_NAME, resolvePostGroups } from '@/data/post-groups'
 
 const route = useRoute()
@@ -18,6 +20,8 @@ const imageInput = ref<HTMLInputElement | null>(null)
 const videoInput = ref<HTMLInputElement | null>(null)
 const groups = ref<string[]>([DEFAULT_POST_GROUP_NAME])
 const form = reactive<PostRecord>(emptyPost())
+const videoPreviewUrl = ref('')
+const previewImages = computed(() => postImageIds(form))
 
 const postId = computed(() => (typeof route.query.id === 'string' ? route.query.id : ''))
 
@@ -57,8 +61,21 @@ async function loadPost() {
 }
 
 async function addImageFiles(files: File[]) {
-  for (const file of files.filter((item) => item.type.startsWith('image/')).slice(0, 16 - form.images.length)) {
-    form.images.push(await compressImageFile(file))
+  if (!controlApiConfigured) {
+    errorMessage.value = '未配置 Control API，禁止把帖子图片写成 blob/dataURL'
+    return
+  }
+  errorMessage.value = ''
+  try {
+    const ids = postImageIds(form)
+    for (const file of files.filter((item) => item.type.startsWith('image/')).slice(0, 16 - ids.length)) {
+      const asset = await uploadMediaFile(file, { role: 'post-image' })
+      ids.push(asset.id)
+    }
+    form.imageAssetIds = ids
+    form.images = [...ids]
+  } catch (error) {
+    errorMessage.value = `图片上传失败：${error instanceof Error ? error.message : String(error)}`
   }
 }
 
@@ -78,8 +95,32 @@ async function onPickVideo(event: Event) {
   const file = input.files?.[0]
   input.value = ''
   if (!file) return
-  form.videoName = file.name
-  form.videoUrl = URL.createObjectURL(file)
+  if (!controlApiConfigured) {
+    errorMessage.value = '未配置 Control API，禁止把帖子视频写成 blob URL'
+    return
+  }
+  try {
+    const asset = await uploadMediaFile(file, { role: 'post-video' })
+    form.videoName = file.name
+    form.videoAssetId = asset.id
+    form.videoUrl = asset.id
+  } catch (error) {
+    errorMessage.value = `视频上传失败：${error instanceof Error ? error.message : String(error)}`
+  }
+}
+
+function removeImage(index: number) {
+  const ids = postImageIds(form)
+  ids.splice(index, 1)
+  form.imageAssetIds = ids
+  form.images = [...ids]
+}
+
+function clearVideo() {
+  form.videoUrl = ''
+  form.videoName = ''
+  form.videoAssetId = ''
+  videoPreviewUrl.value = ''
 }
 
 function addTopic() {
@@ -88,6 +129,16 @@ function addTopic() {
   form.topics.push(value)
   topicDraft.value = ''
 }
+function formatSaveError(error: unknown): string {
+  if (error && typeof error === 'object' && 'problem' in error) {
+    const problem = (error as { problem?: { detail?: string; fields?: Record<string, string> } }).problem
+    const fields = problem?.fields ? Object.entries(problem.fields).map(([key, value]) => `${key}: ${value}`).join('；') : ''
+    if (fields) return `${problem?.detail ?? '请求字段无效'}（${fields}）`
+    if (problem?.detail) return problem.detail
+  }
+  return error instanceof Error ? error.message : String(error)
+}
+
 
 async function savePost() {
   if (!form.title.trim() && !form.body.trim()) {
@@ -105,11 +156,25 @@ async function savePost() {
     if (!postId.value) await router.replace({ path: route.path, query: { id: saved.id } })
     successMessage.value = '帖子已保存'
   } catch (error) {
-    errorMessage.value = `保存失败：${error instanceof Error ? error.message : String(error)}`
+    errorMessage.value = `保存失败：${formatSaveError(error)}`
   } finally {
     busy.value = false
   }
 }
+watch(
+  () => form.videoAssetId || form.videoUrl,
+  async (source) => {
+    videoPreviewUrl.value = ''
+    if (!source) return
+    try {
+      videoPreviewUrl.value = await resolveMediaPreviewUrl(source)
+    } catch {
+      videoPreviewUrl.value = ''
+    }
+  },
+  { immediate: true },
+)
+
 
 watch(postId, () => {
   void loadPost()
@@ -137,10 +202,10 @@ onMounted(() => {
           <small>4.支持把图片文件直接拖进下方预览区上传，截图后按 Ctrl+V（Mac 为 ⌘V）粘贴也可上传</small>
           <input ref="imageInput" class="hidden" type="file" accept="image/*" multiple @change="onPickImages" />
           <div class="preview" @dragover.prevent @drop.prevent="onDropImages">
-            <span v-if="form.images.length === 0">预览图：</span>
-            <div v-for="(image, index) in form.images" :key="index" class="thumb">
-              <img :src="image" alt="" />
-              <button type="button" @click="form.images.splice(index, 1)">×</button>
+            <span v-if="previewImages.length === 0">预览图：</span>
+            <div v-for="(image, index) in previewImages" :key="`${image}-${index}`" class="thumb">
+              <MediaThumb :asset-id="image" :size="72" :alt="`帖子图片 ${index + 1}`" />
+              <button type="button" @click="removeImage(index)">×</button>
             </div>
           </div>
         </div>
@@ -150,12 +215,12 @@ onMounted(() => {
         <div class="grow">
           <div class="actions">
             <button class="primary" type="button" @click="videoInput?.click()">上传</button>
-            <button class="primary" type="button" @click="form.videoUrl = ''; form.videoName = ''">暂无</button>
-            <button class="primary" type="button" @click="form.videoUrl = ''; form.videoName = ''">清除</button>
+            <button class="primary" type="button" @click="clearVideo">暂无</button>
+            <button class="primary" type="button" @click="clearVideo">清除</button>
           </div>
           <input ref="videoInput" class="hidden" type="file" accept="video/mp4" @change="onPickVideo" />
           <small>视频上传后会直接显示视频播放控件。采集帖子后视频不会立刻显示，会有一分钟左右的上传转码过程。</small>
-          <video v-if="form.videoUrl" :src="form.videoUrl" controls />
+          <video v-if="videoPreviewUrl" :src="videoPreviewUrl" controls />
         </div>
       </div>
       <div class="row">

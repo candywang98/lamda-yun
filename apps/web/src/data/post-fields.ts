@@ -5,8 +5,10 @@ export interface PostRecord {
   title: string
   body: string
   images: string[]
+  imageAssetIds: string[]
   videoName: string
   videoUrl: string
+  videoAssetId: string
   topics: string[]
   location: string
   notes: string
@@ -24,8 +26,10 @@ export function emptyPost(partial: Partial<PostRecord> = {}): PostRecord {
     title: partial.title ?? '',
     body: partial.body ?? '',
     images: partial.images ?? [],
+    imageAssetIds: partial.imageAssetIds ?? [],
     videoName: partial.videoName ?? '',
     videoUrl: partial.videoUrl ?? '',
+    videoAssetId: partial.videoAssetId ?? '',
     topics: partial.topics ?? [],
     location: partial.location ?? '',
     notes: partial.notes ?? '',
@@ -46,18 +50,31 @@ function asStringList(value: JsonValue | undefined): string[] {
   return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
 }
 
+function looksLikeAssetId(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
+    || (/^[0-9a-zA-Z._:-]{1,36}$/.test(value) && !value.includes('/'))
+}
+
+function mediaAssetIdsFromPost(post: PostRecord): string[] {
+  return postImageIds(post).filter(looksLikeAssetId).slice(0, 20)
+}
+
+function contentImageIds(payload: JsonObject): string[] {
+  const assetIds = asStringList(payload.mediaAssetIds)
+  if (assetIds.length > 0) return assetIds
+  const legacyAssetIds = asStringList(payload.imageAssetIds)
+  if (legacyAssetIds.length > 0) return legacyAssetIds
+  return asStringList(payload.images)
+}
+
 export function payloadFromPost(post: PostRecord): JsonObject {
+  const body = post.body.trim() || post.title.trim() || '未命名帖子'
   return {
     kind: 'post',
-    body: post.body,
-    images: post.images,
-    videoName: post.videoName,
-    videoUrl: post.videoUrl,
-    topics: post.topics,
-    location: post.location,
-    notes: post.notes,
-    groupName: post.groupName,
-    sourceLinks: post.sourceLinks,
+    body,
+    mediaAssetIds: mediaAssetIdsFromPost(post),
+    targetApp: 'unspecified',
+    draftState: post.status === 'REVIEW' ? '待复核' : '草稿',
   }
 }
 
@@ -66,9 +83,11 @@ export function postFromPayload(id: string, title: string, payload: JsonObject, 
     id,
     title,
     body: asString(payload.body),
-    images: asStringList(payload.images),
+    images: contentImageIds(payload),
+    imageAssetIds: contentImageIds(payload),
     videoName: asString(payload.videoName),
-    videoUrl: asString(payload.videoUrl),
+    videoUrl: asString(payload.videoAssetId) || asString(payload.videoUrl),
+    videoAssetId: asString(payload.videoAssetId) || asString(payload.videoUrl),
     topics: asStringList(payload.topics),
     location: asString(payload.location),
     notes: asString(payload.notes),
@@ -78,6 +97,12 @@ export function postFromPayload(id: string, title: string, payload: JsonObject, 
     updatedAt: meta?.updatedAt,
     status: meta?.status ?? 'ACTIVE',
   })
+}
+
+export function postImageIds(post: Pick<PostRecord, 'images' | 'imageAssetIds'>): string[] {
+  const assetIds = Array.isArray(post.imageAssetIds) ? post.imageAssetIds : []
+  const images = Array.isArray(post.images) ? post.images : []
+  return [...(assetIds.length > 0 ? assetIds : images)]
 }
 
 export function clipText(value: string, max = 18): string {

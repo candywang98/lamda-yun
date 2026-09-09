@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import type { ProductView } from '@cloudctl/api-contracts'
 import { createProductCatalog } from '@/api/product-catalog'
 import XianyuDevicePicker from '@/components/XianyuDevicePicker.vue'
+import MediaThumb from '@/components/MediaThumb.vue'
 import {
   allocateProducts,
   emptyPublishGoodsConfig,
@@ -165,7 +166,7 @@ onMounted(async () => {
         <span class="label">执行应用</span>
         <div>
           <label class="radio" for="xy-app-main"><input id="xy-app-main" v-model="form.app" type="radio" value="main" /> 主闲鱼</label>
-          <label class="radio" for="xy-app-sub"><input id="xy-app-sub" v-model="form.app" type="radio" value="sub" /> 副闲鱼</label>
+          <p class="hint">一期每设备仅绑定一个闲鱼账号，副闲鱼已禁用。</p>
         </div>
       </div>
       <div class="row">
@@ -395,7 +396,7 @@ onMounted(async () => {
             <td>{{ productGroupName(product) }}</td>
             <td>
               <div class="thumbs">
-                <img v-for="(image, index) in productImages(product).slice(0, 3)" :key="index" :src="image" alt="" />
+                <MediaThumb v-for="(image, index) in productImages(product).slice(0, 3)" :key="`${product.id}-${image}-${index}`" :asset-id="image" :alt="product.title" />
                 <span v-if="productImages(product).length === 0" class="muted">无图</span>
               </div>
             </td>

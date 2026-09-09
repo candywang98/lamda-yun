@@ -27,7 +27,6 @@ export const XY_SIMPLE_TASKS_KEY = 'cloudctl.xianyu-simple-task.tasks'
 export function emptySimpleConfig(partial: Partial<XianyuSimpleConfig> = {}): XianyuSimpleConfig {
   return {
     deviceIds: [],
-    app: 'main',
     intervalSeconds: 5,
     schedule: '立即执行',
     exposure: 10,
@@ -37,6 +36,7 @@ export function emptySimpleConfig(partial: Partial<XianyuSimpleConfig> = {}): Xi
     target: '全部宝贝',
     memberName: '',
     ...partial,
+    app: 'main' as const,
   }
 }
 

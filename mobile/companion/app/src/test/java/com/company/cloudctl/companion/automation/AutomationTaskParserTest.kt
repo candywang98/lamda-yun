@@ -39,14 +39,35 @@ class AutomationTaskParserTest {
     fun parsesIdlefishTextPublishContract() {
         val task = AutomationTaskParser.parse(xianyuPublishJson())
         assertEquals(TargetLocatorRegistry.XIANYU_PACKAGE, task.targetPackage)
-        assertEquals(8, task.steps.size)
-        assertEquals("xianyu_description", (task.steps[4] as AutomationStep.Input).locatorRef)
-        assertEquals("自用闲置，功能正常，支持当面交易", (task.steps[4] as AutomationStep.Input).value)
-        assertEquals("xianyu_price", (task.steps[5] as AutomationStep.Input).locatorRef)
-        assertEquals("128", (task.steps[5] as AutomationStep.Input).value)
+        assertEquals(11, task.steps.size)
+        assertEquals("xianyu_description", (task.steps[5] as AutomationStep.Input).locatorRef)
+        assertEquals("自用闲置，功能正常，支持当面交易", (task.steps[5] as AutomationStep.Input).value)
+        assertEquals("xianyu_price", (task.steps[8] as AutomationStep.Input).locatorRef)
+        assertEquals("128", (task.steps[8] as AutomationStep.Input).value)
         assertFailsWith<IllegalStateException> {
             AutomationTaskParser.parse(xianyuPublishJson().replace("run.log", "media.deliver"))
         }
+        val withNullPostcondition = AutomationTaskParser.parse(
+            xianyuPublishJson().replace(
+                "\"locatorRef\":\"xianyu_composer_done\"",
+                "\"locatorRef\":\"xianyu_composer_done\",\"postconditionLocatorRef\":null",
+            ),
+        )
+        assertEquals(
+            null,
+            (withNullPostcondition.steps[6] as AutomationStep.Tap).postconditionLocatorRef,
+        )
+    }
+
+    @Test
+    fun acceptsOptionalCommandTypeOnClaimedTask() {
+        val parsed = AutomationTaskParser.parse(
+            xianyuPublishJson().replace(
+                "\"maxRunSeconds\":90",
+                "\"maxRunSeconds\":90,\"commandType\":\"xianyu.publish_listing.v1\"",
+            ),
+        )
+        assertEquals(TargetLocatorRegistry.XIANYU_PACKAGE, parsed.targetPackage)
     }
 
     @Test
@@ -76,8 +97,11 @@ class AutomationTaskParserTest {
       {"stepId":"open-sell","action":"ui.tap","timeoutMs":8000,"locatorRef":"xianyu_home_sell","postconditionLocatorRef":"xianyu_publish_entry"},
       {"stepId":"open-publish","action":"ui.tap","timeoutMs":8000,"locatorRef":"xianyu_publish_entry","postconditionLocatorRef":"xianyu_publish_page"},
       {"stepId":"wait-publish-page","action":"ui.wait","timeoutMs":8000,"locatorRef":"xianyu_publish_page","condition":"EXISTS","pollMs":200},
-      {"stepId":"fill-description","action":"ui.input","timeoutMs":8000,"locatorRef":"xianyu_description","value":"自用闲置，功能正常，支持当面交易","replace":true},
-      {"stepId":"fill-price","action":"ui.input","timeoutMs":8000,"locatorRef":"xianyu_price","value":"128","replace":true},
+      {"stepId":"wait-description","action":"ui.wait","timeoutMs":8000,"locatorRef":"xianyu_description","condition":"EXISTS","pollMs":200},
+      {"stepId":"fill-description","action":"ui.input","timeoutMs":20000,"locatorRef":"xianyu_description","value":"自用闲置，功能正常，支持当面交易","replace":true},
+      {"stepId":"confirm-description","action":"ui.tap","timeoutMs":5000,"locatorRef":"xianyu_composer_done"},
+      {"stepId":"wait-price","action":"ui.wait","timeoutMs":12000,"locatorRef":"xianyu_price","condition":"EXISTS","pollMs":200},
+      {"stepId":"fill-price","action":"ui.input","timeoutMs":20000,"locatorRef":"xianyu_price","value":"128","replace":true},
       {"stepId":"capture-form","action":"ui.screenshot","timeoutMs":15000,"label":"xianyu_publish_form"},
       {"stepId":"mark-ready","action":"run.log","timeoutMs":1000,"level":"INFO","messageCode":"XIANYU_PUBLISH_FORM_READY"}]}
     """.trimIndent()

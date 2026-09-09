@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cloudctl.example/contracts/phase1/events/task-event.schema.json",
+  "title": "CloudCtl task event v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "taskId",
+    "attemptId",
+    "sequence",
+    "eventType",
+    "occurredAt",
+    "receivedAt"
+  ],
+  "properties": {
+    "taskId": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "attemptId": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "sequence": { "type": "integer", "minimum": 1 },
+    "stateId": { "type": "string", "maxLength": 128 },
+    "stepId": { "type": "string", "maxLength": 128 },
+    "eventType": {
+      "enum": [
+        "STEP_STARTED",
+        "STEP_SUCCEEDED",
+        "STEP_FAILED",
+        "EVIDENCE",
+        "LOG",
+        "PAUSE_REQUESTED",
+        "PAUSED_WAITING_USER",
+        "RESUME_CHECK",
+        "RECONCILING"
+      ]
+    },
+    "occurredAt": { "type": "string", "format": "date-time" },
+    "receivedAt": { "type": "string", "format": "date-time" },
+    "error": { "$ref": "#/$defs/error" },
+    "resultType": { "type": "string", "maxLength": 80 },
+    "schemaVersion": { "type": "integer", "minimum": 1 }
+  },
+  "$defs": {
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "safeMessage"],
+      "properties": {
+        "code": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{0,79}$" },
+        "safeMessage": { "type": "string", "maxLength": 500 },
+        "locatorRef": { "type": "string", "maxLength": 160 },
+        "appVersion": { "type": "string", "maxLength": 80 },
+        "recipeVersion": { "type": "string", "maxLength": 80 },
+        "evidenceRefs": {
+          "type": "array",
+          "maxItems": 20,
+          "items": { "type": "string", "maxLength": 128 }
+        }
+      }
+    }
+  }
+}

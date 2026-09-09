@@ -1,0 +1,79 @@
+{
+  "generatedAt": "2026-09-06",
+  "note": "字段仅入库存不算发布实现。平台不支持字段保留数据并给出 NOT_SUPPORTED/AVAILABILITY_PENDING。",
+  "phase1Scope": {
+    "productEditor": ["普通宝贝", "宝贝水印", "通用地址池", "设备地址池", "宝贝描述池", "宝贝标签池"],
+    "productManagement": ["商品列表", "商品导入", "商品分组"],
+    "posts": ["帖子编辑", "帖子列表", "帖子分组", "帖子水印", "发布小红书"],
+    "xianyu31": [
+      "发布商品", "发布帖子", "擦亮商品", "上架商品", "下架商品", "删除商品", "删除帖子", "绑定闲鱼",
+      "签到鱼币", "鱼币抵扣", "鱼币推广", "一键小刀", "一键降价", "一键好评", "重启闲鱼", "删除动态",
+      "删除消息", "删除留言", "草稿上架", "编辑重发", "托管无忧卖", "快速编辑重发", "快速下架商品",
+      "采集宝贝信息", "通用地址池", "设备地址池", "描述池", "标签池", "图片水印", "违禁词检测", "视频操作教程"
+    ],
+    "outOfScope": ["转转", "拼多多采购", "淘宝/阿里巴巴采集", "自动客服"]
+  },
+  "sharedServices": {
+    "addressPool": ["product-editor-04", "product-editor-05", "xy-tasks-25", "xy-tasks-26", "assets-05", "assets-06"],
+    "descriptionPool": ["product-editor-06", "xy-tasks-27", "assets-07"],
+    "tagPool": ["product-editor-07", "xy-tasks-28", "assets-08"],
+    "watermark": ["product-editor-03", "post-management-05", "xy-tasks-29", "assets-01"],
+    "listingCollect": ["analytics-01", "xy-tasks-24"]
+  },
+  "multiAccountPolicy": {
+    "xianyuApp": "main-only",
+    "xiaohongshuMultiOpen": false,
+    "reason": "R10 每设备 1 闲鱼 + 1 官方单开小红书，禁止副号/先主后副/多开。"
+  },
+  "operations": [
+    {"id": "xy-tasks-01", "title": "发布商品", "page": "XianyuPublishGoodsView", "commandType": "xianyu.publish_goods", "status": "mapped", "fields": ["deviceIds", "productIds", "allocation", "app=main", "formMode", "addressMode", "descPool", "watermark"]},
+    {"id": "xy-tasks-02", "title": "发布帖子", "page": "RetiredOperationView", "commandType": "xianyu.publish_post", "status": "AVAILABILITY_PENDING", "reason": "需 T102 真机核查，不得静默剔除"},
+    {"id": "xy-tasks-03", "title": "擦亮商品", "page": "XianyuSimpleTaskView:polish", "commandType": "xianyu.polish_goods", "status": "mapped", "fields": ["deviceIds", "app=main", "intervalSeconds", "schedule"]},
+    {"id": "xy-tasks-04", "title": "上架商品", "page": "XianyuSimpleTaskView:shelf-up", "commandType": "xianyu.shelf_up", "status": "mapped", "fields": ["deviceIds", "app=main", "intervalSeconds"]},
+    {"id": "xy-tasks-05", "title": "下架商品", "page": "XianyuSimpleTaskView:shelf-down", "commandType": "xianyu.shelf_down", "status": "mapped", "fields": ["deviceIds", "app=main", "exposure", "views", "wants", "keyword"]},
+    {"id": "xy-tasks-06", "title": "删除商品", "page": "XianyuSimpleTaskView:delete-goods", "commandType": "xianyu.delete_goods", "status": "mapped", "fields": ["deviceIds", "app=main", "target"]},
+    {"id": "xy-tasks-07", "title": "删除帖子", "page": "RetiredOperationView", "commandType": "xianyu.delete_post", "status": "AVAILABILITY_PENDING", "reason": "需 T102 真机核查"},
+    {"id": "xy-tasks-08", "title": "绑定闲鱼", "page": "XianyuSimpleTaskView:bind", "commandType": "xianyu.bind_account", "status": "mapped", "fields": ["deviceIds", "memberName"]},
+    {"id": "xy-tasks-09", "title": "签到鱼币", "page": "XianyuExtraTaskView:register", "commandType": "xianyu.checkin_coins", "status": "mapped", "fields": ["deviceIds", "jumpTask"]},
+    {"id": "xy-tasks-10", "title": "鱼币抵扣", "page": "XianyuExtraTaskView:dikou", "commandType": "xianyu.coin_discount", "status": "mapped", "fields": ["deviceIds", "dikouType", "dikouTarget", "intervalSeconds"]},
+    {"id": "xy-tasks-11", "title": "鱼币推广", "page": "XianyuExtraTaskView:promote", "commandType": "xianyu.coin_promote", "status": "mapped", "fields": ["deviceIds", "promoteItem", "promotePackage"]},
+    {"id": "xy-tasks-12", "title": "一键小刀", "page": "XianyuExtraTaskView:xiaodao", "commandType": "xianyu.bargain", "status": "mapped", "fields": ["deviceIds", "xiaodaoType", "privateMessage"]},
+    {"id": "xy-tasks-13", "title": "一键降价", "page": "XianyuExtraTaskView:price-cut", "commandType": "xianyu.price_cut", "status": "mapped", "fields": ["deviceIds", "percentCut", "amountCut", "target"]},
+    {"id": "xy-tasks-14", "title": "一键好评", "page": "XianyuExtraTaskView:review", "commandType": "xianyu.review", "status": "mapped", "fields": ["deviceIds", "reviewBody", "reviewTarget"]},
+    {"id": "xy-tasks-15", "title": "重启闲鱼", "page": "XianyuExtraTaskView:restart", "commandType": "xianyu.restart_app", "status": "mapped", "fields": ["deviceIds"], "constraint": "普通 APK 不能保证杀进程，失败需上报 reasonCode"},
+    {"id": "xy-tasks-16", "title": "删除动态", "page": "XianyuExtraTaskView:delete-feed", "commandType": "xianyu.delete_feed", "status": "mapped", "fields": ["deviceIds", "quantity"]},
+    {"id": "xy-tasks-17", "title": "删除消息", "page": "XianyuExtraTaskView:delete-message", "commandType": "xianyu.delete_message", "status": "mapped", "fields": ["deviceIds", "messageAction"]},
+    {"id": "xy-tasks-18", "title": "删除留言", "page": "XianyuExtraTaskView:delete-comment", "commandType": "xianyu.delete_comment", "status": "mapped", "fields": ["deviceIds", "quantity"]},
+    {"id": "xy-tasks-19", "title": "草稿上架", "page": "XianyuExtraTaskView:draft-up", "commandType": "xianyu.draft_publish", "status": "mapped", "fields": ["deviceIds"]},
+    {"id": "xy-tasks-20", "title": "编辑重发", "page": "XianyuExtraTaskView:reedit", "commandType": "xianyu.reedit", "status": "mapped", "fields": ["deviceIds", "intervalSeconds", "addressPool"]},
+    {"id": "xy-tasks-21", "title": "托管无忧卖", "page": "XianyuExtraTaskView:wuyoumai", "commandType": "xianyu.wuyoumai", "status": "mapped", "fields": ["deviceIds", "wuyoumaiType"]},
+    {"id": "xy-tasks-22", "title": "快速编辑重发", "page": "XianyuExtraTaskView:fast-reedit", "commandType": "xianyu.fast_reedit", "status": "mapped", "fields": ["deviceIds", "autoShortTitle"]},
+    {"id": "xy-tasks-23", "title": "快速下架商品", "page": "XianyuExtraTaskView:fast-down", "commandType": "xianyu.fast_shelf_down", "status": "mapped", "fields": ["deviceIds"]},
+    {"id": "xy-tasks-24", "title": "采集宝贝信息", "page": "ListingInfoCollectView", "commandType": "xianyu.collect_listings", "status": "mapped", "sharedService": "listingCollect", "fields": ["deviceIds", "app=main"]},
+    {"id": "xy-tasks-25", "title": "通用地址池", "page": "XianyuDeviceAddressPoolView", "commandType": null, "status": "mapped", "sharedService": "addressPool"},
+    {"id": "xy-tasks-26", "title": "设备地址池", "page": "XianyuDeviceAddressPoolView", "commandType": null, "status": "mapped", "sharedService": "addressPool"},
+    {"id": "xy-tasks-27", "title": "描述池", "page": "XianyuDescriptionPoolView", "commandType": null, "status": "mapped", "sharedService": "descriptionPool"},
+    {"id": "xy-tasks-28", "title": "标签池", "page": "XianyuTagPoolView", "commandType": null, "status": "mapped", "sharedService": "tagPool"},
+    {"id": "xy-tasks-29", "title": "图片水印", "page": "PostWatermarkView", "commandType": null, "status": "mapped", "sharedService": "watermark"},
+    {"id": "xy-tasks-30", "title": "违禁词检测", "page": "XianyuForbiddenWordView", "commandType": "content.forbidden_words.scan", "status": "mapped"},
+    {"id": "xy-tasks-31", "title": "视频操作教程", "page": "OperationsView:guide", "commandType": null, "status": "mapped"}
+  ],
+  "productFields": [
+    {"ui": "title", "dto": "ProductCreate.title", "snapshot": "listing.title", "recipe": "fill-title"},
+    {"ui": "titlePool", "dto": "attributes.titlePool", "snapshot": "listing.titleCandidates", "recipe": "pick-title"},
+    {"ui": "description", "dto": "ProductCreate.description", "snapshot": "listing.description", "recipe": "fill-description"},
+    {"ui": "rewriteText", "dto": "attributes.rewriteText", "snapshot": "listing.descriptionOverride", "recipe": "fill-description"},
+    {"ui": "price", "dto": "ProductCreate.price", "snapshot": "listing.price", "recipe": "fill-price"},
+    {"ui": "stock", "dto": "ProductCreate.stock", "snapshot": "listing.stock", "recipe": "fill-stock"},
+    {"ui": "imageAssetIds", "dto": "ProductCreate.mediaAssetIds", "snapshot": "media[].assetId", "recipe": "select-images"},
+    {"ui": "videoAssetId", "dto": "ProductCreate.mediaAssetIds", "snapshot": "media.videoAssetId", "recipe": "select-video"},
+    {"ui": "groupName", "dto": "ProductCreate.category + ProductGroup", "snapshot": "listing.groupName", "recipe": null},
+    {"ui": "address[]", "dto": "attributes.address", "snapshot": "listing.address", "recipe": "fill-address", "resolver": "devicePool>genericPool"}
+  ],
+  "postFields": [
+    {"ui": "title", "dto": "ContentCreate.title", "snapshot": "post.title", "recipe": "fill-title"},
+    {"ui": "body", "dto": "revision.payload.body", "snapshot": "post.body", "recipe": "fill-body"},
+    {"ui": "imageAssetIds", "dto": "revision.payload.imageAssetIds", "snapshot": "post.media", "recipe": "select-images"},
+    {"ui": "topics", "dto": "revision.payload.topics", "snapshot": "post.topics", "recipe": "fill-topics"}
+  ]
+}

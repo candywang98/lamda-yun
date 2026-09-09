@@ -6,7 +6,7 @@ import { operationsCatalog } from '@/data/operations-catalog'
 describe('mapped operation parameter contract', () => {
   it('maps every page field of every mapped feature into parameters.pageParameters', () => {
     const mapped = operationsCatalog.filter((operation) => operation.backendOperationKey)
-    expect(mapped).toHaveLength(16)
+    expect(mapped).toHaveLength(15)
 
     for (const operation of mapped) {
       const values = initialPageParameters(operation.pageProfile)

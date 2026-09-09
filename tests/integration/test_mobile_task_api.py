@@ -127,6 +127,38 @@ async def enroll(
     return str(response.json()["bindingToken"])
 
 
+async def create_account(
+    client: httpx.AsyncClient,
+    *,
+    platform: str,
+    subject: str,
+    label: str,
+) -> str:
+    response = await client.post(
+        "/api/v1/accounts",
+        headers=identity(),
+        json={
+            "platform": platform,
+            "externalSubjectRef": subject,
+            "displayLabel": label,
+            "secretRef": f"vault://cloudctl/accounts/{subject}",
+            "authorizationBasis": "Owner authorized the test account.",
+        },
+    )
+    assert response.status_code == 201, response.text
+    return str(response.json()["id"])
+
+
+async def bind_account(client: httpx.AsyncClient, account_id: str, device_id: str) -> dict[str, Any]:
+    response = await client.post(
+        f"/api/v1/accounts/{account_id}/bindings",
+        headers=identity(),
+        json={"deviceId": device_id, "confirmationNote": "Owner confirmed test device."},
+    )
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
 async def create_task(
     client: httpx.AsyncClient,
     device_id: str,
@@ -459,6 +491,8 @@ async def test_claim_heartbeat_single_active_and_expired_lease_recovery(
     assert heartbeat.status_code == 200
     assert heartbeat.json()["status"] == "RUNNING"
     assert heartbeat.json()["currentStep"] == 0
+    assert heartbeat.json()["businessState"] == "RUNNING"
+    assert heartbeat.json()["controlMode"] == "AUTO"
 
     database = app.state.database
     async with database.unit_of_work() as session:
@@ -472,6 +506,7 @@ async def test_claim_heartbeat_single_active_and_expired_lease_recovery(
     assert reclaimed.json()["taskId"] == claimed.json()["taskId"]
     assert reclaimed.json()["leaseId"] != claimed.json()["leaseId"]
     assert reclaimed.json()["attempt"] == 2
+    assert claimed.json().get("controlEpoch") or reclaimed.json().get("controlEpoch")
 
 
 @pytest.mark.asyncio
@@ -605,7 +640,7 @@ async def test_device_heartbeat_marks_last_seen_without_changing_task_state(
             "health": {
                 "batteryPercent": 100,
                 "charging": True,
-                "network": "Cellular",
+                "network": "CELLULAR",
                 "temperatureCelsius": 33.0,
                 "freeStorageBytes": 1000,
             },
@@ -655,10 +690,20 @@ async def test_xianyu_text_publish_task_is_accepted_and_claimable(
         "open-sell",
         "open-publish",
         "wait-publish-page",
+        "wait-description",
         "fill-description",
+        "confirm-description",
+        "wait-price",
         "fill-price",
         "capture-form",
-        "mark-ready",
+        "wait-location",
+        "open-location",
+        "select-location",
+        "wait-publish-button",
+        "click-publish",
+        "wait-publish-complete",
+        "capture-success",
+        "mark-published",
     ]
 
     claimed = await client.post(
@@ -670,9 +715,10 @@ async def test_xianyu_text_publish_task_is_accepted_and_claimable(
     payload = claimed.json()
     assert payload["protocolVersion"] == "cloudctl.mobile/v1"
     assert payload["targetPackage"] == XIANYU_PACKAGE
-    assert payload["steps"][4]["value"] == "自用闲置，功能正常，支持当面交易"
-    assert payload["steps"][5]["value"] == "128"
-    assert payload["maxRunSeconds"] == 90
+    assert payload.get("commandType") in (None, "xianyu.publish_listing.v1")
+    assert payload["steps"][5]["value"] == "自用闲置，功能正常，支持当面交易"
+    assert payload["steps"][8]["value"] == "128"
+    assert payload["maxRunSeconds"] == (body["totalTimeoutMs"] + 999) // 1000
 
 
 @pytest.mark.asyncio
@@ -885,3 +931,137 @@ async def test_companion_preview_session_round_trip(
         },
     )
     assert heartbeat.json()["preview"] is None
+
+
+@pytest.mark.asyncio
+async def test_reenroll_revokes_previous_companion_instance(
+    api: tuple[httpx.AsyncClient, FastAPI],
+) -> None:
+    client, _ = api
+    device_id = await create_direct_device(client)
+    first = await enroll(client, device_id, instance="instance-a")
+    second = await enroll(client, device_id, instance="instance-b")
+    stale = await client.post(
+        "/companion/v2/devices/heartbeat",
+        headers={"Authorization": f"Bearer {first}"},
+        json={
+            "companionVersion": "0.1.0",
+            "accessibilityEnabled": True,
+            "runnerState": "IDLE",
+        },
+    )
+    assert stale.status_code == 401
+    live = await client.post(
+        "/companion/v2/devices/heartbeat",
+        headers={"Authorization": f"Bearer {second}"},
+        json={
+            "companionVersion": "0.1.1",
+            "androidVersion": "10",
+            "accessibilityEnabled": True,
+            "runnerState": "IDLE",
+            "health": {
+                "network": "CELLULAR",
+                "manufacturer": "Xiaomi",
+                "model": "Redmi Note 9",
+                "sdkInt": 29,
+                "mediaProjection": "UNKNOWN",
+            },
+        },
+    )
+    assert live.status_code == 200, live.text
+
+
+@pytest.mark.asyncio
+async def test_rebind_fails_queued_task_with_account_changed(
+    api: tuple[httpx.AsyncClient, FastAPI],
+) -> None:
+    client, _ = api
+    device_id = await create_direct_device(client)
+    token = await enroll(client, device_id)
+    account_a = await create_account(client, platform="xianyu", subject="xy-a", label="闲鱼甲")
+    account_b = await create_account(client, platform="xianyu", subject="xy-b", label="闲鱼乙")
+    bound = await bind_account(client, account_a, device_id)
+    body = {
+        **task_body(device_id),
+        "accountId": account_a,
+        "expectedBindingVersion": bound["bindingVersion"],
+    }
+    created = await create_task(client, device_id, key="owned-by-a", body=body)
+    assert created.status_code == 201, created.text
+    assert created.json()["accountId"] == account_a
+    assert created.json()["bindingVersion"] == bound["bindingVersion"]
+
+    rebound = await bind_account(client, account_b, device_id)
+    assert rebound["accountId"] == account_b
+
+    claimed = await client.post(
+        "/companion/v2/tasks/claim",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"leaseSeconds": 60},
+    )
+    assert claimed.status_code == 204, claimed.text
+
+    detail = await client.get(f"/api/v1/mobile/tasks/{created.json()['taskId']}", headers=identity())
+    assert detail.status_code == 200, detail.text
+    assert detail.json()["status"] == "FAILED"
+    assert detail.json()["errorCode"] == "ACCOUNT_CHANGED"
+    assert detail.json()["accountId"] == account_a
+
+    ownership = await client.get(f"/api/v1/accounts/{account_a}/ownership", headers=identity())
+    assert ownership.status_code == 200, ownership.text
+    assert ownership.json()["unbound"] is True
+    assert ownership.json()["mobileTasks"][0]["accountId"] == account_a
+    assert ownership.json()["mobileTasks"][0]["errorCode"] == "ACCOUNT_CHANGED"
+
+
+@pytest.mark.asyncio
+async def test_paused_head_blocks_later_task_and_maintenance_blocks_auto_claim(
+    api: tuple[httpx.AsyncClient, FastAPI],
+) -> None:
+    client, app = api
+    device_id = await create_direct_device(client)
+    token = await enroll(client, device_id)
+    first = await create_task(client, device_id, key="paused-head")
+    second = await create_task(client, device_id, key="later-task")
+    async with app.state.database.unit_of_work() as session:
+        row = await session.get(MobileTaskRow, first.json()["taskId"])
+        assert row is not None
+        row.business_state = "PAUSED_WAITING_USER"
+        row.status = "QUEUED"
+    blocked = await client.post(
+        "/companion/v2/tasks/claim",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"leaseSeconds": 60},
+    )
+    assert blocked.status_code == 204
+    async with app.state.database.unit_of_work() as session:
+        later = await session.get(MobileTaskRow, second.json()["taskId"])
+        assert later is not None
+        assert later.status == "QUEUED"
+
+    other_device = await client.post(
+        "/api/v1/mobile/devices",
+        headers=identity(),
+        json={
+            "logicalName": "oneplus-9r-maint",
+            "androidVersion": "14",
+            "companionVersion": "1.0.0",
+            "labels": ["mobile-direct"],
+        },
+    )
+    assert other_device.status_code == 201, other_device.text
+    other = str(other_device.json()["id"])
+    other_token = await enroll(client, other, instance="instance-maint")
+    await create_task(client, other, key="maint-task")
+    hold = await client.post(
+        f"/api/v1/devices/{other}:maintenance",
+        headers=identity(role="security_admin"),
+        json={"enabled": True, "reason": "operator locked device for maintenance"},
+    )
+    assert hold.status_code == 200, hold.text
+    denied = await client.post(
+        "/companion/v2/tasks/claim",
+        headers={"Authorization": f"Bearer {other_token}"},
+        json={"leaseSeconds": 60},
+    )
+    assert denied.status_code == 409

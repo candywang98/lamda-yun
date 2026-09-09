@@ -15,6 +15,12 @@ data class OutboxEvent(
     val payload: String,
     val attemptCount: Int,
 )
+data class ActionJournalRecord(
+    val actionKey: String,
+    val taskId: String,
+    val status: String,
+    val parameterHash: String,
+)
 
 class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, null, VERSION) {
     override fun onConfigure(db: SQLiteDatabase) {
@@ -43,11 +49,13 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
                 "last_error TEXT,created_at TEXT NOT NULL,delivered_at TEXT,permanent_failure_at TEXT," +
                 "FOREIGN KEY(task_id) REFERENCES task_inbox(task_id))",
         )
+        createCheckpointAndJournalTables(db)
         createIndexes(db)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         if (oldVersion < 2) migrateVersion1To2(db)
+        if (oldVersion < 3) createCheckpointAndJournalTables(db)
         check(newVersion == VERSION) { "Unsupported automation database version $newVersion" }
     }
 
@@ -64,7 +72,9 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
                 }
             }
             if (existing != null) {
-                require(existing.payload == payload) { "Task ID was reused with different content" }
+                require(sameExecutionPayload(existing.payload, payload)) {
+                    "Task ID was reused with different content"
+                }
                 execSQL(
                     "UPDATE task_inbox SET payload_sha256=? WHERE task_id=? AND payload_sha256=''",
                     arrayOf(payload.sha256(), taskId),
@@ -126,6 +136,11 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
         }
 
     fun claimNext(): PendingTask? = transaction {
+        val blocked = rawQuery(
+            "SELECT 1 FROM task_inbox WHERE state IN (?,?) LIMIT 1",
+            arrayOf(STATE_PAUSED, STATE_RESUME_CHECK),
+        ).use { it.moveToFirst() }
+        if (blocked) return@transaction null
         val task = rawQuery(
             "SELECT task_id,payload,lease_id FROM task_inbox WHERE state=? ORDER BY received_at,rowid LIMIT 1",
             arrayOf(STATE_QUEUED),
@@ -170,7 +185,90 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
         enqueueStepEventLocked(taskId, eventType, stepIndex, payload, Instant.now().toString())
     }
 
-    fun finish(taskId: String, succeeded: Boolean, errorCode: String = "TASK_EXECUTION_FAILED") =
+    fun markPaused(taskId: String, stepId: String?, stepIndex: Int, reason: String?) = transaction {
+        val now = Instant.now().toString()
+        val current = row("SELECT state FROM task_inbox WHERE task_id=?", arrayOf(taskId))
+            ?: error("Unknown task")
+        require(current == STATE_RUNNING) { "Task is not running" }
+        enqueueStepEventLocked(
+            taskId,
+            "PAUSED_WAITING_USER",
+            stepIndex.takeIf { it >= 0 },
+            JSONObject().put("reason", reason ?: "operator pause"),
+            now,
+        )
+        execSQL(
+            "UPDATE task_inbox SET state=?,updated_at=? WHERE task_id=?",
+            arrayOf(STATE_PAUSED, now, taskId),
+        )
+        insertJournalLocked(taskId, stepId, STATE_PAUSED, "PAUSED_WAITING_USER", now)
+    }
+
+    fun markResumeCheck(taskId: String, leaseId: String): Boolean = transaction {
+        val current = rawQuery(
+            "SELECT state,lease_id FROM task_inbox WHERE task_id=?",
+            arrayOf(taskId),
+        ).use {
+            if (!it.moveToFirst()) return@transaction false
+            it.getString(0) to it.getString(1)
+        }
+        if (current.first != STATE_PAUSED && current.first != STATE_RESUME_CHECK) return@transaction false
+        val now = Instant.now().toString()
+        execSQL(
+            "UPDATE task_inbox SET state=?,lease_id=?,updated_at=? WHERE task_id=?",
+            arrayOf(STATE_RESUME_CHECK, leaseId, now, taskId),
+        )
+        if (current.first == STATE_RESUME_CHECK && current.second == leaseId) return@transaction true
+        enqueueStepEventLocked(
+            taskId,
+            "RESUME_CHECK",
+            null,
+            JSONObject().put("reason", "operator returned control"),
+            now,
+        )
+        insertJournalLocked(taskId, null, STATE_RESUME_CHECK, "RESUME_CHECK", now)
+        true
+    }
+
+    fun claimResume(taskId: String? = null): PendingTask? = transaction {
+        val task = if (taskId == null) {
+            rawQuery(
+                "SELECT task_id,payload,lease_id FROM task_inbox WHERE state=? ORDER BY received_at,rowid LIMIT 1",
+                arrayOf(STATE_RESUME_CHECK),
+            ).use {
+                if (it.moveToFirst()) PendingTask(it.getString(0), it.getString(1), it.getString(2)) else null
+            }
+        } else {
+            rawQuery(
+                "SELECT task_id,payload,lease_id FROM task_inbox WHERE task_id=? AND state=? LIMIT 1",
+                arrayOf(taskId, STATE_RESUME_CHECK),
+            ).use {
+                if (it.moveToFirst()) PendingTask(it.getString(0), it.getString(1), it.getString(2)) else null
+            }
+        }
+        task?.let {
+            val now = Instant.now().toString()
+            execSQL(
+                "UPDATE task_inbox SET state=?,updated_at=? WHERE task_id=? AND state=?",
+                arrayOf(STATE_RUNNING, now, it.taskId, STATE_RESUME_CHECK),
+            )
+            insertJournalLocked(it.taskId, null, STATE_RUNNING, "TASK_RESUME_CLAIMED_LOCAL", now)
+        }
+        task
+    }
+
+    fun hasBlockingHead(): Boolean = readableDatabase.rawQuery(
+        "SELECT 1 FROM task_inbox WHERE state IN (?,?) LIMIT 1",
+        arrayOf(STATE_PAUSED, STATE_RESUME_CHECK),
+    ).use { it.moveToFirst() }
+
+    fun finish(
+        taskId: String,
+        succeeded: Boolean,
+        errorCode: String = "TASK_EXECUTION_FAILED",
+        result: JSONObject = JSONObject(),
+        detail: String = "Companion terminated the task safely",
+    ) =
         transaction {
             val leaseId = row("SELECT lease_id FROM task_inbox WHERE task_id=?", arrayOf(taskId))
                 ?: error("Unknown task")
@@ -182,7 +280,7 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
                 arrayOf(STATE_TERMINAL_PENDING, terminalState, now, taskId),
             )
             insertJournalLocked(taskId, null, terminalState, terminalDetailCode, now)
-            enqueueTerminalLocked(taskId, leaseId, succeeded, errorCode, now)
+            enqueueTerminalLocked(taskId, leaseId, succeeded, errorCode, now, result, detail)
         }
 
     /** Returns only a contiguous due prefix so later records cannot overtake a delayed one. */
@@ -272,12 +370,35 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
         for ((taskId, leaseId) in interrupted) {
             val now = Instant.now().toString()
             execSQL(
-                "UPDATE task_inbox SET state=?,terminal_state=?,updated_at=? WHERE task_id=?",
-                arrayOf(STATE_TERMINAL_PENDING, TERMINAL_FAILED, now, taskId),
+                "UPDATE task_inbox SET state=?,updated_at=? WHERE task_id=?",
+                arrayOf(STATE_RESUME_CHECK, now, taskId),
             )
-            insertJournalLocked(taskId, null, TERMINAL_FAILED, "FAILED_RESTART", now)
-            enqueueTerminalLocked(taskId, leaseId, false, "FAILED_RESTART", now)
+            insertJournalLocked(taskId, null, STATE_RESUME_CHECK, "RESUME_CHECK", now)
         }
+    }
+
+    fun dueEventsByTask(now: Instant = Instant.now(), limitPerTask: Int = 20): List<OutboxEvent> {
+        val grouped = linkedMapOf<String, MutableList<OutboxEvent>>()
+        readableDatabase.rawQuery(
+            "SELECT id,path,payload,attempt_count,next_attempt_at,IFNULL(task_id,'') FROM event_outbox " +
+                "WHERE delivered_at IS NULL AND permanent_failure_at IS NULL ORDER BY id",
+            emptyArray(),
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
+                val nextAttempt = Instant.parse(cursor.getString(4))
+                if (nextAttempt.isAfter(now)) continue
+                val taskId = cursor.getString(5).ifBlank { "_global" }
+                val bucket = grouped.getOrPut(taskId) { mutableListOf() }
+                if (bucket.size >= limitPerTask) continue
+                bucket += OutboxEvent(
+                    cursor.getLong(0),
+                    cursor.getString(1),
+                    cursor.getString(2),
+                    cursor.getInt(3),
+                )
+            }
+        }
+        return grouped.values.flatten().sortedBy { it.id }
     }
 
     private fun SQLiteDatabase.enqueueStepEventLocked(
@@ -294,7 +415,13 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
             require(it.moveToFirst()) { "Unknown task" }
             Triple(it.getString(0), it.getInt(1), it.getString(2))
         }
-        require(leaseAndSequence.third == STATE_RUNNING) { "Task is not running" }
+        require(
+            leaseAndSequence.third == STATE_RUNNING ||
+                (
+                    eventType in setOf("RESUME_CHECK", "PAUSED_WAITING_USER") &&
+                        leaseAndSequence.third in setOf(STATE_RUNNING, STATE_PAUSED, STATE_RESUME_CHECK)
+                    ),
+        ) { "Task is not running" }
         val body = JSONObject().put("leaseId", leaseAndSequence.first)
             .put("sequence", leaseAndSequence.second)
             .put("eventType", eventType)
@@ -321,13 +448,27 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
         succeeded: Boolean,
         errorCode: String,
         now: String,
+        result: JSONObject = JSONObject(),
+        detail: String = "Companion terminated the task safely",
     ) {
         val endpoint = if (succeeded) "complete" else "fail"
+        val sanitizedResult = JSONObject()
+        result.keys().forEach { key ->
+            val lowered = key.lowercase()
+            if (listOf("password", "token", "secret", "cookie").none { it in lowered }) {
+                sanitizedResult.put(key, result.opt(key))
+            }
+        }
+        if (succeeded && sanitizedResult.length() == 0) {
+            sanitizedResult.put("outcome", "ok")
+            sanitizedResult.put("resultType", resultTypeForPayload(taskId))
+            sanitizedResult.put("schemaVersion", 1)
+        }
         val body = if (succeeded) {
-            JSONObject().put("leaseId", leaseId).put("result", JSONObject())
+            JSONObject().put("leaseId", leaseId).put("result", sanitizedResult)
         } else {
             JSONObject().put("leaseId", leaseId).put("errorCode", errorCode)
-                .put("detail", "Companion terminated the task safely")
+                .put("detail", detail.take(MAX_ERROR_LENGTH))
         }
         enqueueLocked(
             "$taskId:$leaseId:$endpoint",
@@ -360,6 +501,11 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
                 now,
             )
         }
+    }
+
+    private fun SQLiteDatabase.resultTypeForPayload(taskId: String): String {
+        val payload = row("SELECT payload FROM task_inbox WHERE task_id=?", arrayOf(taskId)).orEmpty()
+        return resultTypeForClaimPayload(payload)
     }
 
     private fun SQLiteDatabase.enqueueLocked(
@@ -397,6 +543,155 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
             put("occurred_at", occurredAt)
         })
     }
+
+    fun saveCheckpoint(
+        taskId: String,
+        attemptId: String,
+        stateId: String,
+        snapshotHash: String,
+        recipeHash: String,
+        accountId: String,
+        bindingVersion: Int,
+        cursor: Int,
+        itemId: String?,
+    ) = transaction {
+        val now = Instant.now().toString()
+        val revision = (row("SELECT IFNULL(MAX(revision),0) FROM task_checkpoint WHERE task_id=?", arrayOf(taskId))?.toIntOrNull() ?: 0) + 1
+        insertOrThrow("task_checkpoint", null, ContentValues().apply {
+            put("task_id", taskId)
+            put("attempt_id", attemptId)
+            put("revision", revision)
+            put("state_id", stateId)
+            put("snapshot_hash", snapshotHash)
+            put("recipe_hash", recipeHash)
+            put("account_id", accountId)
+            put("binding_version", bindingVersion)
+            put("loop_cursor", cursor)
+            put("item_id", itemId)
+            put("created_at", now)
+        })
+        insertJournalLocked(taskId, stateId, "CHECKPOINT", "CHECKPOINT_$revision", now)
+    }
+
+    fun latestCheckpoint(taskId: String): JSONObject? = readableDatabase.rawQuery(
+        "SELECT attempt_id,revision,state_id,snapshot_hash,recipe_hash,account_id,binding_version,loop_cursor,item_id " +
+            "FROM task_checkpoint WHERE task_id=? ORDER BY revision DESC LIMIT 1",
+        arrayOf(taskId),
+    ).use {
+        if (!it.moveToFirst()) return@use null
+        JSONObject()
+            .put("attemptId", it.getString(0))
+            .put("revision", it.getInt(1))
+            .put("stateId", it.getString(2))
+            .put("snapshotHash", it.getString(3))
+            .put("recipeHash", it.getString(4))
+            .put("accountId", it.getString(5))
+            .put("bindingVersion", it.getInt(6))
+            .put("loopCursor", it.getInt(7))
+            .put("itemId", it.getString(8))
+    }
+
+    private fun createCheckpointAndJournalTables(db: SQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS task_checkpoint(" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT,task_id TEXT NOT NULL,attempt_id TEXT NOT NULL," +
+                "revision INTEGER NOT NULL,state_id TEXT NOT NULL,snapshot_hash TEXT NOT NULL," +
+                "recipe_hash TEXT NOT NULL,account_id TEXT NOT NULL,binding_version INTEGER NOT NULL," +
+                "loop_cursor INTEGER NOT NULL DEFAULT 0,item_id TEXT,created_at TEXT NOT NULL," +
+                "FOREIGN KEY(task_id) REFERENCES task_inbox(task_id)," +
+                "UNIQUE(task_id,attempt_id,revision))",
+        )
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS action_journal(" +
+                "action_key TEXT PRIMARY KEY,task_id TEXT NOT NULL,status TEXT NOT NULL," +
+                "parameter_hash TEXT NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL," +
+                "FOREIGN KEY(task_id) REFERENCES task_inbox(task_id))",
+        )
+    }
+
+    fun actionJournal(actionKey: String): ActionJournalRecord? =
+        readableDatabase.rawQuery(
+            "SELECT action_key,task_id,status,parameter_hash FROM action_journal WHERE action_key=?",
+            arrayOf(actionKey),
+        ).use { cursor ->
+            if (!cursor.moveToFirst()) {
+                null
+            } else {
+                ActionJournalRecord(
+                    actionKey = cursor.getString(0),
+                    taskId = cursor.getString(1),
+                    status = cursor.getString(2),
+                    parameterHash = cursor.getString(3),
+                )
+            }
+        }
+
+    fun recordActionIntent(actionKey: String, taskId: String, parameterHash: String): String = transaction {
+        val existing = actionJournalLocked(actionKey)
+        if (existing == null) {
+            val now = Instant.now().toString()
+            insertOrThrow("action_journal", null, ContentValues().apply {
+                put("action_key", actionKey)
+                put("task_id", taskId)
+                put("status", "INTENT")
+                put("parameter_hash", parameterHash)
+                put("created_at", now)
+                put("updated_at", now)
+            })
+            return@transaction "INTENT"
+        }
+        require(existing.taskId == taskId && existing.parameterHash == parameterHash) {
+            "Action journal identity mismatch for $actionKey"
+        }
+        when (existing.status) {
+            "APPLIED" -> "APPLIED"
+            "INTENT", "UNKNOWN" -> "UNKNOWN"
+            else -> error("Illegal action journal status ${existing.status} for $actionKey")
+        }
+    }
+
+    fun markActionApplied(actionKey: String) = transaction {
+        val existing = actionJournalLocked(actionKey)
+            ?: error("Cannot mark APPLIED for missing action key $actionKey")
+        when (existing.status) {
+            "APPLIED" -> Unit
+            "INTENT" -> execSQL(
+                "UPDATE action_journal SET status=?,updated_at=? WHERE action_key=?",
+                arrayOf("APPLIED", Instant.now().toString(), actionKey),
+            )
+            else -> error("Illegal action journal transition ${existing.status} -> APPLIED for $actionKey")
+        }
+    }
+
+    fun markActionUnknown(actionKey: String) = transaction {
+        val existing = actionJournalLocked(actionKey)
+            ?: error("Cannot mark UNKNOWN for missing action key $actionKey")
+        when (existing.status) {
+            "UNKNOWN" -> Unit
+            "INTENT" -> execSQL(
+                "UPDATE action_journal SET status=?,updated_at=? WHERE action_key=?",
+                arrayOf("UNKNOWN", Instant.now().toString(), actionKey),
+            )
+            else -> error("Illegal action journal transition ${existing.status} -> UNKNOWN for $actionKey")
+        }
+    }
+
+    private fun SQLiteDatabase.actionJournalLocked(actionKey: String): ActionJournalRecord? =
+        rawQuery(
+            "SELECT action_key,task_id,status,parameter_hash FROM action_journal WHERE action_key=?",
+            arrayOf(actionKey),
+        ).use { cursor ->
+            if (!cursor.moveToFirst()) {
+                null
+            } else {
+                ActionJournalRecord(
+                    actionKey = cursor.getString(0),
+                    taskId = cursor.getString(1),
+                    status = cursor.getString(2),
+                    parameterHash = cursor.getString(3),
+                )
+            }
+        }
 
     private fun migrateVersion1To2(db: SQLiteDatabase) {
         db.execSQL("ALTER TABLE task_inbox ADD COLUMN payload_sha256 TEXT NOT NULL DEFAULT ''")
@@ -460,11 +755,59 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
         .digest(toByteArray(Charsets.UTF_8))
         .joinToString("") { "%02x".format(it) }
 
-    private companion object {
-        const val DATABASE_NAME = "cloudctl-automation.sqlite3"
-        const val VERSION = 2
+    companion object {
+        private const val DATABASE_NAME = "cloudctl-automation.sqlite3"
+        private const val VERSION = 3
+
+        internal fun resultTypeForClaimPayload(payload: String): String {
+            if (payload.isBlank() || !payload.trimStart().startsWith("{")) {
+                return "DeviceProbeResult"
+            }
+            val json = runCatching { JSONObject(payload) }.getOrNull() ?: return "DeviceProbeResult"
+            return when (json.optString("commandType")) {
+                "xianyu.publish_listing.v1" -> "XianyuPublishListingResult"
+                "xianyu.collect_orders.v1" -> "XianyuCollectOrdersResult"
+                "xiaohongshu.publish_note.v1" -> "XiaohongshuPublishNoteResult"
+                "device.probe_capabilities.v1" -> "DeviceProbeResult"
+                else -> when (json.optString("targetPackage")) {
+                    "com.taobao.idlefish" -> "XianyuPublishListingResult"
+                    "com.xingin.xhs" -> "XiaohongshuPublishNoteResult"
+                    else -> "DeviceProbeResult"
+                }
+            }
+        }
+
+        internal fun sameExecutionPayload(left: String, right: String): Boolean {
+            if (left == right) return true
+            val leftJson = runCatching { JSONObject(left) }.getOrNull() ?: return false
+            val rightJson = runCatching { JSONObject(right) }.getOrNull() ?: return false
+            val leftId = leftJson.optString("taskId")
+            val rightId = rightJson.optString("taskId")
+            if (leftId.isNotBlank() && leftId == rightId) return true
+            return executionFingerprint(leftJson) == executionFingerprint(rightJson)
+        }
+
+        private fun executionFingerprint(value: JSONObject): String {
+            val steps = value.optJSONArray("steps") ?: org.json.JSONArray()
+            val normalizedSteps = org.json.JSONArray()
+            for (index in 0 until steps.length()) {
+                val step = steps.optJSONObject(index) ?: continue
+                val copy = JSONObject(step.toString())
+                copy.remove("controlEpoch")
+                normalizedSteps.put(copy)
+            }
+            return JSONObject()
+                .put("taskId", value.optString("taskId"))
+                .put("deviceId", value.optString("deviceId"))
+                .put("targetPackage", value.optString("targetPackage"))
+                .put("steps", normalizedSteps)
+                .put("mediaDelivery", value.optJSONObject("mediaDelivery") ?: JSONObject.NULL)
+                .toString()
+        }
         const val STATE_QUEUED = "QUEUED"
         const val STATE_RUNNING = "RUNNING"
+        const val STATE_PAUSED = "PAUSED_WAITING_USER"
+        const val STATE_RESUME_CHECK = "RESUME_CHECK"
         const val STATE_TERMINAL_PENDING = "TERMINAL_PENDING_UPLOAD"
         const val STATE_TERMINAL_CONFIRMED = "TERMINAL_CONFIRMED"
         const val STATE_TERMINAL_REJECTED = "TERMINAL_REJECTED"

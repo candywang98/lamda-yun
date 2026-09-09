@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -10,6 +11,7 @@ from cloudctl_automation_sdk import (
     evaluate_rollout_promotion,
     package_signature_payload,
     validate_manifest,
+    validate_recipe_package,
     verify_package_signature,
 )
 from cloudctl_domain import (
@@ -50,12 +52,16 @@ from .db import (
     MediaGroupRow,
     MediaTagRow,
     MediaUploadRow,
+    MobileTaskRow,
     PlatformAccountRow,
+    ProductGroupMembershipRow,
+    ProductGroupRow,
     ProductMediaRow,
     ProductRow,
     PublishPlanRow,
     PublishSnapshotRow,
     PublishTargetRow,
+    RecipeDeploymentRow,
     TenantRow,
     UserRow,
 )
@@ -93,6 +99,7 @@ from .schemas import (
     ProductMediaUpdate,
     ProductUpdate,
     PublishPlanCreate,
+    RecipePublishRequest,
     RevisionCreate,
     RoleUpdate,
     UserCreate,
@@ -336,16 +343,79 @@ class ControlService:
             )
             bindings = list(
                 await session.scalars(
-                    select(AccountDeviceBindingRow).where(
-                        AccountDeviceBindingRow.tenant_id == tenant_id,
-                        AccountDeviceBindingRow.status == "BOUND",
-                    )
+                    select(AccountDeviceBindingRow)
+                    .where(AccountDeviceBindingRow.tenant_id == tenant_id)
+                    .order_by(AccountDeviceBindingRow.bound_at.desc())
                 )
             )
             by_account: dict[str, list[AccountDeviceBindingRow]] = {}
             for binding in bindings:
                 by_account.setdefault(binding.account_id, []).append(binding)
             return [self._account_view(row, by_account.get(row.id, [])) for row in accounts]
+
+    async def get_account_ownership(self, actor: Actor, account_id: str) -> dict[str, Any]:
+        require_permissions(actor.roles, Permission.DEVICE_READ)
+        async with self.database.unit_of_work() as session:
+            tenant_id = str(actor.tenant_id)
+            account = await self._account(session, tenant_id, account_id)
+            bindings = list(
+                await session.scalars(
+                    select(AccountDeviceBindingRow)
+                    .where(
+                        AccountDeviceBindingRow.tenant_id == tenant_id,
+                        AccountDeviceBindingRow.account_id == account.id,
+                    )
+                    .order_by(AccountDeviceBindingRow.bound_at.desc())
+                )
+            )
+            tasks = list(
+                await session.scalars(
+                    select(MobileTaskRow)
+                    .where(
+                        MobileTaskRow.tenant_id == tenant_id,
+                        MobileTaskRow.account_id == account.id,
+                    )
+                    .order_by(MobileTaskRow.created_at.desc())
+                )
+            )
+            targets = list(
+                await session.scalars(
+                    select(PublishTargetRow)
+                    .where(
+                        PublishTargetRow.tenant_id == tenant_id,
+                        PublishTargetRow.account_id == account.id,
+                    )
+                    .order_by(PublishTargetRow.created_at.desc())
+                )
+            )
+            return {
+                "account": self._account_view(account, bindings),
+                "unbound": not any(row.status == "BOUND" for row in bindings),
+                "mobileTasks": [
+                    {
+                        "taskId": row.id,
+                        "status": row.status,
+                        "accountId": row.account_id,
+                        "bindingVersion": row.binding_version,
+                        "deviceId": row.device_id,
+                        "deviceIdAtExecution": row.device_id_at_execution,
+                        "errorCode": row.error_code,
+                    }
+                    for row in tasks
+                ],
+                "publishTargets": [
+                    {
+                        "id": row.id,
+                        "planId": row.plan_id,
+                        "accountId": row.account_id,
+                        "deviceId": row.device_id,
+                        "bindingVersion": row.binding_version,
+                        "deviceIdAtExecution": row.device_id_at_execution,
+                        "state": row.state,
+                    }
+                    for row in targets
+                ],
+            }
 
     async def bind_account_device(
         self,
@@ -359,11 +429,59 @@ class ControlService:
             account = await self._account(
                 session, repository.tenant_id, account_id, for_update=True
             )
-            device = await repository.device(request.device_id)
+            device = await repository.device(request.device_id, for_update=True)
             if account.status != "AUTHORIZED":
                 raise ConflictError("only an authorized account can be bound")
             if account.expires_at is not None and _aware(account.expires_at) <= _now():
                 raise ConflictError("account authorization has expired")
+            now = _now()
+            same_platform_bound = list(
+                await session.scalars(
+                    select(AccountDeviceBindingRow)
+                    .join(
+                        PlatformAccountRow,
+                        PlatformAccountRow.id == AccountDeviceBindingRow.account_id,
+                    )
+                    .where(
+                        AccountDeviceBindingRow.tenant_id == repository.tenant_id,
+                        AccountDeviceBindingRow.device_id == device.id,
+                        AccountDeviceBindingRow.status == "BOUND",
+                        PlatformAccountRow.platform == account.platform,
+                    )
+                    .with_for_update()
+                )
+            )
+            displaced: list[AccountDeviceBindingRow] = []
+            for existing in same_platform_bound:
+                if existing.account_id == account.id:
+                    continue
+                existing.status = "UNBOUND"
+                existing.unbound_at = now
+                displaced.append(existing)
+            if displaced:
+                await session.flush()
+                await self._block_stale_account_work(
+                    session,
+                    tenant_id=repository.tenant_id,
+                    device_id=device.id,
+                    account_ids=[row.account_id for row in displaced],
+                    reason="ACCOUNT_CHANGED",
+                    now=now,
+                )
+                from .db import TaskScheduleRow
+
+                paused = list(
+                    await session.scalars(
+                        select(TaskScheduleRow).where(
+                            TaskScheduleRow.tenant_id == repository.tenant_id,
+                            TaskScheduleRow.account_id.in_([row.account_id for row in displaced]),
+                            TaskScheduleRow.enabled.is_(True),
+                        )
+                    )
+                )
+                for schedule in paused:
+                    schedule.enabled = False
+                    schedule.paused_reason = "ACCOUNT_CHANGED"
             binding = await session.scalar(
                 select(AccountDeviceBindingRow)
                 .where(
@@ -382,23 +500,33 @@ class ControlService:
                     status="BOUND",
                     confirmed_by=str(actor.user_id),
                     confirmation_note=request.confirmation_note,
-                    bound_at=_now(),
+                    bound_at=now,
                     unbound_at=None,
-                    created_at=_now(),
+                    binding_version=1,
+                    platform=account.platform,
+                    created_at=now,
                 )
                 repository.add(binding)
             else:
+                next_version = binding.binding_version + (1 if binding.status != "BOUND" else 0)
                 binding.status = "BOUND"
                 binding.confirmed_by = str(actor.user_id)
                 binding.confirmation_note = request.confirmation_note
-                binding.bound_at = _now()
+                binding.bound_at = now
                 binding.unbound_at = None
+                binding.binding_version = next_version or 1
+                binding.platform = account.platform
             account.version += 1
             repository.audit(
                 action="account.device.bound",
                 resource_type="platform_account",
                 resource_id=account.id,
-                after={"device_id": device.id, "binding_id": binding.id},
+                after={
+                    "device_id": device.id,
+                    "binding_id": binding.id,
+                    "binding_version": binding.binding_version,
+                    "displaced_account_ids": [row.account_id for row in displaced],
+                },
                 device_id=device.id,
                 edge_id=device.edge_id,
             )
@@ -411,6 +539,7 @@ class ControlService:
             account = await self._account(
                 session, repository.tenant_id, account_id, for_update=True
             )
+            await repository.device(device_id, for_update=True)
             binding = await session.scalar(
                 select(AccountDeviceBindingRow)
                 .where(
@@ -422,9 +551,18 @@ class ControlService:
             )
             if binding is None or binding.status != "BOUND":
                 raise ConflictError("account is not actively bound to this device")
+            now = _now()
             binding.status = "UNBOUND"
-            binding.unbound_at = _now()
+            binding.unbound_at = now
             account.version += 1
+            await self._block_stale_account_work(
+                session,
+                tenant_id=repository.tenant_id,
+                device_id=device_id,
+                account_ids=[account.id],
+                reason="ACCOUNT_CHANGED",
+                now=now,
+            )
             repository.audit(
                 action="account.device.unbound",
                 resource_type="platform_account",
@@ -433,6 +571,80 @@ class ControlService:
                 after={"binding_id": binding.id, "status": "UNBOUND"},
                 device_id=device_id,
             )
+
+    async def _block_stale_account_work(
+        self,
+        session: AsyncSession,
+        *,
+        tenant_id: str,
+        device_id: str,
+        account_ids: list[str],
+        reason: str,
+        now: datetime,
+    ) -> None:
+        if not account_ids:
+            return
+        queued = list(
+            await session.scalars(
+                select(MobileTaskRow)
+                .where(
+                    MobileTaskRow.tenant_id == tenant_id,
+                    MobileTaskRow.device_id == device_id,
+                    MobileTaskRow.status == "QUEUED",
+                    MobileTaskRow.account_id.in_(account_ids),
+                )
+                .with_for_update()
+            )
+        )
+        for task in queued:
+            task.status = "FAILED"
+            task.business_state = "FAILED"
+            task.error_code = reason
+            task.detail = "account binding changed before execution"
+            task.completed_at = now
+            task.lease_id = None
+            task.lease_expires_at = None
+        open_plans = list(
+            await session.scalars(
+                select(PublishPlanRow)
+                .where(
+                    PublishPlanRow.tenant_id == tenant_id,
+                    PublishPlanRow.state.in_(
+                        {
+                            PublishState.DRAFT.value,
+                            PublishState.AWAITING_APPROVAL.value,
+                            PublishState.SCHEDULED.value,
+                            PublishState.QUEUED.value,
+                        }
+                    ),
+                )
+                .with_for_update()
+            )
+        )
+        for plan in open_plans:
+            targets = list(plan.targets or [])
+            if not any(
+                isinstance(target, dict)
+                and target.get("accountId") in account_ids
+                and target.get("deviceId") in {None, device_id}
+                for target in targets
+            ):
+                continue
+            current = PublishState(plan.state)
+            if current in {
+                PublishState.DRAFT,
+                PublishState.AWAITING_APPROVAL,
+                PublishState.SCHEDULED,
+                PublishState.QUEUED,
+            }:
+                plan.state = PublishState.CANCELED.value
+                plan.cancel_requested = True
+                plan.version += 1
+                plan.execution = {
+                    **dict(plan.execution or {}),
+                    "pausedReason": reason,
+                    "pausedAt": now.isoformat(),
+                }
 
     async def update_account_status(
         self, actor: Actor, account_id: str, request: AccountStatusUpdate
@@ -453,16 +665,27 @@ class ControlService:
             if request.status != "AUTHORIZED":
                 bindings = list(
                     await session.scalars(
-                        select(AccountDeviceBindingRow).where(
+                        select(AccountDeviceBindingRow)
+                        .where(
                             AccountDeviceBindingRow.account_id == account.id,
                             AccountDeviceBindingRow.tenant_id == repository.tenant_id,
                             AccountDeviceBindingRow.status == "BOUND",
                         )
+                        .with_for_update()
                     )
                 )
+                now = _now()
                 for binding in bindings:
                     binding.status = "UNBOUND"
-                    binding.unbound_at = _now()
+                    binding.unbound_at = now
+                    await self._block_stale_account_work(
+                        session,
+                        tenant_id=repository.tenant_id,
+                        device_id=binding.device_id,
+                        account_ids=[account.id],
+                        reason="ACCOUNT_CHANGED",
+                        now=now,
+                    )
             repository.audit(
                 action="account.authorization.status_changed",
                 resource_type="platform_account",
@@ -674,6 +897,7 @@ class ControlService:
                 created_at=_now(),
             )
             repository.add(product)
+            await session.flush()
             for order, asset_id in enumerate(asset_ids):
                 repository.add(
                     ProductMediaRow(
@@ -1281,10 +1505,10 @@ class ControlService:
         async with self.database.unit_of_work() as session:
             repository = ControlRepository(session, actor)
             
-            # Verify group exists
-            group = await session.get(ContentGroupRow, request.group_id)
+            # Verify group exists - 使用ProductGroupRow而不是ContentGroupRow
+            group = await session.get(ProductGroupRow, request.group_id)
             if group is None or group.tenant_id != repository.tenant_id:
-                raise ValidationError("content group does not exist in tenant")
+                raise ValidationError("product group does not exist in tenant")
             
             products = list(
                 await session.scalars(
@@ -1298,22 +1522,23 @@ class ControlService:
             if len(products) != len(request.product_ids):
                 raise ValidationError("one or more products do not exist or are archived")
             
-            # Remove existing group memberships
+            # Remove existing group memberships - 使用ProductGroupMembershipRow
             await session.execute(
-                delete(ContentGroupMembershipRow).where(
-                    ContentGroupMembershipRow.content_id.in_(request.product_ids),
-                    ContentGroupMembershipRow.tenant_id == repository.tenant_id,
+                delete(ProductGroupMembershipRow).where(
+                    ProductGroupMembershipRow.product_id.in_(request.product_ids),
+                    ProductGroupMembershipRow.tenant_id == repository.tenant_id,
                 )
             )
             
-            # Add new group memberships
+            # Add new group memberships - 使用ProductGroupMembershipRow
             for product_id in request.product_ids:
                 repository.add(
-                    ContentGroupMembershipRow(
+                    ProductGroupMembershipRow(
                         id=repository.new_id(),
                         tenant_id=repository.tenant_id,
                         group_id=request.group_id,
-                        content_id=product_id,
+                        product_id=product_id,
+                        added_by=repository.user_id,
                         created_at=_now(),
                     )
                 )
@@ -1454,10 +1679,10 @@ class ControlService:
             
             if request.group_id:
                 query = query.join(
-                    ContentGroupMembershipRow,
-                    (ContentGroupMembershipRow.content_id == ProductRow.id)
-                    & (ContentGroupMembershipRow.tenant_id == repository.tenant_id)
-                    & (ContentGroupMembershipRow.group_id == request.group_id),
+                    ProductGroupMembershipRow,
+                    (ProductGroupMembershipRow.product_id == ProductRow.id)
+                    & (ProductGroupMembershipRow.tenant_id == repository.tenant_id)
+                    & (ProductGroupMembershipRow.group_id == request.group_id),
                 )
             
             products = list(await session.scalars(query.order_by(ProductRow.created_at.desc())))
@@ -1531,14 +1756,64 @@ class ControlService:
                     "size_bytes": upload.size_bytes,
                 },
             )
+            upload_url = grant.url
+            if not upload_url.startswith(("http://", "https://")):
+                path = f"/api/v1/media/uploads/{upload.id}/content"
+                base = (self.settings.public_base_url or "").rstrip("/")
+                upload_url = f"{base}{path}" if base else path
             return {
                 "id": upload.id,
                 "state": upload.state,
                 "objectKey": upload.object_key,
-                "uploadUrl": grant.url,
+                "uploadUrl": upload_url,
                 "uploadHeaders": grant.headers,
                 "expiresAt": upload.expires_at,
             }
+
+    async def store_media_upload_content(
+        self, upload_id: str, content: bytes, content_type: str
+    ) -> None:
+        declared_type = content_type.split(";", 1)[0].strip() or "application/octet-stream"
+        async with self.database.unit_of_work() as session:
+            upload = await session.scalar(select(MediaUploadRow).where(MediaUploadRow.id == upload_id))
+            if upload is None:
+                raise NotFoundError("media upload does not exist")
+            if upload.state == "COMPLETED":
+                raise ConflictError("media upload already completed")
+            if upload.expires_at is not None and upload.expires_at < _now():
+                raise ValidationError("media upload has expired")
+            if len(content) != upload.size_bytes:
+                raise ValidationError("uploaded object size does not match the declared size")
+            digest = hashlib.sha256(content).hexdigest()
+            if digest != upload.expected_sha256:
+                raise ValidationError("uploaded object SHA256 does not match the declared digest")
+            if declared_type != upload.content_type:
+                raise ValidationError("uploaded object content type does not match")
+            object_key = upload.object_key
+            stored_type = upload.content_type
+        put = getattr(self.object_store, "put", None)
+        if put is None:
+            raise ValidationError("object store does not accept direct uploads")
+        put(object_key, content, stored_type)
+
+    async def download_media_asset(self, actor: Actor, asset_id: str) -> tuple[bytes, str]:
+        require_permissions(actor.roles, Permission.CONTENT_READ)
+        async with self.database.unit_of_work() as session:
+            repository = ControlRepository(session, actor)
+            asset = await session.scalar(
+                select(MediaAssetRow).where(
+                    MediaAssetRow.id == asset_id,
+                    MediaAssetRow.tenant_id == repository.tenant_id,
+                )
+            )
+            if asset is None:
+                raise NotFoundError("media asset was not found")
+            object_key = asset.object_key
+            content_type = asset.content_type
+        stored = await self.object_store.get(object_key)
+        if stored is None:
+            raise NotFoundError("media object was not found")
+        return stored.content, stored.content_type or content_type
 
     async def complete_media_upload(self, actor: Actor, upload_id: str) -> dict[str, Any]:
         require_permissions(actor.roles, Permission.CONTENT_WRITE)
@@ -1744,6 +2019,7 @@ class ControlService:
             )
             repository.add(content)
             repository.add(revision)
+            await session.flush()
             for media_id in dict.fromkeys(request.payload.get("mediaAssetIds") or []):
                 repository.add(
                     ContentRevisionMediaRow(
@@ -1792,6 +2068,7 @@ class ControlService:
                 created_at=_now(),
             )
             repository.add(revision)
+            await session.flush()
             for media_id in dict.fromkeys(request.payload.get("mediaAssetIds") or []):
                 repository.add(
                     ContentRevisionMediaRow(
@@ -2136,6 +2413,10 @@ class ControlService:
         async with self.database.unit_of_work() as session:
             repository = ControlRepository(session, actor)
             row = await repository.automation_version(version_id)
+            if self._is_local_recipe(row):
+                raise ValidationError(
+                    "recipe packages cannot use automation promotion; publish to devices instead"
+                )
             try:
                 decision = evaluate_rollout_promotion(
                     current_percentage=row.rollout_percentage,
@@ -2172,6 +2453,201 @@ class ControlService:
                 )
             )
             return self._automation_view(row)
+
+    async def register_recipe(self, actor: Actor, package: dict[str, Any]) -> dict[str, Any]:
+        require_permissions(actor.roles, Permission.RECIPE_PUBLISH)
+        if not isinstance(package, dict):
+            raise ValidationError("recipe package must be an object")
+        signature = package.get("signature") if isinstance(package.get("signature"), dict) else {}
+        key_id = signature.get("keyId")
+        digest = signature.get("digest")
+        if not isinstance(key_id, str) or not key_id:
+            raise ValidationError("recipe package uses an untrusted signing key")
+        if digest == "hash-pinned-builtin":
+            raise ValidationError("builtin hash-pin is not a published catalog signature")
+        public_key = self.settings.automation_signing_public_keys.get(key_id)
+        if public_key is None:
+            raise ValidationError("recipe package uses an untrusted signing key")
+        try:
+            parsed = validate_recipe_package(package, public_key_base64=public_key)
+        except ValueError as exc:
+            raise ValidationError(str(exc)) from exc
+        payload_digest = verify_package_signature(
+            public_key_base64=public_key,
+            signature_base64=parsed.signature.digest,
+            payload=package_signature_payload(
+                artifact_sha256=parsed.manifest.hash,
+                manifest=package["manifest"],
+                sbom_ref="recipe://local",
+                sbom_sha256=parsed.manifest.hash,
+            ),
+        )
+        async with self.database.unit_of_work() as session:
+            repository = ControlRepository(session, actor)
+            existing = await session.scalar(
+                select(AutomationVersionRow).where(
+                    AutomationVersionRow.tenant_id == repository.tenant_id,
+                    AutomationVersionRow.name == parsed.manifest.id,
+                    AutomationVersionRow.version == parsed.manifest.version,
+                )
+            )
+            if existing is not None:
+                if existing.artifact_sha256 != parsed.manifest.hash:
+                    raise ConflictError("recipe name/version already registered with a different hash")
+                return self._recipe_view(existing)
+            row = AutomationVersionRow(
+                id=repository.new_id(),
+                tenant_id=repository.tenant_id,
+                name=parsed.manifest.id,
+                version=parsed.manifest.version,
+                artifact_sha256=parsed.manifest.hash,
+                manifest=package,
+                signature_key_id=parsed.signature.key_id,
+                signature_digest=payload_digest,
+                sbom_ref="recipe://local",
+                sbom_sha256=parsed.manifest.hash,
+                rollout_percentage=0,
+                rollout_evidence=[],
+                production_qualified=False,
+                created_at=_now(),
+            )
+            repository.add(row)
+            repository.audit(
+                action="recipe.version.registered",
+                resource_type="automation_package_version",
+                resource_id=row.id,
+                after={
+                    "name": row.name,
+                    "version": row.version,
+                    "sha256": row.artifact_sha256,
+                    "signature_key_id": row.signature_key_id,
+                    "command_types": parsed.manifest.command_types,
+                },
+            )
+            repository.emit(
+                repository.event(
+                    "automation_package_version",
+                    row.id,
+                    "recipe.package.registered",
+                    {"versionId": row.id, "sha256": row.artifact_sha256},
+                )
+            )
+            return self._recipe_view(row)
+
+    async def publish_recipe(
+        self, actor: Actor, version_id: str, request: RecipePublishRequest
+    ) -> dict[str, Any]:
+        require_permissions(actor.roles, Permission.RECIPE_PUBLISH)
+        async with self.database.unit_of_work() as session:
+            repository = ControlRepository(session, actor)
+            row = await repository.automation_version(version_id)
+            if not self._is_local_recipe(row):
+                raise ValidationError("automation packages cannot be published as device recipes")
+            command_types = list(row.manifest.get("manifest", {}).get("commandTypes") or [])
+            if not command_types:
+                raise ValidationError("recipe package has no commandTypes")
+            deployments: list[RecipeDeploymentRow] = []
+            for device_id in request.target_device_ids:
+                await repository.device(device_id)
+                existing = await session.scalar(
+                    select(RecipeDeploymentRow).where(
+                        RecipeDeploymentRow.tenant_id == repository.tenant_id,
+                        RecipeDeploymentRow.device_id == device_id,
+                        RecipeDeploymentRow.idempotency_key == request.idempotency_key,
+                    )
+                )
+                if existing is not None:
+                    if existing.version_id != row.id:
+                        raise ConflictError("idempotency key already used for a different recipe version")
+                    deployments.append(existing)
+                    continue
+                previous = await session.scalar(
+                    select(RecipeDeploymentRow).where(
+                        RecipeDeploymentRow.tenant_id == repository.tenant_id,
+                        RecipeDeploymentRow.device_id == device_id,
+                        RecipeDeploymentRow.command_type == command_types[0],
+                        RecipeDeploymentRow.status == "PUBLISHED",
+                    )
+                )
+                previous_id = previous.version_id if previous is not None else None
+                if previous is not None and previous.version_id != row.id:
+                    previous.status = "REVOKED"
+                if previous is not None and previous.version_id == row.id:
+                    deployments.append(previous)
+                    continue
+                deployment = RecipeDeploymentRow(
+                    id=repository.new_id(),
+                    tenant_id=repository.tenant_id,
+                    version_id=row.id,
+                    device_id=device_id,
+                    command_type=command_types[0],
+                    status="PUBLISHED",
+                    idempotency_key=request.idempotency_key,
+                    previous_version_id=previous_id,
+                    published_by=str(actor.user_id),
+                    created_at=_now(),
+                )
+                repository.add(deployment)
+                deployments.append(deployment)
+            repository.audit(
+                action="recipe.version.published",
+                resource_type="automation_package_version",
+                resource_id=row.id,
+                after={
+                    "device_ids": list(request.target_device_ids),
+                    "idempotency_key": request.idempotency_key,
+                },
+            )
+            return self._recipe_view(row, deployments)
+
+    async def revoke_recipe(
+        self, actor: Actor, version_id: str, request: RecipePublishRequest
+    ) -> dict[str, Any]:
+        require_permissions(actor.roles, Permission.RECIPE_PUBLISH)
+        async with self.database.unit_of_work() as session:
+            repository = ControlRepository(session, actor)
+            row = await repository.automation_version(version_id)
+            if not self._is_local_recipe(row):
+                raise ValidationError("automation packages cannot be revoked as device recipes")
+            deployments: list[RecipeDeploymentRow] = []
+            for device_id in request.target_device_ids:
+                await repository.device(device_id)
+                current = await session.scalar(
+                    select(RecipeDeploymentRow).where(
+                        RecipeDeploymentRow.tenant_id == repository.tenant_id,
+                        RecipeDeploymentRow.device_id == device_id,
+                        RecipeDeploymentRow.version_id == row.id,
+                        RecipeDeploymentRow.status == "PUBLISHED",
+                    )
+                )
+                if current is None:
+                    continue
+                current.status = "REVOKED"
+                deployments.append(current)
+            repository.audit(
+                action="recipe.version.revoked",
+                resource_type="automation_package_version",
+                resource_id=row.id,
+                after={"device_ids": list(request.target_device_ids)},
+            )
+            return self._recipe_view(row, deployments)
+
+    async def get_recipe(self, actor: Actor, version_id: str) -> dict[str, Any]:
+        require_permissions(actor.roles, Permission.RECIPE_PUBLISH)
+        async with self.database.unit_of_work() as session:
+            repository = ControlRepository(session, actor)
+            row = await repository.automation_version(version_id)
+            if not self._is_local_recipe(row):
+                raise NotFoundError("recipe package version was not found")
+            deployments = list(
+                await session.scalars(
+                    select(RecipeDeploymentRow).where(
+                        RecipeDeploymentRow.tenant_id == repository.tenant_id,
+                        RecipeDeploymentRow.version_id == row.id,
+                    )
+                )
+            )
+            return self._recipe_view(row, deployments)
 
     async def register_apk(self, actor: Actor, request: ApkArtifactCreate) -> dict[str, Any]:
         require_permissions(actor.roles, Permission.APK_MANAGE)
@@ -2393,13 +2869,31 @@ class ControlService:
                 account_id = target_payload.get("accountId")
                 if not isinstance(account_id, str) or not account_id:
                     raise ValidationError("every target requires accountId")
+                device_id = target_payload.get("deviceId")
+                frozen_binding_version = None
+                if isinstance(device_id, str) and device_id:
+                    live_binding = await session.scalar(
+                        select(AccountDeviceBindingRow).where(
+                            AccountDeviceBindingRow.tenant_id == repository.tenant_id,
+                            AccountDeviceBindingRow.account_id == account_id,
+                            AccountDeviceBindingRow.device_id == device_id,
+                            AccountDeviceBindingRow.status == "BOUND",
+                        )
+                    )
+                    if live_binding is None:
+                        raise ConflictError(
+                            "publish target account is not bound to the selected device"
+                        )
+                    frozen_binding_version = live_binding.binding_version
                 target = PublishTargetRow(
                     id=repository.new_id(),
                     tenant_id=repository.tenant_id,
                     plan_id=plan.id,
                     snapshot_id=snapshot.id,
                     account_id=account_id,
-                    device_id=target_payload.get("deviceId"),
+                    device_id=device_id if isinstance(device_id, str) else None,
+                    binding_version=frozen_binding_version,
+                    device_id_at_execution=None,
                     state=target_state.value,
                     result_detail=None,
                     cancel_requested=False,
@@ -2884,6 +3378,9 @@ class ControlService:
             "confirmationNote": row.confirmation_note,
             "boundAt": row.bound_at,
             "unboundAt": row.unbound_at,
+            "bindingVersion": row.binding_version,
+            "platform": row.platform,
+            "historical": row.status != "BOUND",
         }
 
     @staticmethod
@@ -3057,6 +3554,11 @@ class ControlService:
         return await self._content_group_ids(session, repository.tenant_id, content_id)
 
     @staticmethod
+    def _is_local_recipe(row: AutomationVersionRow) -> bool:
+        manifest = row.manifest if isinstance(row.manifest, dict) else {}
+        return manifest.get("kind") == "LocalRecipePackage" or row.sbom_ref == "recipe://local"
+
+    @staticmethod
     def _automation_view(row: AutomationVersionRow) -> dict[str, Any]:
         return _row(
             row,
@@ -3073,6 +3575,31 @@ class ControlService:
             "rollout_evidence",
             "production_qualified",
         )
+
+    @staticmethod
+    def _recipe_view(
+        row: AutomationVersionRow, deployments: list[RecipeDeploymentRow] | None = None
+    ) -> dict[str, Any]:
+        return {
+            "id": row.id,
+            "versionId": row.id,
+            "name": row.name,
+            "version": row.version,
+            "artifactSha256": row.artifact_sha256,
+            "signingKeyId": row.signature_key_id,
+            "package": row.manifest,
+            "deployments": [
+                {
+                    "id": item.id,
+                    "deviceId": item.device_id,
+                    "commandType": item.command_type,
+                    "status": item.status,
+                    "previousVersionId": item.previous_version_id,
+                    "idempotencyKey": item.idempotency_key,
+                }
+                for item in deployments or []
+            ],
+        }
 
     @staticmethod
     def _apk_view(row: ApkArtifactRow) -> dict[str, Any]:
@@ -3143,6 +3670,8 @@ class ControlService:
             "snapshot_id",
             "account_id",
             "device_id",
+            "binding_version",
+            "device_id_at_execution",
             "state",
             "result_detail",
             "cancel_requested",
@@ -3171,6 +3700,7 @@ class ControlService:
             "fencing_token",
             "expires_at",
             "canceled_at",
+            "owner_type",
         )
 
     @staticmethod

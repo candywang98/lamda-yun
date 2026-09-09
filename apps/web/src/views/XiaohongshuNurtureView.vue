@@ -66,7 +66,7 @@ onMounted(async () => {
         <span class="label">适配多开</span>
         <div>
           <label class="radio" for="xhs-multi-off"><input id="xhs-multi-off" v-model="form.multiOpen" type="radio" value="off" /> 关闭</label>
-          <label class="radio" for="xhs-multi-on"><input id="xhs-multi-on" v-model="form.multiOpen" type="radio" value="clone" /> 红薯多开</label>
+          <p class="hint">一期只做官方单开小红书，多开已禁用。</p>
         </div>
       </div>
       <div class="row">

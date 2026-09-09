@@ -9,7 +9,7 @@ from typing import Annotated, Any, cast
 
 from cloudctl_domain import Actor, Permission, PublishState, require_permissions
 from cloudctl_domain.rbac import ROLE_PERMISSIONS
-from fastapi import APIRouter, Depends, Header, Query, Request, Response, status
+from fastapi import APIRouter, Body, Depends, Header, Query, Request, Response, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import StreamingResponse
 
@@ -49,6 +49,7 @@ from .schemas import (
     ProductMediaUpdate,
     ProductUpdate,
     PublishPlanCreate,
+    RecipePublishRequest,
     RevisionCreate,
     RoleUpdate,
     TargetStateUpdate,
@@ -165,6 +166,15 @@ async def list_platform_accounts(
     return await control.list_platform_accounts(actor)
 
 
+@router.get("/accounts/{account_id}/ownership")
+async def get_account_ownership(
+    account_id: str,
+    actor: ActorDependency,
+    control: ServiceDependency,
+) -> dict[str, Any]:
+    return await control.get_account_ownership(actor, account_id)
+
+
 @router.post("/accounts/{account_id}/bindings", status_code=status.HTTP_201_CREATED)
 async def bind_account_device(
     account_id: str,
@@ -246,6 +256,18 @@ async def media_references(
     asset_id: str, actor: ActorDependency, control: ServiceDependency
 ) -> dict[str, Any]:
     return await control.get_media_references(actor, asset_id)
+
+
+@router.get("/media/assets/{asset_id}/content")
+async def download_media_asset_content(
+    asset_id: str, actor: ActorDependency, control: ServiceDependency
+) -> Response:
+    content, content_type = await control.download_media_asset(actor, asset_id)
+    return Response(
+        content=content,
+        media_type=content_type,
+        headers={"Cache-Control": "private, max-age=3600"},
+    )
 
 
 @router.get("/media/assets")
@@ -386,6 +408,18 @@ async def filter_products(
     control: ServiceDependency,
 ) -> list[dict[str, Any]]:
     return await control.filter_products(actor, body)
+
+
+@router.put("/media/uploads/{upload_id}/content", status_code=status.HTTP_204_NO_CONTENT)
+async def put_media_upload_content(
+    upload_id: str,
+    request: Request,
+    control: ServiceDependency,
+) -> Response:
+    body = await request.body()
+    content_type = request.headers.get("content-type") or "application/octet-stream"
+    await control.store_media_upload_content(upload_id, body, content_type)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/media/uploads/{upload_id}:complete")
@@ -542,6 +576,44 @@ async def promote_automation_package(
     control: ServiceDependency,
 ) -> dict[str, Any]:
     return await control.promote_automation(actor, version_id, body)
+
+
+@router.post("/recipes", status_code=status.HTTP_201_CREATED)
+async def register_recipe_package(
+    actor: ActorDependency,
+    control: ServiceDependency,
+    body: dict[str, Any] = Body(...),
+) -> dict[str, Any]:
+    return await control.register_recipe(actor, body)
+
+
+@router.get("/recipes/{version_id}")
+async def get_recipe_package(
+    version_id: str,
+    actor: ActorDependency,
+    control: ServiceDependency,
+) -> dict[str, Any]:
+    return await control.get_recipe(actor, version_id)
+
+
+@router.post("/recipes/{version_id}:publish")
+async def publish_recipe_package(
+    version_id: str,
+    body: RecipePublishRequest,
+    actor: ActorDependency,
+    control: ServiceDependency,
+) -> dict[str, Any]:
+    return await control.publish_recipe(actor, version_id, body)
+
+
+@router.post("/recipes/{version_id}:revoke")
+async def revoke_recipe_package(
+    version_id: str,
+    body: RecipePublishRequest,
+    actor: ActorDependency,
+    control: ServiceDependency,
+) -> dict[str, Any]:
+    return await control.revoke_recipe(actor, version_id, body)
 
 
 @router.post("/apk-artifacts", status_code=status.HTTP_201_CREATED)

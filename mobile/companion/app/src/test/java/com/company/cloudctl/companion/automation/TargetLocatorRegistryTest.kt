@@ -44,7 +44,7 @@ class TargetLocatorRegistryTest {
 
     @Test
     fun resolvesIdlefishPublishFormControls() {
-        val description = assertIs<ApprovedLocator.ContentDescription>(
+        val description = assertIs<ApprovedLocator.ContentDescriptionPrefix>(
             TargetLocatorRegistry.resolve(
                 TargetLocatorRegistry.XIANYU_PACKAGE,
                 "xianyu_description",
@@ -57,15 +57,21 @@ class TargetLocatorRegistryTest {
             ),
         )
 
-        assertEquals("描述一下宝贝的品牌型号、货品来源…", description.value)
+        assertEquals("描述一下", description.prefix)
         assertEquals("价格", price.prefix)
         listOf(
             "xianyu_home_sell",
             "xianyu_publish_entry",
             "xianyu_publish_page",
+            "xianyu_draft_discard",
+            "xianyu_paste",
+            "xianyu_select_all",
             "xianyu_add_image",
             "xianyu_shipping",
             "xianyu_location",
+            "xianyu_crop_done",
+            "xianyu_price_amount",
+            "xianyu_publish_success",
             "xianyu_publish_button",
         ).forEach { locatorRef ->
             TargetLocatorRegistry.resolve(TargetLocatorRegistry.XIANYU_PACKAGE, locatorRef)

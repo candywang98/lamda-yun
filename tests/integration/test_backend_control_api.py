@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import uuid
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
@@ -9,9 +10,11 @@ import httpx
 import pytest
 from cloudctl_api import create_app
 from cloudctl_api.apk_policy import canonical_analysis_payload
+from cloudctl_api.builtin_recipes import builtin_recipe_package
 from cloudctl_api.schemas import ApkAnalysisReport
 from cloudctl_api.settings import Settings
 from cloudctl_automation_sdk import package_signature_payload, validate_manifest
+from cloudctl_automation_sdk.recipe import canonical_recipe_bytes
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
@@ -116,6 +119,43 @@ def signed_automation_request() -> dict:
         "sbomSha256": sbom_sha256,
         "signature": base64.b64encode(signature).decode("ascii"),
     }
+
+
+def signed_recipe_package(*, version: str = "1.0.1") -> dict:
+    package = {
+        "apiVersion": "cloudctl.recipe/v1",
+        "kind": "LocalRecipePackage",
+        "manifest": {
+            "id": "recipe-device-probe-signed",
+            "version": version,
+            "hash": "0" * 64,
+            "signingKeyId": AUTOMATION_KEY_ID,
+            "minEngineVersion": 1,
+            "platform": "companion",
+            "app": "com.company.cloudctl.companion",
+            "commandTypes": ["device.probe_capabilities.v1"],
+        },
+        "graph": {
+            "startStateId": "probe",
+            "maxIterations": 8,
+            "maxDurationMs": 30000,
+            "states": [
+                {"stateId": "probe", "action": "log", "onSuccess": "SUCCEEDED", "terminal": True}
+            ],
+        },
+        "signature": {"algorithm": "Ed25519", "keyId": AUTOMATION_KEY_ID, "digest": "pending"},
+    }
+    package["manifest"]["hash"] = hashlib.sha256(canonical_recipe_bytes(package)).hexdigest()
+    payload = package_signature_payload(
+        artifact_sha256=package["manifest"]["hash"],
+        manifest=package["manifest"],
+        sbom_ref="recipe://local",
+        sbom_sha256=package["manifest"]["hash"],
+    )
+    package["signature"]["digest"] = base64.b64encode(AUTOMATION_PRIVATE_KEY.sign(payload)).decode(
+        "ascii"
+    )
+    return package
 
 
 def signed_apk_request(*, findings: list[dict] | None = None) -> dict:
@@ -585,3 +625,106 @@ async def test_tenant_isolation_and_problem_details(client: httpx.AsyncClient) -
     assert response.status_code == 404
     assert response.headers["content-type"].startswith("application/problem+json")
     assert response.json()["correlation_id"] == other["X-Request-Id"]
+
+
+@pytest.mark.asyncio
+async def test_recipe_catalog_requires_signature_and_manual_device_publish(
+    client: httpx.AsyncClient,
+) -> None:
+    refs = await bootstrap(client)
+    publisher = headers(CREATOR, "publisher")
+    developer = headers(CREATOR, "automation_developer")
+    builtin = builtin_recipe_package("device.probe_capabilities.v1")
+    denied = await client.post("/api/v1/recipes", headers=publisher, json=signed_recipe_package())
+    assert denied.status_code == 403
+    unsigned = await client.post("/api/v1/recipes", headers=developer, json=builtin)
+    assert unsigned.status_code == 422
+    tampered = signed_recipe_package()
+    tampered["graph"]["maxIterations"] = 7
+    rejected = await client.post("/api/v1/recipes", headers=developer, json=tampered)
+    assert rejected.status_code == 422
+    registered = await client.post("/api/v1/recipes", headers=developer, json=signed_recipe_package())
+    assert registered.status_code == 201, registered.text
+    version_id = registered.json()["versionId"]
+    assert registered.json()["artifactSha256"] == signed_recipe_package()["manifest"]["hash"]
+    skipped = await client.post(
+        f"/api/v1/automation-packages/{version_id}:promote",
+        headers=headers(CREATOR, "security_admin"),
+        json={
+            "targetPercentage": 5,
+            "evidence": {
+                "sampleSize": 0,
+                "successCount": 0,
+                "failureCount": 0,
+                "safetyViolations": 0,
+                "p95DurationMs": 0,
+            },
+        },
+    )
+    assert skipped.status_code == 422
+    published = await client.post(
+        f"/api/v1/recipes/{version_id}:publish",
+        headers=developer,
+        json={
+            "targetDeviceIds": [refs["device_id"]],
+            "idempotencyKey": "publish-oneplus-probe-1",
+        },
+    )
+    assert published.status_code == 200, published.text
+    assert published.json()["deployments"][0]["status"] == "PUBLISHED"
+    replay = await client.post(
+        f"/api/v1/recipes/{version_id}:publish",
+        headers=developer,
+        json={
+            "targetDeviceIds": [refs["device_id"]],
+            "idempotencyKey": "publish-oneplus-probe-1",
+        },
+    )
+    assert replay.json()["deployments"][0]["id"] == published.json()["deployments"][0]["id"]
+    enrollment = await client.post(
+        "/api/v1/mobile/enrollments",
+        headers=headers(CREATOR, "device_operator"),
+        json={"deviceId": refs["device_id"], "ttlSeconds": 600},
+    )
+    assert enrollment.status_code == 201, enrollment.text
+    companion = await client.post(
+        "/companion/v2/enroll",
+        json={
+            "code": enrollment.json()["code"],
+            "appInstanceId": "recipe-catalog-instance",
+            "companionVersion": "1.0.0",
+        },
+    )
+    assert companion.status_code == 201, companion.text
+    token = companion.json()["bindingToken"]
+    active = await client.get(
+        "/companion/v2/recipes/active",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert active.status_code == 200, active.text
+    assert active.json()["items"][0]["versionId"] == version_id
+    download = await client.get(
+        f"/companion/v2/recipes/{version_id}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert download.status_code == 200, download.text
+    assert download.headers["x-content-sha256"] == signed_recipe_package()["manifest"]["hash"]
+    revoked = await client.post(
+        f"/api/v1/recipes/{version_id}:revoke",
+        headers=developer,
+        json={
+            "targetDeviceIds": [refs["device_id"]],
+            "idempotencyKey": "revoke-oneplus-probe-1",
+        },
+    )
+    assert revoked.status_code == 200, revoked.text
+    empty = await client.get(
+        "/companion/v2/recipes/active",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert empty.json()["items"] == []
+    missing = await client.get(
+        f"/companion/v2/recipes/{version_id}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert missing.status_code == 404

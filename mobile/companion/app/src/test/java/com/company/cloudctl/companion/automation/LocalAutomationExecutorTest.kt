@@ -94,6 +94,98 @@ class LocalAutomationExecutorTest {
     }
 
     @Test
+    fun pausesDuringWaitWithoutCompletingTheGesture() = runBlocking {
+        val ui = FakeUi()
+        val control = ExecutionControl()
+        val journal = mutableListOf<String>()
+        val paused = assertFailsWith<TaskPausedException> {
+            executor(ui).execute(
+                task(AutomationStep.Wait("1", 1_000, "login", NodeCondition.EXISTS, 100)),
+                control,
+            ) { step, state ->
+                journal += "${step.stepId}:$state"
+                if (state == "STARTED") control.requestPause("operator taking over")
+            }
+        }
+        assertEquals(null, paused.lastCompletedStepId)
+        assertEquals(-1, paused.lastCompletedStepIndex)
+        assertEquals(listOf("1:STARTED"), journal)
+        assertTrue(ui.taps.isEmpty())
+    }
+
+    @Test
+    fun pausesBetweenCompletedStepsWithoutStartingTheNextGesture() = runBlocking {
+        val ui = FakeUi().apply {
+            nodes["login"] = node(clickable = true)
+            tapCreates = "username" to node(editable = true, text = "")
+        }
+        val control = ExecutionControl()
+        val journal = mutableListOf<String>()
+        val paused = assertFailsWith<TaskPausedException> {
+            executor(ui).execute(
+                task(
+                    AutomationStep.Find("1", 1_000, "login"),
+                    AutomationStep.Tap("2", 1_000, "login", "username"),
+                    AutomationStep.Input("3", 1_000, "username", "operator", sensitive = true),
+                ),
+                control,
+            ) { step, state ->
+                journal += "${step.stepId}:$state"
+                if (step.stepId == "1" && state == "SUCCEEDED") control.requestPause("operator taking over")
+            }
+        }
+        assertEquals("1", paused.lastCompletedStepId)
+        assertEquals(0, paused.lastCompletedStepIndex)
+        assertEquals(listOf("1:STARTED", "1:SUCCEEDED"), journal)
+        assertTrue(ui.taps.isEmpty())
+    }
+
+    @Test
+    fun resumesAfterCompletedIndexWithoutReplayingEarlierGestures() = runBlocking {
+        val ui = FakeUi().apply {
+            nodes["login"] = node(clickable = true)
+            tapCreates = "username" to node(editable = true, text = "")
+        }
+        val journal = mutableListOf<String>()
+        executor(ui).execute(
+            task(
+                AutomationStep.Find("1", 1_000, "login"),
+                AutomationStep.Tap("2", 1_000, "login", "username"),
+                AutomationStep.Input("3", 1_000, "username", "operator", sensitive = true),
+            ),
+            startAfterIndex = 0,
+        ) { step, state -> journal += "${step.stepId}:$state" }
+
+        assertEquals(listOf("2:STARTED", "2:SUCCEEDED", "3:STARTED", "3:SUCCEEDED"), journal)
+        assertEquals(listOf("login"), ui.taps)
+        assertEquals("operator", ui.nodes.getValue("username").text)
+    }
+
+    @Test
+    fun pauseDuringLaterWaitKeepsPreviousCompletedIndex() = runBlocking {
+        val ui = FakeUi().apply {
+            nodes["login"] = node(clickable = true)
+            tapCreates = "username" to node(editable = true, text = "")
+        }
+        val control = ExecutionControl()
+        val paused = assertFailsWith<TaskPausedException> {
+            executor(ui).execute(
+                task(
+                    AutomationStep.Find("1", 1_000, "login"),
+                    AutomationStep.Tap("2", 1_000, "login", "username"),
+                    AutomationStep.Wait("3", 1_000, "missing", NodeCondition.EXISTS, 50),
+                ),
+                control,
+            ) { step, state ->
+                if (step.stepId == "3" && state == "STARTED") control.requestPause("operator taking over")
+            }
+        }
+        assertEquals("2", paused.lastCompletedStepId)
+        assertEquals(1, paused.lastCompletedStepIndex)
+        assertEquals(listOf("login"), ui.taps)
+    }
+
+    @Test
     fun executesIdlefishTextPublishFormAndStopsBeforeMediaOrSubmit() = runBlocking {
         val ui = FakeUi().apply {
             allowedPackage = TargetLocatorRegistry.XIANYU_PACKAGE
@@ -131,6 +223,22 @@ class LocalAutomationExecutorTest {
         assertTrue("xianyu_publish_button" !in ui.taps)
     }
 
+    @Test
+    fun acceptsFlutterHintReplacementAfterInput() = runBlocking {
+        val ui = FakeUi().apply {
+            allowedPackage = TargetLocatorRegistry.XIANYU_PACKAGE
+            dropLocatorAfterInput = true
+            nodes["xianyu_description"] = node(editable = true, text = "")
+        }
+        executor(ui).execute(
+            task(
+                TargetLocatorRegistry.XIANYU_PACKAGE,
+                AutomationStep.Input("fill-description", 1_000, "xianyu_description", "联调测试", false),
+            ),
+        ) { _, _ -> }
+        assertTrue("xianyu_description" !in ui.nodes)
+    }
+
     private fun executor(ui: FakeUi) = LocalAutomationExecutor(
         ui = ui,
         now = { fixedNow },
@@ -164,6 +272,7 @@ class LocalAutomationExecutorTest {
         val logs = mutableListOf<Pair<LogLevel, String>>()
         var readyFailure: ExecutorFailure? = null
         var applyInput = true
+        var dropLocatorAfterInput = false
         var allowedPackage = TargetLocatorRegistry.COMPANION_PACKAGE
         var tapCreates: Pair<String, LocalNodeState>? = null
         var followUpTapCreates: Pair<String, LocalNodeState>? = null
@@ -176,6 +285,9 @@ class LocalAutomationExecutorTest {
 
         override fun inspect(targetPackage: String, locatorRef: String) = nodes[locatorRef]
 
+        override fun visibleTextContains(expected: String) =
+            nodes.values.any { expected in (it.text ?: "") }
+
         override suspend fun tap(targetPackage: String, locatorRef: String) {
             taps += locatorRef
             val created = if (taps.size == 1) tapCreates else followUpTapCreates ?: tapCreates
@@ -183,6 +295,10 @@ class LocalAutomationExecutorTest {
         }
 
         override suspend fun replaceText(targetPackage: String, locatorRef: String, value: String) {
+            if (dropLocatorAfterInput) {
+                nodes.remove(locatorRef)
+                return
+            }
             if (applyInput) nodes[locatorRef] = nodes.getValue(locatorRef).copy(text = value)
         }
 

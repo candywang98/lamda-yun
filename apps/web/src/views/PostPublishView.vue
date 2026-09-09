@@ -3,7 +3,8 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { createPostCatalog } from '@/api/post-catalog'
 import XianyuDevicePicker from '@/components/XianyuDevicePicker.vue'
-import { clipText, formatDateTime, type PostRecord } from '@/data/post-fields'
+import { clipText, formatDateTime, postImageIds, type PostRecord } from '@/data/post-fields'
+import MediaThumb from '@/components/MediaThumb.vue'
 import { resolvePostGroups } from '@/data/post-groups'
 import { downloadDataUrl } from '@/data/product-fields'
 import {
@@ -167,7 +168,7 @@ onMounted(async () => {
         <span class="label">执行应用</span>
         <div>
           <label class="radio" for="pub-app-main"><input id="pub-app-main" v-model="form.app" type="radio" value="main" /> 主闲鱼</label>
-          <label class="radio" for="pub-app-sub"><input id="pub-app-sub" v-model="form.app" type="radio" value="sub" /> 副闲鱼</label>
+          <p class="hint">一期每设备仅绑定一个闲鱼账号，副闲鱼已禁用。</p>
         </div>
       </div>
       <template v-else>
@@ -175,7 +176,7 @@ onMounted(async () => {
           <span class="label">适配多开</span>
           <div>
             <label class="radio" for="pub-multi-off"><input id="pub-multi-off" v-model="form.multiOpen" type="radio" :value="false" /> 关闭</label>
-            <label class="radio" for="pub-multi-on"><input id="pub-multi-on" v-model="form.multiOpen" type="radio" :value="true" /> 红薯多开</label>
+            <p class="hint">一期只做官方单开小红书，多开已禁用。</p>
           </div>
         </div>
         <div class="row">
@@ -258,8 +259,8 @@ onMounted(async () => {
             <td>{{ post.groupName }}</td>
             <td>
               <div class="thumbs">
-                <img v-for="(image, index) in post.images.slice(0, 1)" :key="index" :src="image" alt="" />
-                <span v-if="post.images.length" class="badge">{{ post.images.length }}张</span>
+                <MediaThumb v-for="(image, index) in postImageIds(post).slice(0, 1)" :key="`${post.id}-${image}-${index}`" :asset-id="image" :size="48" :alt="post.title" />
+                <span v-if="postImageIds(post).length" class="badge">{{ postImageIds(post).length }}张</span>
                 <span v-else class="muted">无图</span>
               </div>
             </td>

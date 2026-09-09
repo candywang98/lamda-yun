@@ -174,6 +174,8 @@ class MobileTaskCreate(StrictModel):
     total_timeout_ms: int = Field(alias="totalTimeoutMs", ge=1_000, le=MAX_TOTAL_TIMEOUT_MS)
     steps: list[MobileStep] = Field(min_length=1, max_length=MAX_STEPS)
     media_delivery: MobileMediaDelivery | None = Field(default=None, alias="mediaDelivery")
+    account_id: str | None = Field(default=None, alias="accountId", min_length=1, max_length=36)
+    expected_binding_version: int | None = Field(default=None, alias="expectedBindingVersion", ge=1)
 
     @field_validator("target_package")
     @classmethod
@@ -246,12 +248,40 @@ class MobileClaimRequest(StrictModel):
     lease_seconds: int = Field(default=60, alias="leaseSeconds", ge=10, le=300)
 
 
+_NETWORK_ALIASES = {
+    "WIFI": "WIFI",
+    "WI-FI": "WIFI",
+    "CELLULAR": "CELLULAR",
+    "CELL": "CELLULAR",
+    "UNKNOWN": "UNKNOWN",
+    "OFFLINE": "UNKNOWN",
+    "ETHERNET": "WIFI",
+    "CONNECTED": "UNKNOWN",
+}
+
+
 class MobileDeviceHealth(StrictModel):
     battery_percent: int | None = Field(default=None, alias="batteryPercent", ge=0, le=100)
     charging: bool | None = None
-    network: str | None = Field(default=None, max_length=32)
+    network: Literal["WIFI", "CELLULAR", "UNKNOWN"] | None = Field(default=None)
+
+    @field_validator("network", mode="before")
+    @classmethod
+    def normalize_network(cls, value: object) -> object:
+        if not isinstance(value, str):
+            return value
+        return _NETWORK_ALIASES.get(value.strip().upper().replace(" ", ""), value)
     temperature_celsius: float | None = Field(default=None, alias="temperatureCelsius")
     free_storage_bytes: int | None = Field(default=None, alias="freeStorageBytes", ge=0)
+    manufacturer: str | None = Field(default=None, max_length=80)
+    model: str | None = Field(default=None, max_length=80)
+    sdk_int: int | None = Field(default=None, alias="sdkInt", ge=1, le=100)
+    rom_summary: str | None = Field(default=None, alias="romSummary", max_length=160)
+    media_projection: Literal["GRANTED", "DENIED", "UNKNOWN"] | None = Field(
+        default=None, alias="mediaProjection"
+    )
+    input_method: str | None = Field(default=None, alias="inputMethod", max_length=80)
+    gesture_available: bool | None = Field(default=None, alias="gestureAvailable")
 
 
 class MobileDeviceHeartbeat(StrictModel):
@@ -274,10 +304,20 @@ class MobileHeartbeat(StrictModel):
 class MobileTaskEvent(StrictModel):
     lease_id: str = Field(alias="leaseId", min_length=1, max_length=36)
     sequence: int = Field(ge=1)
-    event_type: Literal["STEP_STARTED", "STEP_SUCCEEDED", "STEP_FAILED", "EVIDENCE", "LOG"] = Field(
-        alias="eventType"
-    )
+    event_type: Literal[
+        "STEP_STARTED",
+        "STEP_SUCCEEDED",
+        "STEP_FAILED",
+        "EVIDENCE",
+        "LOG",
+        "PAUSE_REQUESTED",
+        "PAUSED_WAITING_USER",
+        "RESUME_CHECK",
+        "RECONCILING",
+    ] = Field(alias="eventType")
     step_index: int | None = Field(default=None, alias="stepIndex", ge=0, le=MAX_STEPS - 1)
+    step_id: str | None = Field(default=None, alias="stepId", max_length=128)
+    attempt_id: str | None = Field(default=None, alias="attemptId", max_length=36)
     payload: dict[str, str | int | float | bool | None] = Field(default_factory=dict)
 
     @field_validator("payload")
@@ -288,9 +328,19 @@ class MobileTaskEvent(StrictModel):
         return validate_bounded_safe_mapping(value, max_entries=30, max_string_length=1000)
 
 
+RESULT_TYPES = {
+    "xianyu.publish_listing.v1": "XianyuPublishListingResult",
+    "xianyu.collect_orders.v1": "XianyuCollectOrdersResult",
+    "xiaohongshu.publish_note.v1": "XiaohongshuPublishNoteResult",
+    "device.probe_capabilities.v1": "DeviceProbeResult",
+}
+
+
 class MobileTaskCompletion(StrictModel):
     lease_id: str = Field(alias="leaseId", min_length=1, max_length=36)
     result: dict[str, str | int | float | bool | None] = Field(default_factory=dict)
+    result_type: str | None = Field(default=None, alias="resultType", max_length=80)
+    schema_version: int | None = Field(default=None, alias="schemaVersion", ge=1)
 
     @field_validator("result")
     @classmethod

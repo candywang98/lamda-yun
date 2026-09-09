@@ -7,6 +7,7 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -55,10 +56,191 @@ class AutomationStoreTest {
         store.recoverInterruptedRuns()
 
         assertNull(store.claimNext())
+        assertEquals("RESUME_CHECK", taskState("task-1"))
+        assertTrue(store.pendingEvents().isEmpty())
+    }
+
+    @Test
+    fun `successful finish uploads typed result instead of empty json`() {
+        store.enqueueTask("task-1", "payload", "lease-1", 0)
+        store.claimNext()
+        store.finish("task-1", true)
         val terminal = store.pendingEvents().single()
-        assertTrue(terminal.path.endsWith("/fail"))
-        assertEquals("FAILED_RESTART", JSONObject(terminal.payload).getString("errorCode"))
+        val result = JSONObject(terminal.payload).getJSONObject("result")
+        assertEquals("ok", result.getString("outcome"))
+        assertEquals("DeviceProbeResult", result.getString("resultType"))
+        assertFalse(result.has("password"))
+    }
+
+    @Test
+    fun `idlefish publish finish reports listing result type`() {
+        val payload = JSONObject()
+            .put("protocolVersion", "cloudctl.mobile/v1")
+            .put("taskId", "task-publish")
+            .put("deviceId", "device-1")
+            .put("targetPackage", "com.taobao.idlefish")
+            .put("commandType", "xianyu.publish_listing.v1")
+            .put("issuedAt", "2026-09-07T12:00:00Z")
+            .put("expiresAt", "2026-09-07T12:10:00Z")
+            .put("maxRunSeconds", 180)
+            .put("steps", org.json.JSONArray())
+            .toString()
+        store.enqueueTask("task-publish", payload, "lease-1", 0)
+        store.claimNext()
+        store.finish("task-publish", true)
+        val result = JSONObject(store.pendingEvents().single().payload).getJSONObject("result")
+        assertEquals("XianyuPublishListingResult", result.getString("resultType"))
+    }
+
+    @Test
+    fun `reclaim after terminal rejection requeues complete for the new lease`() {
+        val first = JSONObject()
+            .put("taskId", "task-1")
+            .put("deviceId", "device-1")
+            .put("targetPackage", "com.taobao.idlefish")
+            .put("issuedAt", "2026-09-07T12:00:00Z")
+            .put("steps", org.json.JSONArray().put(JSONObject().put("stepId", "mark-published").put("controlEpoch", 1)))
+            .toString()
+        store.enqueueTask("task-1", first, "lease-1", 0)
+        store.claimNext()
+        store.finish("task-1", true)
+        store.markPermanentlyRejected(store.pendingEvents().single().id, "HTTP_422")
+        assertEquals("TERMINAL_REJECTED", taskState("task-1"))
+
+        val second = JSONObject()
+            .put("taskId", "task-1")
+            .put("deviceId", "device-1")
+            .put("targetPackage", "com.taobao.idlefish")
+            .put("commandType", "xianyu.publish_listing.v1")
+            .put("issuedAt", "2026-09-07T12:20:00Z")
+            .put("steps", org.json.JSONArray().put(JSONObject().put("stepId", "mark-published").put("controlEpoch", 42)))
+            .toString()
+        assertFalse(store.enqueueTask("task-1", second, "lease-2", 48))
         assertEquals("TERMINAL_PENDING_UPLOAD", taskState("task-1"))
+        val retry = store.pendingEvents().single { JSONObject(it.payload).optString("leaseId") == "lease-2" }
+        assertTrue(retry.path.endsWith("/complete"))
+        assertEquals(
+            "XianyuPublishListingResult",
+            JSONObject(retry.payload).getJSONObject("result").getString("resultType"),
+        )
+    }
+
+    @Test
+    fun `checkpoint resumes from Nth item and applied journal blocks second click`() {
+        store.enqueueTask("task-1", "payload", "lease-1", 0)
+        store.claimNext()
+        store.saveCheckpoint("task-1", "attempt-1", "item", "snap", "recipe", "account-a", 1, 3, "item-3")
+        val checkpoint = store.latestCheckpoint("task-1")
+        assertNotNull(checkpoint)
+        assertEquals(3, checkpoint!!.getInt("loopCursor"))
+        assertEquals("item-3", checkpoint.getString("itemId"))
+        assertEquals("INTENT", store.recordActionIntent("task-1:item-3:publish", "task-1", "hash-1"))
+        assertEquals("UNKNOWN", store.recordActionIntent("task-1:item-3:publish", "task-1", "hash-1"))
+        store.markActionApplied("task-1:item-3:publish")
+        assertEquals("APPLIED", store.recordActionIntent("task-1:item-3:publish", "task-1", "hash-1"))
+    }
+
+    @Test
+    fun `action journal binds identity and stays monotonic across reopen`() {
+        store.enqueueTask("task-1", "payload", "lease-1", 0)
+        store.claimNext()
+        assertEquals("INTENT", store.recordActionIntent("task-1:item-1:publish", "task-1", "hash-1"))
+        assertEquals("UNKNOWN", store.recordActionIntent("task-1:item-1:publish", "task-1", "hash-1"))
+        assertEquals("INTENT", store.actionJournal("task-1:item-1:publish")!!.status)
+        store.close()
+        store = AutomationStore(context)
+        val persisted = store.actionJournal("task-1:item-1:publish")
+        assertNotNull(persisted)
+        assertEquals("task-1", persisted!!.taskId)
+        assertEquals("hash-1", persisted.parameterHash)
+        assertEquals("INTENT", persisted.status)
+        assertEquals("UNKNOWN", store.recordActionIntent("task-1:item-1:publish", "task-1", "hash-1"))
+        assertEquals("INTENT", store.actionJournal("task-1:item-1:publish")!!.status)
+        assertFailsWith<IllegalArgumentException> {
+            store.recordActionIntent("task-1:item-1:publish", "task-1", "hash-changed")
+        }
+        assertFailsWith<IllegalArgumentException> {
+            store.recordActionIntent("task-1:item-1:publish", "task-other", "hash-1")
+        }
+        assertEquals("INTENT", store.actionJournal("task-1:item-1:publish")!!.status)
+        store.markActionUnknown("task-1:item-1:publish")
+        assertEquals("UNKNOWN", store.actionJournal("task-1:item-1:publish")!!.status)
+        store.close()
+        store = AutomationStore(context)
+        assertEquals("UNKNOWN", store.actionJournal("task-1:item-1:publish")!!.status)
+        assertEquals("UNKNOWN", store.recordActionIntent("task-1:item-1:publish", "task-1", "hash-1"))
+        store.markActionUnknown("task-1:item-1:publish")
+        assertFailsWith<IllegalStateException> {
+            store.markActionApplied("task-1:item-1:publish")
+        }
+        assertEquals("UNKNOWN", store.actionJournal("task-1:item-1:publish")!!.status)
+
+        store.enqueueTask("task-2", "payload-2", "lease-2", 0)
+        store.claimNext()
+        assertEquals("INTENT", store.recordActionIntent("task-2:item-1:publish", "task-2", "hash-2"))
+        store.markActionApplied("task-2:item-1:publish")
+        store.close()
+        store = AutomationStore(context)
+        assertEquals("APPLIED", store.recordActionIntent("task-2:item-1:publish", "task-2", "hash-2"))
+        store.markActionApplied("task-2:item-1:publish")
+        assertFailsWith<IllegalStateException> {
+            store.markActionUnknown("task-2:item-1:publish")
+        }
+        assertEquals("APPLIED", store.actionJournal("task-2:item-1:publish")!!.status)
+        assertFailsWith<IllegalStateException> {
+            store.markActionApplied("missing-key")
+        }
+        assertFailsWith<IllegalStateException> {
+            store.markActionUnknown("missing-key")
+        }
+        assertNull(store.actionJournal("missing-key"))
+    }
+
+    @Test
+    fun `pause handshake persists checkpoint and blocks later queued work`() {
+        store.enqueueTask("task-1", "payload-one", "lease-1", 0)
+        store.enqueueTask("task-2", "payload-two", "lease-2", 0)
+        store.claimNext()
+        store.saveCheckpoint("task-1", "lease-1", "fill-price", "pause", "recipe", "account-a", 1, 4, "fill-price")
+        store.markPaused("task-1", "fill-price", 4, "operator taking over")
+
+        assertEquals("PAUSED_WAITING_USER", taskState("task-1"))
+        assertTrue(store.hasBlockingHead())
+        assertNull(store.claimNext())
+        val ack = store.pendingEvents().single { JSONObject(it.payload).optString("eventType") == "PAUSED_WAITING_USER" }
+        assertTrue(ack.path.endsWith("/events"))
+        assertEquals("fill-price", store.latestCheckpoint("task-1")!!.getString("stateId"))
+    }
+
+    @Test
+    fun `resume check keeps the original taskId and still blocks later queued work`() {
+        store.enqueueTask("task-1", "payload-one", "lease-1", 0)
+        store.enqueueTask("task-2", "payload-two", "lease-2", 0)
+        store.claimNext()
+        store.saveCheckpoint("task-1", "lease-1", "fill-price", "pause", "recipe", "account-a", 1, 4, "fill-price")
+        store.markPaused("task-1", "fill-price", 4, "operator taking over")
+
+        assertTrue(store.markResumeCheck("task-1", "lease-3"))
+        assertEquals("RESUME_CHECK", taskState("task-1"))
+        assertTrue(store.hasBlockingHead())
+        assertNull(store.claimNext())
+        assertTrue(store.markResumeCheck("task-1", "lease-3"))
+
+        val resumed = store.claimResume("task-1")
+        assertNotNull(resumed)
+        assertEquals("task-1", resumed!!.taskId)
+        assertEquals("lease-3", resumed.leaseId)
+        assertEquals("RUNNING", taskState("task-1"))
+        assertEquals("QUEUED", taskState("task-2"))
+    }
+
+    @Test
+    fun `finished task cannot be resumed on the original taskId`() {
+        store.enqueueTask("task-1", "payload-one", "lease-1", 0)
+        store.claimNext()
+        store.finish("task-1", false, "CANCELLED")
+        assertFalse(store.markResumeCheck("task-1", "lease-9"))
+        assertNull(store.claimResume("task-1"))
     }
 
     @Test

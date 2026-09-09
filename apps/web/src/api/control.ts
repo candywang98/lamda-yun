@@ -1,11 +1,21 @@
 import { CloudCtlApiClient } from '@cloudctl/api-contracts'
+import { controlApiBaseUrl, controlApiConfigured, operationsMockEnabled } from '@/api/runtime-mode'
 
-const apiUrl = import.meta.env.VITE_CONTROL_API_URL?.trim() ?? ''
+export { controlApiBaseUrl, controlApiConfigured, operationsMockEnabled }
+
+const apiUrl = controlApiBaseUrl()
 const devAuthEnabled = import.meta.env.VITE_CONTROL_API_DEV_AUTH === 'true'
 const tenantId = import.meta.env.VITE_CONTROL_API_DEV_TENANT_ID ?? '00000000-0000-7000-8000-000000001111'
 
-export const controlApiConfigured = apiUrl.length > 0
-export const operationsMockEnabled = import.meta.env.DEV && import.meta.env.VITE_OPERATIONS_MOCK_ENABLED === 'true'
+export function controlApiHeaders(): HeadersInit {
+  if (!devAuthEnabled) return {}
+  return {
+    'X-Tenant-Id': tenantId,
+    'X-User-Id': '00000000-0000-7000-8000-000000002207',
+    'X-Roles': 'security_admin',
+    'X-MFA': 'true',
+  }
+}
 
 export function createControlApiClient() {
   return new CloudCtlApiClient({

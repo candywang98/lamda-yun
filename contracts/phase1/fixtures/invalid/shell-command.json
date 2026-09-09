@@ -1,0 +1,27 @@
+{
+  "protocolVersion": "cloudctl.command/v1",
+  "taskId": "task-001",
+  "attemptId": "attempt-001",
+  "commandType": "shell.exec.v1",
+  "deviceId": "device-001",
+  "accountId": "account-jia",
+  "bindingVersion": 1,
+  "snapshot": {
+    "id": "snap-001",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "recipe": {
+    "versionId": "recipe-1",
+    "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "engineMinVersion": 1
+  },
+  "targetPackage": "com.taobao.idlefish",
+  "requiredCapabilities": ["accessibility"],
+  "lease": {
+    "controlEpoch": 1,
+    "expiresAt": "2026-09-06T12:00:00Z"
+  },
+  "parameters": {
+    "argv": ["id"]
+  }
+}

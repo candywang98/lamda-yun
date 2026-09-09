@@ -1,4 +1,4 @@
-export type ListingApp = 'main' | 'sub' | 'main-then-sub'
+export type ListingApp = 'main'
 
 export interface ListingCollectDevice {
   id: string
@@ -19,9 +19,9 @@ export const LISTING_COLLECT_TASKS_KEY = 'cloudctl.listing-info-collect.tasks'
 export function emptyListingCollectConfig(partial: Partial<ListingCollectConfig> = {}): ListingCollectConfig {
   return {
     deviceIds: [],
-    app: 'main',
     schedule: '立即执行',
     ...partial,
+    app: 'main' as const,
   }
 }
 

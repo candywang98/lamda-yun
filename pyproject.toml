@@ -13,7 +13,7 @@ dependencies = [
   "boto3==1.43.83",
   "cryptography==50.0.1",
   "fastapi==0.141.1",
-  "grpcio==1.83.1",
+  "grpcio==1.82.0",
   "protobuf==7.36.0",
   "httpx==0.28.1",
   "opentelemetry-api==1.44.0",
@@ -31,7 +31,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
   "aiosqlite==0.22.1",
-  "grpcio-tools==1.83.1",
+  "grpcio-tools==1.82.0",
   "mypy==2.3.1",
   "pyright==1.1.411",
   "pytest==9.1.1",

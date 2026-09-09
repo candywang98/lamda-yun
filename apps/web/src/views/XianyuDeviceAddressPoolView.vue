@@ -86,6 +86,10 @@ function saveEditor() {
   successMessage.value = '地址池已保存到当前浏览器'
 }
 
+function printPage() {
+  window.print()
+}
+
 onMounted(async () => {
   Object.assign(poolMap, loadDeviceAddressMap())
   devices.value = await fetchXianyuTaskDevices()
@@ -111,7 +115,7 @@ onMounted(async () => {
           <button class="outline" type="button">筛选</button>
           <button class="outline" type="button" @click="resetTable">还原</button>
           <button class="outline" type="button" @click="downloadCsv('设备地址池.csv', [['组号', '设备名称', '某鱼会员名', '地址数量', '地址池', '地址池备注'], ...filtered.map((row) => [row.groupNo, row.name, row.account, String(row.addresses.length), row.addresses.join(' / ') || '暂无', row.note])])">导出</button>
-          <button class="outline" type="button" @click="window.print()">打印</button>
+          <button class="outline" type="button" @click="printPage">打印</button>
         </div>
         <table>
           <thead>

@@ -6,9 +6,11 @@ export interface ProductAttributes {
   specType: string
   specValues: string[]
   images: string[]
+  imageAssetIds: string[]
   imageLabels: string[]
   videoName: string
   videoUrl: string
+  videoAssetId: string
   costPrice: string
   fanPrice: string
   shippingFee: string
@@ -32,9 +34,11 @@ export function emptyAttributes(): ProductAttributes {
     specType: '',
     specValues: [],
     images: [],
+    imageAssetIds: [],
     imageLabels: [],
     videoName: '',
     videoUrl: '',
+    videoAssetId: '',
     costPrice: '',
     fanPrice: '',
     shippingFee: '',
@@ -73,9 +77,11 @@ export function parseAttributes(raw: JsonObject | undefined | null): ProductAttr
   parsed.specType = asString(source.specType)
   parsed.specValues = asStringList(source.specValues)
   parsed.images = asStringList(source.images).concat(asStringList(source.imageUrls))
+  parsed.imageAssetIds = asStringList(source.imageAssetIds)
   parsed.imageLabels = asStringList(source.imageLabels)
   parsed.videoName = asString(source.videoName)
   parsed.videoUrl = asString(source.videoUrl)
+  parsed.videoAssetId = asString(source.videoAssetId)
   parsed.costPrice = asString(source.costPrice)
   parsed.fanPrice = asString(source.fanPrice)
   parsed.shippingFee = asString(source.shippingFee)
@@ -94,7 +100,12 @@ export function parseAttributes(raw: JsonObject | undefined | null): ProductAttr
 }
 
 export function attributesPayload(attributes: ProductAttributes): JsonObject {
-  return { ...attributes }
+  const { images, videoUrl, ...rest } = attributes
+  return {
+    ...rest,
+    images: attributes.imageAssetIds,
+    videoUrl: attributes.videoAssetId,
+  }
 }
 
 export function productGroupName(product: ProductView): string {

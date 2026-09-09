@@ -30,7 +30,6 @@ export function emptyNurtureConfig(partial: Partial<XiaohongshuNurtureConfig> = 
     deviceIds: [],
     browseType: 'discover',
     channel: '推荐',
-    multiOpen: 'off',
     flipCount: 20,
     clickRate: 30,
     likeRate: 30,
@@ -39,6 +38,7 @@ export function emptyNurtureConfig(partial: Partial<XiaohongshuNurtureConfig> = 
     comments: DEFAULT_COMMENT_POOL,
     schedule: '立即执行',
     ...partial,
+    multiOpen: 'off' as const,
   }
 }
 

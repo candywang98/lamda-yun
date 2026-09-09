@@ -3,7 +3,9 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { createPostCatalog } from '@/api/post-catalog'
 import { downloadDataUrl } from '@/data/product-fields'
-import { clipText, formatDateTime, type PostRecord } from '@/data/post-fields'
+import { clipText, formatDateTime, postImageIds, type PostRecord } from '@/data/post-fields'
+import { fetchMediaBlob } from '@/api/media-assets'
+import MediaThumb from '@/components/MediaThumb.vue'
 import { resolvePostGroups } from '@/data/post-groups'
 
 const router = useRouter()
@@ -54,6 +56,28 @@ function selectedPosts() {
   return posts.value.filter((item) => selectedIds.value.includes(item.id))
 }
 
+
+async function downloadImages(post: PostRecord) {
+  const images = postImageIds(post)
+  if (images.length === 0) {
+    errorMessage.value = '这个帖子还没有可下载的图片'
+    return
+  }
+  try {
+    for (const [index, image] of images.entries()) {
+      const blob = await fetchMediaBlob(image)
+      downloadDataUrl(URL.createObjectURL(blob), `${post.title || 'post'}-${index + 1}.jpg`)
+    }
+  } catch (error) {
+    errorMessage.value = `下载图片失败：${error instanceof Error ? error.message : String(error)}`
+  }
+}
+
+async function downloadSelectedImages() {
+  for (const post of selectedPosts()) {
+    await downloadImages(post)
+  }
+}
 async function applyBatch() {
   if (!dialog.value) return
   const { field, value } = dialog.value
@@ -114,7 +138,7 @@ onMounted(() => {
         <button type="button" @click="dialog = { title: '修改分组', field: 'group', value: '默认分组' }">修改分组</button>
         <button type="button" @click="dialog = { title: '追加描述', field: 'append', value: '' }">追加描述</button>
         <button type="button" @click="dialog = { title: '替换内容', field: 'replace', value: '原文=>替换后' }">替换内容</button>
-        <button type="button" @click="selectedPosts().forEach((post) => post.images.forEach((image, index) => downloadDataUrl(image, `${post.title}-${index + 1}.jpg`)))">下载图片</button>
+        <button type="button" @click="downloadSelectedImages">下载图片</button>
         <span class="spacer" />
         <button class="outline" type="button">筛选</button>
         <button class="outline" type="button" @click="searchQuery = ''; groupFilter = ''">还原</button>
@@ -146,8 +170,8 @@ onMounted(() => {
             <td>{{ post.groupName }}</td>
             <td>
               <div class="thumbs">
-                <img v-for="(image, index) in post.images.slice(0, 3)" :key="index" :src="image" alt="" />
-                <span v-if="post.images.length" class="count">{{ post.images.length }}张</span>
+                <MediaThumb v-for="(image, index) in postImageIds(post).slice(0, 3)" :key="`${post.id}-${image}-${index}`" :asset-id="image" :alt="post.title" />
+                <span v-if="postImageIds(post).length" class="count">{{ postImageIds(post).length }}张</span>
                 <span v-else class="muted">无图</span>
               </div>
             </td>
@@ -160,7 +184,7 @@ onMounted(() => {
             <td class="ops">
               <button type="button" title="编辑" @click="router.push(`/operations/post-management/post-management-01?id=${post.id}`)">✎</button>
               <button type="button" title="复制" @click="catalog.duplicate(post).then(loadPosts)">⧉</button>
-              <button type="button" title="下载" @click="post.images.forEach((image, index) => downloadDataUrl(image, `${post.title}-${index + 1}.jpg`))">⬇</button>
+              <button type="button" title="下载" @click="downloadImages(post)">⬇</button>
               <button class="danger" type="button" title="删除" @click="selectedIds = [post.id]; removeSelected()">✕</button>
             </td>
           </tr>

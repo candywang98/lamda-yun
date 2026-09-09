@@ -1,1 +1,0 @@
-{"root":["./src/domain.ts","./src/env.d.ts","./src/main.ts","./src/types.ts","./src/api/control.ts","./src/api/relay.ts","./src/app.vue","./src/components/monacoworkspace.vue","./tests/app.spec.ts","./tests/domain.spec.ts","./tests/live-session.spec.ts","./tests/relay.spec.ts","./tests/setup.ts"],"version":"5.9.3"}

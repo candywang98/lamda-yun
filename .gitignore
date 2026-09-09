@@ -28,3 +28,33 @@ lab/**/credentials/
 .DS_Store
 feishu-auth-qr.png
 
+.cloudctl-secrets/
+
+# Local build products, credentials, and device runtime data
+*.tsbuildinfo
+*.apk
+*.aab
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+*.key
+.env.local
+.env.*.local
+project-cache/
+*.sqlite3
+*.sqlite3-shm
+*.sqlite3-wal
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+/lab/edge-oneplus9r/
+/lab/control-plane-smoke/
+
+# Keep task reports; raw device evidence stays local.
+/artifacts/tasks/**
+!/artifacts/tasks/**/
+!/artifacts/tasks/**/*.md
+/artifacts/review-20260905/browser-results/
+/artifacts/review-20260905/cleanup-backup.zip

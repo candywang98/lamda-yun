@@ -148,6 +148,7 @@ def test_upgrade_and_downgrade_preserve_legacy_operation_rows(tmp_path: Path) ->
             "mobile_task",
             "mobile_task_event",
             "device_preview",
+            "recipe_device_deployment",
         } <= tables(connection)
         device_edge = {
             str(row[1]): int(row[3]) for row in connection.execute("PRAGMA table_info(device)")

@@ -23,3 +23,32 @@ data class PreviewGrant(
 }
 
 data class PreviewFrame(val jpeg: ByteArray, val width: Int, val height: Int)
+
+data class ResumeCommand(
+    val taskId: String,
+    val leaseId: String,
+    val controlEpoch: Int?,
+    val pageVerified: Boolean,
+    val reason: String?,
+) {
+    companion object {
+        fun fromHeartbeat(response: JSONObject): ResumeCommand? {
+            if (response.isNull("resume")) return null
+            val resume = response.optJSONObject("resume") ?: return null
+            val taskId = resume.optString("taskId")
+            val leaseId = resume.optString("leaseId")
+            if (taskId.isBlank() || leaseId.isBlank()) return null
+            return ResumeCommand(
+                taskId = taskId,
+                leaseId = leaseId,
+                controlEpoch = if (resume.has("controlEpoch") && !resume.isNull("controlEpoch")) {
+                    resume.optInt("controlEpoch")
+                } else {
+                    null
+                },
+                pageVerified = resume.optBoolean("pageVerified", false),
+                reason = resume.optString("reason").takeIf { it.isNotBlank() },
+            )
+        }
+    }
+}

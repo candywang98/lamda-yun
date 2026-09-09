@@ -14,6 +14,7 @@ object OutboxRetryPolicy {
     private const val MAX_DELAY_MILLIS = 5 * 60_000L
 
     fun classify(error: CloudHttpException): DeliveryFailureAction = when {
+        error.status == 401 -> DeliveryFailureAction.PERMANENT_REJECTION
         error.status == 409 && error.responseBody.contains("mobile task lease", ignoreCase = true) ->
             DeliveryFailureAction.ACCEPT_AS_DELIVERED
         error.status == 408 || error.status == 425 || error.status == 429 || error.status in 500..599 ->

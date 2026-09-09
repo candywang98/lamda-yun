@@ -28,7 +28,10 @@ def test_text_publish_recipe_matches_companion_contract() -> None:
         "open-sell",
         "open-publish",
         "wait-publish-page",
+        "wait-description",
         "fill-description",
+        "confirm-description",
+        "wait-price",
         "fill-price",
         "capture-form",
         "mark-ready",
@@ -49,8 +52,8 @@ def test_text_publish_task_wraps_device_and_timeout() -> None:
     assert task["deviceId"] == "device-1"
     assert task["targetPackage"] == XIANYU_PACKAGE
     assert task["totalTimeoutMs"] >= sum(step["timeoutMs"] for step in task["steps"])
-    assert task["steps"][4]["value"] == "九成新桌面显示器"
-    assert task["steps"][5]["value"] == "599"
+    assert task["steps"][5]["value"] == "九成新桌面显示器"
+    assert task["steps"][8]["value"] == "599"
 
 
 def test_media_publish_task_adds_bounded_gallery_selection_steps() -> None:
@@ -63,8 +66,8 @@ def test_media_publish_task_adds_bounded_gallery_selection_steps() -> None:
     )
     selection = [step for step in task["steps"] if step["stepId"].startswith("select-media-")]
     assert [step["locatorRef"] for step in selection] == [
-        "xianyu_gallery_select_0",
         "xianyu_gallery_select_1",
+        "xianyu_gallery_select_2",
     ]
     assert selection[0]["action"] == "ui.tap"
     assert "postconditionLocatorRef" not in selection[0]
@@ -72,6 +75,16 @@ def test_media_publish_task_adds_bounded_gallery_selection_steps() -> None:
     assert task["steps"].index(selection[0]) < task["steps"].index(
         next(step for step in task["steps"] if step["stepId"] == "fill-description")
     )
+    crop = next(step for step in task["steps"] if step["stepId"] == "confirm-crop")
+    assert crop["locatorRef"] == "xianyu_crop_done"
+    confirm = next(step for step in task["steps"] if step["stepId"] == "confirm-media-selection")
+    assert "postconditionLocatorRef" not in confirm
+    assert task["steps"].index(crop) < task["steps"].index(
+        next(step for step in task["steps"] if step["stepId"] == "fill-description")
+    )
+    assert next(step for step in task["steps"] if step["stepId"] == "wait-publish-complete")[
+        "locatorRef"
+    ] == "xianyu_publish_success"
 
 
 @pytest.mark.parametrize(

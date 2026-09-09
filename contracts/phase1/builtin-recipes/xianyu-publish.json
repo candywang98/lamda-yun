@@ -1,0 +1,35 @@
+{
+  "apiVersion": "cloudctl.recipe/v1",
+  "kind": "LocalRecipePackage",
+  "manifest": {
+    "id": "recipe-xianyu-publish-1",
+    "version": "1.0.0",
+    "hash": "a2331b8076dd28cd34f574f359b7e549ebef1f0ebd060bff2fad0ab410a84c0f",
+    "signingKeyId": "builtin-phase1",
+    "minEngineVersion": 1,
+    "platform": "xianyu",
+    "app": "com.taobao.idlefish",
+    "commandTypes": [
+      "xianyu.publish_listing.v1"
+    ]
+  },
+  "graph": {
+    "startStateId": "open-only",
+    "maxIterations": 8,
+    "maxDurationMs": 30000,
+    "states": [
+      {
+        "stateId": "open-only",
+        "action": "checkpoint",
+        "onSuccess": "WAITING_USER",
+        "onPause": "WAITING_USER",
+        "terminal": true
+      }
+    ]
+  },
+  "signature": {
+    "algorithm": "Ed25519",
+    "keyId": "builtin-phase1",
+    "digest": "hash-pinned-builtin"
+  }
+}

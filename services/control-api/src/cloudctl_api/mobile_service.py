@@ -22,7 +22,9 @@ from sqlalchemy.exc import IntegrityError
 
 from .db import (
     AccountDeviceBindingRow,
+    AutomationVersionRow,
     Database,
+    DeviceLeaseRow,
     DevicePreviewRow,
     DeviceRow,
     MediaAssetRow,
@@ -31,6 +33,7 @@ from .db import (
     MobileTaskEventRow,
     MobileTaskRow,
     PlatformAccountRow,
+    RecipeDeploymentRow,
 )
 from .media_store import ObjectStore
 from .mobile_schemas import DevicePreviewUpload, MobileDeviceHeartbeat, MobileTaskCreate
@@ -39,6 +42,15 @@ from .xianyu_publish import build_text_publish_task
 ACTIVE_STATES = ("CLAIMED", "RUNNING")
 COMPANION_PACKAGE = "com.company.cloudctl.companion"
 XIANYU_PACKAGE = "com.taobao.idlefish"
+XHS_PACKAGE = "com.xingin.xhs"
+ALLOWED_PACKAGES = {COMPANION_PACKAGE, XIANYU_PACKAGE, XHS_PACKAGE}
+RUNNER_TO_BUSINESS = {
+    "QUEUED": "QUEUED",
+    "CLAIMED": "PREFLIGHT",
+    "RUNNING": "RUNNING",
+    "SUCCEEDED": "SUCCEEDED",
+    "FAILED": "FAILED",
+}
 PREVIEW_JPEG_MAGIC = b"\xff\xd8\xff"
 PREVIEW_MAX_BYTES = 400_000
 PREVIEW_CAPTURE_INTERVAL_MS = 2_000
@@ -114,6 +126,101 @@ class MobileTaskService:
         if len(stored.content) != row.size_bytes or digest != row.sha256:
             raise ValidationError("media object checksum does not match asset record")
         return stored.content, stored.content_type or row.content_type, digest
+
+    async def list_active_recipes(self, current: MobileBindingRow) -> dict[str, Any]:
+        async with self.database.unit_of_work() as session:
+            rows = list(
+                await session.scalars(
+                    select(RecipeDeploymentRow).where(
+                        RecipeDeploymentRow.tenant_id == current.tenant_id,
+                        RecipeDeploymentRow.device_id == current.device_id,
+                        RecipeDeploymentRow.status == "PUBLISHED",
+                    )
+                )
+            )
+            packages = {}
+            if rows:
+                versions = list(
+                    await session.scalars(
+                        select(AutomationVersionRow).where(
+                            AutomationVersionRow.tenant_id == current.tenant_id,
+                            AutomationVersionRow.id.in_({row.version_id for row in rows}),
+                        )
+                    )
+                )
+                packages = {item.id: item for item in versions}
+        items = []
+        for row in rows:
+            package = packages.get(row.version_id)
+            if package is None:
+                continue
+            items.append(
+                {
+                    "versionId": package.id,
+                    "sha256": package.artifact_sha256,
+                    "commandType": row.command_type,
+                    "downloadPath": f"/companion/v2/recipes/{package.id}",
+                    "engineMinVersion": package.manifest.get("manifest", {}).get("minEngineVersion", 1),
+                    "previousVersionId": row.previous_version_id,
+                }
+            )
+        return {"protocolVersion": "cloudctl.recipe/v1", "items": items}
+
+    async def download_recipe(
+        self, current: MobileBindingRow, version_id: str
+    ) -> tuple[bytes, str]:
+        async with self.database.unit_of_work() as session:
+            deployment = await session.scalar(
+                select(RecipeDeploymentRow).where(
+                    RecipeDeploymentRow.tenant_id == current.tenant_id,
+                    RecipeDeploymentRow.device_id == current.device_id,
+                    RecipeDeploymentRow.version_id == version_id,
+                    RecipeDeploymentRow.status == "PUBLISHED",
+                )
+            )
+            if deployment is None:
+                raise NotFoundError("recipe package was not found for this device")
+            package = await session.scalar(
+                select(AutomationVersionRow).where(
+                    AutomationVersionRow.tenant_id == current.tenant_id,
+                    AutomationVersionRow.id == version_id,
+                )
+            )
+            if package is None or package.manifest.get("kind") != "LocalRecipePackage":
+                raise NotFoundError("recipe package was not found for this device")
+            payload = json.dumps(package.manifest, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+            return payload, package.artifact_sha256
+
+    @staticmethod
+    async def _published_recipe_ref(
+        session: Any, tenant_id: str, device_id: str, command_type: str | None
+    ) -> dict[str, Any] | None:
+        if not command_type:
+            return None
+        deployment = await session.scalar(
+            select(RecipeDeploymentRow).where(
+                RecipeDeploymentRow.tenant_id == tenant_id,
+                RecipeDeploymentRow.device_id == device_id,
+                RecipeDeploymentRow.command_type == command_type,
+                RecipeDeploymentRow.status == "PUBLISHED",
+            )
+        )
+        if deployment is None:
+            return None
+        package = await session.scalar(
+            select(AutomationVersionRow).where(
+                AutomationVersionRow.tenant_id == tenant_id,
+                AutomationVersionRow.id == deployment.version_id,
+            )
+        )
+        if package is None:
+            return None
+        engine = package.manifest.get("manifest", {}).get("minEngineVersion", 1)
+        return {
+            "versionId": package.id,
+            "sha256": package.artifact_sha256,
+            "engineMinVersion": engine,
+        }
 
     async def create_direct_device(
         self,
@@ -212,6 +319,20 @@ class MobileTaskService:
                 .with_for_update()
             )
             if existing is None:
+                others = list(
+                    (
+                        await session.execute(
+                            select(MobileBindingRow)
+                            .where(
+                                MobileBindingRow.device_id == row.device_id,
+                                MobileBindingRow.revoked_at.is_(None),
+                            )
+                            .with_for_update()
+                        )
+                    ).scalars()
+                )
+                for other in others:
+                    other.revoked_at = now
                 binding = MobileBindingRow(
                     id=str(uuid.uuid4()),
                     tenant_id=row.tenant_id,
@@ -225,15 +346,38 @@ class MobileTaskService:
                 )
                 session.add(binding)
             else:
+                siblings = list(
+                    (
+                        await session.execute(
+                            select(MobileBindingRow)
+                            .where(
+                                MobileBindingRow.device_id == row.device_id,
+                                MobileBindingRow.id != existing.id,
+                                MobileBindingRow.revoked_at.is_(None),
+                            )
+                            .with_for_update()
+                        )
+                    ).scalars()
+                )
+                for sibling in siblings:
+                    sibling.revoked_at = now
                 existing.token_digest = _digest("binding", token)
                 existing.companion_version = companion_version
                 existing.last_seen_at = now
                 existing.revoked_at = None
                 binding = existing
-            device = await session.get(DeviceRow, row.device_id)
+            device = await session.get(DeviceRow, row.device_id, with_for_update=True)
             if device is not None:
                 device.last_seen_at = now
-        return {"bindingToken": token, "bindingId": binding.id, "deviceId": binding.device_id}
+                device.control_epoch = int(getattr(device, "control_epoch", 0) or 0) + 1
+                device.active_binding_id = binding.id
+                device.fencing_counter = int(device.fencing_counter or 0) + 1
+        return {
+            "bindingToken": token,
+            "bindingId": binding.id,
+            "deviceId": binding.device_id,
+            "controlEpoch": getattr(device, "control_epoch", 1) if device is not None else 1,
+        }
 
     async def authenticate(self, token: str) -> MobileBindingRow:
         if not 32 <= len(token) <= 512:
@@ -263,6 +407,13 @@ class MobileTaskService:
                         select(PlatformAccountRow)
                         .where(
                             PlatformAccountRow.tenant_id == binding.tenant_id,
+                            PlatformAccountRow.id.in_(
+                                select(AccountDeviceBindingRow.account_id).where(
+                                    AccountDeviceBindingRow.tenant_id == binding.tenant_id,
+                                    AccountDeviceBindingRow.device_id == binding.device_id,
+                                    AccountDeviceBindingRow.status == "BOUND",
+                                )
+                            ),
                         )
                         .order_by(PlatformAccountRow.id)
                     )
@@ -292,6 +443,10 @@ class MobileTaskService:
                 "expiresAt": row.expires_at,
                 "lastCheckedAt": row.last_checked_at,
                 "boundToDevice": row.id in bound_ids,
+                "bindingVersion": next(
+                    (item.binding_version for item in bindings if item.account_id == row.id),
+                    None,
+                ),
             }
             for row in accounts
         ]
@@ -317,19 +472,53 @@ class MobileTaskService:
             capabilities["companionVersion"] = body.companion_version
             capabilities["accessibilityEnabled"] = body.accessibility_enabled
             capabilities["runnerState"] = body.runner_state
+            capabilities["capabilitiesVersion"] = int(capabilities.get("capabilitiesVersion") or 0) + 1
             if body.battery_optimization_ignored is not None:
                 capabilities["batteryOptimizationIgnored"] = body.battery_optimization_ignored
             if body.health is not None:
-                capabilities["health"] = body.health.model_dump(mode="json", by_alias=True)
+                health = body.health.model_dump(mode="json", by_alias=True)
+                network = health.get("network")
+                if network not in {None, "WIFI", "CELLULAR", "UNKNOWN"}:
+                    health["network"] = "UNKNOWN"
+                capabilities["health"] = health
+                if health.get("sdkInt") is not None:
+                    capabilities["sdkInt"] = health["sdkInt"]
+                if health.get("model"):
+                    capabilities["model"] = health["model"]
+                if health.get("manufacturer"):
+                    capabilities["manufacturer"] = health["manufacturer"]
+                if health.get("mediaProjection"):
+                    capabilities["mediaProjection"] = health["mediaProjection"]
             device.capabilities = capabilities
             preview = await session.get(DevicePreviewRow, stored.device_id)
-            return {
+            resume = await session.scalar(
+                select(MobileTaskRow)
+                .where(
+                    MobileTaskRow.tenant_id == stored.tenant_id,
+                    MobileTaskRow.device_id == stored.device_id,
+                    MobileTaskRow.business_state == "RESUME_CHECK",
+                )
+                .order_by(MobileTaskRow.created_at.desc())
+            )
+            payload: dict[str, Any] = {
                 "ok": True,
                 "deviceId": device.id,
                 "receivedAt": now,
                 "onlineUntil": now + timedelta(seconds=90),
                 "preview": self._companion_preview_grant(preview, now),
             }
+            if resume is not None:
+                payload["resume"] = {
+                    "taskId": resume.id,
+                    "leaseId": resume.lease_id,
+                    "controlEpoch": ((resume.steps or [{}])[0] or {}).get("controlEpoch"),
+                    "resumeCount": resume.resume_count,
+                    "pageVerified": True,
+                    "reason": resume.stall_reason,
+                    "controlMode": resume.control_mode or "AUTO",
+                    "businessState": resume.business_state,
+                }
+            return payload
 
     async def create_task(
         self, actor: Actor, key: str, body: MobileTaskCreate
@@ -378,11 +567,11 @@ class MobileTaskService:
         key: str,
         body: MobileTaskCreate,
     ) -> tuple[dict[str, Any], bool]:
-        if body.target_package not in {COMPANION_PACKAGE, XIANYU_PACKAGE}:
+        if body.target_package not in ALLOWED_PACKAGES:
             raise ValidationError("targetPackage must be an allowlisted application")
         if not key or len(key) > 128:
             raise ValidationError("Idempotency-Key is required and must be at most 128 characters")
-        document = body.model_dump(mode="json", by_alias=True)
+        document = body.model_dump(mode="json", by_alias=True, exclude_none=True)
         digest = hashlib.sha256(_canonical(document).encode()).hexdigest()
         now = _now()
         try:
@@ -399,9 +588,30 @@ class MobileTaskService:
                             "Idempotency-Key was reused with different task content"
                         )
                     return self._task_view(existing), False
-                device = await session.get(DeviceRow, body.device_id)
+                device = await session.get(DeviceRow, body.device_id, with_for_update=True)
                 if device is None or device.tenant_id != tenant_id:
                     raise NotFoundError("device was not found")
+                frozen_account_id = body.account_id
+                frozen_binding_version = None
+                if frozen_account_id:
+                    account_binding = await session.scalar(
+                        select(AccountDeviceBindingRow)
+                        .where(
+                            AccountDeviceBindingRow.tenant_id == tenant_id,
+                            AccountDeviceBindingRow.account_id == frozen_account_id,
+                            AccountDeviceBindingRow.device_id == body.device_id,
+                            AccountDeviceBindingRow.status == "BOUND",
+                        )
+                        .with_for_update()
+                    )
+                    if account_binding is None:
+                        raise ConflictError("account is not bound to the selected device")
+                    if (
+                        body.expected_binding_version is not None
+                        and body.expected_binding_version != account_binding.binding_version
+                    ):
+                        raise ConflictError("binding version does not match expectedBindingVersion")
+                    frozen_binding_version = account_binding.binding_version
                 media_delivery = body.media_delivery
                 if media_delivery is not None:
                     media_rows = list(
@@ -424,6 +634,20 @@ class MobileTaskService:
                     request_sha256=digest,
                     requested_by=requested_by,
                     target_package=body.target_package,
+                    account_id=frozen_account_id,
+                    binding_version=frozen_binding_version,
+                    device_id_at_execution=None,
+                    command_type=None,
+                    command_payload={},
+                    business_state="QUEUED",
+                    control_mode="AUTO",
+                    batch_id=None,
+                    scheduled_for=None,
+                    stall_reason=None,
+                    attempt_id=str(uuid.uuid4()),
+                    resume_count=0,
+                    pause_ack_at=None,
+                    reconciliation={},
                     steps=[
                         {
                             "totalTimeoutMs": body.total_timeout_ms,
@@ -482,6 +706,40 @@ class MobileTaskService:
     async def claim(self, binding: MobileBindingRow, lease_seconds: int) -> dict[str, Any] | None:
         now = _now()
         async with self.database.unit_of_work() as session:
+            device = await session.get(DeviceRow, binding.device_id, with_for_update=True)
+            if device is None or device.tenant_id != binding.tenant_id:
+                raise NotFoundError("device was not found")
+            if device.maintenance:
+                raise ConflictError("device is in maintenance and cannot claim tasks")
+            if device.active_binding_id and device.active_binding_id != binding.id:
+                raise AuthenticationError("companion instance is no longer the active binding")
+            blocking = await session.scalar(
+                select(MobileTaskRow)
+                .where(
+                    MobileTaskRow.tenant_id == binding.tenant_id,
+                    MobileTaskRow.device_id == binding.device_id,
+                    MobileTaskRow.business_state.in_(
+                        {
+                            "PAUSE_REQUESTED",
+                            "PAUSED_WAITING_USER",
+                            "RESUME_CHECK",
+                            "CANCEL_REQUESTED",
+                            "WAITING_MATERIALS",
+                        }
+                    ),
+                )
+                .order_by(MobileTaskRow.created_at)
+            )
+            if blocking is not None:
+                return None
+            existing_lease = await session.get(DeviceLeaseRow, binding.device_id, with_for_update=True)
+            if (
+                existing_lease is not None
+                and existing_lease.canceled_at is None
+                and _aware(existing_lease.expires_at) > now
+                and existing_lease.owner_type == "REMOTE"
+            ):
+                raise ConflictError("device write lease is held by remote control")
             active = await session.scalar(
                 select(MobileTaskRow)
                 .where(
@@ -502,24 +760,66 @@ class MobileTaskService:
                 active.status = "QUEUED"
                 active.lease_id = None
                 active.lease_expires_at = None
-            row = await session.scalar(
-                select(MobileTaskRow)
-                .where(
-                    MobileTaskRow.tenant_id == binding.tenant_id,
-                    MobileTaskRow.device_id == binding.device_id,
-                    MobileTaskRow.status == "QUEUED",
+            queued = list(
+                await session.scalars(
+                    select(MobileTaskRow)
+                    .where(
+                        MobileTaskRow.tenant_id == binding.tenant_id,
+                        MobileTaskRow.device_id == binding.device_id,
+                        MobileTaskRow.status == "QUEUED",
+                    )
+                    .order_by(MobileTaskRow.created_at)
+                    .with_for_update()
                 )
-                .order_by(MobileTaskRow.created_at)
-                .with_for_update()
             )
+            row = None
+            for candidate in queued:
+                mismatch = await self._account_binding_mismatch(session, candidate)
+                if mismatch:
+                    candidate.status = "FAILED"
+                    candidate.business_state = "FAILED"
+                    candidate.error_code = "ACCOUNT_CHANGED"
+                    candidate.detail = mismatch
+                    candidate.completed_at = now
+                    candidate.lease_id = None
+                    candidate.lease_expires_at = None
+                    continue
+                row = candidate
+                break
             if row is None:
                 return None
             row.status = "CLAIMED"
+            row.business_state = "PREFLIGHT"
             row.lease_id = str(uuid.uuid4())
             row.lease_expires_at = now + timedelta(seconds=lease_seconds)
             row.attempt += 1
             row.started_at = now
-            return self._task_view(row)
+            row.device_id_at_execution = binding.device_id
+            device.fencing_counter += 1
+            if existing_lease is not None:
+                await session.delete(existing_lease)
+                await session.flush()
+            session.add(
+                DeviceLeaseRow(
+                    device_id=device.id,
+                    tenant_id=binding.tenant_id,
+                    lease_id=row.lease_id,
+                    owner_workflow_id=f"auto/{row.id}",
+                    fencing_token=device.fencing_counter,
+                    expires_at=row.lease_expires_at,
+                    canceled_at=None,
+                    owner_type="AUTO",
+                    created_at=now,
+                )
+            )
+            if row.steps:
+                metadata = dict(row.steps[0])
+                metadata["controlEpoch"] = device.fencing_counter
+                row.steps = [metadata, *row.steps[1:]]
+            published = await self._published_recipe_ref(
+                session, binding.tenant_id, binding.device_id, row.command_type
+            )
+            return self._task_view(row, companion_claim=True, published_recipe=published)
 
     async def heartbeat(
         self,
@@ -535,8 +835,20 @@ class MobileTaskService:
             assert stored is not None
             self._validate_active_lease(stored, lease_id)
             stored.status = "RUNNING"
+            if stored.business_state == "RESUME_CHECK":
+                stored.business_state = "RUNNING"
+            elif stored.business_state not in {
+                "PAUSE_REQUESTED",
+                "CANCEL_REQUESTED",
+                "PAUSED_WAITING_USER",
+                "RECONCILING",
+            }:
+                stored.business_state = "RUNNING"
             stored.current_step = current_step
             stored.lease_expires_at = _now() + timedelta(seconds=lease_seconds)
+            lease = await session.get(DeviceLeaseRow, binding.device_id, with_for_update=True)
+            if lease is not None and lease.lease_id == stored.lease_id:
+                lease.expires_at = stored.lease_expires_at
             return self._task_view(stored)
 
     async def event(
@@ -572,6 +884,20 @@ class MobileTaskService:
                 return self._event_view(existing), False
             if sequence != task.last_sequence + 1:
                 raise ConflictError("mobile task event sequence has a gap")
+            if event_type == "PAUSE_REQUESTED":
+                task.business_state = "PAUSE_REQUESTED"
+            elif event_type == "PAUSED_WAITING_USER":
+                if (task.command_payload or {}).get("commitIntent"):
+                    task.business_state = "RECONCILING"
+                    task.stall_reason = task.stall_reason or "commit intent already written"
+                else:
+                    task.business_state = "PAUSED_WAITING_USER"
+                task.control_mode = "REMOTE"
+                task.pause_ack_at = now
+            elif event_type == "RESUME_CHECK":
+                task.business_state = "RESUME_CHECK"
+            elif event_type == "RECONCILING":
+                task.business_state = "RECONCILING"
             event = MobileTaskEventRow(
                 id=str(uuid.uuid4()),
                 tenant_id=task.tenant_id,
@@ -579,8 +905,11 @@ class MobileTaskService:
                 sequence=sequence,
                 event_type=event_type,
                 step_index=step_index,
+                step_id=str(payload.get("stepId")) if isinstance(payload.get("stepId"), str) else None,
+                attempt_id=task.attempt_id,
                 payload=payload,
                 occurred_at=now,
+                received_at=now,
             )
             session.add(event)
             task.last_sequence = sequence
@@ -612,8 +941,22 @@ class MobileTaskService:
                     return self._task_view(row)
                 raise ConflictError("mobile task already has a different terminal result")
             self._validate_active_lease(row, lease_id)
+            expected_type = None
+            if row.command_type:
+                from .mobile_schemas import RESULT_TYPES
+
+                expected_type = RESULT_TYPES.get(row.command_type)
+            incoming_type = result.get("resultType") if isinstance(result, dict) else None
+            if expected_type and incoming_type and incoming_type != expected_type:
+                raise ValidationError("resultType does not match commandType")
+            if incoming_type and expected_type is None and row.command_type:
+                raise ValidationError("resultType is not defined for this command")
             row.status, row.result, row.error_code, row.detail = status, result, error_code, detail
+            row.business_state = RUNNER_TO_BUSINESS.get(status, status)
             row.completed_at, row.lease_expires_at = _now(), None
+            lease = await session.get(DeviceLeaseRow, binding.device_id, with_for_update=True)
+            if lease is not None and lease.lease_id == row.lease_id:
+                lease.canceled_at = row.completed_at
             return self._task_view(row)
 
     async def start_preview(
@@ -792,6 +1135,26 @@ class MobileTaskService:
         return image
 
     @staticmethod
+    async def _account_binding_mismatch(
+        session: Any, task: MobileTaskRow
+    ) -> str | None:
+        if not task.account_id:
+            return None
+        live = await session.scalar(
+            select(AccountDeviceBindingRow).where(
+                AccountDeviceBindingRow.tenant_id == task.tenant_id,
+                AccountDeviceBindingRow.account_id == task.account_id,
+                AccountDeviceBindingRow.device_id == task.device_id,
+                AccountDeviceBindingRow.status == "BOUND",
+            )
+        )
+        if live is None:
+            return "account is no longer bound to this device"
+        if task.binding_version is not None and live.binding_version != task.binding_version:
+            return "account binding version changed"
+        return None
+
+    @staticmethod
     def _validate_owned_task(row: MobileTaskRow | None, binding: MobileBindingRow) -> None:
         if row is None or row.tenant_id != binding.tenant_id or row.device_id != binding.device_id:
             raise NotFoundError("mobile task was not found")
@@ -804,16 +1167,27 @@ class MobileTaskService:
             raise ConflictError("mobile task lease has expired")
 
     @staticmethod
-    def _task_view(row: MobileTaskRow) -> dict[str, Any]:
+    def _task_view(
+        row: MobileTaskRow,
+        *,
+        companion_claim: bool = False,
+        published_recipe: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        from .command_v1 import PROTOCOL_VERSION, command_v1_from_task
+
         metadata, *steps = row.steps
         total_timeout_ms = int(metadata.get("totalTimeoutMs", 0))
         issued_at = row.started_at or row.created_at
-        return {
+        view: dict[str, Any] = {
             "protocolVersion": "cloudctl.mobile/v1",
             "id": row.id,
             "taskId": row.id,
             "deviceId": row.device_id,
+            "accountId": row.account_id,
+            "bindingVersion": row.binding_version,
+            "deviceIdAtExecution": row.device_id_at_execution,
             "targetPackage": row.target_package,
+            "commandType": row.command_type,
             "issuedAt": issued_at,
             "expiresAt": _aware(issued_at) + timedelta(milliseconds=total_timeout_ms),
             "maxRunSeconds": (total_timeout_ms + 999) // 1000,
@@ -823,9 +1197,13 @@ class MobileTaskService:
             "status": row.status,
             "leaseId": row.lease_id,
             "leaseExpiresAt": row.lease_expires_at,
+            "controlEpoch": metadata.get("controlEpoch"),
             "attempt": row.attempt,
             "lastSequence": row.last_sequence,
             "currentStep": row.current_step,
+            "businessState": row.business_state,
+            "controlMode": row.control_mode or "AUTO",
+            "stallReason": row.stall_reason,
             "result": row.result,
             "errorCode": row.error_code,
             "detail": row.detail,
@@ -833,6 +1211,41 @@ class MobileTaskService:
             "startedAt": row.started_at,
             "completedAt": row.completed_at,
         }
+        control_epoch = metadata.get("controlEpoch")
+        if (
+            row.command_type
+            and row.account_id
+            and row.binding_version
+            and row.attempt_id
+            and row.lease_expires_at is not None
+            and isinstance(control_epoch, int)
+            and control_epoch >= 1
+        ):
+            try:
+                command = command_v1_from_task(
+                    task_id=row.id,
+                    attempt_id=row.attempt_id,
+                    command_type=row.command_type,
+                    device_id=row.device_id,
+                    account_id=row.account_id,
+                    binding_version=row.binding_version,
+                    target_package=row.target_package,
+                    command_payload=row.command_payload,
+                    control_epoch=control_epoch,
+                    lease_expires_at=_aware(row.lease_expires_at),
+                    media_delivery_id=(row.command_payload or {}).get("mediaDeliveryId"),
+                    published_recipe=published_recipe,
+                )
+            except ValueError:
+                command = None
+            if command is not None:
+                view["command"] = command
+                view["attemptId"] = row.attempt_id
+                if companion_claim:
+                    view["protocolVersion"] = PROTOCOL_VERSION
+                    if not command.get("legacyStepsEnabled"):
+                        view.pop("steps", None)
+        return view
 
     @staticmethod
     def _event_view(row: MobileTaskEventRow) -> dict[str, Any]:
@@ -842,6 +1255,9 @@ class MobileTaskService:
             "sequence": row.sequence,
             "eventType": row.event_type,
             "stepIndex": row.step_index,
+            "stepId": row.step_id,
+            "attemptId": row.attempt_id,
             "payload": row.payload,
             "occurredAt": row.occurred_at,
+            "receivedAt": row.received_at,
         }

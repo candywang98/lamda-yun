@@ -9,6 +9,17 @@
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
+    <!-- Android 11+ package visibility: without this, getLaunchIntentForPackage()
+         returns null for Idlefish even when the app is installed. -->
+    <queries>
+        <package android:name="com.taobao.idlefish" />
+        <package android:name="com.xingin.xhs" />
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
+
     <application
         android:allowBackup="false"
         android:fullBackupContent="false"
@@ -18,6 +29,13 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.CloudCtl">
         <activity
+            android:name=".ClipboardRelayActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.CloudCtl.ClipboardRelay" />
+        <activity
             android:name=".MainActivity"
             android:exported="true">
             <intent-filter>
@@ -25,6 +43,18 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <service
+            android:name=".ime.CloudCtlInputMethod"
+            android:exported="true"
+            android:label="@string/ime_name"
+            android:permission="android.permission.BIND_INPUT_METHOD">
+            <intent-filter>
+                <action android:name="android.view.InputMethod" />
+            </intent-filter>
+            <meta-data
+                android:name="android.view.im"
+                android:resource="@xml/method" />
+        </service>
         <service
             android:name=".automation.CloudCtlAccessibilityService"
             android:exported="false"

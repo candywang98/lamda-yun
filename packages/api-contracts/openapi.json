@@ -2000,10 +2000,77 @@
             ],
             "title": "Freestoragebytes"
           },
+          "gestureAvailable": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gestureavailable"
+          },
+          "inputMethod": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inputmethod"
+          },
+          "manufacturer": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manufacturer"
+          },
+          "mediaProjection": {
+            "anyOf": [
+              {
+                "enum": [
+                  "GRANTED",
+                  "DENIED",
+                  "UNKNOWN"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mediaprojection"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
           "network": {
             "anyOf": [
               {
-                "maxLength": 32,
+                "enum": [
+                  "WIFI",
+                  "CELLULAR",
+                  "UNKNOWN"
+                ],
                 "type": "string"
               },
               {
@@ -2011,6 +2078,31 @@
               }
             ],
             "title": "Network"
+          },
+          "romSummary": {
+            "anyOf": [
+              {
+                "maxLength": 160,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Romsummary"
+          },
+          "sdkInt": {
+            "anyOf": [
+              {
+                "maximum": 100.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sdkint"
           },
           "temperatureCelsius": {
             "anyOf": [
@@ -2237,11 +2329,45 @@
       "MobilePublishListingRequest": {
         "additionalProperties": false,
         "properties": {
+          "autoPublish": {
+            "default": true,
+            "title": "Autopublish",
+            "type": "boolean"
+          },
+          "deliveryId": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deliveryid"
+          },
           "description": {
             "maxLength": 1024,
             "minLength": 1,
             "title": "Description",
             "type": "string"
+          },
+          "mediaAssetIds": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 50,
+                "minItems": 1,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mediaassetids"
           },
           "price": {
             "maxLength": 32,
@@ -2289,6 +2415,30 @@
             },
             "title": "Result",
             "type": "object"
+          },
+          "resultType": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resulttype"
+          },
+          "schemaVersion": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Schemaversion"
           }
         },
         "required": [
@@ -2300,11 +2450,36 @@
       "MobileTaskCreate": {
         "additionalProperties": false,
         "properties": {
+          "accountId": {
+            "anyOf": [
+              {
+                "maxLength": 36,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accountid"
+          },
           "deviceId": {
             "maxLength": 36,
             "minLength": 1,
             "title": "Deviceid",
             "type": "string"
+          },
+          "expectedBindingVersion": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expectedbindingversion"
           },
           "mediaDelivery": {
             "anyOf": [
@@ -2384,13 +2559,29 @@
       "MobileTaskEvent": {
         "additionalProperties": false,
         "properties": {
+          "attemptId": {
+            "anyOf": [
+              {
+                "maxLength": 36,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attemptid"
+          },
           "eventType": {
             "enum": [
               "STEP_STARTED",
               "STEP_SUCCEEDED",
               "STEP_FAILED",
               "EVIDENCE",
-              "LOG"
+              "LOG",
+              "PAUSE_REQUESTED",
+              "PAUSED_WAITING_USER",
+              "RESUME_CHECK",
+              "RECONCILING"
             ],
             "title": "Eventtype",
             "type": "string"
@@ -2428,6 +2619,18 @@
             "minimum": 1.0,
             "title": "Sequence",
             "type": "integer"
+          },
+          "stepId": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stepid"
           },
           "stepIndex": {
             "anyOf": [
@@ -3631,6 +3834,203 @@
         "title": "PlatformAccountCreate",
         "type": "object"
       },
+      "PlatformTaskCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "accountId": {
+            "maxLength": 36,
+            "minLength": 1,
+            "title": "Accountid",
+            "type": "string"
+          },
+          "batchId": {
+            "anyOf": [
+              {
+                "maxLength": 36,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batchid"
+          },
+          "commandType": {
+            "enum": [
+              "xianyu.publish_listing.v1",
+              "xianyu.collect_orders.v1",
+              "xiaohongshu.publish_note.v1",
+              "device.probe_capabilities.v1"
+            ],
+            "title": "Commandtype",
+            "type": "string"
+          },
+          "deviceId": {
+            "anyOf": [
+              {
+                "maxLength": 36,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deviceid"
+          },
+          "deviceIds": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Deviceids",
+            "type": "array"
+          },
+          "expectedBindingVersion": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expectedbindingversion"
+          },
+          "mediaDeliveryId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mediadeliveryid"
+          },
+          "parameters": {
+            "additionalProperties": true,
+            "title": "Parameters",
+            "type": "object"
+          },
+          "publishTargetId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publishtargetid"
+          },
+          "scheduledFor": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scheduledfor"
+          }
+        },
+        "required": [
+          "commandType",
+          "accountId"
+        ],
+        "title": "PlatformTaskCreate",
+        "type": "object"
+      },
+      "PlatformTaskPause": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "PlatformTaskPause",
+        "type": "object"
+      },
+      "PlatformTaskReconcile": {
+        "additionalProperties": false,
+        "properties": {
+          "decision": {
+            "title": "Decision",
+            "type": "string"
+          },
+          "evidence": {
+            "maxLength": 2000,
+            "minLength": 3,
+            "title": "Evidence",
+            "type": "string"
+          },
+          "platformItemId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Platformitemid"
+          }
+        },
+        "required": [
+          "decision",
+          "evidence"
+        ],
+        "title": "PlatformTaskReconcile",
+        "type": "object"
+      },
+      "PlatformTaskResume": {
+        "additionalProperties": false,
+        "properties": {
+          "pageVerified": {
+            "default": false,
+            "title": "Pageverified",
+            "type": "boolean"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "PlatformTaskResume",
+        "type": "object"
+      },
+      "PlatformTaskRetry": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "PlatformTaskRetry",
+        "type": "object"
+      },
       "ProductArchiveRequest": {
         "properties": {
           "reason": {
@@ -3646,8 +4046,87 @@
         "title": "ProductArchiveRequest",
         "type": "object"
       },
+      "ProductBatchDelete": {
+        "properties": {
+          "productIds": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Productids",
+            "type": "array"
+          },
+          "reason": {
+            "maxLength": 1000,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "productIds",
+          "reason"
+        ],
+        "title": "ProductBatchDelete",
+        "type": "object"
+      },
+      "ProductBatchUpdateGroup": {
+        "properties": {
+          "groupId": {
+            "maxLength": 36,
+            "minLength": 1,
+            "title": "Groupid",
+            "type": "string"
+          },
+          "productIds": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Productids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "productIds",
+          "groupId"
+        ],
+        "title": "ProductBatchUpdateGroup",
+        "type": "object"
+      },
+      "ProductBatchUpdatePrice": {
+        "properties": {
+          "price": {
+            "pattern": "^[0-9]+(\\.[0-9]{1,2})?$",
+            "title": "Price",
+            "type": "string"
+          },
+          "productIds": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Productids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "productIds",
+          "price"
+        ],
+        "title": "ProductBatchUpdatePrice",
+        "type": "object"
+      },
       "ProductCreate": {
         "properties": {
+          "attributes": {
+            "additionalProperties": true,
+            "title": "Attributes",
+            "type": "object"
+          },
           "category": {
             "maxLength": 160,
             "minLength": 1,
@@ -3699,6 +4178,183 @@
           "stock"
         ],
         "title": "ProductCreate",
+        "type": "object"
+      },
+      "ProductFilterRequest": {
+        "properties": {
+          "category": {
+            "anyOf": [
+              {
+                "maxLength": 160,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "groupId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Groupid"
+          },
+          "maxPrice": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]+(\\.[0-9]{1,2})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maxprice"
+          },
+          "minPrice": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]+(\\.[0-9]{1,2})?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minprice"
+          },
+          "search": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Search"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ACTIVE",
+                  "ARCHIVED",
+                  "ALL"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": "ACTIVE",
+            "title": "Status"
+          }
+        },
+        "title": "ProductFilterRequest",
+        "type": "object"
+      },
+      "ProductImportItem": {
+        "properties": {
+          "category": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Category",
+            "type": "string"
+          },
+          "description": {
+            "default": "",
+            "maxLength": 10000,
+            "title": "Description",
+            "type": "string"
+          },
+          "groupId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Groupid"
+          },
+          "imageUrls": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Imageurls",
+            "type": "array"
+          },
+          "price": {
+            "pattern": "^[0-9]+(\\.[0-9]{1,2})?$",
+            "title": "Price",
+            "type": "string"
+          },
+          "spuCode": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Spucode",
+            "type": "string"
+          },
+          "stock": {
+            "minimum": 0.0,
+            "title": "Stock",
+            "type": "integer"
+          },
+          "title": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "spuCode",
+          "title",
+          "category",
+          "price",
+          "stock"
+        ],
+        "title": "ProductImportItem",
+        "type": "object"
+      },
+      "ProductImportRequest": {
+        "properties": {
+          "groupId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Groupid"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ProductImportItem"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "ProductImportRequest",
         "type": "object"
       },
       "ProductMediaUpdate": {
@@ -3757,6 +4413,11 @@
       },
       "ProductUpdate": {
         "properties": {
+          "attributes": {
+            "additionalProperties": true,
+            "title": "Attributes",
+            "type": "object"
+          },
           "category": {
             "maxLength": 160,
             "minLength": 1,
@@ -3963,6 +4624,32 @@
           "p95DurationMs"
         ],
         "title": "RolloutEvidenceCreate",
+        "type": "object"
+      },
+      "ScheduleFireRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "deviceId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deviceid"
+          },
+          "scheduledFor": {
+            "format": "date-time",
+            "title": "Scheduledfor",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scheduledFor"
+        ],
+        "title": "ScheduleFireRequest",
         "type": "object"
       },
       "ScreenshotStep": {
@@ -4542,6 +5229,121 @@
         "title": "TargetStateUpdate",
         "type": "object"
       },
+      "TaskScheduleCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "accountId": {
+            "maxLength": 36,
+            "minLength": 1,
+            "title": "Accountid",
+            "type": "string"
+          },
+          "commandType": {
+            "enum": [
+              "xianyu.publish_listing.v1",
+              "xianyu.collect_orders.v1",
+              "xiaohongshu.publish_note.v1",
+              "device.probe_capabilities.v1"
+            ],
+            "title": "Commandtype",
+            "type": "string"
+          },
+          "deviceIds": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Deviceids",
+            "type": "array"
+          },
+          "enabled": {
+            "default": true,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "expectedBindingVersion": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expectedbindingversion"
+          },
+          "kind": {
+            "enum": [
+              "ONCE",
+              "RECURRING"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "missPolicy": {
+            "default": "QUEUE_ONE",
+            "enum": [
+              "QUEUE_ONE",
+              "SKIP"
+            ],
+            "title": "Misspolicy",
+            "type": "string"
+          },
+          "onceAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Onceat"
+          },
+          "parameters": {
+            "additionalProperties": true,
+            "title": "Parameters",
+            "type": "object"
+          },
+          "rrule": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rrule"
+          },
+          "startDeadlineMinutes": {
+            "default": 30,
+            "maximum": 10080.0,
+            "minimum": 1.0,
+            "title": "Startdeadlineminutes",
+            "type": "integer"
+          },
+          "timezone": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Timezone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "timezone",
+          "kind",
+          "accountId",
+          "deviceIds",
+          "commandType"
+        ],
+        "title": "TaskScheduleCreate",
+        "type": "object"
+      },
       "TenantCreate": {
         "properties": {
           "name": {
@@ -4832,6 +5634,47 @@
           }
         },
         "summary": "Unbind Account Device"
+      }
+    },
+    "/api/v1/accounts/{account_id}/ownership": {
+      "get": {
+        "operationId": "get_account_ownership_api_v1_accounts__account_id__ownership_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "title": "Account Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Account Ownership Api V1 Accounts  Account Id  Ownership Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Account Ownership"
       }
     },
     "/api/v1/accounts/{account_id}:status": {
@@ -7798,6 +8641,622 @@
         ]
       }
     },
+    "/api/v1/platform-tasks": {
+      "get": {
+        "operationId": "list_platform_tasks_api_v1_platform_tasks_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "After"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "deviceId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Deviceid"
+            }
+          },
+          {
+            "in": "query",
+            "name": "batchId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Batchid"
+            }
+          },
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "State"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Platform Tasks Api V1 Platform Tasks Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Platform Tasks",
+        "tags": [
+          "platform-tasks"
+        ]
+      },
+      "post": {
+        "operationId": "create_platform_tasks_api_v1_platform_tasks_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlatformTaskCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Platform Tasks Api V1 Platform Tasks Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Platform Tasks",
+        "tags": [
+          "platform-tasks"
+        ]
+      }
+    },
+    "/api/v1/platform-tasks/{task_id}": {
+      "get": {
+        "operationId": "get_platform_task_api_v1_platform_tasks__task_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Platform Task Api V1 Platform Tasks  Task Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Platform Task",
+        "tags": [
+          "platform-tasks"
+        ]
+      }
+    },
+    "/api/v1/platform-tasks/{task_id}:ack-paused": {
+      "post": {
+        "operationId": "ack_paused_platform_task_api_v1_platform_tasks__task_id__ack_paused_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Ack Paused Platform Task Api V1 Platform Tasks  Task Id  Ack Paused Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Ack Paused Platform Task",
+        "tags": [
+          "platform-tasks"
+        ]
+      }
+    },
+    "/api/v1/platform-tasks/{task_id}:cancel": {
+      "post": {
+        "operationId": "cancel_platform_task_api_v1_platform_tasks__task_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Cancel Platform Task Api V1 Platform Tasks  Task Id  Cancel Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel Platform Task",
+        "tags": [
+          "platform-tasks"
+        ]
+      }
+    },
+    "/api/v1/platform-tasks/{task_id}:mark-unknown": {
+      "post": {
+        "operationId": "mark_unknown_platform_task_api_v1_platform_tasks__task_id__mark_unknown_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Mark Unknown Platform Task Api V1 Platform Tasks  Task Id  Mark Unknown Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Mark Unknown Platform Task",
+        "tags": [
+          "platform-tasks"
+        ]
+      }
+    },
+    "/api/v1/platform-tasks/{task_id}:pause": {
+      "post": {
+        "operationId": "pause_platform_task_api_v1_platform_tasks__task_id__pause_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlatformTaskPause"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Pause Platform Task Api V1 Platform Tasks  Task Id  Pause Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Pause Platform Task",
+        "tags": [
+          "platform-tasks"
+        ]
+      }
+    },
+    "/api/v1/platform-tasks/{task_id}:reconcile": {
+      "post": {
+        "operationId": "reconcile_platform_task_api_v1_platform_tasks__task_id__reconcile_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlatformTaskReconcile"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Reconcile Platform Task Api V1 Platform Tasks  Task Id  Reconcile Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reconcile Platform Task",
+        "tags": [
+          "platform-tasks"
+        ]
+      }
+    },
+    "/api/v1/platform-tasks/{task_id}:resume": {
+      "post": {
+        "operationId": "resume_platform_task_api_v1_platform_tasks__task_id__resume_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlatformTaskResume"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Resume Platform Task Api V1 Platform Tasks  Task Id  Resume Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resume Platform Task",
+        "tags": [
+          "platform-tasks"
+        ]
+      }
+    },
+    "/api/v1/platform-tasks/{task_id}:retry": {
+      "post": {
+        "operationId": "retry_platform_task_api_v1_platform_tasks__task_id__retry_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlatformTaskRetry"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Retry Platform Task Api V1 Platform Tasks  Task Id  Retry Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retry Platform Task",
+        "tags": [
+          "platform-tasks"
+        ]
+      }
+    },
     "/api/v1/products": {
       "get": {
         "operationId": "list_products_api_v1_products_get",
@@ -8049,6 +9508,209 @@
           }
         },
         "summary": "Archive Product"
+      }
+    },
+    "/api/v1/products:batch-delete": {
+      "post": {
+        "operationId": "batch_delete_products_api_v1_products_batch_delete_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductBatchDelete"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Batch Delete Products Api V1 Products Batch Delete Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Batch Delete Products"
+      }
+    },
+    "/api/v1/products:batch-update-group": {
+      "post": {
+        "operationId": "batch_update_product_group_api_v1_products_batch_update_group_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductBatchUpdateGroup"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Batch Update Product Group Api V1 Products Batch Update Group Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Batch Update Product Group"
+      }
+    },
+    "/api/v1/products:batch-update-price": {
+      "post": {
+        "operationId": "batch_update_product_price_api_v1_products_batch_update_price_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductBatchUpdatePrice"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Batch Update Product Price Api V1 Products Batch Update Price Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Batch Update Product Price"
+      }
+    },
+    "/api/v1/products:filter": {
+      "post": {
+        "operationId": "filter_products_api_v1_products_filter_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductFilterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "title": "Response Filter Products Api V1 Products Filter Post",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Filter Products"
+      }
+    },
+    "/api/v1/products:import": {
+      "post": {
+        "operationId": "import_products_api_v1_products_import_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductImportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Import Products Api V1 Products Import Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import Products"
       }
     },
     "/api/v1/publish-plans": {
@@ -8694,6 +10356,259 @@
         "summary": "Start Sync Run",
         "tags": [
           "sources"
+        ]
+      }
+    },
+    "/api/v1/task-schedules": {
+      "get": {
+        "operationId": "list_schedules_api_v1_task_schedules_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "title": "Response List Schedules Api V1 Task Schedules Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Schedules",
+        "tags": [
+          "task-schedules"
+        ]
+      },
+      "post": {
+        "operationId": "create_schedule_api_v1_task_schedules_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskScheduleCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Schedule Api V1 Task Schedules Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Schedule",
+        "tags": [
+          "task-schedules"
+        ]
+      }
+    },
+    "/api/v1/task-schedules/{schedule_id}": {
+      "get": {
+        "operationId": "get_schedule_api_v1_task_schedules__schedule_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "schedule_id",
+            "required": true,
+            "schema": {
+              "title": "Schedule Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Schedule Api V1 Task Schedules  Schedule Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Schedule",
+        "tags": [
+          "task-schedules"
+        ]
+      }
+    },
+    "/api/v1/task-schedules/{schedule_id}:disable": {
+      "post": {
+        "operationId": "disable_schedule_api_v1_task_schedules__schedule_id__disable_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "schedule_id",
+            "required": true,
+            "schema": {
+              "title": "Schedule Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Disable Schedule Api V1 Task Schedules  Schedule Id  Disable Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Disable Schedule",
+        "tags": [
+          "task-schedules"
+        ]
+      }
+    },
+    "/api/v1/task-schedules/{schedule_id}:enable": {
+      "post": {
+        "operationId": "enable_schedule_api_v1_task_schedules__schedule_id__enable_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "schedule_id",
+            "required": true,
+            "schema": {
+              "title": "Schedule Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Enable Schedule Api V1 Task Schedules  Schedule Id  Enable Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Enable Schedule",
+        "tags": [
+          "task-schedules"
+        ]
+      }
+    },
+    "/api/v1/task-schedules/{schedule_id}:fire": {
+      "post": {
+        "operationId": "fire_schedule_api_v1_task_schedules__schedule_id__fire_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "schedule_id",
+            "required": true,
+            "schema": {
+              "title": "Schedule Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScheduleFireRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Fire Schedule Api V1 Task Schedules  Schedule Id  Fire Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Fire Schedule",
+        "tags": [
+          "task-schedules"
         ]
       }
     },

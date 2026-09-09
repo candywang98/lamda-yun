@@ -36,12 +36,34 @@
       "timeoutMs": 8000
     },
     {
+      "stepId": "wait-description",
+      "action": "ui.wait",
+      "locatorRef": "xianyu_description",
+      "condition": "EXISTS",
+      "pollMs": 200,
+      "timeoutMs": 8000
+    },
+    {
       "stepId": "fill-description",
       "action": "ui.input",
       "locatorRef": "xianyu_description",
       "value": "自用闲置，功能正常，支持当面交易",
       "replace": true,
-      "timeoutMs": 8000
+      "timeoutMs": 20000
+    },
+    {
+      "stepId": "confirm-description",
+      "action": "ui.tap",
+      "locatorRef": "xianyu_composer_done",
+      "timeoutMs": 5000
+    },
+    {
+      "stepId": "wait-price",
+      "action": "ui.wait",
+      "locatorRef": "xianyu_price",
+      "condition": "EXISTS",
+      "pollMs": 200,
+      "timeoutMs": 12000
     },
     {
       "stepId": "fill-price",
@@ -49,7 +71,7 @@
       "locatorRef": "xianyu_price",
       "value": "128",
       "replace": true,
-      "timeoutMs": 8000
+      "timeoutMs": 20000
     },
     {
       "stepId": "capture-form",

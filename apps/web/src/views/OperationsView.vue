@@ -48,7 +48,7 @@ import { buildOperationParameters } from '@/data/operation-parameters'
 import { controlApiConfigured, createControlApiClient, operationsMockEnabled } from '@/api/control'
 import { keepAliveHint, mapControlDevice, presenceLabel, type DevicePresence } from '@/api/devices'
 import { useDisplaySettings } from '@/stores/display-settings'
-import { CloudCtlApiError, type ContentGroupView, type ContentSummary, type JsonObject, type OperationAuditEvent, type OperationCatalogEntry, type OperationTask, type ProductMediaUpdateItem, type ProductView } from '@cloudctl/api-contracts'
+import { CloudCtlApiError, type ContentGroupView, type ContentSummary, type JsonObject, type OperationAuditEvent, type OperationCatalogEntry, type OperationTask, type PlatformTaskView, type ProductMediaUpdateItem, type ProductView } from '@cloudctl/api-contracts'
 
 interface OperationRow {
   id: string
@@ -163,6 +163,19 @@ const rows = computed<OperationRow[]>(() => {
   if (connection.value === 'mock') return mockRows.value
   if (connection.value !== 'live') return []
   
+  // For task queue, show platform tasks
+  if (isTaskQueue.value) {
+    return platformTasks.value.map((task) => ({
+      id: task.id,
+      name: `${task.commandType} · ${task.id.slice(0, 8)}`,
+      group: task.deviceId.slice(0, 8),
+      device: task.deviceId,
+      owner: task.createdBy,
+      status: mapPlatformTaskState(task.state),
+      updatedAt: formatDate(task.completedAt ?? task.startedAt ?? task.createdAt),
+    }))
+  }
+  
   // For product list, show actual products
   if (isProductList.value) {
     return productItems.value.map((product) => ({
@@ -186,6 +199,16 @@ const rows = computed<OperationRow[]>(() => {
     updatedAt: formatDate(task.completedAt ?? task.startedAt ?? task.createdAt),
   }))
 })
+
+function mapPlatformTaskState(state: string): OperationRow['status'] {
+  if (state === 'QUEUED' || state === 'WAITING_MATERIALS' || state === 'PREFLIGHT') return 'QUEUED'
+  if (state === 'RUNNING' || state === 'PAUSE_REQUESTED' || state === 'RESUME_CHECK') return 'RUNNING'
+  if (state === 'PAUSED_WAITING_USER' || state === 'RECONCILING') return 'PENDING_APPROVAL'
+  if (state === 'SUCCEEDED') return 'SUCCEEDED'
+  if (state === 'FAILED') return 'FAILED'
+  if (state === 'CANCELLED') return 'CANCELED'
+  return 'BLOCKED'
+}
 
 const filteredRows = computed(() => rows.value.filter((row) => {
   const matchesSearch = `${row.name}${row.group}${row.device}${row.owner}`.toLowerCase().includes(search.value.trim().toLowerCase())
@@ -254,6 +277,7 @@ const isProductEditor = computed(() => operation.value.id === 'product-editor-01
 const isContentEditor = computed(() => isPostEditor.value || isProductEditor.value)
 const contentKind = computed(() => (isProductEditor.value ? 'product' : 'post'))
 const isTaskQueue = computed(() => operation.value.id === 'task-queue-01')
+const platformTasks = ref<PlatformTaskView[]>([])
 const postItems = ref<ContentSummary[]>([])
 const productItems = ref<ProductView[]>([])
 const postGroups = ref<ContentGroupView[]>([])
@@ -278,7 +302,7 @@ const enrollment = ref<{ code: string; expiresAt: string } | null>(null)
 const enrollmentBusy = ref(false)
 const enrollmentError = ref('')
 const controlApiPublicUrl = 'https://43.133.243.154.sslip.io'
-const controlApiTlsPin = '4aa79fab99f90aefda2a66b9456ee2839c5e5379716a8e98e49bee15ea2619bc'
+const controlApiTlsPin = 'c8e22fda63df9a3a1fb06796e84638839a71f2e62dcf80cbebb72ffa61582f64'
 
 async function createDeviceEnrollment(deviceId: string) {
   if (connection.value !== 'live') return
@@ -786,6 +810,7 @@ function schedulePoll() {
 async function loadOperationData() {
   clearPoll()
   backendTasks.value = []
+  platformTasks.value = []
   if (isProductList.value || isProductEditor.value || isProductImport.value || isProductGroup.value || isPostEditor.value || isPostCollect.value || isPostList.value || isPostGroup.value || isPostWatermark.value || isPostPublishXianyu.value || isPostPublishXiaohongshu.value || isXiaohongshuNurture.value || isListingInfoCollect.value || isXianyuPublishGoods.value) return
   if (!controlApiConfigured) {
     connection.value = operationsMockEnabled ? 'mock' : 'unavailable'
@@ -799,6 +824,35 @@ async function loadOperationData() {
   connectionDetail.value = '正在连接 Control API'
   apiError.value = ''
   try {
+    if (isTaskQueue.value) {
+      const [tasks, devices] = await Promise.all([
+        controlApi.listPlatformTasks({ limit: 100 }),
+        controlApi.devices(),
+      ])
+      platformTasks.value = tasks
+      liveDevices.value = devices.map((item) => {
+        const mapped = mapControlDevice(item)
+        return {
+          id: mapped.id,
+          group: '1',
+          name: mapped.name,
+          brand: mapped.android === '未回传' ? 'Android' : 'OnePlus',
+          account: mapped.account,
+          goods: 0,
+          sales: '0',
+          exposure: 0,
+          model: mapped.android,
+          androidId: mapped.id.slice(0, 16),
+          ip: mapped.edge,
+          status: mapped.presence ?? 'BOUND_UNSEEN',
+          onlineAt: mapped.lastSeenAt ?? '未回传',
+          keepAlive: keepAliveHint(mapped),
+        } satisfies DeviceRecord
+      })
+      connection.value = 'live'
+      connectionDetail.value = `Control API 已连接，已加载 ${tasks.length} 个任务`
+      return
+    }
     const [catalog, tasks, draft, devices] = await Promise.all([
       controlApi.operationCatalog(),
       controlApi.operationTasks({ limit: 200 }),
@@ -944,6 +998,36 @@ async function cancelTask() {
     clearPoll()
   } catch (error) {
     apiError.value = `取消失败：${errorDetail(error)}`
+  } finally {
+    apiBusy.value = false
+  }
+}
+
+const selectedPlatformTask = computed(() => platformTasks.value.find((task) => task.id === detailRow.value?.id) ?? null)
+const canResumePausedTask = computed(() => (
+  isTaskQueue.value
+  && connection.value === 'live'
+  && selectedPlatformTask.value?.state === 'PAUSED_WAITING_USER'
+))
+
+async function resumePausedPlatformTask() {
+  if (!detailRow.value || !canResumePausedTask.value) return
+  apiBusy.value = true
+  apiError.value = ''
+  try {
+    const updated = await controlApi.resumePlatformTask(detailRow.value.id, {
+      reason: reason.value.trim() || 'operator returned control after pageVerified',
+      pageVerified: true,
+    })
+    platformTasks.value = platformTasks.value.map((task) => (task.id === updated.id ? updated : task))
+    detailRow.value = {
+      ...detailRow.value,
+      status: mapPlatformTaskState(updated.state),
+      updatedAt: formatDate(updated.completedAt ?? updated.startedAt ?? updated.createdAt),
+    }
+    viewFeedback.value = `已交还控制权并继续原任务 · ${updated.taskId.slice(0, 8)} · resumeCount=${updated.resumeCount}`
+  } catch (error) {
+    apiError.value = `交还控制权失败：${errorDetail(error)}`
   } finally {
     apiBusy.value = false
   }
@@ -1242,6 +1326,6 @@ onUnmounted(clearPoll)
 
   <div v-if="showConfirm" class="modal-backdrop" @click.self="showConfirm = false"><div class="modal operation-confirm" role="dialog" aria-modal="true" aria-label="批量操作确认"><div class="modal-header"><h3>{{ connection === 'live' ? '确认创建后端任务' : '确认创建 Mock 任务' }}</h3><button class="icon-button" title="关闭" @click="showConfirm = false"><X :size="16" /></button></div><div class="modal-body"><div class="notice notice-info"><AlertTriangle :size="18" /><div><strong>{{ operation.title }} · {{ Math.max(targetResourceIds.length, 1) }} 个目标</strong><p>{{ connection === 'live' ? '请求将携带幂等键提交到 Control API；后续状态、取消和审计均读取后端。' : 'Control API 当前不可用，本次仅生成有明确标识的 Mock 回执。' }}</p></div></div><ul class="preview-list"><li><span>后端操作</span><strong class="mono">{{ operation.backendOperationKey }}</strong></li><li><span>设备范围</span><strong>{{ form.deviceScope }}</strong></li><li><span>执行时间</span><strong>{{ form.schedule }}</strong></li><li><span>快照</span><strong class="mono">{{ form.snapshot }}</strong></li></ul><div class="form-field" style="margin-top:12px"><label>操作理由</label><textarea v-model="reason" placeholder="填写授权依据或业务用途，写入审计" /></div><div class="form-field" style="margin-top:10px"><label>输入确认短语：{{ requiredConfirmPhrase }}</label><input v-model="confirmPhrase" :placeholder="requiredConfirmPhrase" /></div></div><div class="modal-actions"><button class="button" @click="showConfirm = false">返回检查</button><button class="button button-primary" :disabled="apiBusy || confirmPhrase !== requiredConfirmPhrase || reason.trim().length < 2" @click="createRun">确认提交</button></div></div></div>
 
-  <div v-if="detailRow" class="modal-backdrop" @click.self="detailRow = null"><div class="modal operation-detail-modal" role="dialog" aria-modal="true" aria-label="记录详情"><div class="modal-header"><div><h3>{{ detailRow.name }}</h3><span class="cell-sub mono">{{ detailRow.id }}</span></div><button class="icon-button" title="关闭" @click="detailRow = null"><X :size="16" /></button></div><div class="modal-body"><div class="operation-detail-grid"><div><span>分组</span><strong>{{ detailRow.group }}</strong></div><div><span>设备或范围</span><strong>{{ detailRow.device }}</strong></div><div><span>负责人</span><strong>{{ detailRow.owner }}</strong></div><div><span>当前状态</span><StatusBadge :status="detailRow.status" /></div><div><span>更新时间</span><strong>{{ detailRow.updatedAt }}</strong></div><div><span>来源页面</span><strong class="mono">PDF {{ operation.sourcePage }} · {{ operation.sourceRoute }}</strong></div></div><div class="operation-detail-parameters"><h4>页面参数快照</h4><dl><div v-for="field in operation.pageProfile.fields" :key="field.id"><dt>{{ field.label }}</dt><dd>{{ typeof pageParameters[field.id] === 'boolean' ? (pageParameters[field.id] ? '已开启' : '已关闭') : pageParameters[field.id] }}</dd></div></dl></div></div><div class="modal-actions"><button class="button button-primary" @click="detailRow = null">关闭详情</button></div></div></div>
+  <div v-if="detailRow" class="modal-backdrop" @click.self="detailRow = null"><div class="modal operation-detail-modal" role="dialog" aria-modal="true" aria-label="记录详情"><div class="modal-header"><div><h3>{{ detailRow.name }}</h3><span class="cell-sub mono">{{ detailRow.id }}</span></div><button class="icon-button" title="关闭" @click="detailRow = null"><X :size="16" /></button></div><div class="modal-body"><div class="operation-detail-grid"><div><span>分组</span><strong>{{ detailRow.group }}</strong></div><div><span>设备或范围</span><strong>{{ detailRow.device }}</strong></div><div><span>负责人</span><strong>{{ detailRow.owner }}</strong></div><div><span>当前状态</span><StatusBadge :status="detailRow.status" /></div><div><span>更新时间</span><strong>{{ detailRow.updatedAt }}</strong></div><div><span>来源页面</span><strong class="mono">PDF {{ operation.sourcePage }} · {{ operation.sourceRoute }}</strong></div></div><div class="operation-detail-parameters"><h4>页面参数快照</h4><dl><div v-for="field in operation.pageProfile.fields" :key="field.id"><dt>{{ field.label }}</dt><dd>{{ typeof pageParameters[field.id] === 'boolean' ? (pageParameters[field.id] ? '已开启' : '已关闭') : pageParameters[field.id] }}</dd></div></dl></div></div><div class="modal-actions"><button v-if="canResumePausedTask" class="button" type="button" :disabled="apiBusy" @click="resumePausedPlatformTask"><Play :size="14" />交还控制权并继续</button><button class="button button-primary" @click="detailRow = null">关闭详情</button></div></div></div>
   </template>
 </template>

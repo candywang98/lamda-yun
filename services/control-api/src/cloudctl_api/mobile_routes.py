@@ -210,6 +210,21 @@ async def download_media(asset_id: str, current: Binding, mobile: Service) -> Re
     )
 
 
+@companion_router.get("/recipes/active")
+async def list_active_recipes(current: Binding, mobile: Service) -> dict[str, Any]:
+    return await mobile.list_active_recipes(current)
+
+
+@companion_router.get("/recipes/{version_id}")
+async def download_recipe(version_id: str, current: Binding, mobile: Service) -> Response:
+    content, digest = await mobile.download_recipe(current, version_id)
+    return Response(
+        content=content,
+        media_type="application/json",
+        headers={"Cache-Control": "no-store", "X-Content-SHA256": digest},
+    )
+
+
 @companion_router.post("/tasks/{task_id}/heartbeat")
 async def heartbeat(
     task_id: str, body: MobileHeartbeat, current: Binding, mobile: Service
@@ -241,8 +256,13 @@ async def event(
 async def complete(
     task_id: str, body: MobileTaskCompletion, current: Binding, mobile: Service
 ) -> dict[str, Any]:
+    result = dict(body.result)
+    if body.result_type:
+        result["resultType"] = body.result_type
+    if body.schema_version is not None:
+        result["schemaVersion"] = body.schema_version
     return await mobile.finish(
-        current, task_id, body.lease_id, status="SUCCEEDED", result=body.result
+        current, task_id, body.lease_id, status="SUCCEEDED", result=result
     )
 
 

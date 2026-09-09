@@ -22,6 +22,10 @@ from .media_store import ObjectStore, create_object_store
 from .mobile_routes import companion_router
 from .mobile_routes import operator_router as mobile_operator_router
 from .mobile_service import MobileTaskService
+from .platform_task_routes import router as platform_task_router
+from .platform_tasks import PlatformTaskService
+from .schedule_routes import router as schedule_router
+from .schedules import TaskScheduleService
 from .operation_routes import router as operation_router
 from .operation_service import OperationService
 from .routes import router
@@ -95,6 +99,8 @@ def create_app(
     )
     app.state.object_store = resolved_object_store
     app.state.mobile_task_service = MobileTaskService(database, resolved_object_store)
+    app.state.platform_task_service = PlatformTaskService(database, app.state.mobile_task_service)
+    app.state.task_schedule_service = TaskScheduleService(database, app.state.platform_task_service)
     app.state.control_service = ControlService(
         database,
         resolved_settings,
@@ -116,6 +122,8 @@ def create_app(
             "Accept",
             "Authorization",
             "Content-Type",
+            "X-Checksum-SHA256",
+            "X-Amz-Checksum-Sha256",
             "Idempotency-Key",
             "Last-Event-ID",
             "X-Debug-Relay-Token",
@@ -186,6 +194,8 @@ def create_app(
     app.include_router(source_router)
     app.include_router(debug_router)
     app.include_router(mobile_operator_router)
+    app.include_router(platform_task_router)
+    app.include_router(schedule_router)
     app.include_router(companion_router)
     return app
 

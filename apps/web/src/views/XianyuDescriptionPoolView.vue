@@ -41,6 +41,10 @@ function removeItem(poolIndex: number, itemId: string) {
 function exportPool(index: number) {
   downloadCsv(`描述池${titles[index]}.csv`, [['ID', '描述'], ...pools[index]!.map((item) => [item.id, item.text])])
 }
+
+function printPage() {
+  window.print()
+}
 </script>
 
 <template>
@@ -56,7 +60,7 @@ function exportPool(index: number) {
             <button class="outline" type="button">筛选</button>
             <button class="outline" type="button">还原</button>
             <button class="outline" type="button" @click="exportPool(index)">导出</button>
-            <button class="outline" type="button" @click="window.print()">打印</button>
+            <button class="outline" type="button" @click="printPage">打印</button>
           </div>
           <table>
             <thead>

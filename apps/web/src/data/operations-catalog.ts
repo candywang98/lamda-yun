@@ -114,8 +114,8 @@ const tableTerms = ['列表', '队列', '订单', '明细', '变化', '反馈']
 const assetTerms = ['素材', '水印', '地址池', '描述池', '标签池', '分组', '数据包', '回复组']
 const insightTerms = ['分析', '流量', 'TOP5000', '宝贝信息']
 const settingsTerms = ['授权', '资料', '密码', '功能设置', '回复格式']
-const approvalTerms = ['发布', '上架', '下架', '删除', '重启', '绑定', '降价', '小刀', '擦亮', '回复', '共享', '同步', '托管', '编辑重发', '草稿上架']
-const blockedTerms = ['养号', '流量模式', '一键好评', '签到鱼币', '鱼币抵扣', '鱼币推广']
+const approvalTerms = ['发布', '上架', '下架', '删除', '重启', '绑定', '降价', '小刀', '擦亮', '回复', '共享', '同步', '托管', '编辑重发', '草稿上架', '一键好评', '签到', '鱼币']
+const blockedTerms = ['养号', '流量模式']
 
 // The competitor information architecture is broader than the safe Control API catalog.
 // Every entry receives an explicit key or null; no title-based runtime inference is allowed.
@@ -125,14 +125,13 @@ const backendOperationMappings: Partial<Record<string, BackendOperationKey>> = {
   'task-queue-01': 'task_runs.evidence.export',
   'product-editor-03': 'watermarks.preview.render',
   'product-management-03': 'groups.membership.reindex',
-  'product-management-05': 'publish_plans.snapshot.validate',
+  'product-management-05': 'xianyu.listing.publish',
   'product-management-09': 'works.revision.validate',
   'post-management-05': 'watermarks.preview.render',
   'post-management-07': 'publish_plans.snapshot.validate',
   'post-management-08': 'publish_plans.snapshot.validate',
   'xy-tasks-01': 'xianyu.listing.publish',
   'xy-tasks-02': 'publish_plans.snapshot.validate',
-  'zz-tasks-01': 'publish_plans.snapshot.validate',
   'red-tasks-01': 'publish_plans.snapshot.validate',
   'assets-01': 'watermarks.preview.render',
   'assets-02': 'media.derivative.generate',
@@ -228,13 +227,23 @@ export function operationPath(operation: OperationDefinition) {
   return `/operations/${operation.moduleId}/${operation.id}`
 }
 
-/** 闲鱼已下线帖子能力：目录仍保留 134 页编号，侧栏和功能目录不再展示。 */
+/** 闲鱼帖子入口保留编号，转入可用性验证而不是静默剔除。 */
 export const retiredOperationIds = new Set([
   'xy-tasks-02',
   'xy-tasks-07',
   'post-management-06',
   'post-management-07',
 ])
+
+export const availabilityPendingOperationIds = retiredOperationIds
+
+export const phase1SharedServices = {
+  addressPool: ['product-editor-04', 'product-editor-05', 'xy-tasks-25', 'xy-tasks-26', 'assets-05', 'assets-06'],
+  descriptionPool: ['product-editor-06', 'xy-tasks-27', 'assets-07'],
+  tagPool: ['product-editor-07', 'xy-tasks-28', 'assets-08'],
+  watermark: ['product-editor-03', 'post-management-05', 'xy-tasks-29', 'assets-01'],
+  listingCollect: ['analytics-01', 'xy-tasks-24'],
+} as const
 
 export function isRetiredOperation(operationId: string) {
   return retiredOperationIds.has(operationId)
@@ -250,12 +259,7 @@ export function findOperation(moduleId: string, operationId: string) {
 }
 
 export function visibleOperationModules(modules: OperationModule[] = operationModules) {
-  return modules
-    .map((module) => ({
-      ...module,
-      operations: module.operations.filter((operation) => !isRetiredOperation(operation.id)),
-    }))
-    .filter((module) => module.operations.length > 0)
+  return modules.filter((module) => module.operations.length > 0)
 }
 
 export function riskLabel(risk: OperationRisk) {

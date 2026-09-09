@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import ScheduleEditor, { type ScheduleDraft } from '@/components/ScheduleEditor.vue'
 import XianyuDevicePicker from '@/components/XianyuDevicePicker.vue'
 import {
   ADDRESS_POOL_OPTIONS,
@@ -22,6 +23,14 @@ const form = reactive(emptyExtraConfig(props.kind))
 const devices = ref<XianyuTaskDevice[]>([])
 const errorMessage = ref('')
 const successMessage = ref('')
+const schedule = ref<ScheduleDraft>({
+  kind: 'IMMEDIATE',
+  timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Shanghai',
+  onceAt: '',
+  rrule: 'FREQ=DAILY;INTERVAL=1',
+  missPolicy: 'QUEUE_ONE',
+  startDeadlineMinutes: 30,
+})
 
 const copy = computed(() => {
   const table: Record<XianyuExtraKind, { title: string; intervalLabel: string; success: string; help: string[] }> = {
@@ -231,8 +240,7 @@ onMounted(async () => {
         <span class="label">执行应用</span>
         <div>
           <label class="radio" :for="`${kind}-app-main`"><input :id="`${kind}-app-main`" v-model="form.app" type="radio" value="main" /> 主闲鱼</label>
-          <label class="radio" :for="`${kind}-app-sub`"><input :id="`${kind}-app-sub`" v-model="form.app" type="radio" value="sub" /> 副闲鱼</label>
-          <label v-if="showBothApps" class="radio" :for="`${kind}-app-both`"><input :id="`${kind}-app-both`" v-model="form.app" type="radio" value="main-then-sub" /> 先主后副</label>
+          <p class="hint">一期每设备仅绑定一个闲鱼账号，副闲鱼/先主后副已禁用。</p>
         </div>
       </div>
 
@@ -443,12 +451,7 @@ onMounted(async () => {
           <span>秒</span>
         </div>
       </div>
-      <div class="row">
-        <label class="label" for="xy-extra-schedule">执行时间</label>
-        <select id="xy-extra-schedule" v-model="form.schedule">
-          <option>立即执行</option>
-        </select>
-      </div>
+      <ScheduleEditor v-model="schedule" :device-count="form.deviceIds.length" :offline-queued="true" />
       <p v-if="errorMessage" class="flash error">{{ errorMessage }}</p>
       <p v-if="successMessage" class="flash ok">{{ successMessage }}</p>
       <div class="footer">

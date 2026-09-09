@@ -69,6 +69,34 @@ export interface MediaCreate {
   metadata?: JsonObject
 }
 
+export interface MediaUploadCreate {
+  fileName: string
+  sha256: string
+  contentType: string
+  sizeBytes: number
+  sourceAssetId?: string | null
+  derivativeProfileId?: string | null
+  metadata?: JsonObject
+}
+
+export interface MediaUploadGrant {
+  id: string
+  state: string
+  objectKey: string
+  uploadUrl: string
+  uploadHeaders: Record<string, string>
+  expiresAt: string
+}
+
+export interface MediaAssetView {
+  id: string
+  sha256: string
+  objectKey: string
+  contentType: string
+  sizeBytes: number
+  state?: string
+}
+
 export interface ProductCreate {
   spuCode: string
   title: string
@@ -209,6 +237,10 @@ export interface ContentGroupView {
 export interface ContentGroupCreate {
   name: string
   description?: string | null
+}
+
+export interface ContentArchiveRequest {
+  reason: string
 }
 
 export interface ContentXianyuDispatchRequest {
@@ -776,4 +808,60 @@ export interface SyncErrorResponse {
   retry_count: number
   created_at: string
   resolved_at?: string | null
+}
+
+export interface PlatformTaskCreate {
+  deviceId?: string | null
+  deviceIds?: string[]
+  commandType: string
+  accountId: string
+  expectedBindingVersion?: number | null
+  parameters?: JsonObject
+  mediaDeliveryId?: string | null
+}
+
+export interface PlatformTaskView {
+  id: string
+  taskId: string
+  deviceId: string
+  accountId: string
+  bindingVersion: number
+  deviceIdAtExecution: string | null
+  commandType: string
+  commandPayload: JsonObject
+  snapshotSha256: string | null
+  state: string
+  runnerStatus: string
+  controlMode: string
+  batchId: string | null
+  attempt: number
+  attemptId: string
+  scheduledFor: string
+  stallReason: string | null
+  resumeCount: number
+  controlEpoch?: number | null
+  pauseAckAt: string | null
+  reconciliation: JsonObject | null
+  errorCode: string | null
+  detail: string | null
+  result: JsonObject | null
+  createdBy: string
+  createdAt: string
+  startedAt: string | null
+  completedAt: string | null
+}
+
+export interface PlatformTaskPause {
+  reason: string
+}
+
+export interface PlatformTaskReconcile {
+  decision: string
+  evidence: string
+  platformItemId?: string | null
+}
+
+export interface PlatformTaskResume {
+  reason: string
+  pageVerified?: boolean
 }

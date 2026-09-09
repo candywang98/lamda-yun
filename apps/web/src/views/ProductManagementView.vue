@@ -3,6 +3,8 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import type { ProductView } from '@cloudctl/api-contracts'
 import { createProductCatalog } from '@/api/product-catalog'
+import MediaThumb from '@/components/MediaThumb.vue'
+import { fetchMediaBlob } from '@/api/media-assets'
 import {
   clipText,
   downloadDataUrl,
@@ -106,13 +108,20 @@ async function copyProduct(product: ProductView) {
   }
 }
 
-function downloadImages(product: ProductView) {
+async function downloadImages(product: ProductView) {
   const images = productImages(product)
   if (images.length === 0) {
     errorMessage.value = '这个宝贝还没有可下载的图片'
     return
   }
-  images.forEach((image, index) => downloadDataUrl(image, `${product.title || 'product'}-${index + 1}.jpg`))
+  try {
+    for (const [index, image] of images.entries()) {
+      const blob = await fetchMediaBlob(image)
+      downloadDataUrl(URL.createObjectURL(blob), `${product.title || 'product'}-${index + 1}.jpg`)
+    }
+  } catch (error) {
+    errorMessage.value = `下载图片失败：${error instanceof Error ? error.message : String(error)}`
+  }
 }
 
 function showQr(product: ProductView) {
@@ -341,7 +350,7 @@ onMounted(() => {
             <td>{{ productGroupName(product) }}</td>
             <td>
               <div class="thumbs">
-                <img v-for="(image, index) in productImages(product).slice(0, 3)" :key="index" :src="image" alt="" />
+                <MediaThumb v-for="(image, index) in productImages(product).slice(0, 3)" :key="`${product.id}-${image}-${index}`" :asset-id="image" :alt="product.title" />
                 <span v-if="productImages(product).length" class="count">{{ productImages(product).length }}张</span>
                 <span v-else class="no-media">无图</span>
               </div>

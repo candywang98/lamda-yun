@@ -84,6 +84,8 @@ class DeviceRow(Base, TimestampMixin):
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     version: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     fencing_counter: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    control_epoch: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    active_binding_id: Mapped[str | None] = mapped_column(String(36))
     __table_args__ = (UniqueConstraint("tenant_id", "logical_name"),)
 
 
@@ -119,7 +121,57 @@ class AccountDeviceBindingRow(Base, TimestampMixin):
     confirmation_note: Mapped[str] = mapped_column(String(1000), nullable=False)
     bound_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     unbound_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    __table_args__ = (UniqueConstraint("account_id", "device_id"),)
+    binding_version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    platform: Mapped[str] = mapped_column(String(160), index=True, nullable=False, default="")
+    __table_args__ = (
+        UniqueConstraint("account_id", "device_id"),
+        Index(
+            "uq_account_device_binding_device_platform_bound",
+            "device_id",
+            "platform",
+            unique=True,
+            postgresql_where=text("status = 'BOUND'"),
+            sqlite_where=text("status = 'BOUND'"),
+        ),
+    )
+
+
+class TaskScheduleRow(Base, TimestampMixin):
+    __tablename__ = "task_schedule"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(36), index=True, nullable=False)
+    timezone: Mapped[str] = mapped_column(String(80), nullable=False)
+    kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    once_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    rrule: Mapped[str | None] = mapped_column(String(255))
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    template_revision: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    miss_policy: Mapped[str] = mapped_column(String(32), default="QUEUE_ONE", nullable=False)
+    start_deadline_minutes: Mapped[int] = mapped_column(Integer, default=30, nullable=False)
+    account_id: Mapped[str] = mapped_column(String(36), index=True, nullable=False)
+    binding_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    device_ids: Mapped[list[str]] = mapped_column(JSON, nullable=False)
+    command_type: Mapped[str] = mapped_column(String(80), nullable=False)
+    parameters: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    created_by: Mapped[str] = mapped_column(String(36), nullable=False)
+    paused_reason: Mapped[str | None] = mapped_column(String(160))
+    last_error: Mapped[str | None] = mapped_column(Text)
+
+
+class TaskScheduleFireRow(Base, TimestampMixin):
+    __tablename__ = "task_schedule_fire"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(36), index=True, nullable=False)
+    schedule_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("task_schedule.id"), index=True, nullable=False
+    )
+    device_id: Mapped[str] = mapped_column(String(36), index=True, nullable=False)
+    scheduled_for: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    scheduled_for_local: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), index=True, nullable=False)
+    task_id: Mapped[str | None] = mapped_column(String(36))
+    detail: Mapped[str | None] = mapped_column(Text)
+    __table_args__ = (UniqueConstraint("schedule_id", "scheduled_for", "device_id"),)
 
 
 class MediaAssetRow(Base, TimestampMixin):
@@ -197,6 +249,30 @@ class ProductMediaRow(Base, TimestampMixin):
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False)
     role: Mapped[str] = mapped_column(String(32), nullable=False)
     __table_args__ = (UniqueConstraint("product_id", "media_asset_id"),)
+
+
+class ProductGroupRow(Base, TimestampMixin):
+    __tablename__ = "product_group"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(36), index=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    created_by: Mapped[str] = mapped_column(String(36), nullable=False)
+    __table_args__ = (UniqueConstraint("tenant_id", "name"),)
+
+
+class ProductGroupMembershipRow(Base, TimestampMixin):
+    __tablename__ = "product_group_membership"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(36), index=True, nullable=False)
+    group_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("product_group.id"), index=True, nullable=False
+    )
+    product_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("product.id"), index=True, nullable=False
+    )
+    added_by: Mapped[str] = mapped_column(String(36), nullable=False)
+    __table_args__ = (UniqueConstraint("group_id", "product_id"),)
 
 
 class MediaUploadRow(Base, TimestampMixin):
@@ -313,6 +389,26 @@ class AutomationVersionRow(Base, TimestampMixin):
     __table_args__ = (UniqueConstraint("tenant_id", "name", "version"),)
 
 
+class RecipeDeploymentRow(Base, TimestampMixin):
+    __tablename__ = "recipe_device_deployment"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(36), index=True, nullable=False)
+    version_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("automation_package_version.id"), index=True, nullable=False
+    )
+    device_id: Mapped[str] = mapped_column(String(36), ForeignKey("device.id"), index=True, nullable=False)
+    command_type: Mapped[str] = mapped_column(String(160), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    previous_version_id: Mapped[str | None] = mapped_column(String(36))
+    published_by: Mapped[str] = mapped_column(String(36), nullable=False)
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "device_id", "idempotency_key"),
+        CheckConstraint("status IN ('PUBLISHED','REVOKED')", name="recipe_deployment_status"),
+        Index("ix_recipe_deploy_active", "tenant_id", "device_id", "command_type", "status"),
+    )
+
+
 class ApkArtifactRow(Base, TimestampMixin):
     __tablename__ = "apk_artifact"
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
@@ -384,6 +480,8 @@ class PublishTargetRow(Base, TimestampMixin):
     )
     account_id: Mapped[str] = mapped_column(String(36), nullable=False)
     device_id: Mapped[str | None] = mapped_column(String(36))
+    binding_version: Mapped[int | None] = mapped_column(Integer)
+    device_id_at_execution: Mapped[str | None] = mapped_column(String(36))
     state: Mapped[str] = mapped_column(String(32), nullable=False)
     result_detail: Mapped[str | None] = mapped_column(Text)
     cancel_requested: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
@@ -409,6 +507,7 @@ class DeviceLeaseRow(Base, TimestampMixin):
     fencing_token: Mapped[int] = mapped_column(Integer, nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     canceled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    owner_type: Mapped[str] = mapped_column(String(16), default="AUTO", nullable=False)
 
 
 class CommitIntentRow(Base, TimestampMixin):
@@ -602,6 +701,20 @@ class MobileTaskRow(Base, TimestampMixin):
     request_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     requested_by: Mapped[str] = mapped_column(String(36), nullable=False)
     target_package: Mapped[str] = mapped_column(String(255), nullable=False)
+    account_id: Mapped[str | None] = mapped_column(String(36), index=True)
+    binding_version: Mapped[int | None] = mapped_column(Integer)
+    device_id_at_execution: Mapped[str | None] = mapped_column(String(36))
+    command_type: Mapped[str | None] = mapped_column(String(80), index=True)
+    command_payload: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    business_state: Mapped[str] = mapped_column(String(32), default="QUEUED", index=True, nullable=False)
+    control_mode: Mapped[str] = mapped_column(String(16), default="AUTO", nullable=False)
+    batch_id: Mapped[str | None] = mapped_column(String(36), index=True)
+    scheduled_for: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    stall_reason: Mapped[str | None] = mapped_column(String(160))
+    attempt_id: Mapped[str | None] = mapped_column(String(36))
+    resume_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    pause_ack_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reconciliation: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
     steps: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False)
     status: Mapped[str] = mapped_column(String(32), index=True, nullable=False)
     lease_id: Mapped[str | None] = mapped_column(String(36), unique=True)
@@ -636,8 +749,11 @@ class MobileTaskEventRow(Base):
     sequence: Mapped[int] = mapped_column(Integer, nullable=False)
     event_type: Mapped[str] = mapped_column(String(80), nullable=False)
     step_index: Mapped[int | None] = mapped_column(Integer)
+    step_id: Mapped[str | None] = mapped_column(String(128))
+    attempt_id: Mapped[str | None] = mapped_column(String(36))
     payload: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    received_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     __table_args__ = (UniqueConstraint("task_id", "sequence"),)
 
 

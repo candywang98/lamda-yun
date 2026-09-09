@@ -14,9 +14,13 @@ class Permission(StrEnum):
     PUBLISH_CREATE = "publish.create"
     PUBLISH_APPROVE = "publish.approve"
     DEVICE_READ = "device.read"
+    DEVICE_CONTROL = "device.control"
     DEVICE_MAINTAIN = "device.maintain"
     APK_MANAGE = "apk.manage"
     AUTOMATION_MANAGE = "automation.manage"
+    RECIPE_PUBLISH = "recipe.publish"
+    DATA_DELETE = "data.delete"
+    TASK_CREATE = "task.create"
     DEBUG_SESSION_MANAGE = "debug_session.manage"
     OPERATION_APPROVE = "operation.approve"
     AUDIT_READ = "audit.read"
@@ -37,9 +41,16 @@ ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
     Role.VIEWER: frozenset(
         {Permission.CONTENT_READ, Permission.PUBLISH_READ, Permission.DEVICE_READ}
     ),
-    Role.CONTENT_EDITOR: frozenset({Permission.CONTENT_READ, Permission.CONTENT_WRITE}),
+    Role.CONTENT_EDITOR: frozenset(
+        {Permission.CONTENT_READ, Permission.CONTENT_WRITE, Permission.DATA_DELETE}
+    ),
     Role.PUBLISHER: frozenset(
-        {Permission.CONTENT_READ, Permission.PUBLISH_READ, Permission.PUBLISH_CREATE}
+        {
+            Permission.CONTENT_READ,
+            Permission.PUBLISH_READ,
+            Permission.PUBLISH_CREATE,
+            Permission.TASK_CREATE,
+        }
     ),
     Role.APPROVER: frozenset(
         {
@@ -50,23 +61,32 @@ ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
         }
     ),
     Role.AUTOMATION_DEVELOPER: frozenset(
-        {Permission.AUTOMATION_MANAGE, Permission.DEBUG_SESSION_MANAGE, Permission.DEVICE_READ}
+        {
+            Permission.AUTOMATION_MANAGE,
+            Permission.RECIPE_PUBLISH,
+            Permission.DEBUG_SESSION_MANAGE,
+            Permission.DEVICE_READ,
+        }
     ),
     Role.DEVICE_OPERATOR: frozenset(
         {
             Permission.DEVICE_READ,
+            Permission.DEVICE_CONTROL,
             Permission.DEVICE_MAINTAIN,
             Permission.DEBUG_SESSION_MANAGE,
             Permission.PUBLISH_READ,
+            Permission.TASK_CREATE,
         }
     ),
     Role.SECURITY_ADMIN: frozenset(Permission),
     Role.SYSTEM_SERVICE: frozenset(
         {
             Permission.DEVICE_READ,
+            Permission.DEVICE_CONTROL,
             Permission.DEVICE_MAINTAIN,
             Permission.PUBLISH_READ,
             Permission.PUBLISH_CREATE,
+            Permission.TASK_CREATE,
             Permission.DEBUG_SESSION_MANAGE,
             Permission.AUDIT_READ,
         }

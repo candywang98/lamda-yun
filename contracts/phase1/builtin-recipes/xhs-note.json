@@ -1,0 +1,35 @@
+{
+  "apiVersion": "cloudctl.recipe/v1",
+  "kind": "LocalRecipePackage",
+  "manifest": {
+    "id": "recipe-xhs-note-1",
+    "version": "1.0.0",
+    "hash": "b1bdc6f334d2cea210c544183ff999244dfe4fe052b621d6aff6ddb9f495fda4",
+    "signingKeyId": "builtin-phase1",
+    "minEngineVersion": 1,
+    "platform": "xiaohongshu",
+    "app": "com.xingin.xhs",
+    "commandTypes": [
+      "xiaohongshu.publish_note.v1"
+    ]
+  },
+  "graph": {
+    "startStateId": "open-only",
+    "maxIterations": 8,
+    "maxDurationMs": 30000,
+    "states": [
+      {
+        "stateId": "open-only",
+        "action": "checkpoint",
+        "onSuccess": "WAITING_USER",
+        "onPause": "WAITING_USER",
+        "terminal": true
+      }
+    ]
+  },
+  "signature": {
+    "algorithm": "Ed25519",
+    "keyId": "builtin-phase1",
+    "digest": "hash-pinned-builtin"
+  }
+}

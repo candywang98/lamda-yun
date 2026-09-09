@@ -6,7 +6,7 @@ import re
 from typing import Any
 
 XIANYU_PACKAGE = "com.taobao.idlefish"
-TEXT_PUBLISH_TOTAL_TIMEOUT_MS = 90_000
+TEXT_PUBLISH_TOTAL_TIMEOUT_MS = 180_000
 MAX_INPUT_LENGTH = 1024
 
 APPROVED_XIANYU_LOCATORS = frozenset(
@@ -16,14 +16,22 @@ APPROVED_XIANYU_LOCATORS = frozenset(
         "xianyu_publish_page",
         "xianyu_add_image",
         "xianyu_gallery_next",
+        "xianyu_crop_done",
         "xianyu_description",
         "xianyu_price",
         "xianyu_price_sheet",
+        "xianyu_price_amount",
         "xianyu_price_confirm",
         "xianyu_composer_done",
         "xianyu_shipping",
         "xianyu_location",
+        "xianyu_location_page",
+        "xianyu_location_saved_0",
+        "xianyu_publish_blocked_ack",
         "xianyu_publish_button",
+        "xianyu_publish_success",
+        "xianyu_draft_discard",
+        "xianyu_draft_nosave",
     }
 )
 
@@ -32,6 +40,7 @@ TEXT_PUBLISH_LOCATORS = (
     "xianyu_publish_entry",
     "xianyu_publish_page",
     "xianyu_description",
+    "xianyu_composer_done",
     "xianyu_price",
 )
 
@@ -77,12 +86,34 @@ def build_text_publish_steps(*, description: str, price: str, auto_publish: bool
             "timeoutMs": 8_000,
         },
         {
+            "stepId": "wait-description",
+            "action": "ui.wait",
+            "locatorRef": "xianyu_description",
+            "condition": "EXISTS",
+            "pollMs": 200,
+            "timeoutMs": 8_000,
+        },
+        {
             "stepId": "fill-description",
             "action": "ui.input",
             "locatorRef": "xianyu_description",
             "value": description,
             "replace": True,
-            "timeoutMs": 8_000,
+            "timeoutMs": 20_000,
+        },
+        {
+            "stepId": "confirm-description",
+            "action": "ui.tap",
+            "locatorRef": "xianyu_composer_done",
+            "timeoutMs": 5_000,
+        },
+        {
+            "stepId": "wait-price",
+            "action": "ui.wait",
+            "locatorRef": "xianyu_price",
+            "condition": "EXISTS",
+            "pollMs": 200,
+            "timeoutMs": 12_000,
         },
         {
             "stepId": "fill-price",
@@ -90,7 +121,7 @@ def build_text_publish_steps(*, description: str, price: str, auto_publish: bool
             "locatorRef": "xianyu_price",
             "value": price,
             "replace": True,
-            "timeoutMs": 8_000,
+            "timeoutMs": 20_000,
         },
         {
             "stepId": "capture-form",
@@ -104,6 +135,36 @@ def build_text_publish_steps(*, description: str, price: str, auto_publish: bool
         # Add publish button click and confirmation
         steps.extend([
             {
+                "stepId": "wait-location",
+                "action": "ui.wait",
+                "locatorRef": "xianyu_location",
+                "condition": "EXISTS",
+                "pollMs": 200,
+                "timeoutMs": 8_000,
+            },
+            {
+                "stepId": "open-location",
+                "action": "ui.tap",
+                "locatorRef": "xianyu_location",
+                "postconditionLocatorRef": "xianyu_location_page",
+                "timeoutMs": 8_000,
+            },
+            {
+                "stepId": "select-location",
+                "action": "ui.tap",
+                "locatorRef": "xianyu_location_saved_0",
+                "postconditionLocatorRef": "xianyu_publish_page",
+                "timeoutMs": 8_000,
+            },
+            {
+                "stepId": "wait-publish-button",
+                "action": "ui.wait",
+                "locatorRef": "xianyu_publish_button",
+                "condition": "EXISTS",
+                "pollMs": 200,
+                "timeoutMs": 8_000,
+            },
+            {
                 "stepId": "click-publish",
                 "action": "ui.tap",
                 "locatorRef": "xianyu_publish_button",
@@ -112,7 +173,7 @@ def build_text_publish_steps(*, description: str, price: str, auto_publish: bool
             {
                 "stepId": "wait-publish-complete",
                 "action": "ui.wait",
-                "locatorRef": "xianyu_home_sell",
+                "locatorRef": "xianyu_publish_success",
                 "condition": "EXISTS",
                 "pollMs": 500,
                 "timeoutMs": 15_000,
@@ -204,17 +265,26 @@ def build_text_publish_task(
     if media_asset_ids:
         media_steps = [
             {
+                "stepId": "wait-add-image",
+                "action": "ui.wait",
+                "locatorRef": "xianyu_add_image",
+                "condition": "EXISTS",
+                "pollMs": 200,
+                "timeoutMs": 8_000,
+            },
+            {
                 "stepId": "open-media-picker",
                 "action": "ui.tap",
                 "locatorRef": "xianyu_add_image",
                 "postconditionLocatorRef": "xianyu_gallery_select_0",
-                "timeoutMs": 8_000,
+                "timeoutMs": 15_000,
             },
             *[
                 {
                     "stepId": f"select-media-{index}",
                     "action": "ui.tap",
-                    "locatorRef": f"xianyu_gallery_select_{index}",
+                    # Idlefish gallery tile 0 is the camera shutter; CloudCtl covers start at 1.
+                    "locatorRef": f"xianyu_gallery_select_{index + 1}",
                     "timeoutMs": 5_000,
                 }
                 for index in range(len(media_asset_ids))
@@ -223,12 +293,28 @@ def build_text_publish_task(
                 "stepId": "confirm-media-selection",
                 "action": "ui.tap",
                 "locatorRef": "xianyu_gallery_next",
-                "postconditionLocatorRef": "xianyu_publish_page",
+                "timeoutMs": 8_000,
+            },
+            {
+                "stepId": "wait-crop-done",
+                "action": "ui.wait",
+                "locatorRef": "xianyu_crop_done",
+                "condition": "EXISTS",
+                "pollMs": 200,
+                "timeoutMs": 8_000,
+            },
+            {
+                "stepId": "confirm-crop",
+                "action": "ui.tap",
+                "locatorRef": "xianyu_crop_done",
                 "timeoutMs": 8_000,
             },
         ]
-        # Insert after "wait-publish-page" step (index 4)
-        steps[4:4] = media_steps
+        # Insert after "wait-publish-page" / before description wait.
+        insert_at = next(
+            index for index, step in enumerate(steps) if step["stepId"] == "wait-description"
+        )
+        steps[insert_at:insert_at] = media_steps
     
     total = sum(int(step["timeoutMs"]) for step in steps)
     if total > 900_000:

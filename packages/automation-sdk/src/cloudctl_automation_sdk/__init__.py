@@ -22,6 +22,7 @@ from .protocols import (
     validate_locator_name,
     validate_swipe,
 )
+from .recipe import RecipePackage, validate_recipe_package
 from .registry import (
     RolloutEvidence,
     evaluate_rollout_promotion,
@@ -54,6 +55,8 @@ __all__ = [
     "validate_input_text",
     "validate_locator_name",
     "validate_manifest",
+    "validate_recipe_package",
+    "RecipePackage",
     "validate_swipe",
     "evaluate_rollout_promotion",
     "package_signature_payload",

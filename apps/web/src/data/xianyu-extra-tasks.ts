@@ -64,7 +64,6 @@ export function defaultInterval(kind: XianyuExtraKind): number {
 export function emptyExtraConfig(kind: XianyuExtraKind, partial: Partial<XianyuExtraConfig> = {}): XianyuExtraConfig {
   return {
     deviceIds: [],
-    app: 'main',
     schedule: '立即执行',
     jumpTask: 'on',
     dikouType: '30%',
@@ -86,6 +85,7 @@ export function emptyExtraConfig(kind: XianyuExtraKind, partial: Partial<XianyuE
     autoShortTitle: 'off',
     wuyoumaiType: '全部托管',
     ...partial,
+    app: 'main' as const,
   }
 }
 

@@ -24,9 +24,11 @@ class ExecutorFailure(
 interface LocalAutomationUi {
     fun ensureReady(targetPackage: String)
     fun inspect(targetPackage: String, locatorRef: String): LocalNodeState?
+    fun visibleTextContains(expected: String): Boolean = false
     suspend fun tap(targetPackage: String, locatorRef: String)
     suspend fun replaceText(targetPackage: String, locatorRef: String, value: String)
     suspend fun screenshot(taskId: String, label: String): ScreenshotEvidence
+    suspend fun swipeUp() {}
     fun log(level: LogLevel, messageCode: String)
 }
 
@@ -36,18 +38,36 @@ class LocalAutomationExecutor(
     private val elapsedMs: () -> Long = { android.os.SystemClock.elapsedRealtime() },
     private val sleep: suspend (Long) -> Unit = { delay(it) },
 ) {
-    suspend fun execute(task: AutomationTask, journal: (AutomationStep, String) -> Unit) {
+    suspend fun execute(
+        task: AutomationTask,
+        control: ExecutionControl? = null,
+        startAfterIndex: Int = -1,
+        journal: (AutomationStep, String) -> Unit,
+    ) {
         if (!task.expiresAt.isAfter(now())) throw ExecutorFailure("TASK_EXPIRED", "Task has expired")
         val runDeadline = elapsedMs() + task.maxRunSeconds * 1_000L
-        for (step in task.steps) {
+        var lastCompleted: AutomationStep? = task.steps.getOrNull(startAfterIndex)
+        var lastCompletedIndex = startAfterIndex
+        for ((index, step) in task.steps.withIndex()) {
+            if (index <= startAfterIndex) continue
             ensureWithinTaskDeadline(task, runDeadline)
+            throwIfControlRequested(control, lastCompleted, lastCompletedIndex)
             journal(step, "STARTED")
             try {
                 val remaining = (runDeadline - elapsedMs()).coerceAtLeast(1L)
-                withTimeout(minOf(step.timeoutMs, remaining)) {
+                    withTimeout(minOf(step.timeoutMs, remaining)) {
                     ui.ensureReady(task.targetPackage)
-                    executeStep(task, step, minOf(runDeadline, elapsedMs() + step.timeoutMs))
+                    executeStep(
+                        task,
+                        step,
+                        minOf(runDeadline, elapsedMs() + step.timeoutMs),
+                        control,
+                        lastCompleted,
+                        lastCompletedIndex,
+                    )
                 }
+            } catch (paused: TaskPausedException) {
+                throw TaskPausedException(lastCompleted?.stepId, lastCompletedIndex, paused.message)
             } catch (failure: ExecutorFailure) {
                 ui.log(LogLevel.ERROR, failure.code)
                 throw failure
@@ -59,13 +79,31 @@ class LocalAutomationExecutor(
                 throw ExecutorFailure("STEP_EXECUTION_FAILED", "Step ${step.stepId} failed safely", failure)
             }
             journal(step, "SUCCEEDED")
+            lastCompleted = step
+            lastCompletedIndex = index
+            throwIfControlRequested(control, lastCompleted, lastCompletedIndex)
         }
     }
 
-    private suspend fun executeStep(task: AutomationTask, step: AutomationStep, runDeadline: Long) {
+    private suspend fun executeStep(
+        task: AutomationTask,
+        step: AutomationStep,
+        runDeadline: Long,
+        control: ExecutionControl?,
+        lastCompleted: AutomationStep? = null,
+        lastCompletedIndex: Int = -1,
+    ) {
         when (step) {
-            is AutomationStep.Find -> waitFor(task, step.locatorRef, NodeCondition.EXISTS, step.pollInterval(), runDeadline)
+            is AutomationStep.Find -> waitFor(
+                task, step.locatorRef, NodeCondition.EXISTS, step.pollInterval(), runDeadline, control,
+                lastCompleted, lastCompletedIndex,
+            )
             is AutomationStep.Tap -> {
+                waitFor(
+                    task, step.locatorRef, NodeCondition.EXISTS, step.pollInterval(), runDeadline, control,
+                    lastCompleted, lastCompletedIndex,
+                )
+                throwIfControlRequested(control, lastCompleted, lastCompletedIndex)
                 val node = requireNode(task, step.locatorRef)
                 if (!node.visible || !node.enabled) {
                     throw ExecutorFailure("NODE_NOT_CLICKABLE", "Approved locator is not safely clickable")
@@ -74,9 +112,16 @@ class LocalAutomationExecutor(
                     throw ExecutorFailure("POSTCONDITION_ALREADY_MET", "Click postcondition was already present")
                 }
                 ui.tap(task.targetPackage, step.locatorRef)
-                step.postconditionLocatorRef?.let { waitFor(task, it, NodeCondition.EXISTS, step.pollInterval(), runDeadline) }
+                step.postconditionLocatorRef?.let {
+                    waitFor(task, it, NodeCondition.EXISTS, step.pollInterval(), runDeadline, control, lastCompleted, lastCompletedIndex)
+                }
             }
             is AutomationStep.Input -> {
+                waitFor(
+                    task, step.locatorRef, NodeCondition.EXISTS, step.pollInterval(), runDeadline, control,
+                    lastCompleted, lastCompletedIndex,
+                )
+                throwIfControlRequested(control, lastCompleted, lastCompletedIndex)
                 val node = requireNode(task, step.locatorRef)
                 if (!node.visible || !node.enabled) {
                     throw ExecutorFailure("NODE_NOT_EDITABLE", "Approved locator is not safely editable")
@@ -84,8 +129,12 @@ class LocalAutomationExecutor(
                 ui.replaceText(task.targetPackage, step.locatorRef, step.value)
                 waitForText(task, step.locatorRef, step.value, step.pollInterval(), runDeadline)
             }
-            is AutomationStep.Wait -> waitFor(task, step.locatorRef, step.condition, step.pollMs, runDeadline)
+            is AutomationStep.Wait -> waitFor(
+                task, step.locatorRef, step.condition, step.pollMs, runDeadline, control,
+                lastCompleted, lastCompletedIndex,
+            )
             is AutomationStep.Screenshot -> {
+                throwIfControlRequested(control, lastCompleted, lastCompletedIndex)
                 val evidence = ui.screenshot(task.taskId, step.label)
                 if (evidence.size <= 0L || !SHA256.matches(evidence.sha256) || evidence.path.isBlank()) {
                     throw ExecutorFailure("SCREENSHOT_INVALID", "Screenshot evidence is incomplete")
@@ -118,10 +167,30 @@ class LocalAutomationExecutor(
         condition: NodeCondition,
         pollMs: Long,
         runDeadline: Long,
+        control: ExecutionControl? = null,
+        lastCompleted: AutomationStep? = null,
+        lastCompletedIndex: Int = -1,
     ) {
         while (true) {
+            throwIfControlRequested(control, lastCompleted, lastCompletedIndex)
             ensureWithinTaskDeadline(task, runDeadline)
             ui.ensureReady(task.targetPackage)
+            if (locatorRef == "xianyu_home_sell" || locatorRef == "xianyu_publish_page" || locatorRef == "xianyu_publish_success") {
+                if (ui.inspect(task.targetPackage, "xianyu_draft_discard")?.visible == true) {
+                    ui.tap(task.targetPackage, "xianyu_draft_discard")
+                }
+                if (ui.inspect(task.targetPackage, "xianyu_draft_nosave")?.visible == true) {
+                    ui.tap(task.targetPackage, "xianyu_draft_nosave")
+                }
+                if (ui.inspect(task.targetPackage, "xianyu_publish_blocked_ack")?.visible == true) {
+                    ui.tap(task.targetPackage, "xianyu_publish_blocked_ack")
+                }
+            }
+            if ((locatorRef == "xianyu_price" || locatorRef == "xianyu_shipping" || locatorRef == "xianyu_location") &&
+                !matches(task, locatorRef, condition)
+            ) {
+                ui.swipeUp()
+            }
             if (matches(task, locatorRef, condition)) return
             sleep(pollMs)
         }
@@ -137,8 +206,24 @@ class LocalAutomationExecutor(
         while (true) {
             ensureWithinTaskDeadline(task, runDeadline)
             ui.ensureReady(task.targetPackage)
-            val actual = requireNode(task, locatorRef).text.orEmpty()
+            if (ui.visibleTextContains(expected)) return
+            if (locatorRef == "xianyu_price") {
+                val typed = PriceKeypad.keys(expected)
+                if (typed.isNotEmpty() && ui.visibleTextContains(typed)) return
+            }
+            val node = ui.inspect(task.targetPackage, locatorRef)
+            // Flutter idlefish replaces the description hint after the first click.
+            // The price row stays in the tree; do not treat a miss as success.
+            if (node == null) {
+                if (locatorRef == "xianyu_price") {
+                    sleep(pollMs)
+                    continue
+                }
+                return
+            }
+            val actual = node.text.orEmpty()
             if (actual == expected || expected in actual) return
+            if (locatorRef == "xianyu_price" && PriceKeypad.acceptedOnForm(actual, expected)) return
             sleep(pollMs)
         }
     }
@@ -146,6 +231,22 @@ class LocalAutomationExecutor(
     private fun ensureWithinTaskDeadline(task: AutomationTask, runDeadline: Long) {
         if (!task.expiresAt.isAfter(now())) throw ExecutorFailure("TASK_EXPIRED", "Task expired during execution")
         if (elapsedMs() >= runDeadline) throw ExecutorFailure("TASK_TIMEOUT", "Task exceeded its local runtime limit")
+    }
+
+    private fun throwIfControlRequested(
+        control: ExecutionControl?,
+        lastCompleted: AutomationStep? = null,
+        lastCompletedIndex: Int = -1,
+    ) {
+        when {
+            control == null -> return
+            control.cancelRequested -> throw ExecutorFailure("CANCELLED", control.reason ?: "Task was cancelled")
+            control.pauseRequested -> throw TaskPausedException(
+                lastCompleted?.stepId,
+                lastCompletedIndex,
+                control.reason,
+            )
+        }
     }
 
     private fun AutomationStep.pollInterval() = minOf(200L, timeoutMs)

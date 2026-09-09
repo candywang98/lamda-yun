@@ -1,7 +1,7 @@
 # CloudCtl
 
-当前开发基线（2026-09-05 重新审核）：[V1 审核与实施计划](docs/v1/README.md)。
-商品库、素材库和四平台发布的进度以该目录为准；下方及 `docs/delivery/` 中旧交付说明属于历史背景，不代表当前业务已验收。
+当前进度计划（表内更新至 2026-09-09）：[一期智能体执行计划与交接快照](docs/project-plans/README.md)。
+当前为 P00–P49 共 50 个功能包，P14 版本生命周期仍在推进。模块通过不代表整包真实验收；[V1 审核与实施计划](docs/v1/README.md)、下方及 `docs/delivery/` 中较早交付说明保留作历史背景。
 
 CloudCtl is the LAMDA cloud-control system implemented from the supplied architecture package. The monorepo
 contains 16 logical projects: 9 deployable applications/services, 6 shared packages, and the infrastructure
@@ -63,8 +63,8 @@ Development URLs:
 
 - Web console: `http://127.0.0.1:5173`
 - Studio: `http://127.0.0.1:5174`
-- Control API: `http://127.0.0.1:8000`
-- OpenAPI UI: `http://127.0.0.1:8000/docs`
+- Control API: `http://127.0.0.1:18000` (not 8000; that port is commonly taken by Spider_XHS)
+- OpenAPI UI: `http://127.0.0.1:18000/docs`
 - Temporal UI: `http://127.0.0.1:8088`
 - MinIO console: `http://127.0.0.1:9001`
 - Grafana: `http://127.0.0.1:3001`
