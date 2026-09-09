@@ -52,7 +52,18 @@ object ResumeValidator {
         val locator = state.locatorRef?.takeIf { it.isNotBlank() }
             ?: throw ExecutorFailure("RESUME_LOCATOR_UNCHECKABLE", "resume state has no inspectable locator")
         ui.ensureReady(task.targetPackage)
-        inspectVisible(ui, task.targetPackage, locator)
+        if (state.action == "wait") {
+            // A wait can be paused precisely because its target is not visible yet.
+            // Verify the signed target and approved locator; the engine still waits
+            // for visibility before allowing the graph to advance.
+            try {
+                TargetLocatorRegistry.resolve(task.targetPackage, locator)
+            } catch (failure: IllegalArgumentException) {
+                throw ExecutorFailure("RESUME_LOCATOR_UNCHECKABLE", "wait locator is not approved", failure)
+            }
+        } else {
+            inspectVisible(ui, task.targetPackage, locator)
+        }
     }
 
     private fun requirePageVerified(pageVerified: Boolean) {

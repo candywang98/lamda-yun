@@ -7,6 +7,31 @@ import org.json.JSONObject
 
 class ResumeValidatorTest {
     @Test
+    fun resumesApprovedWaitWhileItsTargetIsStillAbsent() {
+        val ui = FakeUi()
+        val recipe = twoTapRecipe().copy(states = mapOf(
+            "hold" to RecipeState("hold", "wait", "xianyu_publish_page", "SUCCEEDED", null, false),
+        ))
+        ResumeValidator.guard(ui, emptyStepsTask(), checkpoint(), payload(), true, recipe, "hold")
+        assertEquals(0, ui.inspectCount)
+    }
+
+    @Test
+    fun waitResumeStillRejectsUnapprovedLocatorAndUnverifiedPage() {
+        val recipe = twoTapRecipe().copy(states = mapOf(
+            "hold" to RecipeState("hold", "wait", "unapproved", "SUCCEEDED", null, false),
+        ))
+        val unapproved = assertFailsWith<ExecutorFailure> {
+            ResumeValidator.guard(FakeUi(), emptyStepsTask(), checkpoint(), payload(), true, recipe, "hold")
+        }
+        assertEquals("RESUME_LOCATOR_UNCHECKABLE", unapproved.code)
+        val unverified = assertFailsWith<ExecutorFailure> {
+            ResumeValidator.guard(FakeUi(), emptyStepsTask(), checkpoint(), payload(), false, recipe, "hold")
+        }
+        assertEquals("RESUME_PAGE_UNVERIFIED", unverified.code)
+    }
+
+    @Test
     fun refusesUnverifiedResumeWithoutInspectingThePage() {
         val ui = FakeUi()
         val failure = assertFailsWith<ExecutorFailure> {
