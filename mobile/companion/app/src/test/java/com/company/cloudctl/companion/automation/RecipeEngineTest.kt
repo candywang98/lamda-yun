@@ -1,16 +1,22 @@
 package com.company.cloudctl.companion.automation
 
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertSame
+import kotlin.test.assertTrue
 
 private class FakeRecipeUi(
     private val unknown: Boolean = false,
+    private val inspection: () -> LocalNodeState? = { LocalNodeState(true, true, true, true, "") },
 ) : LocalAutomationUi {
     val taps = mutableListOf<String>()
     override fun ensureReady(targetPackage: String) = Unit
-    override fun inspect(targetPackage: String, locatorRef: String) = LocalNodeState(true, true, true, true, "")
+    override fun inspect(targetPackage: String, locatorRef: String) = inspection()
     override suspend fun tap(targetPackage: String, locatorRef: String) {
         if (unknown) throw ExecutorFailure("UNKNOWN_PAGE", locatorRef)
         taps += locatorRef
@@ -91,6 +97,142 @@ class RecipeEngineTest {
             }
             assertEquals(emptyList<String>(), rejectUi.taps)
         }
+    }
+
+    @Test
+    fun waitPollsUntilLocatorIsVisibleAndEnabled() = runBlocking {
+        val nodes = listOf(null, node(visible = false), node(enabled = false), node())
+        var polls = 0
+        var checkpoints = 0
+        val ui = FakeRecipeUi(inspection = { nodes[polls++] })
+        val engine = RecipeEngine(ui, elapsedMs = elapsed)
+        val recipe = waitRecipe(engine)
+        val journal = mutableListOf<String>()
+        val result = engine.execute(
+            recipe, command(recipe.hash), controlCheckpoint = { checkpoints++ },
+        ) { state, status -> journal += "$state:$status" }
+        assertEquals("SUCCEEDED", result)
+        assertEquals(4, polls)
+        assertEquals(polls, checkpoints)
+        assertEquals(listOf("await:STARTED", "await:SUCCEEDED"), journal)
+        assertTrue(ui.taps.isEmpty())
+    }
+
+    @Test
+    fun waitUsesOverallDeadlineAndCannotTakeSuccessfulFailureTransition() = runBlocking {
+        var now = 0L
+        var polls = 0
+        val engine = RecipeEngine(FakeRecipeUi(inspection = { polls++; null }), elapsedMs = {
+            if (polls > 0) now++ else now
+        })
+        // Time already spent before the wait counts against the same recipe budget.
+        val recipe = waitRecipe(engine, onFailure = "SUCCEEDED")
+        val journal = mutableListOf<String>()
+        val failure = assertFailsWith<ExecutorFailure> {
+            engine.execute(recipe, command(recipe.hash)) { state, status ->
+                journal += "$state:$status"
+                if (status == "STARTED") now = recipe.maxDurationMs - 1
+            }
+        }
+        assertEquals("STEP_TIMEOUT", failure.code)
+        assertEquals(listOf("await:STARTED"), journal)
+    }
+
+    @Test
+    fun waitRejectsLocatorFoundAfterDeadline() = runBlocking {
+        var now = 0L
+        val engine = RecipeEngine(FakeRecipeUi(inspection = { now = 1000L; node() }), elapsedMs = { now })
+        val recipe = waitRecipe(engine)
+        val failure = assertFailsWith<ExecutorFailure> {
+            engine.execute(recipe, command(recipe.hash), journal = { _, _ -> })
+        }
+        assertEquals("STEP_TIMEOUT", failure.code)
+    }
+
+    @Test
+    fun waitRejectsMissingBlankAndUnapprovedLocatorsWithoutInspecting() = runBlocking {
+        var polls = 0
+        val engine = RecipeEngine(FakeRecipeUi(inspection = { polls++; node() }), elapsedMs = elapsed)
+        for (locator in listOf(null, "", " ", "unapproved", "companion_refresh")) {
+            val recipe = waitRecipe(engine, locatorRef = locator)
+            val failure = assertFailsWith<ExecutorFailure> {
+                engine.execute(recipe, command(recipe.hash), journal = { _, _ -> })
+            }
+            assertEquals("LOCATOR_NOT_APPROVED", failure.code)
+        }
+        assertEquals(0, polls)
+    }
+
+    @Test
+    fun waitDelayIsCoroutineCancellableEvenWithOnFailure() = runBlocking {
+        val inspected = CompletableDeferred<Unit>()
+        var polls = 0
+        val engine = RecipeEngine(FakeRecipeUi(inspection = {
+            polls++
+            inspected.complete(Unit)
+            null
+        }), elapsedMs = elapsed)
+        val recipe = waitRecipe(engine, onFailure = "SUCCEEDED")
+        val journal = mutableListOf<String>()
+        val job = launch {
+            engine.execute(recipe, command(recipe.hash)) { state, status -> journal += "$state:$status" }
+        }
+        inspected.await()
+        job.cancelAndJoin()
+        assertTrue(job.isCancelled)
+        assertEquals(1, polls)
+        assertEquals(listOf("await:STARTED"), journal)
+    }
+
+    @Test
+    fun waitPropagatesPauseOnNextPollWithoutTakingOnFailure() = runBlocking {
+        for (onFailure in listOf(null, "SUCCEEDED")) {
+            val paused = TaskPausedException(null, -1, "operator pause")
+            assertWaitControlPropagation(paused, onFailure)
+        }
+    }
+
+    @Test
+    fun waitPropagatesCancelAndLeaseLossWithoutTakingOnFailure() = runBlocking {
+        for (code in listOf("CANCELLED", "LEASE_FENCED")) {
+            assertWaitControlPropagation(ExecutorFailure(code, "control interruption"), "SUCCEEDED")
+        }
+    }
+
+    private suspend fun assertWaitControlPropagation(interruption: Exception, onFailure: String?) {
+        var polls = 0
+        var checkpoints = 0
+        val engine = RecipeEngine(FakeRecipeUi(inspection = { polls++; null }), elapsedMs = elapsed)
+        val recipe = waitRecipe(engine, onFailure = onFailure)
+        val journal = mutableListOf<String>()
+        val caught = assertFailsWith<Exception> {
+            engine.execute(recipe, command(recipe.hash), controlCheckpoint = {
+                if (++checkpoints == 2) throw interruption
+            }) { state, status -> journal += "$state:$status" }
+        }
+        assertSame(interruption, caught)
+        assertEquals(2, checkpoints)
+        assertEquals(1, polls)
+        assertEquals(listOf("await:STARTED"), journal)
+    }
+
+    private fun node(enabled: Boolean = true, visible: Boolean = true) =
+        LocalNodeState(enabled, visible, false, false, null)
+
+    private fun waitRecipe(
+        engine: RecipeEngine,
+        locatorRef: String? = "xianyu_publish_page",
+        onFailure: String? = null,
+    ): RecipePackage {
+        val root = org.json.JSONObject(recipeJson())
+        val state = org.json.JSONObject()
+            .put("stateId", "await").put("action", "wait").put("onSuccess", "SUCCEEDED")
+        locatorRef?.let { state.put("locatorRef", it) }
+        onFailure?.let { state.put("onFailure", it) }
+        root.getJSONObject("graph")
+            .put("startStateId", "await").put("maxDurationMs", 1000)
+            .put("states", org.json.JSONArray().put(state))
+        return engine.parse(hashed(root.toString()))
     }
 
     private fun hashed(json: String): String {

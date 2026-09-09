@@ -667,7 +667,12 @@ class CompanionSyncService : Service() {
                     throwIfControlRequested(control)
                     val resumeFromStateId = progress.nextStateId.takeIf { resume != null }
                     val outcome = withTimeout(recipe.maxDurationMs) {
-                        engine.execute(recipe, command, resumeFromStateId = resumeFromStateId) { stateId, state ->
+                        engine.execute(
+                            recipe,
+                            command,
+                            resumeFromStateId = resumeFromStateId,
+                            controlCheckpoint = { throwIfControlRequested(control) },
+                        ) { stateId, state ->
                             val eventType = progress.record(recipe, stateId, state)
                             currentStep.set(progress.lastSuccessfulStateId?.let { recipe.states.keys.indexOf(it) } ?: -1)
                             if (eventType == "PAUSED_WAITING_USER") {

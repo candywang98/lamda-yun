@@ -1,5 +1,8 @@
 package com.company.cloudctl.companion.automation
 
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import org.json.JSONObject
 import java.security.MessageDigest
 
@@ -78,6 +81,14 @@ class RecipeEngine(
         command: CommandV1,
         resumeFromStateId: String? = null,
         journal: (String, String) -> Unit,
+    ): String = execute(recipe, command, resumeFromStateId, controlCheckpoint = {}, journal = journal)
+
+    suspend fun execute(
+        recipe: RecipePackage,
+        command: CommandV1,
+        resumeFromStateId: String? = null,
+        controlCheckpoint: () -> Unit,
+        journal: (String, String) -> Unit,
     ): String {
         require(recipe.hash == command.recipeSha256) { "recipe hash mismatch" }
         require(recipe.app == command.targetPackage) { "recipe app does not match command" }
@@ -93,9 +104,16 @@ class RecipeEngine(
             journal(state.stateId, "STARTED")
             var journalState = "SUCCEEDED"
             current = try {
-                runAction(command.targetPackage, state)
+                if (state.action == "wait") {
+                    waitForLocator(command.targetPackage, state, deadline, controlCheckpoint)
+                } else {
+                    runAction(command.targetPackage, state)
+                }
                 if (state.terminal || state.onSuccess in TERMINAL) state.onSuccess else state.onSuccess
+            } catch (interrupted: ControlCheckpointFailure) {
+                throw interrupted.failure
             } catch (failure: ExecutorFailure) {
+                if (state.action == "wait" && failure.code == "STEP_TIMEOUT") throw failure
                 if (failure.code == "UNKNOWN_PAGE") {
                     journal(state.stateId, "WAITING_USER")
                     return "WAITING_USER"
@@ -117,17 +135,53 @@ class RecipeEngine(
         return resumeFromStateId
     }
 
+    // Keep control failures out of the graph's action-failure transitions.
+    private class ControlCheckpointFailure(val failure: ExecutorFailure) : Exception(failure)
+
+    private suspend fun waitForLocator(
+        targetPackage: String,
+        state: RecipeState,
+        deadline: Long,
+        controlCheckpoint: () -> Unit,
+    ) {
+        val locatorRef = state.locatorRef?.takeIf(String::isNotBlank)
+            ?: throw ExecutorFailure("LOCATOR_NOT_APPROVED", "wait requires an approved locatorRef")
+        try {
+            TargetLocatorRegistry.resolve(targetPackage, locatorRef)
+        } catch (failure: IllegalArgumentException) {
+            throw ExecutorFailure("LOCATOR_NOT_APPROVED", "Locator is not approved for this target", failure)
+        }
+        while (true) {
+            currentCoroutineContext().ensureActive()
+            try {
+                controlCheckpoint()
+            } catch (failure: ExecutorFailure) {
+                throw ControlCheckpointFailure(failure)
+            }
+            ensureBeforeDeadline(deadline)
+            val node = ui.inspect(targetPackage, locatorRef)
+            ensureBeforeDeadline(deadline)
+            if (node?.visible == true && node.enabled) return
+            delay(minOf(WAIT_POLL_MS, deadline - elapsedMs()).coerceAtLeast(1L))
+        }
+    }
+
+    private fun ensureBeforeDeadline(deadline: Long) {
+        if (elapsedMs() >= deadline) throw ExecutorFailure("STEP_TIMEOUT", "recipe exceeded maxDuration")
+    }
+
     private suspend fun runAction(targetPackage: String, state: RecipeState) {
         when (state.action) {
             "tap" -> ui.tap(targetPackage, state.locatorRef ?: error("locator required"))
             "input" -> ui.replaceText(targetPackage, state.locatorRef ?: error("locator required"), "")
-            "wait", "checkpoint", "log", "extract", "media", "launch", "scroll" -> ui.log(LogLevel.INFO, state.action.uppercase())
+            "checkpoint", "log", "extract", "media", "launch", "scroll" -> ui.log(LogLevel.INFO, state.action.uppercase())
             else -> error("action is not on the APK whitelist")
         }
     }
 
     companion object {
         const val VERSION = 1
+        private const val WAIT_POLL_MS = 250L
         private val ALLOWED_ACTIONS = setOf("tap", "input", "scroll", "extract", "wait", "launch", "media", "log", "checkpoint")
         private val TERMINAL = setOf("SUCCEEDED", "FAILED", "WAITING_USER")
         fun sha256(value: String): String = sha256Bytes(value.toByteArray(Charsets.UTF_8))
