@@ -1569,6 +1569,49 @@
         "title": "InputStep",
         "type": "object"
       },
+      "IntentRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "actionId": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+            "title": "Actionid",
+            "type": "string"
+          },
+          "actionKey": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Actionkey",
+            "type": "string"
+          },
+          "beforeEvidence": {
+            "maxLength": 500,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Beforeevidence",
+            "type": "string"
+          },
+          "leaseId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[^\\r\\n]+$",
+            "title": "Leaseid",
+            "type": "string"
+          },
+          "parameterHash": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Parameterhash",
+            "type": "string"
+          }
+        },
+        "required": [
+          "leaseId",
+          "actionId",
+          "actionKey",
+          "parameterHash",
+          "beforeEvidence"
+        ],
+        "title": "IntentRequest",
+        "type": "object"
+      },
       "LeaseRequest": {
         "properties": {
           "ownerWorkflowId": {
@@ -3777,6 +3820,46 @@
           "items"
         ],
         "title": "OperationTaskView",
+        "type": "object"
+      },
+      "OutcomeRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence": {
+            "maxLength": 500,
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Evidence",
+            "type": "string"
+          },
+          "leaseId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[^\\r\\n]+$",
+            "title": "Leaseid",
+            "type": "string"
+          },
+          "parameterHash": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Parameterhash",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "APPLIED",
+              "UNKNOWN"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "leaseId",
+          "parameterHash",
+          "status",
+          "evidence"
+        ],
+        "title": "OutcomeRequest",
         "type": "object"
       },
       "PlatformAccountCreate": {
@@ -11576,6 +11659,176 @@
           }
         },
         "summary": "Publish Listing",
+        "tags": [
+          "mobile-companion"
+        ]
+      }
+    },
+    "/companion/v2/tasks/{task_id}/actions/intent": {
+      "post": {
+        "operationId": "action_intent_companion_v2_tasks__task_id__actions_intent_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IntentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Action Intent Companion V2 Tasks  Task Id  Actions Intent Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Action Intent",
+        "tags": [
+          "mobile-companion"
+        ]
+      }
+    },
+    "/companion/v2/tasks/{task_id}/actions/{action_key}": {
+      "get": {
+        "operationId": "get_action_companion_v2_tasks__task_id__actions__action_key__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "action_key",
+            "required": true,
+            "schema": {
+              "title": "Action Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Action Companion V2 Tasks  Task Id  Actions  Action Key  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Action",
+        "tags": [
+          "mobile-companion"
+        ]
+      }
+    },
+    "/companion/v2/tasks/{task_id}/actions/{action_key}/outcome": {
+      "post": {
+        "operationId": "action_outcome_companion_v2_tasks__task_id__actions__action_key__outcome_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "action_key",
+            "required": true,
+            "schema": {
+              "title": "Action Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OutcomeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Action Outcome Companion V2 Tasks  Task Id  Actions  Action Key  Outcome Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Action Outcome",
         "tags": [
           "mobile-companion"
         ]
