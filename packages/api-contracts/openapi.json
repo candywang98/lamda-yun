@@ -3857,14 +3857,21 @@
             "title": "Batchid"
           },
           "commandType": {
-            "enum": [
-              "xianyu.publish_listing.v1",
-              "xianyu.collect_orders.v1",
-              "xiaohongshu.publish_note.v1",
-              "device.probe_capabilities.v1"
+            "anyOf": [
+              {
+                "enum": [
+                  "xianyu.publish_listing.v1",
+                  "xianyu.collect_orders.v1",
+                  "xiaohongshu.publish_note.v1",
+                  "device.probe_capabilities.v1"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
             ],
-            "title": "Commandtype",
-            "type": "string"
+            "title": "Commandtype"
           },
           "deviceId": {
             "anyOf": [
@@ -3910,10 +3917,36 @@
             ],
             "title": "Mediadeliveryid"
           },
+          "operationId": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Operationid"
+          },
           "parameters": {
             "additionalProperties": true,
             "title": "Parameters",
             "type": "object"
+          },
+          "productId": {
+            "anyOf": [
+              {
+                "maxLength": 36,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Productid"
           },
           "publishTargetId": {
             "anyOf": [
@@ -3940,7 +3973,6 @@
           }
         },
         "required": [
-          "commandType",
           "accountId"
         ],
         "title": "PlatformTaskCreate",
@@ -4542,6 +4574,63 @@
           "automationPackageVersionId"
         ],
         "title": "PublishPlanCreate",
+        "type": "object"
+      },
+      "RecipePublishRequest": {
+        "properties": {
+          "idempotencyKey": {
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "targetDeviceIds": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 32,
+            "minItems": 1,
+            "title": "Targetdeviceids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "targetDeviceIds",
+          "idempotencyKey"
+        ],
+        "title": "RecipePublishRequest",
+        "type": "object"
+      },
+      "RecipeRollbackRequest": {
+        "properties": {
+          "expectedCurrentVersionId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Expectedcurrentversionid",
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "targetDeviceIds": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 32,
+            "minItems": 1,
+            "title": "Targetdeviceids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "targetDeviceIds",
+          "idempotencyKey",
+          "expectedCurrentVersionId"
+        ],
+        "title": "RecipeRollbackRequest",
         "type": "object"
       },
       "RevisionCreate": {
@@ -7238,6 +7327,43 @@
         "summary": "List Media Assets"
       }
     },
+    "/api/v1/media/assets/{asset_id}/content": {
+      "get": {
+        "operationId": "download_media_asset_content_api_v1_media_assets__asset_id__content_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "asset_id",
+            "required": true,
+            "schema": {
+              "title": "Asset Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Download Media Asset Content"
+      }
+    },
     "/api/v1/media/assets/{asset_id}/references": {
       "get": {
         "operationId": "media_references_api_v1_media_assets__asset_id__references_get",
@@ -7459,6 +7585,38 @@
           }
         },
         "summary": "Initiate Media Upload"
+      }
+    },
+    "/api/v1/media/uploads/{upload_id}/content": {
+      "put": {
+        "operationId": "put_media_upload_content_api_v1_media_uploads__upload_id__content_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "title": "Upload Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Media Upload Content"
       }
     },
     "/api/v1/media/uploads/{upload_id}:complete": {
@@ -10047,6 +10205,260 @@
         "summary": "Update Target State"
       }
     },
+    "/api/v1/recipes": {
+      "get": {
+        "operationId": "list_recipes_api_v1_recipes_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Recipes Api V1 Recipes Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Recipes"
+      },
+      "post": {
+        "operationId": "register_recipe_package_api_v1_recipes_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "title": "Body",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Register Recipe Package Api V1 Recipes Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Register Recipe Package"
+      }
+    },
+    "/api/v1/recipes/{version_id}": {
+      "get": {
+        "operationId": "get_recipe_package_api_v1_recipes__version_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "version_id",
+            "required": true,
+            "schema": {
+              "title": "Version Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Recipe Package Api V1 Recipes  Version Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Recipe Package"
+      }
+    },
+    "/api/v1/recipes/{version_id}:publish": {
+      "post": {
+        "operationId": "publish_recipe_package_api_v1_recipes__version_id__publish_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "version_id",
+            "required": true,
+            "schema": {
+              "title": "Version Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecipePublishRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Publish Recipe Package Api V1 Recipes  Version Id  Publish Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Publish Recipe Package"
+      }
+    },
+    "/api/v1/recipes/{version_id}:revoke": {
+      "post": {
+        "operationId": "revoke_recipe_package_api_v1_recipes__version_id__revoke_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "version_id",
+            "required": true,
+            "schema": {
+              "title": "Version Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecipePublishRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Revoke Recipe Package Api V1 Recipes  Version Id  Revoke Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke Recipe Package"
+      }
+    },
+    "/api/v1/recipes/{version_id}:rollback": {
+      "post": {
+        "operationId": "rollback_recipe_api_v1_recipes__version_id__rollback_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "version_id",
+            "required": true,
+            "schema": {
+              "title": "Version Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecipeRollbackRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Rollback Recipe Api V1 Recipes  Version Id  Rollback Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Rollback Recipe"
+      }
+    },
     "/api/v1/session": {
       "get": {
         "operationId": "session_info_api_v1_session_get",
@@ -10990,6 +11402,69 @@
           }
         },
         "summary": "Download Media",
+        "tags": [
+          "mobile-companion"
+        ]
+      }
+    },
+    "/companion/v2/recipes/active": {
+      "get": {
+        "operationId": "list_active_recipes_companion_v2_recipes_active_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Active Recipes Companion V2 Recipes Active Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Active Recipes",
+        "tags": [
+          "mobile-companion"
+        ]
+      }
+    },
+    "/companion/v2/recipes/{version_id}": {
+      "get": {
+        "operationId": "download_recipe_companion_v2_recipes__version_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "version_id",
+            "required": true,
+            "schema": {
+              "title": "Version Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Download Recipe",
         "tags": [
           "mobile-companion"
         ]
