@@ -177,7 +177,7 @@ private fun EnrollmentForm(busy: Boolean, error: String?, model: CompanionViewMo
     var code by remember { mutableStateOf("") }
     // Preconfigured staging server settings
     val defaultCloudUrl = "https://43.133.243.154.sslip.io"
-    val defaultFingerprint = "50ca6c41a52b1c2b4b5c4a93b97d05b1a2d5f6db5d8c5fcdff2abf98e778ddc3"
+    val defaultFingerprint = "fe178c22ba4327c0a71cdd0c7561654fb76ff67c02aa5461f076bf2fc60622d1"
     
     Column(
         modifier = Modifier.fillMaxSize().padding(20.dp).verticalScroll(rememberScrollState()),

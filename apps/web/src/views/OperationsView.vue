@@ -302,7 +302,7 @@ const enrollment = ref<{ code: string; expiresAt: string } | null>(null)
 const enrollmentBusy = ref(false)
 const enrollmentError = ref('')
 const controlApiPublicUrl = 'https://43.133.243.154.sslip.io'
-const controlApiTlsPin = 'c8e22fda63df9a3a1fb06796e84638839a71f2e62dcf80cbebb72ffa61582f64'
+const controlApiTlsPin = 'fe178c22ba4327c0a71cdd0c7561654fb76ff67c02aa5461f076bf2fc60622d1'
 
 async function createDeviceEnrollment(deviceId: string) {
   if (connection.value !== 'live') return
