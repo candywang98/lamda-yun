@@ -715,6 +715,10 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
         "SELECT identity_json FROM controlled_action WHERE action_key=?", arrayOf(actionKey),
     )?.let { ControlledActionIdentity.fromJson(JSONObject(it)) }
 
+    fun unresolvedControlledActionKeys(): List<String> = readableDatabase.rawQuery(
+        "SELECT action_key FROM controlled_action WHERE resolution_revision=0 ORDER BY action_key", emptyArray(),
+    ).use { cursor -> buildList { while (cursor.moveToNext()) add(cursor.getString(0)) } }
+
     /** Called only with a row fetched through the authenticated remote ledger. */
     internal fun applyControlledActionResolution(action: ActionCommit): Boolean = transaction {
         val identity = controlledActionIdentity(action.actionKey) ?: return@transaction false

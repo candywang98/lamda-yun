@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -19,7 +20,7 @@ ALLOWED_APPS = {
     "xiaohongshu": "com.xingin.xhs",
     "companion": "com.company.cloudctl.companion",
 }
-CURRENT_ENGINE_VERSION = 1
+CURRENT_ENGINE_VERSION = 2
 TERMINAL_ID = "SUCCEEDED"
 
 
@@ -92,6 +93,28 @@ class RecipePackage(StrictModel):
             raise ValueError("stateId values must be unique")
         if self.graph.start_state_id not in ids:
             raise ValueError("startStateId is missing")
+        commit_id = self.graph.commit_action_id
+        if commit_id is not None:
+            if self.manifest.min_engine_version < 2:
+                raise ValueError("commitActionId requires engine version 2")
+            if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}", commit_id):
+                raise ValueError("invalid commitActionId")
+            commit = next((s for s in self.graph.states if s.state_id == commit_id), None)
+            if (
+                commit is None
+                or commit.action != "tap"
+                or not commit.locator_ref
+                or not commit.postcondition
+                or commit.postcondition == commit.locator_ref
+                or commit.on_success != TERMINAL_ID
+                or commit.on_failure is not None
+            ):
+                raise ValueError("commit requires one tap, distinct postcondition and terminal success")
+        if any(
+            s.locator_ref == "xianyu_publish_button" and s.state_id != commit_id
+            for s in self.graph.states
+        ):
+            raise ValueError("publish locator requires commitActionId")
         reachable_terminal = False
         for state in self.graph.states:
             for target in (state.on_success, state.on_failure):

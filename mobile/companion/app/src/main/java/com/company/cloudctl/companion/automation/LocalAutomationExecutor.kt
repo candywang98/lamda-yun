@@ -26,6 +26,9 @@ interface LocalAutomationUi {
     fun inspect(targetPackage: String, locatorRef: String): LocalNodeState?
     fun visibleTextContains(expected: String): Boolean = false
     suspend fun tap(targetPackage: String, locatorRef: String)
+    suspend fun tapOnce(targetPackage: String, locatorRef: String) {
+        throw ExecutorFailure("SINGLE_SHOT_UNAVAILABLE", "UI does not provide a single-shot tap")
+    }
     suspend fun replaceText(targetPackage: String, locatorRef: String, value: String)
     suspend fun screenshot(taskId: String, label: String): ScreenshotEvidence
     suspend fun swipeUp() {}

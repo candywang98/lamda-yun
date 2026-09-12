@@ -166,6 +166,16 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
             )
         }
 
+    override suspend fun tapOnce(targetPackage: String, locatorRef: String) {
+        val node = resolveUniqueNode(targetPackage, locatorRef)
+            ?: throw ExecutorFailure("LOCATOR_NOT_FOUND", "Approved locator was not found")
+        if (!node.isVisibleToUser || !node.isEnabled) {
+            throw ExecutorFailure("NODE_NOT_CLICKABLE", "Approved locator is not safely clickable")
+        }
+        // A rejected/cancelled gesture is ambiguous. Never attempt a fallback click.
+        if (!gestureClick(node)) throw ExecutorFailure("CLICK_UNCONFIRMED", "Single-shot gesture was not confirmed")
+    }
+
     override suspend fun tap(targetPackage: String, locatorRef: String) {
         val node = resolveUniqueNode(targetPackage, locatorRef)
             ?: throw ExecutorFailure("LOCATOR_NOT_FOUND", "Approved locator was not found")

@@ -182,6 +182,7 @@ class MobileActionService:
             or parsed.manifest.signing_key_id != parsed.signature.key_id
             or task.command_type not in parsed.manifest.command_types
             or action_id not in {state.state_id for state in parsed.graph.states}
+            or (parsed.graph.commit_action_id is not None and parsed.graph.commit_action_id != action_id)
         ):
             raise ConflictError("action does not match signed claim pin")
         live = await session.scalar(

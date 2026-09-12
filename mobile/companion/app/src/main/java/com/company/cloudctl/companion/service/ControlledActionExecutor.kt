@@ -17,12 +17,22 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import org.json.JSONObject
 
-/** Library entry point for Companion-only controlled probes. Not connected to Recipe/service actions. */
+/** Durable once-only ledger adapter used by signed Recipe commits and controlled probes. */
 class ControlledActionExecutor(
     private val store: AutomationStore,
     private val remote: ControlledActionLedger,
     private val coordinator: IrreversibleActionCoordinator = IrreversibleActionCoordinator(store),
 ) {
+    fun hasRecordedAction(actionKey: String): Boolean = store.actionJournal(actionKey) != null
+
+    suspend fun reconcilePending(): List<String> {
+        val resolved = mutableListOf<String>()
+        for (actionKey in store.unresolvedControlledActionKeys()) {
+            if (reconcile(actionKey)) resolved.add(actionKey)
+        }
+        return resolved
+    }
+
     suspend fun execute(
         taskId: String,
         actionId: String,
@@ -50,6 +60,10 @@ class ControlledActionExecutor(
         // RecipeCatalog contains only verified packages (or the shipped built-in probe).
         val recipe = JSONObject(RecipeCatalog.jsonFor(command))
         val states = recipe.getJSONObject("graph").getJSONArray("states")
+        val graph = recipe.getJSONObject("graph")
+        require(graph.isNull("commitActionId") || graph.getString("commitActionId") == actionId) {
+            "Action does not match declared commitActionId"
+        }
         require((0 until states.length()).any { states.getJSONObject(it).getString("stateId") == actionId }) {
             "Action absent from pinned recipe"
         }

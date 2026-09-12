@@ -13,6 +13,7 @@ data class RecipeState(
     val onSuccess: String,
     val onFailure: String?,
     val terminal: Boolean,
+    val postcondition: String? = null,
 )
 
 data class RecipePackage(
@@ -25,6 +26,7 @@ data class RecipePackage(
     val maxIterations: Int,
     val maxDurationMs: Long,
     val states: Map<String, RecipeState>,
+    val commitActionId: String? = null,
 )
 
 class RecipeEngine(
@@ -53,14 +55,29 @@ class RecipeEngine(
             val state = RecipeState(
                 stateId = item.getString("stateId"),
                 action = action,
-                locatorRef = item.optString("locatorRef").takeIf(String::isNotBlank),
+                locatorRef = item.optString("locatorRef").takeIf { !item.isNull("locatorRef") && it.isNotBlank() },
                 onSuccess = item.getString("onSuccess"),
-                onFailure = item.optString("onFailure").takeIf(String::isNotBlank),
+                onFailure = item.optString("onFailure").takeIf { !item.isNull("onFailure") && it.isNotBlank() },
                 terminal = item.optBoolean("terminal"),
+                postcondition = item.optString("postcondition").takeIf { !item.isNull("postcondition") && it.isNotBlank() },
             )
+            require(!states.containsKey(state.stateId)) { "stateId values must be unique" }
             states[state.stateId] = state
         }
         require(states.containsKey(graph.getString("startStateId"))) { "startStateId is missing" }
+        val commitId = if (graph.isNull("commitActionId")) null else graph.getString("commitActionId")
+        if (commitId != null) {
+            require(minEngine >= 2) { "commitActionId requires engine version 2" }
+            val commit = requireNotNull(states[commitId]) { "commitActionId is missing" }
+            require(Regex("[A-Za-z0-9][A-Za-z0-9._:-]{0,127}").matches(commitId)) { "invalid commitActionId" }
+            require(commit.action == "tap" && commit.locatorRef != null && commit.postcondition != null &&
+                commit.postcondition != commit.locatorRef && commit.onSuccess == "SUCCEEDED" && commit.onFailure == null) {
+                "commit requires a single tap, distinct postcondition and terminal success without a failure branch"
+            }
+        }
+        require(states.values.none { it.locatorRef == "xianyu_publish_button" && it.stateId != commitId }) {
+            "publish locator requires commitActionId"
+        }
         return RecipePackage(
             id = manifest.getString("id"),
             hash = hash,
@@ -73,6 +90,7 @@ class RecipeEngine(
             maxIterations = graph.getInt("maxIterations").also { require(it in 1..200) },
             maxDurationMs = graph.getLong("maxDurationMs"),
             states = states,
+            commitActionId = commitId,
         )
     }
 
@@ -88,10 +106,15 @@ class RecipeEngine(
         command: CommandV1,
         resumeFromStateId: String? = null,
         controlCheckpoint: () -> Unit,
+        commitAction: (suspend (RecipeState) -> Unit)? = null,
         journal: (String, String) -> Unit,
     ): String {
         require(recipe.hash == command.recipeSha256) { "recipe hash mismatch" }
         require(recipe.app == command.targetPackage) { "recipe app does not match command" }
+        require(command.commandType in recipe.commandTypes) { "recipe command type mismatch" }
+        if (recipe.commitActionId != null && commitAction == null) {
+            throw ExecutorFailure("COMMIT_ADAPTER_REQUIRED", "commit requires the durable ledger")
+        }
         val currentStart = resolveResumeStart(recipe, resumeFromStateId)
         ui.ensureReady(command.targetPackage)
         val deadline = elapsedMs() + recipe.maxDurationMs
@@ -101,6 +124,13 @@ class RecipeEngine(
             if (elapsedMs() >= deadline) throw ExecutorFailure("STEP_TIMEOUT", "recipe exceeded maxDuration")
             if (iterations++ >= recipe.maxIterations) throw ExecutorFailure("LOOP_LIMIT", "recipe exceeded maxIterations")
             val state = recipe.states[current] ?: throw ExecutorFailure("UNKNOWN_STATE", current)
+            currentCoroutineContext().ensureActive()
+            if (state.action != "wait") controlCheckpoint()
+            if (state.stateId == recipe.commitActionId) {
+                // Never route commit failures through an ordinary graph retry/failure branch.
+                requireNotNull(commitAction)(state)
+                return "RECONCILING"
+            }
             journal(state.stateId, "STARTED")
             var journalState = "SUCCEEDED"
             current = try {
@@ -180,7 +210,7 @@ class RecipeEngine(
     }
 
     companion object {
-        const val VERSION = 1
+        const val VERSION = 2
         private const val WAIT_POLL_MS = 250L
         private val ALLOWED_ACTIONS = setOf("tap", "input", "scroll", "extract", "wait", "launch", "media", "log", "checkpoint")
         private val TERMINAL = setOf("SUCCEEDED", "FAILED", "WAITING_USER")

@@ -68,6 +68,8 @@ import java.io.IOException
 import java.security.MessageDigest
 import java.util.concurrent.atomic.AtomicInteger
 
+import com.company.cloudctl.companion.network.PinnedControlledActionLedger
+
 class CompanionSyncService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private lateinit var recipes: RecipeLifecycle
@@ -258,6 +260,13 @@ class CompanionSyncService : Service() {
                 }
                 if (networkAvailability.isValidated()) {
                     try {
+                        val executor = ControlledActionExecutor(store, PinnedControlledActionLedger(configured.first))
+                        for (key in executor.reconcilePending()) {
+                            val action = store.actionJournal(key) ?: continue
+                            runtimeStatus.updateTask(action.taskId,
+                                if (action.status == "APPLIED") AuthorizedTaskState.Succeeded else AuthorizedTaskState.Failed,
+                                "Server action resolution synchronized", "SERVER_ACTION_RESOLUTION")
+                        }
                         withContext(Dispatchers.IO) { syncRecipes(client) }
                     } catch (cancelled: CancellationException) {
                         throw cancelled
@@ -614,6 +623,11 @@ class CompanionSyncService : Service() {
             val engine = RecipeEngine(service, elapsedMs = { android.os.SystemClock.elapsedRealtime() })
             val recipe = engine.parse(recipeJson, expectedHash = command.recipeSha256)
             parsedRecipe = recipe
+            val configured = loadConnection()
+                ?: throw ExecutorFailure("CLOUD_UNAVAILABLE", "Cloud connection unavailable")
+            val commitAdapter = RecipeCommitAdapter(
+                ControlledActionExecutor(store, PinnedControlledActionLedger(configured.first)), service,
+            )
             val progress = if (resume == null) {
                 RecipeResumeProgress.fresh(recipe)
             } else {
@@ -672,6 +686,11 @@ class CompanionSyncService : Service() {
                             command,
                             resumeFromStateId = resumeFromStateId,
                             controlCheckpoint = { throwIfControlRequested(control) },
+                            commitAction = { state ->
+                                commitAdapter.execute(command, state) {
+                                    throwIfControlRequested(control)
+                                }
+                            },
                         ) { stateId, state ->
                             val eventType = progress.record(recipe, stateId, state)
                             currentStep.set(progress.lastSuccessfulStateId?.let { recipe.states.keys.indexOf(it) } ?: -1)
@@ -699,6 +718,7 @@ class CompanionSyncService : Service() {
                         }
                     }
                     when {
+                        outcome == "RECONCILING" -> showReconciling(command.taskId)
                         outcome == "WAITING_USER" -> {
                             persistRecipePaused(command, recipe, progress, "OPEN_ONLY waiting for operator")
                         }
@@ -772,8 +792,17 @@ class CompanionSyncService : Service() {
                 return true
             }
             failTask(command.taskId, "TASK_EXECUTION_FAILED", error.message ?: "本地任务已安全终止")
+        } finally {
+            if (store.unresolvedControlledActionKeys().any { store.actionJournal(it)?.taskId == command.taskId }) {
+                showReconciling(command.taskId)
+            }
         }
         return true
+    }
+
+    private fun showReconciling(taskId: String) {
+        runtimeStatus.updateTask(taskId, AuthorizedTaskState.WaitingConfirmation,
+            "提交结果等待云端核对，不会重新执行", "RECONCILING")
     }
 
     private fun persistRecipePaused(

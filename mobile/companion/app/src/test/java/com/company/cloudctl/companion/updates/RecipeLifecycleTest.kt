@@ -233,7 +233,7 @@ class RecipeLifecycleTest {
 
     @Test fun incompatibleExpectedOrManifestEngineNeverBecomesVisible() {
         sync(old)
-        assertFailsWith<IllegalArgumentException> { RecipeReference("engine-2", old.sha256, 2) }
+        assertFailsWith<IllegalArgumentException> { RecipeReference("engine-future", old.sha256, RecipeEngine.VERSION + 1) }
         val json = JSONObject(newBody).also { it.getJSONObject("manifest").put("minEngineVersion", 2) }
         val hash = RecipeEngine.sha256Bytes(CanonicalJson.recipeHashPayload(json))
         json.getJSONObject("manifest").put("hash", hash)
