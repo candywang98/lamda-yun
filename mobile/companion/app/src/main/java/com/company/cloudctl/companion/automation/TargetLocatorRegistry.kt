@@ -8,6 +8,7 @@ internal sealed interface ApprovedLocator {
     data class Text(val value: String) : ApprovedLocator
     data class TextPrefix(val prefix: String) : ApprovedLocator
     data class IndexedResourceId(val value: String, val index: Int) : ApprovedLocator
+    data class IndexedContentDescriptionParent(val value: String, val index: Int) : ApprovedLocator
 }
 
 /**
@@ -105,7 +106,7 @@ internal object TargetLocatorRegistry {
                 // Douyin grid cells expose no stable resource-id lookup through the
                 // accessibility view-id search; their selection mark ("<name>, 未选中")
                 // is unique per cell and verified on 39.6.0.
-                return ApprovedLocator.IndexedContentDescription(", 未选中", match.groupValues[1].toInt())
+                return ApprovedLocator.IndexedContentDescriptionParent(", 未选中", match.groupValues[1].toInt())
             }
         }
         throw IllegalArgumentException("Unknown Companion locator")

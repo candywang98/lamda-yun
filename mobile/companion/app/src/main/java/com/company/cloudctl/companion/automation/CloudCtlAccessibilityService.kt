@@ -441,6 +441,9 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
             is ApprovedLocator.IndexedResourceId -> root.findAccessibilityNodeInfosByViewId(locator.value)
                 .sortedBy { node -> node.boundsTop() }
                 .getOrNull(locator.index)?.let(::listOf).orEmpty()
+            // Selection marks may themselves report invisible; their cell container is the tap target.
+            is ApprovedLocator.IndexedContentDescriptionParent -> findContentDescription(root) { it == locator.value }
+                .getOrNull(locator.index)?.parent?.let(::listOf).orEmpty()
         }
 
     private fun AccessibilityNodeInfo.boundsTop(): Int {
