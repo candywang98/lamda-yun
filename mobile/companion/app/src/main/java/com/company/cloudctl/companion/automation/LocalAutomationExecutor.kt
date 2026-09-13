@@ -113,7 +113,10 @@ class LocalAutomationExecutor(
                 )
                 throwIfControlRequested(control, lastCompleted, lastCompletedIndex)
                 val node = requireNode(task, step.locatorRef)
-                if (!node.visible || !node.enabled) {
+                // A disabled clickable control must never be tapped, but Douyin gallery
+                // cells expose passive (enabled=false, unclickable) marks over
+                // gesture-tappable images; those remain legitimate targets.
+                if (!node.visible || (node.clickable && !node.enabled)) {
                     throw ExecutorFailure("NODE_NOT_CLICKABLE", "Approved locator is not safely clickable")
                 }
                 if (step.postconditionLocatorRef != null && matches(task, step.postconditionLocatorRef, NodeCondition.EXISTS)) {
