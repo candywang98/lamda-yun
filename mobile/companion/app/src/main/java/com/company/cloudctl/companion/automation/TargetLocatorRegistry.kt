@@ -82,6 +82,7 @@ internal object TargetLocatorRegistry {
         "dy_publish_success" to ApprovedLocator.TextPrefix("发布成功"),
         "dy_cellmark_probe" to ApprovedLocator.TextPrefix(", 未选中"),
         "dy_picker_cancel" to ApprovedLocator.ContentDescription("取消"),
+        "dy_camera_ready" to ApprovedLocator.Text("开直播"),
     )
 
     fun resolve(targetPackage: String, locatorRef: String): ApprovedLocator {
