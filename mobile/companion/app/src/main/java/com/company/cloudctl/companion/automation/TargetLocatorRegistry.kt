@@ -81,6 +81,7 @@ internal object TargetLocatorRegistry {
         "dy_publish_button" to ApprovedLocator.Text("发作品"),
         "dy_publish_success" to ApprovedLocator.TextPrefix("发布成功"),
         "dy_cellmark_probe" to ApprovedLocator.TextPrefix(", 未选中"),
+        "dy_picker_cancel" to ApprovedLocator.ContentDescription("取消"),
     )
 
     fun resolve(targetPackage: String, locatorRef: String): ApprovedLocator {
@@ -108,7 +109,7 @@ internal object TargetLocatorRegistry {
                 // Douyin grid cells expose no stable resource-id lookup through the
                 // accessibility view-id search; their selection mark ("<name>, 未选中")
                 // is unique per cell and verified on 39.6.0.
-                return ApprovedLocator.IndexedContentDescriptionPrefix(", 点按两次即可激活", match.groupValues[1].toInt())
+                return ApprovedLocator.IndexedContentDescriptionPrefixParent(", 未选中", match.groupValues[1].toInt())
             }
         }
         throw IllegalArgumentException("Unknown Companion locator")
