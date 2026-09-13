@@ -32,6 +32,7 @@ import com.company.cloudctl.companion.automation.ResumeValidator
 import com.company.cloudctl.companion.automation.TargetLocatorRegistry
 import com.company.cloudctl.companion.automation.TaskPausedException
 import com.company.cloudctl.companion.data.AutomationStore
+import com.company.cloudctl.companion.im.ImMonitor
 import com.company.cloudctl.companion.data.PendingTask
 import com.company.cloudctl.companion.data.RuntimeStatusStore
 import com.company.cloudctl.companion.data.MediaDeliveryCoordinator
@@ -319,6 +320,9 @@ class CompanionSyncService : Service() {
                     )
                 }
                 val executed = runNext(client)
+                // pa-im/20260913.1: IM push must never block or fail the task loop.
+                runCatching { deliverImEvents(client) }
+                    .onFailure { android.util.Log.w("CompanionSync", "IM push deferred", it) }
                 retryPolicy.reset()
                 if (!executed) delay(if (claimed == null) IDLE_POLL_INTERVAL_MILLIS else 100L)
             } catch (cancelled: CancellationException) {
@@ -334,6 +338,29 @@ class CompanionSyncService : Service() {
             } catch (_: Exception) {
                 delay(retryPolicy.nextDelayMillis())
             }
+        }
+    }
+
+    private suspend fun deliverImEvents(client: CloudTaskClient) {
+        val batch = ImMonitor.drain(20)
+        if (batch.isEmpty()) return
+        val payload = org.json.JSONObject()
+        val messages = org.json.JSONArray()
+        batch.forEach { event ->
+            messages.put(
+                org.json.JSONObject()
+                    .put("peerKey", event.peerKey)
+                    .put("peerName", event.peerName)
+                    .put("text", event.text)
+                    .put("occurredAt", event.occurredAt.toString()),
+            )
+        }
+        payload.put("messages", messages)
+        try {
+            client.sendImMessages(payload)
+        } catch (error: Exception) {
+            ImMonitor.requeue(batch)
+            throw error
         }
     }
 

@@ -95,6 +95,20 @@ class InputStep(LocatorStep):
         return value
 
 
+class TapTextStep(StrictModel):
+    step_id: str = Field(alias="stepId", min_length=1, max_length=128)
+    action: Literal["ui.tapText"]
+    value: str = Field(min_length=1, max_length=64)
+    timeout_ms: int = Field(default=10_000, alias="timeoutMs", ge=100, le=60_000)
+
+    @field_validator("step_id")
+    @classmethod
+    def valid_step_id(cls, value: str) -> str:
+        if not STEP_ID_PATTERN.fullmatch(value):
+            raise ValueError("stepId is invalid")
+        return value
+
+
 class WaitStep(LocatorStep):
     action: Literal["ui.wait"]
     condition: Literal["EXISTS", "NOT_EXISTS", "ENABLED"]
@@ -136,7 +150,7 @@ class LogStep(StrictModel):
 
 
 MobileStep = Annotated[
-    FindStep | TapStep | InputStep | WaitStep | ScreenshotStep | AssertStep | LogStep,
+    FindStep | TapStep | TapTextStep | InputStep | WaitStep | ScreenshotStep | AssertStep | LogStep,
     Field(discriminator="action"),
 ]
 

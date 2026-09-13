@@ -44,12 +44,40 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
                 AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS or
                 AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS or
                 AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
+            eventTypes = eventTypes or AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED
         }
         active = this
         CompanionServiceStarter.startIfBound(this)
     }
 
-    override fun onAccessibilityEvent(event: AccessibilityEvent?) = Unit
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        // pa-im/20260913.1: monitor idlefish IM notifications only.
+        if (event == null || event.eventType != AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED) return
+        if (event.packageName?.toString() != TargetLocatorRegistry.XIANYU_PACKAGE) return
+        val notification = event.parcelableData as? android.app.Notification ?: return
+        val extras = notification.extras
+        val title = (extras.getCharSequence(android.app.Notification.EXTRA_TITLE)?.toString()
+            ?: event.packageName?.toString() ?: "").trim()
+        val text = (extras.getCharSequence(android.app.Notification.EXTRA_TEXT)?.toString()
+            ?: "").trim()
+        if (title.isEmpty() || text.isEmpty()) return
+        val deviceId = runCatching {
+            val raw = getSharedPreferences("cloudctl_binding", android.content.Context.MODE_PRIVATE)
+                .getString("binding", null) ?: return
+            org.json.JSONObject(raw).getString("deviceId")
+        }.getOrNull() ?: return
+        val accepted = com.company.cloudctl.companion.im.ImMonitor.accept(
+            deviceId,
+            com.company.cloudctl.companion.im.ImEvent(
+                peerName = title.take(128),
+                text = text.take(4000),
+                occurredAt = java.time.Instant.ofEpochMilli(
+                    notification.`when`.takeIf { it > 0 } ?: System.currentTimeMillis()
+                ),
+            ),
+        )
+        if (accepted) Log.i(TAG, "IM event queued from $title")
+    }
     override fun onInterrupt() = Unit
 
     override fun onDestroy() {
@@ -67,6 +95,24 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         if (active !== this) throw ExecutorFailure("ACCESSIBILITY_NOT_ACTIVE", "Accessibility service is not active")
         launchTargetApp(task.targetPackage)
         LocalAutomationExecutor(this, commitGate = commitGate).execute(task, control, startAfterIndex, journal)
+    }
+
+    override suspend fun tapText(targetPackage: String, value: String) {
+        ensureReady(targetPackage)
+        val matches = allRoots()
+            .filter { it.packageName?.toString() == targetPackage }
+            .flatMap { findContentDescription(it) { text -> text == value } }
+            .distinct()
+            .filter { it.isVisibleToUser }
+        if (matches.size != 1) {
+            throw ExecutorFailure(
+                "TAP_TEXT_NOT_UNIQUE",
+                "Expected exactly one visible '$value' node, found ${matches.size}",
+            )
+        }
+        if (!activate(matches.first())) {
+            throw ExecutorFailure("TAP_TEXT_NOT_UNIQUE", "Unique '$value' node could not be activated")
+        }
     }
 
     suspend fun launchTargetApp(targetPackage: String) {

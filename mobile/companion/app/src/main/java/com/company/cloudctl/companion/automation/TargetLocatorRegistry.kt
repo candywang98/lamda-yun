@@ -53,6 +53,10 @@ internal object TargetLocatorRegistry {
         "xianyu_location_saved_0" to ApprovedLocator.ContentDescriptionPrefix("北营新村丰景佳园"),
         "xianyu_publish_blocked_ack" to ApprovedLocator.ContentDescription("我知道了"),
         "xianyu_publish_button" to ApprovedLocator.ContentDescription("发布"),
+        // Anchors pending on-device verification (pa-im/20260913.1).
+        "xianyu_messages_tab" to ApprovedLocator.ContentDescription("消息"),
+        "xianyu_chat_input" to ApprovedLocator.ContentDescriptionPrefix("发送消息"),
+        "xianyu_chat_send" to ApprovedLocator.ContentDescription("发送"),
     )
 
     private val xhsLocators = mapOf(

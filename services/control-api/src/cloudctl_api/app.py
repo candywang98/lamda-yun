@@ -17,6 +17,9 @@ from .auth import OidcJwtVerifier
 from .db import Database
 from .debug_routes import router as debug_router
 from .debug_service import DebugSessionService
+from .im_routes import companion_router as im_companion_router
+from .im_routes import operator_router as im_operator_router
+from .im_service import ImService
 from .dev_seed import seed_development_data
 from .media_store import ObjectStore, create_object_store
 from .mobile_routes import companion_router
@@ -111,6 +114,7 @@ def create_app(
         database, resolved_settings, app.state.mobile_task_service
     )
     app.state.debug_session_service = DebugSessionService(database, resolved_settings)
+    app.state.im_service = ImService(app.state.mobile_task_service)
     app.dependency_overrides[get_settings] = lambda: resolved_settings
 
     app.add_middleware(
@@ -196,6 +200,8 @@ def create_app(
     app.include_router(mobile_operator_router)
     app.include_router(platform_task_router)
     app.include_router(schedule_router)
+    app.include_router(im_operator_router)
+    app.include_router(im_companion_router)
     app.include_router(companion_router)
     return app
 

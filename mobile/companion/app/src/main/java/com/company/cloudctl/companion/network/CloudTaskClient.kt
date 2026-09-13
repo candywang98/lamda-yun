@@ -76,6 +76,11 @@ class CloudTaskClient(private val connection: CloudConnection) {
         return request("/companion/v2/devices/heartbeat", payload) ?: JSONObject()
     }
 
+    /** pa-im/20260913.1: batch push of monitored IM notifications. */
+    fun sendImMessages(payload: JSONObject): JSONObject {
+        return request("/companion/v2/im/messages", payload) ?: JSONObject()
+    }
+
     fun uploadPreview(payload: JSONObject): JSONObject {
         return request("/companion/v2/devices/preview", payload) ?: JSONObject()
     }
