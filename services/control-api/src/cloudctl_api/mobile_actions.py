@@ -89,7 +89,10 @@ def canonical_steps(steps: list[dict[str, Any]]) -> str:
 
 
 def steps_action_identity(task: MobileTaskRow) -> dict[str, Any]:
-    steps = task.steps or []
+    # The claim path prepends a dynamic header entry (controlEpoch/lease fields,
+    # no "action" key) to the stored steps; identity covers the real steps only,
+    # exactly matching what the Companion hashes from its claimed payload.
+    steps = [step for step in (task.steps or []) if step.get("action")]
     publish_taps = [
         step
         for step in steps

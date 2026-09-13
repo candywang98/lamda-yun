@@ -368,6 +368,20 @@ async def test_steps_publish_intent_once_then_reconcile(api):  # noqa: F811
     read = await client.get(action, headers=auth)
     assert read.json()["resolutionRevision"] == 1
     assert read.json()["status"] == "APPLIED"
+    # The claim-time dynamic header (controlEpoch etc.) must not change identity.
+    async with app.state.database.unit_of_work() as session:
+        row = await session.get(MobileTaskRow, task)
+        stored = list(row.steps)
+        header = {"totalTimeoutMs": 240_000, "controlEpoch": 4711}
+        row.steps = [header, *stored]
+        session.add(row)
+        await session.flush()
+        header_frozen = steps_action_identity(row)
+        row.steps = stored
+        session.add(row)
+        await session.flush()
+    assert header_frozen["action_key"] == frozen["action_key"]
+    assert header_frozen["parameter_hash"] == frozen["parameter_hash"]
     # A second task with different steps must produce a different identity.
     changed = [dict(step) for step in PUBLISH_STEPS]
     changed[1] = dict(changed[1], value="Different frozen description")
