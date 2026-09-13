@@ -452,6 +452,10 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
             is ApprovedLocator.IndexedContentDescriptionPrefixParent -> findContentDescription(root) {
                 it.startsWith(locator.prefix)
             }.getOrNull(locator.index)?.parent?.let(::listOf).orEmpty()
+            // The mark node itself is the checkbox overlay on the cell; tapping it selects.
+            is ApprovedLocator.IndexedContentDescriptionPrefix -> findContentDescription(root) {
+                it.startsWith(locator.prefix)
+            }.getOrNull(locator.index)?.let(::listOf).orEmpty()
         }
 
     private fun AccessibilityNodeInfo.boundsTop(): Int {
