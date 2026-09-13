@@ -129,4 +129,37 @@ class AutomationTaskParserTest {
       {"stepId":"6","action":"ui.assert","timeoutMs":1000,"locatorRef":"username","predicate":"EXISTS"},
       {"stepId":"7","action":"run.log","timeoutMs":1000,"level":"INFO","messageCode":"LOGIN_READY"}]}
     """.trimIndent()
+
+    @Test
+    fun parsesTapTextStepAndRejectsInvalidValues() {
+        val base = xianyuPublishJson().replace(
+            "\"maxRunSeconds\":90",
+            "\"maxRunSeconds\":90",
+        )
+        val parsed = AutomationTaskParser.parse(
+            base.replace(
+                "{\"stepId\":\"find-home-sell\"",
+                "{\"stepId\":\"tap-peer\",\"action\":\"ui.tapText\",\"value\":\"买家甲\",\"timeoutMs\":8000},{\"stepId\":\"find-home-sell\"",
+            ),
+        )
+        val tap = parsed.steps.filterIsInstance<AutomationStep.TapText>().single()
+        assertEquals("买家甲", tap.value)
+        assertFailsWith<IllegalArgumentException> {
+            AutomationTaskParser.parse(
+                base.replace(
+                    "{\"stepId\":\"find-home-sell\"",
+                    "{\"stepId\":\"tap-peer\",\"action\":\"ui.tapText\",\"value\":\"\",\"timeoutMs\":8000},{\"stepId\":\"find-home-sell\"",
+                ),
+            )
+        }
+        assertFailsWith<IllegalArgumentException> {
+            AutomationTaskParser.parse(
+                base.replace(
+                    "{\"stepId\":\"find-home-sell\"",
+                    "{\"stepId\":\"tap-peer\",\"action\":\"ui.tapText\",\"value\":\"${"x".repeat(65)}\",\"timeoutMs\":8000},{\"stepId\":\"find-home-sell\"",
+                ),
+            )
+        }
+    }
+
 }

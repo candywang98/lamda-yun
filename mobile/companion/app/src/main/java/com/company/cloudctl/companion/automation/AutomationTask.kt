@@ -19,6 +19,7 @@ sealed interface AutomationStep {
     val timeoutMs: Long
 
     data class Find(override val stepId: String, override val timeoutMs: Long, val locatorRef: String) : AutomationStep
+    data class TapText(override val stepId: String, override val timeoutMs: Long, val value: String) : AutomationStep
     data class Tap(
         override val stepId: String,
         override val timeoutMs: Long,
@@ -116,6 +117,13 @@ object AutomationTaskParser {
         val timeout = value.getLong("timeoutMs").also { require(it in 100..60_000) }
         return when (action) {
             "ui.find" -> AutomationStep.Find(stepId, timeout, locator(value, common + "locatorRef"))
+            "ui.tapText" -> {
+                val keys = common + setOf("value")
+                requireKeys(value, keys)
+                val target = value.getString("value")
+                require(target.length in 1..64 && '\u0000' !in target) { "tapText value is invalid" }
+                AutomationStep.TapText(stepId, timeout, target)
+            }
             "ui.tap" -> {
                 val keys = common + setOf("locatorRef") + optional(value, "postconditionLocatorRef")
                 requireKeys(value, keys)

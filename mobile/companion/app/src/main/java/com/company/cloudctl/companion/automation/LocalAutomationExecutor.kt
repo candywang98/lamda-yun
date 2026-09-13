@@ -25,6 +25,10 @@ interface LocalAutomationUi {
     fun ensureReady(targetPackage: String)
     fun inspect(targetPackage: String, locatorRef: String): LocalNodeState?
     fun visibleTextContains(expected: String): Boolean = false
+    suspend fun tapText(targetPackage: String, value: String) {
+        error("tapText is not supported by this executor")
+    }
+
     suspend fun tap(targetPackage: String, locatorRef: String)
     suspend fun tapOnce(targetPackage: String, locatorRef: String) {
         throw ExecutorFailure("SINGLE_SHOT_UNAVAILABLE", "UI does not provide a single-shot tap")
@@ -144,6 +148,11 @@ class LocalAutomationExecutor(
                 }
                 ui.replaceText(task.targetPackage, step.locatorRef, step.value)
                 waitForText(task, step.locatorRef, step.value, step.pollInterval(), runDeadline)
+            }
+            is AutomationStep.TapText -> {
+                throwIfControlRequested(control, lastCompleted, lastCompletedIndex)
+                ui.ensureReady(task.targetPackage)
+                ui.tapText(task.targetPackage, step.value)
             }
             is AutomationStep.Wait -> waitFor(
                 task, step.locatorRef, step.condition, step.pollMs, runDeadline, control,
