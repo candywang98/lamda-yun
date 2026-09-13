@@ -81,7 +81,13 @@ object AutomationTaskParser {
         }
         require(root.getString("protocolVersion") == "cloudctl.mobile/v1") { "Unsupported task protocol" }
         val targetPackage = root.getString("targetPackage")
-        require(targetPackage in setOf(TargetLocatorRegistry.COMPANION_PACKAGE, TargetLocatorRegistry.XIANYU_PACKAGE)) {
+        require(
+            targetPackage in setOf(
+                TargetLocatorRegistry.COMPANION_PACKAGE,
+                TargetLocatorRegistry.XIANYU_PACKAGE,
+                TargetLocatorRegistry.XHS_PACKAGE,
+            )
+        ) {
             "Tasks must target an allowlisted application"
         }
         val stepsJson = root.getJSONArray("steps")
