@@ -8,7 +8,7 @@ internal sealed interface ApprovedLocator {
     data class Text(val value: String) : ApprovedLocator
     data class TextPrefix(val prefix: String) : ApprovedLocator
     data class IndexedResourceId(val value: String, val index: Int) : ApprovedLocator
-    data class IndexedContentDescriptionParent(val value: String, val index: Int) : ApprovedLocator
+    data class IndexedContentDescriptionPrefixParent(val prefix: String, val index: Int) : ApprovedLocator
 }
 
 /**
@@ -79,6 +79,7 @@ internal object TargetLocatorRegistry {
         "dy_note_body" to ApprovedLocator.TextPrefix("添加作品描述"),
         "dy_publish_button" to ApprovedLocator.Text("发作品"),
         "dy_publish_success" to ApprovedLocator.TextPrefix("发布成功"),
+        "dy_cellmark_probe" to ApprovedLocator.TextPrefix(", 未选中"),
     )
 
     fun resolve(targetPackage: String, locatorRef: String): ApprovedLocator {
@@ -106,7 +107,7 @@ internal object TargetLocatorRegistry {
                 // Douyin grid cells expose no stable resource-id lookup through the
                 // accessibility view-id search; their selection mark ("<name>, 未选中")
                 // is unique per cell and verified on 39.6.0.
-                return ApprovedLocator.IndexedContentDescriptionParent(", 未选中", match.groupValues[1].toInt())
+                return ApprovedLocator.IndexedContentDescriptionPrefixParent(", 未选中", match.groupValues[1].toInt())
             }
         }
         throw IllegalArgumentException("Unknown Companion locator")

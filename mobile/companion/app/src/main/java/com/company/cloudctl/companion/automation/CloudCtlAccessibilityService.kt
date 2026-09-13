@@ -372,6 +372,12 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         if (matches.size > 1) {
             return matches.firstOrNull { it.isVisibleToUser } ?: matches.first()
         }
+        if (matches.isEmpty() && locatorRef.startsWith("dy_")) {
+            val haystack = allRoots()
+                .filter { it.packageName?.toString() == targetPackage }
+                .joinToString("\n") { collectDisplayedText(it) }
+            Log.w(TAG, "dy locator '$locatorRef' matched nothing; contains 未选中=${haystack.contains("未选中")} sample=${haystack.takeLast(160)}")
+        }
         return matches.singleOrNull()
     }
 
@@ -441,9 +447,11 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
             is ApprovedLocator.IndexedResourceId -> root.findAccessibilityNodeInfosByViewId(locator.value)
                 .sortedBy { node -> node.boundsTop() }
                 .getOrNull(locator.index)?.let(::listOf).orEmpty()
-            // Selection marks may themselves report invisible; their cell container is the tap target.
-            is ApprovedLocator.IndexedContentDescriptionParent -> findContentDescription(root) { it == locator.value }
-                .getOrNull(locator.index)?.parent?.let(::listOf).orEmpty()
+            // Selection marks may report invisible or carry trailing text;
+            // their visible cell container is the tap target.
+            is ApprovedLocator.IndexedContentDescriptionPrefixParent -> findContentDescription(root) {
+                it.startsWith(locator.prefix)
+            }.getOrNull(locator.index)?.parent?.let(::listOf).orEmpty()
         }
 
     private fun AccessibilityNodeInfo.boundsTop(): Int {
