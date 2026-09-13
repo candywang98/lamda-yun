@@ -13,7 +13,6 @@ import {
   Lightbulb,
   Menu,
   MessageCircle,
-  MonitorSmartphone,
   Package,
   Play,
   RefreshCw,
@@ -60,6 +59,7 @@ const currentOperation = computed(() => findOperation(String(route.params.module
 const catalogOpen = computed(() => route.name === 'operations-catalog')
 const settingsOpen = computed(() => route.name === 'operations-display-settings')
 const recipesOpen = computed(() => route.name === 'recipe-versions')
+const imOpen = computed(() => route.path.startsWith('/im'))
 const remoteOpen = computed(() => route.name === 'device-detail')
 const pageTitle = computed(() => {
   if (currentOperation.value) return currentOperation.value.title
@@ -99,13 +99,21 @@ watch(currentOperation, (operation) => {
   <div class="yy-shell">
     <aside class="yy-sidebar" :class="{ open: session.sidebarOpen }" aria-label="运营导航">
       <div class="yy-brand">
-        <span class="yy-brand-mark"><MonitorSmartphone :size="18" /></span>
+        <span class="yy-brand-mark">
+          <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+            <path fill="#fff" d="M17.5 18.5h-10a4.5 4.5 0 0 1-.9-8.9A5.5 5.5 0 0 1 17.2 8.6 4.75 4.75 0 0 1 17.5 18.5Z"/>
+            <circle cx="12" cy="14.5" r="1.4" fill="#0f766e"/>
+            <path d="M9.9 12.6a3 3 0 0 1 4.2 0" fill="none" stroke="#0f766e" stroke-width="1.6" stroke-linecap="round"/>
+            <path d="M8.6 11.1a4.8 4.8 0 0 1 6.8 0" fill="none" stroke="#0f766e" stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+        </span>
         <strong>云控工作台</strong>
       </div>
       <nav class="nav-scroll yy-nav">
         <RouterLink to="/operations" class="yy-catalog-link" :class="{ active: catalogOpen }" @click="session.sidebarOpen = false">全部功能</RouterLink>
         <RouterLink to="/operations/settings/display" class="yy-catalog-link" :class="{ active: settingsOpen }" @click="session.sidebarOpen = false"><Settings2 :size="14" />显示设置</RouterLink>
         <RouterLink to="/recipes" class="yy-catalog-link" :class="{ active: recipesOpen }" @click="session.sidebarOpen = false"><Package :size="14" />Recipe 版本管理</RouterLink>
+        <RouterLink to="/im" class="yy-catalog-link" :class="{ active: imOpen }" @click="session.sidebarOpen = false"><MessageCircle :size="14" />消息聚合</RouterLink>
         <section v-for="module in visibleModules" :key="module.id" class="yy-module-block">
           <button
             class="nav-link operation-module-nav yy-module"
