@@ -143,6 +143,7 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
                 TargetLocatorRegistry.COMPANION_PACKAGE,
                 TargetLocatorRegistry.XIANYU_PACKAGE,
                 TargetLocatorRegistry.XHS_PACKAGE,
+                TargetLocatorRegistry.DOUYIN_PACKAGE,
             )
         ) {
             throw ExecutorFailure("TARGET_PACKAGE_REJECTED", "Target package is not allowlisted")
