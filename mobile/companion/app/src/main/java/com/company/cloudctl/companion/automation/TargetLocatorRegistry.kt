@@ -102,7 +102,10 @@ internal object TargetLocatorRegistry {
         if (targetPackage == DOUYIN_PACKAGE) {
             val match = Regex("^dy_gallery_cell_([0-9]|[1-4][0-9])$").matchEntire(locatorRef)
             if (match != null) {
-                return ApprovedLocator.IndexedResourceId("com.ss.android.ugc.aweme:id/rt4", match.groupValues[1].toInt())
+                // Douyin grid cells expose no stable resource-id lookup through the
+                // accessibility view-id search; their selection mark ("<name>, 未选中")
+                // is unique per cell and verified on 39.6.0.
+                return ApprovedLocator.IndexedContentDescription(", 未选中", match.groupValues[1].toInt())
             }
         }
         throw IllegalArgumentException("Unknown Companion locator")

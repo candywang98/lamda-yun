@@ -24,7 +24,7 @@ class DouyinLocatorRegistryTest {
         )
         assertEquals(ApprovedLocator.Text("发作品"), TargetLocatorRegistry.resolve(pkg, "dy_publish_button"))
         assertEquals(
-            ApprovedLocator.IndexedResourceId("com.ss.android.ugc.aweme:id/rt4", 0),
+            ApprovedLocator.IndexedContentDescription(", 未选中", 0),
             TargetLocatorRegistry.resolve(pkg, "dy_gallery_cell_0"),
         )
     }
