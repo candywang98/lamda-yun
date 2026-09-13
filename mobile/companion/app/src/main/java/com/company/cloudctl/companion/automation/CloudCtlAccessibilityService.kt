@@ -216,7 +216,10 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         if (!node.isVisibleToUser || !node.isEnabled) {
             throw ExecutorFailure("NODE_NOT_EDITABLE", "Approved locator is not safely editable")
         }
-        if (targetPackage == TargetLocatorRegistry.XHS_PACKAGE) {
+        if (targetPackage == TargetLocatorRegistry.XHS_PACKAGE ||
+            targetPackage == TargetLocatorRegistry.DOUYIN_PACKAGE
+        ) {
+            // Native EditText composers (xiaohongshu, douyin) accept SET_TEXT directly.
             commitNativeText(node, value)
             return
         }
