@@ -6,6 +6,7 @@ import com.company.cloudctl.companion.automation.IrreversibleActionGate
 import com.company.cloudctl.companion.automation.IrreversibleActionOutcome
 import com.company.cloudctl.companion.automation.RecipeCatalog
 import com.company.cloudctl.companion.data.AutomationStore
+import com.company.cloudctl.companion.data.PendingTask
 import com.company.cloudctl.companion.network.ActionCommitStatus
 import com.company.cloudctl.companion.network.ActionIntentDecision
 import com.company.cloudctl.companion.network.ActionIntentRequest
@@ -51,12 +52,8 @@ class ControlledActionExecutor(
         require(command.commandType == "device.probe_capabilities.v1" &&
             command.targetPackage == "com.company.cloudctl.companion") { "G3_NOT_ACCEPTED" }
         val identity = ControlledActionIdentity.from(command, actionId)
-        if (store.actionJournal(identity.actionKey) != null) {
-            require(store.controlledActionIdentity(identity.actionKey) == identity) { "Controlled identity mismatch" }
-            reconcile(identity.actionKey)
-            return IrreversibleActionOutcome("RECONCILE_REQUIRED", store.actionJournal(identity.actionKey)!!.status,
-                false, "prior action is never executable")
-        }
+        val prior = checkJournal(identity, taskId)
+        if (prior != null) return prior
         // RecipeCatalog contains only verified packages (or the shipped built-in probe).
         val recipe = JSONObject(RecipeCatalog.jsonFor(command))
         val states = recipe.getJSONObject("graph").getJSONArray("states")
@@ -67,12 +64,62 @@ class ControlledActionExecutor(
         require((0 until states.length()).any { states.getJSONObject(it).getString("stateId") == actionId }) {
             "Action absent from pinned recipe"
         }
+        return commitOnce(identity, task, beforeEvidence, timeoutMs, effect, postconditionEvidence)
+    }
+
+    /**
+     * Gated publish for the legacy allowlisted idlefish steps task
+     * (contract p09-steps-commit/20260913.1). Identity is frozen from the
+     * canonical steps text; the server re-derives and enforces the same shape.
+     */
+    suspend fun executeStepsCommit(
+        taskId: String,
+        beforeEvidence: String,
+        timeoutMs: Long = 40_000,
+        effect: suspend () -> Unit,
+        postconditionEvidence: suspend () -> String?,
+    ): IrreversibleActionOutcome {
+        requireEvidence(beforeEvidence)
+        require(timeoutMs > 0)
+        currentCoroutineContext().ensureActive()
+        val task = requireNotNull(store.persistedTask(taskId)) { "Missing persisted task" }
+        val payload = JSONObject(task.payload)
+        require(payload.has("steps") && payload.isNull("command")) { "G3_NOT_ACCEPTED" }
+        require(payload.getString("targetPackage") == "com.taobao.idlefish") { "G3_NOT_ACCEPTED" }
+        val identity = ControlledActionIdentity.fromStepsPayload(payload)
+        val prior = checkJournal(identity, taskId)
+        if (prior != null) return prior
+        return commitOnce(identity, task, beforeEvidence, timeoutMs, effect, postconditionEvidence)
+    }
+
+    fun persistedPayload(taskId: String): String? = store.persistedTask(taskId)?.payload
+
+    private suspend fun checkJournal(
+        identity: ControlledActionIdentity,
+        taskId: String,
+    ): IrreversibleActionOutcome? {
+        val recorded = store.actionJournal(identity.actionKey)
+        if (recorded == null) return null
+        require(store.controlledActionIdentity(identity.actionKey) == identity) { "Controlled identity mismatch" }
+        require(identity.taskId == taskId)
+        reconcile(identity.actionKey)
+        return IrreversibleActionOutcome("RECONCILE_REQUIRED", recorded.status, false, "prior action is never executable")
+    }
+
+    private suspend fun commitOnce(
+        identity: ControlledActionIdentity,
+        task: PendingTask,
+        beforeEvidence: String,
+        timeoutMs: Long,
+        effect: suspend () -> Unit,
+        postconditionEvidence: suspend () -> String?,
+    ): IrreversibleActionOutcome {
         var invoked = false
         val outcome = coordinator.executeOnce(
-            actionKey = identity.actionKey, taskId = taskId, parameterHash = identity.parameterHash,
+            actionKey = identity.actionKey, taskId = identity.taskId, parameterHash = identity.parameterHash,
             timeoutMs = timeoutMs, confirmApplied = true, controlledIdentity = identity,
         ) {
-            val grant = remote.intent(taskId, ActionIntentRequest(task.leaseId, actionId,
+            val grant = remote.intent(identity.taskId, ActionIntentRequest(task.leaseId, identity.actionId,
                 identity.actionKey, identity.parameterHash, beforeEvidence))
             check(grant.httpStatus == 201 && grant.decision == ActionIntentDecision.AUTHORIZED &&
                 grant.action.matches(identity) && grant.action.status == ActionCommitStatus.INTENT &&
@@ -88,7 +135,7 @@ class ControlledActionExecutor(
                 requireEvidence(evidence)
                 currentCoroutineContext().ensureActive()
                 reportingApplied = true
-                val reported = remote.outcome(taskId, identity.actionKey,
+                val reported = remote.outcome(identity.taskId, identity.actionKey,
                     ActionOutcomeRequest(task.leaseId, identity.parameterHash, ActionCommitStatus.APPLIED, evidence))
                 check(reported.matches(identity) && reported.status == ActionCommitStatus.APPLIED) {
                     "Outcome identity or status mismatch"
@@ -100,7 +147,7 @@ class ControlledActionExecutor(
                 // A lost APPLIED response is ambiguous: never send a conflicting UNKNOWN replay.
                 if (!reportingApplied) {
                     try {
-                        remote.outcome(taskId, identity.actionKey,
+                        remote.outcome(identity.taskId, identity.actionKey,
                             ActionOutcomeRequest(task.leaseId, identity.parameterHash, ActionCommitStatus.UNKNOWN,
                                 "android-observation://${identity.actionKey}/unconfirmed"))
                     } catch (cancelled: CancellationException) {

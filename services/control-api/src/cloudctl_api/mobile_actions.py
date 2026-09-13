@@ -1,4 +1,4 @@
-"""P09 controlled probe ledger. No platform effects or automatic reconciliation."""
+"""P09 controlled action ledger. One legacy idlefish publish shape; no auto reconciliation."""
 
 from __future__ import annotations
 
@@ -68,6 +68,63 @@ def action_identity(
         f"{binding_version}\n{snapshot_sha256}\n{recipe_sha256}"
     )
     return hashlib.sha256(key.encode()).hexdigest(), hashlib.sha256(parameters.encode()).hexdigest()
+
+
+STEPS_COMMAND_TYPE = "xianyu.publish_listing.steps.v1"
+STEPS_ACTION_ID = "click-publish"
+XIANYU_PACKAGE = "com.taobao.idlefish"
+
+
+def canonical_steps(steps: list[dict[str, Any]]) -> str:
+    """Frozen steps text shared with the Companion (contract p09-steps-commit/20260913.1)."""
+
+    def scalar(value: Any) -> str:
+        if isinstance(value, bool):
+            return "true" if value else "false"
+        return str(value)
+
+    return "\n".join(
+        "\n".join(f"{key}={scalar(step[key])}" for key in sorted(step)) for step in steps
+    )
+
+
+def steps_action_identity(task: MobileTaskRow) -> dict[str, Any]:
+    steps = task.steps or []
+    publish_taps = [
+        step
+        for step in steps
+        if step.get("action") == "ui.tap" and step.get("locatorRef") == "xianyu_publish_button"
+    ]
+    has_postcondition = any(step.get("locatorRef") == "xianyu_publish_success" for step in steps)
+    has_description = any(
+        step.get("action") == "ui.input" and step.get("locatorRef") == "xianyu_description"
+        for step in steps
+    )
+    if len(publish_taps) != 1 or not has_postcondition or not has_description:
+        raise ConflictError("G3_NOT_ACCEPTED")
+    digest = hashlib.sha256(canonical_steps(steps).encode()).hexdigest()
+    key, parameters = action_identity(
+        task.id,
+        STEPS_COMMAND_TYPE,
+        task.device_id,
+        task.binding_version or 0,
+        digest,
+        digest,
+        STEPS_ACTION_ID,
+    )
+    return dict(
+        action_key=key,
+        tenant_id=task.tenant_id,
+        task_id=task.id,
+        device_id=task.device_id,
+        account_id=task.device_id,
+        binding_version=task.binding_version or 0,
+        recipe_version_id="steps",
+        recipe_sha256=digest,
+        snapshot_sha256=digest,
+        action_id=STEPS_ACTION_ID,
+        parameter_hash=parameters,
+    )
 
 
 def action_view(row: MobileActionCommitRow) -> dict[str, Any]:
@@ -160,6 +217,11 @@ class MobileActionService:
             raise ConflictError("current device lease does not authorize this action")
 
     async def _identity(self, session: Any, task: MobileTaskRow, action_id: str) -> dict[str, Any]:
+        if task.command_type is None and task.target_package == XIANYU_PACKAGE:
+            frozen = steps_action_identity(task)
+            if action_id != frozen["action_id"]:
+                raise ConflictError("G3_NOT_ACCEPTED")
+            return frozen
         if task.command_type != "device.probe_capabilities.v1":
             raise ConflictError("G3_NOT_ACCEPTED")
         pin = task.recipe_pin or {}
@@ -272,8 +334,7 @@ class MobileActionService:
     ):
         async with self.mobile.database.unit_of_work() as session:
             task = await self._owned(session, binding, task_id)
-            if task.command_type != "device.probe_capabilities.v1":
-                raise ConflictError("G3_NOT_ACCEPTED")
+            # Scope is enforced by _identity below for both probe and steps-publish shapes.
             row = await session.get(MobileActionCommitRow, key, with_for_update=True)
             if row is None or row.task_id != task.id or row.tenant_id != task.tenant_id:
                 raise NotFoundError("action was not found")

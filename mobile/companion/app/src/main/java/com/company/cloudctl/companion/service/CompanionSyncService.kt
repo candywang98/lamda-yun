@@ -17,6 +17,8 @@ import androidx.core.app.ServiceCompat
 import com.company.cloudctl.companion.BuildConfig
 import com.company.cloudctl.companion.R
 import com.company.cloudctl.companion.automation.AutomationTask
+import com.company.cloudctl.companion.automation.AutomationStep
+import com.company.cloudctl.companion.automation.CommitGate
 import com.company.cloudctl.companion.automation.AutomationTaskParser
 import com.company.cloudctl.companion.automation.BuiltinRecipes
 import com.company.cloudctl.companion.automation.ClaimedTaskInterpreter
@@ -27,6 +29,7 @@ import com.company.cloudctl.companion.automation.ExecutorFailure
 import com.company.cloudctl.companion.automation.RecipeEngine
 import com.company.cloudctl.companion.automation.RecipePackage
 import com.company.cloudctl.companion.automation.ResumeValidator
+import com.company.cloudctl.companion.automation.TargetLocatorRegistry
 import com.company.cloudctl.companion.automation.TaskPausedException
 import com.company.cloudctl.companion.data.AutomationStore
 import com.company.cloudctl.companion.data.PendingTask
@@ -362,6 +365,7 @@ class CompanionSyncService : Service() {
             failTask(task.taskId, "ACCESSIBILITY_NOT_ENABLED", "无障碍服务未启用")
             return true
         }
+        val commitGate = buildStepsPublishGate(service, task)
         try {
             sendInitialHeartbeat(client, task.taskId, pending.leaseId, control)
             throwIfControlRequested(control)
@@ -388,7 +392,7 @@ class CompanionSyncService : Service() {
                         "TASK_STARTED",
                     )
                     withTimeout(task.maxRunSeconds * 1_000L) {
-                        service.execute(task, control, startAfterIndex = -1) { step, state ->
+                        service.execute(task, control, startAfterIndex = -1, commitGate = commitGate) { step, state ->
                             val stepIndex = task.steps.indexOf(step)
                             currentStep.set(stepIndex)
                             store.recordStepEvent(
@@ -413,13 +417,17 @@ class CompanionSyncService : Service() {
                     heartbeatJob.cancelAndJoin()
                 }
             }
-            store.finish(task.taskId, true)
-            runtimeStatus.updateTask(
-                task.taskId,
-                AuthorizedTaskState.Succeeded,
-                "本地任务已完成",
-                "TASK_SUCCEEDED",
-            )
+            if (store.unresolvedControlledActionKeys().any { store.actionJournal(it)?.taskId == task.taskId }) {
+                showReconciling(task.taskId)
+            } else {
+                store.finish(task.taskId, true)
+                runtimeStatus.updateTask(
+                    task.taskId,
+                    AuthorizedTaskState.Succeeded,
+                    "本地任务已完成",
+                    "TASK_SUCCEEDED",
+                )
+            }
         } catch (paused: TaskPausedException) {
             persistPaused(task.taskId, pending, paused)
         } catch (cancelled: CancellationException) {
@@ -475,6 +483,7 @@ class CompanionSyncService : Service() {
             failTask(task.taskId, "ACCESSIBILITY_NOT_ENABLED", "无障碍服务未启用")
             return
         }
+        val commitGate = buildStepsPublishGate(service, task)
         val checkpoint = store.latestCheckpoint(task.taskId)
         if (checkpoint == null) {
             persistPaused(task.taskId, pending, TaskPausedException(null, -1, "resume checkpoint missing"))
@@ -506,7 +515,7 @@ class CompanionSyncService : Service() {
                         "RESUME_CHECK",
                     )
                     withTimeout(task.maxRunSeconds * 1_000L) {
-                        service.execute(task, control, startAfterIndex) { step, state ->
+                        service.execute(task, control, startAfterIndex, commitGate = commitGate) { step, state ->
                             val stepIndex = task.steps.indexOf(step)
                             currentStep.set(stepIndex)
                             store.recordStepEvent(
@@ -531,13 +540,17 @@ class CompanionSyncService : Service() {
                     heartbeatJob.cancelAndJoin()
                 }
             }
-            store.finish(task.taskId, true)
-            runtimeStatus.updateTask(
-                task.taskId,
-                AuthorizedTaskState.Succeeded,
-                "本地任务已完成",
-                "TASK_SUCCEEDED",
-            )
+            if (store.unresolvedControlledActionKeys().any { store.actionJournal(it)?.taskId == task.taskId }) {
+                showReconciling(task.taskId)
+            } else {
+                store.finish(task.taskId, true)
+                runtimeStatus.updateTask(
+                    task.taskId,
+                    AuthorizedTaskState.Succeeded,
+                    "本地任务已完成",
+                    "TASK_SUCCEEDED",
+                )
+            }
         } catch (paused: TaskPausedException) {
             persistPaused(task.taskId, pending, paused)
         } catch (cancelled: CancellationException) {
@@ -798,6 +811,20 @@ class CompanionSyncService : Service() {
             }
         }
         return true
+    }
+
+    private fun buildStepsPublishGate(
+        service: CloudCtlAccessibilityService,
+        task: AutomationTask,
+    ): CommitGate? {
+        if (task.targetPackage != TargetLocatorRegistry.XIANYU_PACKAGE) return null
+        val publishes = task.steps.any { it is AutomationStep.Tap && it.locatorRef == "xianyu_publish_button" }
+        if (!publishes) return null
+        val connection = loadConnection()?.first ?: return null
+        return StepsPublishCommitGate(
+            ControlledActionExecutor(store, PinnedControlledActionLedger(connection)),
+            service,
+        )
     }
 
     private fun showReconciling(taskId: String) {

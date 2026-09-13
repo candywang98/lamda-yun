@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 from cloudctl_api.db import AuditEventRow, MobileActionCommitRow, MobileTaskRow
-from cloudctl_api.mobile_actions import action_identity
+from cloudctl_api.mobile_actions import action_identity, steps_action_identity
 from sqlalchemy import select
 from test_p14_recipe_versions import (  # noqa: F401 - pytest fixture injection
     api,
@@ -285,3 +285,129 @@ async def test_concurrent_first_grant_and_outcome(api):  # noqa: F811
         *(client.post(action + "/outcome", headers=auth, json=b) for b in reports)
     )
     assert sorted(r.status_code for r in responses) == [200, 409]
+
+
+PUBLISH_STEPS = [
+    {"stepId": "find-home-sell", "locatorRef": "xianyu_home_sell", "timeoutMs": 8000, "action": "ui.find"},
+    {"stepId": "fill-description", "locatorRef": "xianyu_description", "timeoutMs": 20000, "action": "ui.input",
+     "value": "Notion Business 兑换券，图示价值 $240。拍下后按说明发送兑换方式。支持当面交易。",
+     "replace": True, "sensitive": False},
+    {"stepId": "wait-publish-button", "locatorRef": "xianyu_publish_button", "timeoutMs": 8000, "action": "ui.wait",
+     "condition": "EXISTS", "pollMs": 200},
+    {"stepId": "click-publish", "locatorRef": "xianyu_publish_button", "timeoutMs": 5000, "action": "ui.tap"},
+    {"stepId": "wait-publish-complete", "locatorRef": "xianyu_publish_success", "timeoutMs": 15000, "action": "ui.wait",
+     "condition": "EXISTS", "pollMs": 500},
+]
+
+
+_STEPS_DEVICE_SEQ = 0
+
+
+async def _steps_running(api, steps=None, total=120_000):
+    global _STEPS_DEVICE_SEQ
+    _STEPS_DEVICE_SEQ += 1
+    client, app = api
+    suffix = str(_STEPS_DEVICE_SEQ)
+    device = await create_direct_device(client, "steps-device-" + suffix)
+    auth = await _enroll(client, device, "steps-instance-" + suffix)
+    created = await client.post(
+        "/api/v1/mobile/tasks",
+        headers={**identity(), "Idempotency-Key": f"steps-{device[:20]}"},
+        json={
+            "deviceId": device,
+            "targetPackage": "com.taobao.idlefish",
+            "totalTimeoutMs": total,
+            "steps": steps if steps is not None else PUBLISH_STEPS,
+        },
+    )
+    assert created.status_code == 201, created.text
+    task = created.json()["taskId"]
+    claimed = await claim(client, auth)
+    assert claimed["taskId"] == task
+    started = await client.post(
+        f"/companion/v2/tasks/{task}/heartbeat",
+        headers=auth,
+        json={"leaseId": claimed["leaseId"], "currentStep": 0},
+    )
+    assert started.status_code == 200, started.text
+    async with app.state.database.unit_of_work() as session:
+        row = await session.get(MobileTaskRow, task)
+        frozen = steps_action_identity(row)
+    body = dict(
+        leaseId=claimed["leaseId"],
+        actionId=frozen["action_id"],
+        actionKey=frozen["action_key"],
+        parameterHash=frozen["parameter_hash"],
+        beforeEvidence="evidence://steps-before",
+    )
+    return task, auth, body, frozen
+
+
+async def test_steps_publish_intent_once_then_reconcile(api):  # noqa: F811
+    client, app = api
+    task, auth, body, frozen = await _steps_running(api)
+    assert frozen["action_id"] == "click-publish"
+    intent, action = paths(task, body)
+    first = await client.post(intent, headers=auth, json=body)
+    assert first.status_code == 201, first.text
+    assert first.json()["decision"] == "AUTHORIZED"
+    replay = await client.post(intent, headers=auth, json=body)
+    assert replay.status_code == 200
+    assert replay.json()["decision"] == "RECONCILE_REQUIRED"
+    report = dict(leaseId=body["leaseId"], parameterHash=body["parameterHash"],
+                  status="APPLIED", evidence="sha256:" + "a" * 64)
+    outcome = await client.post(action + "/outcome", headers=auth, json=report)
+    assert outcome.status_code == 200, outcome.text
+    resolved = await client.post(
+        f"/api/v1/platform-tasks/{task}:reconcile",
+        headers=identity(),
+        json={"decision": "CONFIRMED_APPLIED", "evidence": "listing verified",
+              "platformItemId": "xianyu-listing-1"},
+    )
+    assert resolved.status_code == 200, resolved.text
+    read = await client.get(action, headers=auth)
+    assert read.json()["resolutionRevision"] == 1
+    assert read.json()["status"] == "APPLIED"
+    # A second task with different steps must produce a different identity.
+    changed = [dict(step) for step in PUBLISH_STEPS]
+    changed[1] = dict(changed[1], value="Different frozen description")
+    task2, _auth2, body2, frozen2 = await _steps_running(api, steps=changed)
+    assert frozen2["action_key"] != frozen["action_key"]
+    assert frozen2["parameter_hash"] != frozen["parameter_hash"]
+    intent2, _ = paths(task2, body2)
+    # task2 belongs to another device binding: ownership fails before identity.
+    cross = await client.post(intent2, headers=auth, json=body)
+    assert cross.status_code == 404
+
+
+async def test_steps_without_publish_shape_stays_refused(api):  # noqa: F811
+    client, app = api
+    device = await create_direct_device(client, "steps-refused")
+    auth = await _enroll(client, device, "steps-refused-instance")
+    created = await client.post(
+        "/api/v1/mobile/tasks",
+        headers={**identity(), "Idempotency-Key": f"steps-refused-{device[:8]}"},
+        json={
+            "deviceId": device,
+            "targetPackage": "com.taobao.idlefish",
+            "totalTimeoutMs": 60_000,
+            "steps": [
+                {"stepId": "find-home-sell", "locatorRef": "xianyu_home_sell", "timeoutMs": 8000, "action": "ui.find"},
+                {"stepId": "fill-description", "locatorRef": "xianyu_description", "timeoutMs": 20000,
+                 "action": "ui.input", "value": "no publish tap here", "replace": True},
+            ],
+        },
+    )
+    assert created.status_code == 201, created.text
+    task = created.json()["taskId"]
+    claimed = await claim(client, auth)
+    cross = await client.post(
+        f"/companion/v2/tasks/{task}/actions/intent",
+        headers=auth,
+        json=dict(leaseId=claimed["leaseId"], actionId="click-publish",
+                  actionKey="a" * 64, parameterHash="b" * 64, beforeEvidence="evidence://x"),
+    )
+    assert cross.status_code == 409
+    assert "G3_NOT_ACCEPTED" in cross.text
+    async with app.state.database.unit_of_work() as session:
+        assert await session.scalar(select(MobileActionCommitRow).where(MobileActionCommitRow.task_id == task)) is None

@@ -259,11 +259,12 @@ class LocalAutomationExecutorTest {
         assertEquals("STEP_TIMEOUT", failure.code)
     }
 
-    private fun executor(ui: FakeUi) = LocalAutomationExecutor(
+    private fun executor(ui: FakeUi, gate: CommitGate? = null) = LocalAutomationExecutor(
         ui = ui,
         now = { fixedNow },
         elapsedMs = { 1_000L },
         sleep = { delay(1) },
+        commitGate = gate,
     )
 
     private fun task(vararg steps: AutomationStep) = task(TargetLocatorRegistry.COMPANION_PACKAGE, *steps)
@@ -331,4 +332,41 @@ class LocalAutomationExecutorTest {
             logs += level to messageCode
         }
     }
+    @Test
+    fun publishTapRoutesThroughGateAndStopsTheRun() = runBlocking {
+        val ui = FakeUi().apply {
+            allowedPackage = TargetLocatorRegistry.XIANYU_PACKAGE
+            nodes["xianyu_publish_button"] = node(clickable = true)
+        }
+        var gateCalls = 0
+        val gate = CommitGate { _, _ -> gateCalls += 1 }
+        val task = task(
+            TargetLocatorRegistry.XIANYU_PACKAGE,
+            AutomationStep.Find("1", 1_000, "xianyu_publish_button"),
+            AutomationStep.Tap("2", 1_000, "xianyu_publish_button", null),
+            AutomationStep.Log("3", 1_000, LogLevel.INFO, "AFTER_COMMIT_MUST_NOT_RUN"),
+        )
+        val journal = mutableListOf<String>()
+
+        executor(ui, gate).execute(task) { step, state -> journal += "${step.stepId}:$state" }
+
+        assertEquals(1, gateCalls)
+        assertTrue(ui.taps.isEmpty())
+        assertEquals(listOf("1:STARTED", "1:SUCCEEDED", "2:STARTED", "2:SUCCEEDED"), journal)
+    }
+
+    @Test
+    fun nonPublishTapsBypassTheCommitGate() = runBlocking {
+        val ui = FakeUi().apply {
+            allowedPackage = TargetLocatorRegistry.XIANYU_PACKAGE
+            nodes["xianyu_composer_done"] = node(clickable = true)
+        }
+        var gateCalls = 0
+        executor(ui, CommitGate { _, _ -> gateCalls += 1 }).execute(
+            task(TargetLocatorRegistry.XIANYU_PACKAGE, AutomationStep.Tap("1", 1_000, "xianyu_composer_done", null)),
+        ) { _, _ -> }
+        assertEquals(0, gateCalls)
+        assertEquals(listOf("xianyu_composer_done"), ui.taps)
+    }
+
 }

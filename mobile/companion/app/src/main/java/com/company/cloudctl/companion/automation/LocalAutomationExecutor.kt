@@ -40,6 +40,7 @@ class LocalAutomationExecutor(
     private val now: () -> Instant = Instant::now,
     private val elapsedMs: () -> Long = { android.os.SystemClock.elapsedRealtime() },
     private val sleep: suspend (Long) -> Unit = { delay(it) },
+    private val commitGate: CommitGate? = null,
 ) {
     suspend fun execute(
         task: AutomationTask,
@@ -56,11 +57,12 @@ class LocalAutomationExecutor(
             ensureWithinTaskDeadline(task, runDeadline)
             throwIfControlRequested(control, lastCompleted, lastCompletedIndex)
             journal(step, "STARTED")
+            var stopAfterCommit = false
             try {
                 val remaining = (runDeadline - elapsedMs()).coerceAtLeast(1L)
                     withTimeout(minOf(step.timeoutMs, remaining)) {
                     ui.ensureReady(task.targetPackage)
-                    executeStep(
+                    stopAfterCommit = executeStep(
                         task,
                         step,
                         minOf(runDeadline, elapsedMs() + step.timeoutMs),
@@ -85,6 +87,7 @@ class LocalAutomationExecutor(
             lastCompleted = step
             lastCompletedIndex = index
             throwIfControlRequested(control, lastCompleted, lastCompletedIndex)
+            if (stopAfterCommit) return
         }
     }
 
@@ -95,7 +98,7 @@ class LocalAutomationExecutor(
         control: ExecutionControl?,
         lastCompleted: AutomationStep? = null,
         lastCompletedIndex: Int = -1,
-    ) {
+    ): Boolean {
         when (step) {
             is AutomationStep.Find -> waitFor(
                 task, step.locatorRef, NodeCondition.EXISTS, step.pollInterval(), runDeadline, control,
@@ -113,6 +116,11 @@ class LocalAutomationExecutor(
                 }
                 if (step.postconditionLocatorRef != null && matches(task, step.postconditionLocatorRef, NodeCondition.EXISTS)) {
                     throw ExecutorFailure("POSTCONDITION_ALREADY_MET", "Click postcondition was already present")
+                }
+                if (step.locatorRef == "xianyu_publish_button" && commitGate != null) {
+                    // Irreversible submit: durable intent, one tap, then stop the run.
+                    commitGate.publishOnce(task, step.locatorRef)
+                    return true
                 }
                 ui.tap(task.targetPackage, step.locatorRef)
                 step.postconditionLocatorRef?.let {
@@ -149,6 +157,7 @@ class LocalAutomationExecutor(
             }
             is AutomationStep.Log -> ui.log(step.level, step.messageCode)
         }
+        return false
     }
 
     private fun requireNode(task: AutomationTask, locatorRef: String): LocalNodeState =

@@ -1,0 +1,47 @@
+{
+  "taskId": "0a1b2c3d-1111-2222-3333-444455556666",
+  "deviceId": "5d6e7f80-9999-8888-7777-666655554444",
+  "bindingVersion": 0,
+  "stepsSha256": "ce231034efd1b3fae0c93a5ef37279544825ca233a833b86fdcdd57f298d81dd",
+  "actionKey": "9f63c5cb30b2918dae74db0fdb091e62fd9ae4449eed530fafa216cdacdd39f0",
+  "parameterHash": "af8ca357334d7ed7afb5ca173ffe9be49cf98cfb5aaf6e21e15174cf8df5b91f",
+  "steps": [
+    {
+      "stepId": "find-home-sell",
+      "locatorRef": "xianyu_home_sell",
+      "timeoutMs": 8000,
+      "action": "ui.find"
+    },
+    {
+      "stepId": "fill-description",
+      "locatorRef": "xianyu_description",
+      "timeoutMs": 20000,
+      "action": "ui.input",
+      "value": "Notion Business 兑换券，图示价值 $240。拍下后按说明发送兑换方式。支持当面交易。",
+      "replace": true,
+      "sensitive": false
+    },
+    {
+      "stepId": "wait-publish-button",
+      "locatorRef": "xianyu_publish_button",
+      "timeoutMs": 8000,
+      "action": "ui.wait",
+      "condition": "EXISTS",
+      "pollMs": 200
+    },
+    {
+      "stepId": "click-publish",
+      "locatorRef": "xianyu_publish_button",
+      "timeoutMs": 5000,
+      "action": "ui.tap"
+    },
+    {
+      "stepId": "wait-publish-complete",
+      "locatorRef": "xianyu_publish_success",
+      "timeoutMs": 15000,
+      "action": "ui.wait",
+      "condition": "EXISTS",
+      "pollMs": 500
+    }
+  ]
+}

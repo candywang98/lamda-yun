@@ -61,11 +61,12 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         task: AutomationTask,
         control: ExecutionControl? = null,
         startAfterIndex: Int = -1,
+        commitGate: CommitGate? = null,
         journal: (AutomationStep, String) -> Unit,
     ) {
         if (active !== this) throw ExecutorFailure("ACCESSIBILITY_NOT_ACTIVE", "Accessibility service is not active")
         launchTargetApp(task.targetPackage)
-        executor.execute(task, control, startAfterIndex, journal)
+        LocalAutomationExecutor(this, commitGate = commitGate).execute(task, control, startAfterIndex, journal)
     }
 
     suspend fun launchTargetApp(targetPackage: String) {
