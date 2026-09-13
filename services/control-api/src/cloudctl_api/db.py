@@ -800,6 +800,36 @@ class MobileActionCommitRow(Base, TimestampMixin):
     )
 
 
+class ImThreadRow(Base):
+    __tablename__ = "im_thread"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(36), index=True, nullable=False)
+    device_id: Mapped[str] = mapped_column(String(36), ForeignKey("device.id"), index=True, nullable=False)
+    platform: Mapped[str] = mapped_column(String(32), nullable=False)
+    peer_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    peer_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    last_message_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    last_direction: Mapped[str] = mapped_column(String(8), default="IN", nullable=False)
+    unread_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    __table_args__ = (UniqueConstraint("tenant_id", "device_id", "peer_key", name="uq_im_thread_peer"),)
+
+
+class ImMessageRow(Base):
+    __tablename__ = "im_message"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(36), index=True, nullable=False)
+    thread_id: Mapped[str] = mapped_column(String(36), ForeignKey("im_thread.id"), index=True, nullable=False)
+    direction: Mapped[str] = mapped_column(String(8), nullable=False)
+    content_type: Mapped[str] = mapped_column(String(16), default="TEXT", nullable=False)
+    text_content: Mapped[str] = mapped_column(Text, nullable=False)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    dedupe_key: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    reply_task_id: Mapped[str | None] = mapped_column(String(36))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class MobileTaskEventRow(Base):
     __tablename__ = "mobile_task_event"
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
