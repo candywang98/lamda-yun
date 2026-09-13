@@ -506,3 +506,55 @@ async def test_xhs_steps_publish_intent_and_refused_shapes(api):  # noqa: F811
     )
     assert refused.status_code == 409
     assert "G3_NOT_ACCEPTED" in refused.text
+
+
+DY_STEPS = [
+    {"stepId": "open-home-publish", "locatorRef": "dy_home_publish", "timeoutMs": 8000, "action": "ui.tap"},
+    {"stepId": "open-album", "locatorRef": "dy_camera_album", "timeoutMs": 8000, "action": "ui.tap"},
+    {"stepId": "select-images-tab", "locatorRef": "dy_media_images_tab", "timeoutMs": 8000, "action": "ui.tap"},
+    {"stepId": "select-media-0", "locatorRef": "dy_gallery_cell_0", "timeoutMs": 8000, "action": "ui.tap"},
+    {"stepId": "fill-body", "locatorRef": "dy_note_body", "timeoutMs": 20000, "action": "ui.input",
+     "value": "抖音图文正文验证", "replace": True, "sensitive": False},
+    {"stepId": "wait-publish-button", "locatorRef": "dy_publish_button", "timeoutMs": 8000, "action": "ui.wait",
+     "condition": "EXISTS", "pollMs": 200},
+    {"stepId": "click-publish", "locatorRef": "dy_publish_button", "timeoutMs": 5000, "action": "ui.tap"},
+    {"stepId": "wait-publish-success", "locatorRef": "dy_publish_success", "timeoutMs": 15000, "action": "ui.wait",
+     "condition": "EXISTS", "pollMs": 500},
+]
+
+
+async def test_douyin_steps_publish_intent_authorized(api):  # noqa: F811
+    client, app = api
+    device = await create_direct_device(client, "dy-steps")
+    auth = await _enroll(client, device, "dy-instance")
+    created = await client.post(
+        "/api/v1/mobile/tasks",
+        headers={**identity(), "Idempotency-Key": f"dy-{device[:20]}"},
+        json={
+            "deviceId": device,
+            "targetPackage": "com.ss.android.ugc.aweme",
+            "totalTimeoutMs": 150_000,
+            "steps": DY_STEPS,
+        },
+    )
+    assert created.status_code == 201, created.text
+    task = created.json()["taskId"]
+    claimed = await claim(client, auth)
+    assert claimed["taskId"] == task
+    started = await client.post(
+        f"/companion/v2/tasks/{task}/heartbeat",
+        headers=auth,
+        json={"leaseId": claimed["leaseId"], "currentStep": 0},
+    )
+    assert started.status_code == 200, started.text
+    async with app.state.database.unit_of_work() as session:
+        row = await session.get(MobileTaskRow, task)
+        frozen = steps_action_identity(row)
+    assert frozen["action_id"] == "click-publish"
+    body = dict(
+        leaseId=claimed["leaseId"], actionId=frozen["action_id"], actionKey=frozen["action_key"],
+        parameterHash=frozen["parameter_hash"], beforeEvidence="sha256:" + "f" * 64,
+    )
+    intent, _ = paths(task, body)
+    first = await client.post(intent, headers=auth, json=body)
+    assert first.status_code == 201, first.text

@@ -86,6 +86,7 @@ object AutomationTaskParser {
                 TargetLocatorRegistry.COMPANION_PACKAGE,
                 TargetLocatorRegistry.XIANYU_PACKAGE,
                 TargetLocatorRegistry.XHS_PACKAGE,
+                TargetLocatorRegistry.DOUYIN_PACKAGE,
             )
         ) {
             "Tasks must target an allowlisted application"

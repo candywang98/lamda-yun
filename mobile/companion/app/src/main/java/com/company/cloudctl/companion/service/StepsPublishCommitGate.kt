@@ -24,6 +24,7 @@ class StepsPublishCommitGate(
         val gatedPublish = when (task.targetPackage) {
             TargetLocatorRegistry.XIANYU_PACKAGE -> "xianyu_publish_button" to "xianyu_publish_success"
             TargetLocatorRegistry.XHS_PACKAGE -> "xhs_publish_button" to "xhs_publish_success"
+            TargetLocatorRegistry.DOUYIN_PACKAGE -> "dy_publish_button" to "dy_publish_success"
             else -> throw ExecutorFailure("G3_NOT_ACCEPTED", "Target package has no gated publish")
         }
         require(locatorRef == gatedPublish.first) { "G3_NOT_ACCEPTED" }

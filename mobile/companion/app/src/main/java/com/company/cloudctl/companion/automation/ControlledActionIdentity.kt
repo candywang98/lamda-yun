@@ -54,6 +54,7 @@ data class ControlledActionIdentity(
             val commandType = when (targetPackage) {
                 "com.taobao.idlefish" -> "xianyu.publish_listing.steps.v1"
                 "com.xingin.xhs" -> "xhs.publish_note.steps.v1"
+                "com.ss.android.ugc.aweme" -> "douyin.publish_note.steps.v1"
                 else -> throw IllegalArgumentException("G3_NOT_ACCEPTED")
             }
             return ControlledActionIdentity(

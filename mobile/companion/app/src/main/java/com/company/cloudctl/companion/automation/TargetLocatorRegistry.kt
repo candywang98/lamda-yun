@@ -12,12 +12,13 @@ internal sealed interface ApprovedLocator {
 
 /**
  * Stable, reviewed locators for applications that do not expose view resource IDs for key controls.
- * XHS locators are verified against com.xingin.xhs 8.50.1 (OnePlus 9R) on 2026-09-13.
+ * XHS locators are verified against com.xingin.xhs 8.50.1, Douyin against 39.6.0 (OnePlus 9R) on 2026-09-13.
  */
 internal object TargetLocatorRegistry {
     const val COMPANION_PACKAGE = "com.company.cloudctl.companion"
     const val XIANYU_PACKAGE = "com.taobao.idlefish"
     const val XHS_PACKAGE = "com.xingin.xhs"
+    const val DOUYIN_PACKAGE = "com.ss.android.ugc.aweme"
 
     private val companionLocators = mapOf(
         "companion_home_root" to ApprovedLocator.ContentDescription("companion_home_root"),
@@ -65,11 +66,26 @@ internal object TargetLocatorRegistry {
         "xhs_draft_stay" to ApprovedLocator.Text("留在本页"),
     )
 
+    // Verified against com.ss.android.ugc.aweme 39.6.0 (OnePlus 9R) on 2026-09-13.
+    private val douyinLocators = mapOf(
+        "dy_home_publish" to ApprovedLocator.ContentDescription("拍摄，按钮"),
+        "dy_camera_album" to ApprovedLocator.Text("相册"),
+        "dy_media_images_tab" to ApprovedLocator.Text("图片"),
+        "dy_pick_next" to ApprovedLocator.Text("下一步"),
+        "dy_edit_page" to ApprovedLocator.Text("贴纸"),
+        "dy_edit_next" to ApprovedLocator.Text("下一步"),
+        "dy_note_title" to ApprovedLocator.Text("添加标题"),
+        "dy_note_body" to ApprovedLocator.TextPrefix("添加作品描述"),
+        "dy_publish_button" to ApprovedLocator.Text("发作品"),
+        "dy_publish_success" to ApprovedLocator.TextPrefix("发布成功"),
+    )
+
     fun resolve(targetPackage: String, locatorRef: String): ApprovedLocator {
         val locators = when (targetPackage) {
             COMPANION_PACKAGE -> companionLocators
             XIANYU_PACKAGE -> xianyuLocators
             XHS_PACKAGE -> xhsLocators
+            DOUYIN_PACKAGE -> douyinLocators
             else -> throw IllegalArgumentException("Target package is not allowlisted")
         }
         locators[locatorRef]?.let { return it }
@@ -81,6 +97,12 @@ internal object TargetLocatorRegistry {
             val match = Regex("^xhs_gallery_cell_([0-9]|[1-4][0-9])$").matchEntire(locatorRef)
             if (match != null) {
                 return ApprovedLocator.IndexedResourceId("com.xingin.xhs:id/ixd", match.groupValues[1].toInt())
+            }
+        }
+        if (targetPackage == DOUYIN_PACKAGE) {
+            val match = Regex("^dy_gallery_cell_([0-9]|[1-4][0-9])$").matchEntire(locatorRef)
+            if (match != null) {
+                return ApprovedLocator.IndexedResourceId("com.ss.android.ugc.aweme:id/rt4", match.groupValues[1].toInt())
             }
         }
         throw IllegalArgumentException("Unknown Companion locator")

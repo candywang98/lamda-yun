@@ -85,7 +85,10 @@ class ControlledActionExecutor(
         val task = requireNotNull(store.persistedTask(taskId)) { "Missing persisted task" }
         val payload = JSONObject(task.payload)
         require(payload.has("steps") && payload.isNull("command")) { "G3_NOT_ACCEPTED" }
-        require(payload.getString("targetPackage") in setOf("com.taobao.idlefish", "com.xingin.xhs")) {
+        require(
+            payload.getString("targetPackage") in
+                setOf("com.taobao.idlefish", "com.xingin.xhs", "com.ss.android.ugc.aweme")
+        ) {
             "G3_NOT_ACCEPTED"
         }
         val identity = ControlledActionIdentity.fromStepsPayload(payload)

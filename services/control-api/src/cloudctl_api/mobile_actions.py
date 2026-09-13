@@ -101,6 +101,12 @@ STEPS_SHAPES = {
         "postcondition": "xhs_publish_success",
         "content_input": "xhs_note_body",
     },
+    "com.ss.android.ugc.aweme": {
+        "command_type": "douyin.publish_note.steps.v1",
+        "publish_button": "dy_publish_button",
+        "postcondition": "dy_publish_success",
+        "content_input": "dy_note_body",
+    },
 }
 
 

@@ -35,7 +35,7 @@ interface LocalAutomationUi {
     fun log(level: LogLevel, messageCode: String)
 }
 
-private val GATED_PUBLISH_LOCATORS = setOf("xianyu_publish_button", "xhs_publish_button")
+private val GATED_PUBLISH_LOCATORS = setOf("xianyu_publish_button", "xhs_publish_button", "dy_publish_button")
 
 class LocalAutomationExecutor(
     private val ui: LocalAutomationUi,

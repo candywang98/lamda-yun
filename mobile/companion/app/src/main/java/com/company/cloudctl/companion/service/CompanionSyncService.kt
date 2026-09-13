@@ -817,9 +817,15 @@ class CompanionSyncService : Service() {
         service: CloudCtlAccessibilityService,
         task: AutomationTask,
     ): CommitGate? {
-        if (task.targetPackage !in setOf(TargetLocatorRegistry.XIANYU_PACKAGE, TargetLocatorRegistry.XHS_PACKAGE)) return null
+        if (task.targetPackage !in setOf(
+                TargetLocatorRegistry.XIANYU_PACKAGE,
+                TargetLocatorRegistry.XHS_PACKAGE,
+                TargetLocatorRegistry.DOUYIN_PACKAGE,
+            )
+        ) return null
         val publishes = task.steps.any {
-            it is AutomationStep.Tap && it.locatorRef in setOf("xianyu_publish_button", "xhs_publish_button")
+            it is AutomationStep.Tap &&
+                it.locatorRef in setOf("xianyu_publish_button", "xhs_publish_button", "dy_publish_button")
         }
         if (!publishes) return null
         val connection = loadConnection()?.first ?: return null
