@@ -22,14 +22,17 @@ internal object FlutterTextCommit {
         return digits > 0
     }
 
+    /**
+     * A description readback only counts when the whole expected text is present
+     * (whitespace-normalized). Prefix matching once let a stale draft that merely
+     * shared an opening pass as a successful fill, so it is deliberately rejected.
+     */
     fun accepted(haystack: String, expected: String): Boolean {
         if (expected.isBlank()) return false
         if (expected in haystack) return true
         val compactExpected = expected.replace(whitespace, "")
         val compactHaystack = haystack.replace(whitespace, "")
-        if (compactExpected.length >= 8 && compactExpected in compactHaystack) return true
-        val prefix = expected.take(16)
-        return prefix.length >= 8 && prefix in haystack
+        return compactExpected.length >= 8 && compactExpected in compactHaystack
     }
 
     private val whitespace = Regex("\\s+")

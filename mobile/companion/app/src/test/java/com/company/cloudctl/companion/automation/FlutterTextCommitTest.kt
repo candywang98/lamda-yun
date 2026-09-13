@@ -20,7 +20,15 @@ class FlutterTextCommitTest {
         val expected = "Notion Business 兑换券，图示价值 $240。拍下后按说明发送兑换方式。支持当面交易。"
         assertTrue(FlutterTextCommit.accepted("描述一下宝贝的品牌型号、货品来源…\n$expected", expected))
         assertTrue(FlutterTextCommit.accepted(expected.replace(" ", ""), expected))
-        assertTrue(FlutterTextCommit.accepted("Notion Business 兑换券，图示价值 $240。拍下后按说明", expected))
+        // Partial and stale-draft readbacks that share only the opening must fail.
+        assertFalse(FlutterTextCommit.accepted("Notion Business 兑换券，图示价值 $240。拍下后按说明", expected))
         assertFalse(FlutterTextCommit.accepted("描述一下宝贝的品牌型号、货品来源…", expected))
+    }
+
+    @Test
+    fun rejectsStaleDraftThatOnlySharesTheOpening() {
+        val expected = "Notion Business 兑换券，图示价值 $240。拍下后按说明发送兑换方式。支持当面交易。"
+        val staleDraft = "Notion Business 兑换券，图示价值$240。拍下后按说明发兑换方式。虚拟商品，直接发链接，不用等快递。"
+        assertFalse(FlutterTextCommit.accepted(staleDraft, expected))
     }
 }
