@@ -13,6 +13,7 @@ import javax.net.ssl.SSLContext
 import javax.net.ssl.SNIHostName
 import javax.net.ssl.SSLParameters
 import javax.net.ssl.SSLSocket
+import javax.net.ssl.SSLSocketFactory
 import javax.net.ssl.TrustManager
 import javax.net.ssl.X509TrustManager
 
@@ -296,6 +297,9 @@ internal object PinnedHttpsTransport {
         }
     }
 
+    /** p10-live/20260913.1: pinned factory for the live WebSocket client. */
+    fun pinnedSocketFactory(pin: String): SSLSocketFactory = pinnedContext(pin).socketFactory
+
     @Suppress("CustomX509TrustManager")
     private fun pinnedContext(pin: String) = SSLContext.getInstance("TLS").apply {
         val expected = pin.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
@@ -309,5 +313,18 @@ internal object PinnedHttpsTransport {
             }
         }
         init(null, arrayOf<TrustManager>(trustManager), null)
+    }
+}
+
+/** Public pinned trust manager for WS clients (p10-live/20260913.1). */
+@Suppress("CustomX509TrustManager")
+class PinnedTrustManager(private val pin: String) : X509TrustManager {
+    override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
+    override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) = Unit
+    override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) {
+        require(chain.isNotEmpty())
+        val expected = pin.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+        val actual = MessageDigest.getInstance("SHA-256").digest(chain.first().encoded)
+        check(MessageDigest.isEqual(actual, expected)) { "Cloud certificate fingerprint mismatch" }
     }
 }

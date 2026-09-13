@@ -26,6 +26,7 @@ import com.company.cloudctl.companion.ime.CloudCtlInputMethod
 import com.company.cloudctl.companion.network.PreviewFrame
 import com.company.cloudctl.companion.service.CompanionServiceStarter
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -37,6 +38,9 @@ import kotlin.math.max
 
 class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
     private val executor by lazy { LocalAutomationExecutor(this) }
+    private val serviceScope = kotlinx.coroutines.CoroutineScope(
+        kotlinx.coroutines.Dispatchers.Default + kotlinx.coroutines.SupervisorJob(),
+    )
 
     override fun onServiceConnected() {
         serviceInfo = serviceInfo.apply {
@@ -113,6 +117,15 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         if (!activate(matches.first())) {
             throw ExecutorFailure("TAP_TEXT_NOT_UNIQUE", "Unique '$value' node could not be activated")
         }
+    }
+
+    // ROOT-INTEGRATION live sink (p10-live/20260913.1): remote gestures via accessibility.
+    fun remoteTap(x: Double, y: Double) {
+        serviceScope.launch { tapScreen(x.toFloat(), y.toFloat()) }
+    }
+
+    fun remoteSwipe(x1: Double, y1: Double, x2: Double, y2: Double) {
+        serviceScope.launch { dispatchStroke(x1.toFloat(), y1.toFloat(), x2.toFloat(), y2.toFloat(), 220L) }
     }
 
     suspend fun launchTargetApp(targetPackage: String) {

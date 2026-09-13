@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import DeviceLivePanel from '@/components/DeviceLivePanel.vue'
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useQuery } from '@tanstack/vue-query'
@@ -209,6 +210,7 @@ function isRemoteTab(tab: unknown): boolean {
         <p v-else class="cell-sub">{{ activeTab }} 尚无对应真实 API，因此保持不可用状态，不生成模拟记录。</p>
       </div>
     </section>
+  <DeviceLivePanel v-if="query.data" :device-id="deviceId" />
   </QueryState>
 
   <div v-if="showMaintenance" class="modal-backdrop" @click.self="showMaintenance = false"><div class="modal" role="dialog" aria-modal="true" aria-label="进入维护确认"><div class="modal-header"><h3>进入设备维护</h3><button class="icon-button" title="关闭" @click="showMaintenance = false">×</button></div><div class="modal-body"><div class="notice notice-danger"><AlertTriangle :size="18" /><div><strong>等待当前任务安全点</strong><p>不会抢占 Runner。若已进入 COMMITTING，仅记录请求并等待对账完成。</p></div></div><ul class="preview-list"><li><span>目标</span><strong>{{ deviceId }}</strong></li><li><span>影响</span><strong>暂停新任务调度，释放租约后允许调试</strong></li><li><span>审计</span><strong>记录操作者、用途、request_id</strong></li></ul></div><div class="modal-actions"><button class="button" @click="showMaintenance = false">返回</button><button class="button button-primary" @click="enterMaintenance">确认请求</button></div></div></div>
