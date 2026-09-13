@@ -47,6 +47,8 @@ data class PermissionState(
     val notificationsGranted: Boolean = false,
     val lamdaServiceCertificateEnabled: Boolean = false,
     val batteryOptimizationIgnored: Boolean = false,
+    val inputMethodEnabled: Boolean = false,
+    val inputMethodCurrent: Boolean = false,
     val automationProfile: String = "Not detected",
 )
 

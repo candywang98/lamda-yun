@@ -224,7 +224,7 @@ class LocalAutomationExecutorTest {
     }
 
     @Test
-    fun acceptsFlutterHintReplacementAfterInput() = runBlocking {
+    fun acceptsFlutterDescriptionAfterHintNodeDisappears() = runBlocking {
         val ui = FakeUi().apply {
             allowedPackage = TargetLocatorRegistry.XIANYU_PACKAGE
             dropLocatorAfterInput = true
@@ -237,6 +237,26 @@ class LocalAutomationExecutorTest {
             ),
         ) { _, _ -> }
         assertTrue("xianyu_description" !in ui.nodes)
+        assertTrue(ui.visibleTextContains("联调测试"))
+    }
+
+    @Test
+    fun failsWhenFlutterDescriptionNeverAppearsOnScreen() = runBlocking {
+        val ui = FakeUi().apply {
+            allowedPackage = TargetLocatorRegistry.XIANYU_PACKAGE
+            applyInput = false
+            dropLocatorAfterInput = true
+            nodes["xianyu_description"] = node(editable = true, text = "")
+        }
+        val failure = assertFailsWith<ExecutorFailure> {
+            executor(ui).execute(
+                task(
+                    TargetLocatorRegistry.XIANYU_PACKAGE,
+                    AutomationStep.Input("fill-description", 100, "xianyu_description", "联调测试", false),
+                ),
+            ) { _, _ -> }
+        }
+        assertEquals("STEP_TIMEOUT", failure.code)
     }
 
     private fun executor(ui: FakeUi) = LocalAutomationExecutor(
@@ -277,6 +297,7 @@ class LocalAutomationExecutorTest {
         var tapCreates: Pair<String, LocalNodeState>? = null
         var followUpTapCreates: Pair<String, LocalNodeState>? = null
         var screenshot = ScreenshotEvidence("/private/proof.png", 32, "a".repeat(64))
+        private var committedVisible: String? = null
 
         override fun ensureReady(targetPackage: String) {
             readyFailure?.let { throw it }
@@ -286,7 +307,8 @@ class LocalAutomationExecutorTest {
         override fun inspect(targetPackage: String, locatorRef: String) = nodes[locatorRef]
 
         override fun visibleTextContains(expected: String) =
-            nodes.values.any { expected in (it.text ?: "") }
+            nodes.values.any { expected in (it.text ?: "") } ||
+                committedVisible?.let { FlutterTextCommit.accepted(it, expected) } == true
 
         override suspend fun tap(targetPackage: String, locatorRef: String) {
             taps += locatorRef
@@ -295,6 +317,7 @@ class LocalAutomationExecutorTest {
         }
 
         override suspend fun replaceText(targetPackage: String, locatorRef: String, value: String) {
+            if (applyInput) committedVisible = value
             if (dropLocatorAfterInput) {
                 nodes.remove(locatorRef)
                 return

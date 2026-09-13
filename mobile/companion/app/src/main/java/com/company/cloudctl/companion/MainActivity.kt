@@ -243,6 +243,18 @@ private fun StatusContent(state: CompanionState, model: CompanionViewModel) {
                 },
             )
         }
+        if (!state.permissions.inputMethodEnabled || !state.permissions.inputMethodCurrent) {
+            KeepAlivePrompt(
+                title = if (!state.permissions.inputMethodEnabled) "自动化输入法未启用" else "自动化输入法未设为当前键盘",
+                detail = "闲鱼描述框是 Flutter，无障碍写不进去。请启用 CloudCtl Input，并在发布任务期间把它设为当前输入法。",
+                action = "去设置",
+                onClick = {
+                    context.startActivity(
+                        Intent(Settings.ACTION_INPUT_METHOD_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                    )
+                },
+            )
+        }
         if (BatteryOptimizationPolicy.shouldPrompt(state.binding != null, state.permissions.batteryOptimizationIgnored)) {
             KeepAlivePrompt(
                 title = "后台省电未放开",
@@ -358,6 +370,14 @@ private fun EnvironmentStatus(state: CompanionState, model: CompanionViewModel) 
         StatusRow("执行模式", "独立 APK 本地执行")
         StatusRow("应用包名", "com.company.cloudctl.companion")
         StatusRow("无障碍执行器", if (state.permissions.lamdaServiceCertificateEnabled) "已启用" else "需要授权")
+        StatusRow(
+            "自动化输入法",
+            when {
+                state.permissions.inputMethodCurrent -> "当前键盘"
+                state.permissions.inputMethodEnabled -> "已启用，未设为当前"
+                else -> "需要授权"
+            },
+        )
         if (!state.permissions.lamdaServiceCertificateEnabled) {
             Button(
                 onClick = {
@@ -368,6 +388,18 @@ private fun EnvironmentStatus(state: CompanionState, model: CompanionViewModel) 
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text("开启无障碍服务")
+            }
+        }
+        if (!state.permissions.inputMethodEnabled || !state.permissions.inputMethodCurrent) {
+            Button(
+                onClick = {
+                    context.startActivity(
+                        Intent(Settings.ACTION_INPUT_METHOD_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                    )
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(if (!state.permissions.inputMethodEnabled) "启用 CloudCtl Input" else "设为当前输入法")
             }
         }
     }

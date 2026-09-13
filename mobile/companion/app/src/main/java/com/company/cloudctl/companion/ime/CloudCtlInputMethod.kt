@@ -1,9 +1,12 @@
 package com.company.cloudctl.companion.ime
 
+import android.content.Context
 import android.inputmethodservice.InputMethodService
+import android.provider.Settings
 import android.util.Log
 import android.view.View
 import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputConnection
 import android.widget.FrameLayout
 
 /**
@@ -54,8 +57,12 @@ class CloudCtlInputMethod : InputMethodService() {
     private fun flushPending(): Boolean {
         val text = pendingText ?: return currentInputConnection != null
         val connection = currentInputConnection ?: return false
+        connection.finishComposingText()
+        connection.beginBatchEdit()
+        runCatching { connection.performContextMenuAction(android.R.id.selectAll) }
         connection.deleteSurroundingText(10_000, 10_000)
         val committed = connection.commitText(text, 1)
+        connection.endBatchEdit()
         if (committed) {
             pendingText = null
             Log.i(TAG, "IME committed ${text.length} chars")
@@ -72,8 +79,28 @@ class CloudCtlInputMethod : InputMethodService() {
         var active: CloudCtlInputMethod? = null
             private set
 
+        fun isEnabled(context: Context): Boolean =
+            ImeAvailability.listed(
+                Settings.Secure.getString(context.contentResolver, Settings.Secure.ENABLED_INPUT_METHODS),
+                context.packageName,
+            )
+
+        fun isSelected(context: Context): Boolean {
+            val selected = Settings.Secure.getString(
+                context.contentResolver,
+                Settings.Secure.DEFAULT_INPUT_METHOD,
+            )
+            return ImeAvailability.listed(selected, context.packageName)
+        }
+
+        fun isCurrent(context: Context): Boolean = isSelected(context) && active != null
+
+        fun hasInputConnection(): Boolean = active?.currentInputConnection != null
+
         fun requestCommit(text: String): Boolean {
             val ime = active ?: return false
+            val connection: InputConnection = ime.currentInputConnection ?: return false
+            Log.i(TAG, "IME requestCommit chars=${text.length} connection=${connection.javaClass.simpleName}")
             return ime.commitNow(text)
         }
     }

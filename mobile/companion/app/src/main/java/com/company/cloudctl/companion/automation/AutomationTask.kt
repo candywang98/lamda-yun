@@ -69,7 +69,11 @@ object AutomationTaskParser {
             root,
             setOf("protocolVersion", "taskId", "deviceId", "targetPackage", "issuedAt", "expiresAt", "maxRunSeconds", "steps") +
                 optional(root, "mediaDelivery") +
-                optional(root, "commandType"),
+                optional(root, "commandType") +
+                optional(root, "accountId") +
+                optional(root, "bindingVersion") +
+                optional(root, "attemptId") +
+                optional(root, "command"),
         )
         if (root.has("mediaDelivery")) {
             require(root.optJSONObject("mediaDelivery") != null) { "Media delivery must be an object" }

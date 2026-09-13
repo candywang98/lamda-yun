@@ -71,6 +71,17 @@ class AutomationTaskParserTest {
     }
 
     @Test
+    fun acceptsOptionalAccountBindingAndAttemptIdentity() {
+        val parsed = AutomationTaskParser.parse(
+            xianyuPublishJson().replace(
+                "\"maxRunSeconds\":90",
+                "\"maxRunSeconds\":90,\"accountId\":\"01a07a1c-572c-7ed5-83ad-a48ebbfed67a\",\"bindingVersion\":1,\"attemptId\":\"attempt-1\"",
+            ),
+        )
+        assertEquals(TargetLocatorRegistry.XIANYU_PACKAGE, parsed.targetPackage)
+    }
+
+    @Test
     fun acceptsAndValidatesOptionalMediaDeliveryMetadata() {
         val task = AutomationTaskParser.parse(
             xianyuPublishJson().replace(

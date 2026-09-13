@@ -178,12 +178,12 @@ internal fun buildClaimedTaskPayload(response: JSONObject): JSONObject {
         .put("deviceId", response.getString("deviceId"))
         .put("targetPackage", response.getString("targetPackage"))
     command?.let { task.put("command", JSONObject(it.toString())) }
-    response.optString("commandType").takeIf { it.isNotBlank() }?.let { task.put("commandType", it) }
-    response.optString("accountId").takeIf { it.isNotBlank() }?.let { task.put("accountId", it) }
+    optionalNonBlank(response, "commandType")?.let { task.put("commandType", it) }
+    optionalNonBlank(response, "accountId")?.let { task.put("accountId", it) }
     if (response.has("bindingVersion") && !response.isNull("bindingVersion")) {
         task.put("bindingVersion", response.getInt("bindingVersion"))
     }
-    response.optString("attemptId").takeIf { it.isNotBlank() }?.let { task.put("attemptId", it) }
+    optionalNonBlank(response, "attemptId")?.let { task.put("attemptId", it) }
     response.optJSONObject("mediaDelivery")?.let { task.put("mediaDelivery", JSONObject(it.toString())) }
     if (protocol == "cloudctl.mobile/v1" || legacySteps) {
         task.put("issuedAt", response.getString("issuedAt"))
@@ -199,6 +199,11 @@ internal fun buildClaimedTaskPayload(response: JSONObject): JSONObject {
         }
     }
     return task
+}
+
+internal fun optionalNonBlank(value: JSONObject, key: String): String? {
+    if (!value.has(key) || value.isNull(key)) return null
+    return (value.opt(key) as? String)?.takeIf { it.isNotBlank() }
 }
 
 internal fun parseTaskHeartbeat(response: JSONObject): TaskHeartbeat = TaskHeartbeat(

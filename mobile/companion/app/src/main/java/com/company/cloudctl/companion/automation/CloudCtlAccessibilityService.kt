@@ -197,8 +197,10 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         }
     }
 
-    override fun visibleTextContains(expected: String): Boolean =
-        allRoots().any { treeContains(it, expected) }
+    override fun visibleTextContains(expected: String): Boolean {
+        if (allRoots().any { treeContains(it, expected) }) return true
+        return FlutterTextCommit.accepted(visibleHaystack(), expected)
+    }
 
     override suspend fun replaceText(targetPackage: String, locatorRef: String, value: String) {
         val node = resolveUniqueNode(targetPackage, locatorRef)
@@ -206,8 +208,7 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         if (!node.isVisibleToUser || !node.isEnabled) {
             throw ExecutorFailure("NODE_NOT_EDITABLE", "Approved locator is not safely editable")
         }
-        // Flutter idlefish ignores ACTION_CLICK / SET_TEXT on the hint View.
-        if (value.all { it.isDigit() || it == '.' }) {
+        if (FlutterTextCommit.isNumericPrice(value)) {
             openPriceKeypad(targetPackage, node)
             awaitNumericKeypad()
             enterKeypad(value)
@@ -217,29 +218,74 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
             }
             throw ExecutorFailure("INPUT_REJECTED", "Numeric keypad did not confirm the price")
         }
-        gestureClick(node)
-        delay(400)
-        if (digitKeypadVisible()) {
-            enterKeypad(value)
-            delay(300)
-            if (visibleTextContains(value)) return
+        commitFlutterDescription(targetPackage, locatorRef, node, value)
+    }
+
+    private suspend fun commitFlutterDescription(
+        targetPackage: String,
+        locatorRef: String,
+        initial: AccessibilityNodeInfo,
+        value: String,
+    ) {
+        if (descriptionAccepted(value)) return
+        focusDescriptionField(targetPackage, locatorRef, initial)
+        for (attempt in 0 until 20) {
+            if (descriptionAccepted(value)) return
+            if (CloudCtlInputMethod.hasInputConnection()) break
+            delay(100)
         }
-        CloudCtlInputMethod.requestCommit(value)
-        repeat(25) {
-            if (visibleTextContains(value)) return
-            CloudCtlInputMethod.requestCommit(value)
-            delay(200)
+        if (CloudCtlInputMethod.hasInputConnection()) {
+            repeat(12) {
+                if (CloudCtlInputMethod.requestCommit(value) && descriptionAccepted(value)) return
+                delay(150)
+            }
         }
-        setTextAnywhere(node, value)
-        if (visibleTextContains(value)) return
-        copyToClipboardForeground(value)
-        waitUntilPackage(targetPackage)
-        pasteAnywhere(node, value)
-        if (visibleTextContains(value)) return
-        pasteViaContextMenu(node, value)
+        resolveUniqueNode(targetPackage, locatorRef)?.let { setTextAnywhere(it, value) }
+        if (descriptionAccepted(value)) return
+        seedClipboard(value)
+        val target = resolveUniqueNode(targetPackage, locatorRef) ?: initial
+        pasteAnywhere(target, value)
+        delay(250)
+        if (descriptionAccepted(value)) return
+        pasteViaContextMenu(target, value)
         delay(400)
-        if (visibleTextContains(value)) return
+        if (descriptionAccepted(value)) return
+        if (!CloudCtlInputMethod.isEnabled(this) || !CloudCtlInputMethod.isSelected(this)) {
+            throw ExecutorFailure(
+                "INPUT_IME_REQUIRED",
+                "Idlefish description needs CloudCtl Input as the current keyboard",
+            )
+        }
         throw ExecutorFailure("INPUT_REJECTED", "Accessibility text replacement was rejected")
+    }
+
+    private suspend fun focusDescriptionField(
+        targetPackage: String,
+        locatorRef: String,
+        initial: AccessibilityNodeInfo,
+    ) {
+        var node = initial
+        node.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
+        gestureClickAt(node, 0.50f, 0.18f)
+        delay(200)
+        node = resolveUniqueNode(targetPackage, locatorRef) ?: node
+        gestureClickAt(node, 0.50f, 0.32f)
+        delay(200)
+        node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+    }
+
+    private fun descriptionAccepted(expected: String): Boolean =
+        FlutterTextCommit.accepted(visibleHaystack(), expected)
+
+    private fun visibleHaystack(): String =
+        allRoots().joinToString("\n") { collectDisplayedText(it) }
+
+    private fun seedClipboard(value: String): Boolean {
+        val clipboard = getSystemService(ClipboardManager::class.java) ?: return false
+        return runCatching {
+            clipboard.setPrimaryClip(ClipData.newPlainText("cloudctl-input", value))
+            true
+        }.getOrDefault(false)
     }
 
     override suspend fun swipeUp() {

@@ -215,18 +215,10 @@ class LocalAutomationExecutor(
                 if (typed.isNotEmpty() && ui.visibleTextContains(typed)) return
             }
             val node = ui.inspect(task.targetPackage, locatorRef)
-            // Flutter idlefish replaces the description hint after the first click.
-            // The price row stays in the tree; do not treat a miss as success.
-            if (node == null) {
-                if (locatorRef == "xianyu_price") {
-                    sleep(pollMs)
-                    continue
-                }
-                return
-            }
-            val actual = node.text.orEmpty()
-            if (actual == expected || expected in actual) return
+            val actual = node?.text.orEmpty()
+            if (FlutterTextCommit.accepted(actual, expected)) return
             if (locatorRef == "xianyu_price" && PriceKeypad.acceptedOnForm(actual, expected)) return
+            // Flutter replaces the "描述一下" hint after focus. Missing locator is not success.
             sleep(pollMs)
         }
     }

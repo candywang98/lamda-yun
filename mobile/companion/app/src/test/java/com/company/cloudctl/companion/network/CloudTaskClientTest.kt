@@ -28,6 +28,18 @@ class CloudTaskClientTest {
     }
 
     @Test
+    fun omitsJsonNullIdentityFieldsFromClaimedAutomationPayload() {
+        val payload = buildClaimedTaskPayload(
+            JSONObject(BASE_RESPONSE)
+                .put("commandType", JSONObject.NULL)
+                .put("accountId", JSONObject.NULL)
+                .put("attemptId", JSONObject.NULL),
+        )
+        assertTrue(!payload.has("commandType"))
+        assertTrue(!payload.has("accountId"))
+        assertTrue(!payload.has("attemptId"))
+    }
+    @Test
     fun preservesCommandV1WithoutRequiringLegacySteps() {
         val command = JSONObject(
             """

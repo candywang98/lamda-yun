@@ -23,6 +23,7 @@ import com.company.cloudctl.companion.operations.OperationDefinition
 import com.company.cloudctl.companion.security.SecretStore
 import com.company.cloudctl.companion.service.BatteryOptimization
 import com.company.cloudctl.companion.service.CompanionServiceStarter
+import com.company.cloudctl.companion.ime.CloudCtlInputMethod
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -253,6 +254,8 @@ class CompanionRepository(
             notificationsGranted = notificationsGranted,
             lamdaServiceCertificateEnabled = accessibilityEnabled(),
             batteryOptimizationIgnored = BatteryOptimization.isIgnoring(context),
+            inputMethodEnabled = CloudCtlInputMethod.isEnabled(context),
+            inputMethodCurrent = CloudCtlInputMethod.isSelected(context),
             automationProfile = when {
                 Build.TAGS?.contains("test-keys") == true -> "Lab profile"
                 else -> "Standard authorized profile"
