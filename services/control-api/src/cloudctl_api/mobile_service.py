@@ -730,6 +730,9 @@ class MobileTaskService:
                 raise NotFoundError("device was not found")
             if device.maintenance:
                 raise ConflictError("device is in maintenance and cannot claim tasks")
+            live_service = getattr(self, "live_service", None)
+            if live_service is not None and live_service.has_remote(binding.device_id):
+                raise ConflictError("DEVICE_REMOTE")
             if device.active_binding_id and device.active_binding_id != binding.id:
                 raise AuthenticationError("companion instance is no longer the active binding")
             blocking = await session.scalar(

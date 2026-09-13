@@ -20,6 +20,9 @@ from .debug_service import DebugSessionService
 from .im_routes import companion_router as im_companion_router
 from .im_routes import operator_router as im_operator_router
 from .im_service import ImService
+from .live import companion_router as live_companion_router
+from .live import LiveService
+from .live import operator_router as live_operator_router
 from .dev_seed import seed_development_data
 from .media_store import ObjectStore, create_object_store
 from .mobile_routes import companion_router
@@ -115,6 +118,8 @@ def create_app(
     )
     app.state.debug_session_service = DebugSessionService(database, resolved_settings)
     app.state.im_service = ImService(app.state.mobile_task_service)
+    app.state.live_service = LiveService(app.state.mobile_task_service)
+    app.state.mobile_task_service.live_service = app.state.live_service
     app.dependency_overrides[get_settings] = lambda: resolved_settings
 
     app.add_middleware(
@@ -202,6 +207,8 @@ def create_app(
     app.include_router(schedule_router)
     app.include_router(im_operator_router)
     app.include_router(im_companion_router)
+    app.include_router(live_operator_router)
+    app.include_router(live_companion_router)
     app.include_router(companion_router)
     return app
 
