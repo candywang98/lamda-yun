@@ -5,10 +5,14 @@ internal sealed interface ApprovedLocator {
     data class ContentDescription(val value: String) : ApprovedLocator
     data class ContentDescriptionPrefix(val prefix: String) : ApprovedLocator
     data class IndexedContentDescription(val value: String, val index: Int) : ApprovedLocator
+    data class Text(val value: String) : ApprovedLocator
+    data class TextPrefix(val prefix: String) : ApprovedLocator
+    data class IndexedResourceId(val value: String, val index: Int) : ApprovedLocator
 }
 
 /**
  * Stable, reviewed locators for applications that do not expose view resource IDs for key controls.
+ * XHS locators are verified against com.xingin.xhs 8.50.1 (OnePlus 9R) on 2026-09-13.
  */
 internal object TargetLocatorRegistry {
     const val COMPANION_PACKAGE = "com.company.cloudctl.companion"
@@ -48,16 +52,36 @@ internal object TargetLocatorRegistry {
         "xianyu_publish_button" to ApprovedLocator.ContentDescription("发布"),
     )
 
+    private val xhsLocators = mapOf(
+        "xhs_home_publish" to ApprovedLocator.ContentDescription("发布"),
+        "xhs_publish_sheet" to ApprovedLocator.Text("相册"),
+        "xhs_pick_next" to ApprovedLocator.Text("下一步"),
+        "xhs_edit_next" to ApprovedLocator.Text("下一步"),
+        "xhs_edit_page" to ApprovedLocator.Text("贴纸"),
+        "xhs_note_title" to ApprovedLocator.Text("添加标题"),
+        "xhs_note_body" to ApprovedLocator.Text("添加正文"),
+        "xhs_publish_button" to ApprovedLocator.Text("发布笔记"),
+        "xhs_publish_success" to ApprovedLocator.TextPrefix("发布成功"),
+        "xhs_draft_stay" to ApprovedLocator.Text("留在本页"),
+    )
+
     fun resolve(targetPackage: String, locatorRef: String): ApprovedLocator {
         val locators = when (targetPackage) {
             COMPANION_PACKAGE -> companionLocators
             XIANYU_PACKAGE -> xianyuLocators
+            XHS_PACKAGE -> xhsLocators
             else -> throw IllegalArgumentException("Target package is not allowlisted")
         }
         locators[locatorRef]?.let { return it }
         if (targetPackage == XIANYU_PACKAGE) {
             val match = Regex("^xianyu_gallery_select_([0-9]|[1-4][0-9])$").matchEntire(locatorRef)
             if (match != null) return ApprovedLocator.IndexedContentDescription("选择", match.groupValues[1].toInt())
+        }
+        if (targetPackage == XHS_PACKAGE) {
+            val match = Regex("^xhs_gallery_cell_([0-9]|[1-4][0-9])$").matchEntire(locatorRef)
+            if (match != null) {
+                return ApprovedLocator.IndexedResourceId("com.xingin.xhs:id/ixd", match.groupValues[1].toInt())
+            }
         }
         throw IllegalArgumentException("Unknown Companion locator")
     }

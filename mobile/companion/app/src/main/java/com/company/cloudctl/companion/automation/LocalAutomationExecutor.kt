@@ -35,6 +35,8 @@ interface LocalAutomationUi {
     fun log(level: LogLevel, messageCode: String)
 }
 
+private val GATED_PUBLISH_LOCATORS = setOf("xianyu_publish_button", "xhs_publish_button")
+
 class LocalAutomationExecutor(
     private val ui: LocalAutomationUi,
     private val now: () -> Instant = Instant::now,
@@ -117,7 +119,7 @@ class LocalAutomationExecutor(
                 if (step.postconditionLocatorRef != null && matches(task, step.postconditionLocatorRef, NodeCondition.EXISTS)) {
                     throw ExecutorFailure("POSTCONDITION_ALREADY_MET", "Click postcondition was already present")
                 }
-                if (step.locatorRef == "xianyu_publish_button" && commitGate != null) {
+                if (step.locatorRef in GATED_PUBLISH_LOCATORS && commitGate != null) {
                     // Irreversible submit: durable intent, one tap, then stop the run.
                     commitGate.publishOnce(task, step.locatorRef)
                     return true

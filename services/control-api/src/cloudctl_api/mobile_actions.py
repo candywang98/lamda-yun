@@ -88,19 +88,38 @@ def canonical_steps(steps: list[dict[str, Any]]) -> str:
     )
 
 
+STEPS_SHAPES = {
+    XIANYU_PACKAGE: {
+        "command_type": "xianyu.publish_listing.steps.v1",
+        "publish_button": "xianyu_publish_button",
+        "postcondition": "xianyu_publish_success",
+        "content_input": "xianyu_description",
+    },
+    "com.xingin.xhs": {
+        "command_type": "xhs.publish_note.steps.v1",
+        "publish_button": "xhs_publish_button",
+        "postcondition": "xhs_publish_success",
+        "content_input": "xhs_note_body",
+    },
+}
+
+
 def steps_action_identity(task: MobileTaskRow) -> dict[str, Any]:
     # The claim path prepends a dynamic header entry (controlEpoch/lease fields,
     # no "action" key) to the stored steps; identity covers the real steps only,
     # exactly matching what the Companion hashes from its claimed payload.
+    shape = STEPS_SHAPES.get(task.target_package or "")
+    if shape is None:
+        raise ConflictError("G3_NOT_ACCEPTED")
     steps = [step for step in (task.steps or []) if step.get("action")]
     publish_taps = [
         step
         for step in steps
-        if step.get("action") == "ui.tap" and step.get("locatorRef") == "xianyu_publish_button"
+        if step.get("action") == "ui.tap" and step.get("locatorRef") == shape["publish_button"]
     ]
-    has_postcondition = any(step.get("locatorRef") == "xianyu_publish_success" for step in steps)
+    has_postcondition = any(step.get("locatorRef") == shape["postcondition"] for step in steps)
     has_description = any(
-        step.get("action") == "ui.input" and step.get("locatorRef") == "xianyu_description"
+        step.get("action") == "ui.input" and step.get("locatorRef") == shape["content_input"]
         for step in steps
     )
     if len(publish_taps) != 1 or not has_postcondition or not has_description:
@@ -108,7 +127,7 @@ def steps_action_identity(task: MobileTaskRow) -> dict[str, Any]:
     digest = hashlib.sha256(canonical_steps(steps).encode()).hexdigest()
     key, parameters = action_identity(
         task.id,
-        STEPS_COMMAND_TYPE,
+        shape["command_type"],
         task.device_id,
         task.binding_version or 0,
         digest,
@@ -220,7 +239,7 @@ class MobileActionService:
             raise ConflictError("current device lease does not authorize this action")
 
     async def _identity(self, session: Any, task: MobileTaskRow, action_id: str) -> dict[str, Any]:
-        if task.command_type is None and task.target_package == XIANYU_PACKAGE:
+        if task.command_type is None and task.target_package in STEPS_SHAPES:
             frozen = steps_action_identity(task)
             if action_id != frozen["action_id"]:
                 raise ConflictError("G3_NOT_ACCEPTED")

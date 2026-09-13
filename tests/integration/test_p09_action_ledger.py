@@ -425,3 +425,84 @@ async def test_steps_without_publish_shape_stays_refused(api):  # noqa: F811
     assert "G3_NOT_ACCEPTED" in cross.text
     async with app.state.database.unit_of_work() as session:
         assert await session.scalar(select(MobileActionCommitRow).where(MobileActionCommitRow.task_id == task)) is None
+
+
+XHS_STEPS = [
+    {"stepId": "open-home-publish", "locatorRef": "xhs_home_publish", "timeoutMs": 8000, "action": "ui.tap"},
+    {"stepId": "wait-sheet", "locatorRef": "xhs_publish_sheet", "timeoutMs": 8000, "action": "ui.wait",
+     "condition": "EXISTS", "pollMs": 200},
+    {"stepId": "select-media", "locatorRef": "xhs_gallery_cell_0", "timeoutMs": 5000, "action": "ui.tap"},
+    {"stepId": "fill-body", "locatorRef": "xhs_note_body", "timeoutMs": 20000, "action": "ui.input",
+     "value": "小红书图文正文验证", "replace": True, "sensitive": False},
+    {"stepId": "wait-publish-button", "locatorRef": "xhs_publish_button", "timeoutMs": 8000, "action": "ui.wait",
+     "condition": "EXISTS", "pollMs": 200},
+    {"stepId": "click-publish", "locatorRef": "xhs_publish_button", "timeoutMs": 5000, "action": "ui.tap"},
+    {"stepId": "wait-publish-success", "locatorRef": "xhs_publish_success", "timeoutMs": 15000, "action": "ui.wait",
+     "condition": "EXISTS", "pollMs": 500},
+]
+
+
+async def test_xhs_steps_publish_intent_and_refused_shapes(api):  # noqa: F811
+    client, app = api
+    device = await create_direct_device(client, "xhs-steps")
+    auth = await _enroll(client, device, "xhs-instance")
+    created = await client.post(
+        "/api/v1/mobile/tasks",
+        headers={**identity(), "Idempotency-Key": f"xhs-{device[:20]}"},
+        json={
+            "deviceId": device,
+            "targetPackage": "com.xingin.xhs",
+            "totalTimeoutMs": 120_000,
+            "steps": XHS_STEPS,
+        },
+    )
+    assert created.status_code == 201, created.text
+    task = created.json()["taskId"]
+    claimed = await claim(client, auth)
+    assert claimed["taskId"] == task
+    started = await client.post(
+        f"/companion/v2/tasks/{task}/heartbeat",
+        headers=auth,
+        json={"leaseId": claimed["leaseId"], "currentStep": 0},
+    )
+    assert started.status_code == 200, started.text
+    async with app.state.database.unit_of_work() as session:
+        row = await session.get(MobileTaskRow, task)
+        frozen = steps_action_identity(row)
+    assert frozen["action_id"] == "click-publish"
+    body = dict(
+        leaseId=claimed["leaseId"], actionId=frozen["action_id"], actionKey=frozen["action_key"],
+        parameterHash=frozen["parameter_hash"], beforeEvidence="sha256:" + "c" * 64,
+    )
+    intent, action = paths(task, body)
+    first = await client.post(intent, headers=auth, json=body)
+    assert first.status_code == 201, first.text
+    assert first.json()["action"]["recipeVersionId"] == "steps"
+    # An xhs task without the publish shape must stay refused.
+    device2 = await create_direct_device(client, "xhs-refused")
+    auth2 = await _enroll(client, device2, "xhs-refused-instance")
+    created2 = await client.post(
+        "/api/v1/mobile/tasks",
+        headers={**identity(), "Idempotency-Key": f"xhs-refused-{device2[:20]}"},
+        json={
+            "deviceId": device2,
+            "targetPackage": "com.xingin.xhs",
+            "totalTimeoutMs": 60_000,
+            "steps": [
+                {"stepId": "open-home-publish", "locatorRef": "xhs_home_publish", "timeoutMs": 8000, "action": "ui.tap"},
+                {"stepId": "fill-body", "locatorRef": "xhs_note_body", "timeoutMs": 20000, "action": "ui.input",
+                 "value": "no publish tap", "replace": True},
+            ],
+        },
+    )
+    assert created2.status_code == 201, created2.text
+    task2 = created2.json()["taskId"]
+    claimed2 = await claim(client, auth2)
+    refused = await client.post(
+        f"/companion/v2/tasks/{task2}/actions/intent",
+        headers=auth2,
+        json=dict(leaseId=claimed2["leaseId"], actionId="click-publish",
+                  actionKey="d" * 64, parameterHash="e" * 64, beforeEvidence="evidence://x"),
+    )
+    assert refused.status_code == 409
+    assert "G3_NOT_ACCEPTED" in refused.text

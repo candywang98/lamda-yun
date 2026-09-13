@@ -41,18 +41,27 @@ data class ControlledActionIdentity(
             command.commandType, command.recipeVersionId, command.recipeSha256, command.snapshotSha256, actionId,
         )
 
-        /** Legacy idlefish steps task identity (contract p09-steps-commit/20260913.1). */
+        /**
+         * Legacy steps task identity (contract p09-steps-commit/20260913.1);
+         * xiaohongshu uses its own frozen command type since 2026-09-13.
+         */
         fun fromStepsPayload(payload: JSONObject): ControlledActionIdentity {
             val steps = payload.getJSONArray("steps")
             val digest = digest(canonicalSteps(steps))
             val taskId = payload.getString("taskId")
             val deviceId = payload.getString("deviceId")
+            val targetPackage = payload.getString("targetPackage")
+            val commandType = when (targetPackage) {
+                "com.taobao.idlefish" -> "xianyu.publish_listing.steps.v1"
+                "com.xingin.xhs" -> "xhs.publish_note.steps.v1"
+                else -> throw IllegalArgumentException("G3_NOT_ACCEPTED")
+            }
             return ControlledActionIdentity(
                 taskId = taskId,
                 deviceId = deviceId,
                 accountId = deviceId,
                 bindingVersion = payload.optInt("bindingVersion", 0),
-                commandType = "xianyu.publish_listing.steps.v1",
+                commandType = commandType,
                 recipeVersionId = "steps",
                 recipeSha256 = digest,
                 snapshotSha256 = digest,

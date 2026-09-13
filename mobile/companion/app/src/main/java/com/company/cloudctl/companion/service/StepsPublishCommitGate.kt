@@ -21,9 +21,13 @@ class StepsPublishCommitGate(
     private val ui: LocalAutomationUi,
 ) : CommitGate {
     override suspend fun publishOnce(task: AutomationTask, locatorRef: String) {
-        require(locatorRef == "xianyu_publish_button") { "G3_NOT_ACCEPTED" }
-        require(task.targetPackage == TargetLocatorRegistry.XIANYU_PACKAGE) { "G3_NOT_ACCEPTED" }
-        val postcondition = "xianyu_publish_success"
+        val gatedPublish = when (task.targetPackage) {
+            TargetLocatorRegistry.XIANYU_PACKAGE -> "xianyu_publish_button" to "xianyu_publish_success"
+            TargetLocatorRegistry.XHS_PACKAGE -> "xhs_publish_button" to "xhs_publish_success"
+            else -> throw ExecutorFailure("G3_NOT_ACCEPTED", "Target package has no gated publish")
+        }
+        require(locatorRef == gatedPublish.first) { "G3_NOT_ACCEPTED" }
+        val postcondition = gatedPublish.second
         TargetLocatorRegistry.resolve(task.targetPackage, locatorRef)
         TargetLocatorRegistry.resolve(task.targetPackage, postcondition)
         val payload = JSONObject(

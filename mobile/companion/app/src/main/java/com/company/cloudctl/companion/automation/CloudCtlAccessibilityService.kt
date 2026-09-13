@@ -209,6 +209,10 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         if (!node.isVisibleToUser || !node.isEnabled) {
             throw ExecutorFailure("NODE_NOT_EDITABLE", "Approved locator is not safely editable")
         }
+        if (targetPackage == TargetLocatorRegistry.XHS_PACKAGE) {
+            commitNativeText(node, value)
+            return
+        }
         if (FlutterTextCommit.isNumericPrice(value)) {
             openPriceKeypad(targetPackage, node)
             awaitNumericKeypad()
@@ -220,6 +224,17 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
             throw ExecutorFailure("INPUT_REJECTED", "Numeric keypad did not confirm the price")
         }
         commitFlutterDescription(targetPackage, locatorRef, node, value)
+    }
+
+    /** Native EditText targets (xiaohongshu composer) accept SET_TEXT directly. */
+    private fun commitNativeText(node: AccessibilityNodeInfo, value: String) {
+        node.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
+        val arguments = android.os.Bundle().apply {
+            putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, value)
+        }
+        if (!node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)) {
+            throw ExecutorFailure("INPUT_REJECTED", "Native SET_TEXT was rejected")
+        }
     }
 
     private suspend fun commitFlutterDescription(
@@ -413,7 +428,19 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
             is ApprovedLocator.ContentDescriptionPrefix -> findContentDescription(root) { it.startsWith(locator.prefix) }
             is ApprovedLocator.IndexedContentDescription -> findContentDescription(root) { it == locator.value }
                 .getOrNull(locator.index)?.let(::listOf).orEmpty()
+            // findContentDescription matches content-desc and text alike.
+            is ApprovedLocator.Text -> findContentDescription(root) { it == locator.value }
+            is ApprovedLocator.TextPrefix -> findContentDescription(root) { it.startsWith(locator.prefix) }
+            is ApprovedLocator.IndexedResourceId -> root.findAccessibilityNodeInfosByViewId(locator.value)
+                .sortedBy { node -> node.boundsTop() }
+                .getOrNull(locator.index)?.let(::listOf).orEmpty()
         }
+
+    private fun AccessibilityNodeInfo.boundsTop(): Int {
+        val bounds = Rect()
+        getBoundsInScreen(bounds)
+        return bounds.top
+    }
 
     private fun findContentDescription(
         root: AccessibilityNodeInfo,
