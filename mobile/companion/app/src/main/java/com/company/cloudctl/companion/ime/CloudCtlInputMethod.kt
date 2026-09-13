@@ -7,6 +7,7 @@ import android.util.Log
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
+import android.view.inputmethod.InputMethodManager
 import android.widget.FrameLayout
 
 /**
@@ -79,17 +80,17 @@ class CloudCtlInputMethod : InputMethodService() {
         var active: CloudCtlInputMethod? = null
             private set
 
-        fun isEnabled(context: Context): Boolean =
-            ImeAvailability.listed(
-                Settings.Secure.getString(context.contentResolver, Settings.Secure.ENABLED_INPUT_METHODS),
-                context.packageName,
-            )
+        // Android 14 forbids Settings.Secure ENABLED_INPUT_METHODS reads for targetSdk 34+,
+        // so resolve enabled state through the public InputMethodManager list.
+        fun isEnabled(context: Context): Boolean {
+            val manager = context.getSystemService(InputMethodManager::class.java) ?: return false
+            return manager.enabledInputMethodList.any { it.packageName == context.packageName }
+        }
 
         fun isSelected(context: Context): Boolean {
-            val selected = Settings.Secure.getString(
-                context.contentResolver,
-                Settings.Secure.DEFAULT_INPUT_METHOD,
-            )
+            val selected = runCatching {
+                Settings.Secure.getString(context.contentResolver, Settings.Secure.DEFAULT_INPUT_METHOD)
+            }.getOrNull() ?: return active != null
             return ImeAvailability.listed(selected, context.packageName)
         }
 
