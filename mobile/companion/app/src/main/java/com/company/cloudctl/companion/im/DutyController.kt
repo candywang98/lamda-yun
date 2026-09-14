@@ -5,6 +5,7 @@ import android.graphics.Rect
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import com.company.cloudctl.companion.automation.CloudCtlAccessibilityService
+import com.company.cloudctl.companion.automation.TargetLocatorRegistry
 import com.company.cloudctl.companion.data.AutomationStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -75,10 +76,29 @@ object DutyController {
         if (now - lastNav.get() < NAVIGATE_INTERVAL_MS) return
         lastNav.set(now)
         if (onMessageList(service)) return
-        runCatching { service.launchTargetApp("com.taobao.idlefish") }
+        runCatching { service.launchTargetApp(TargetLocatorRegistry.XIANYU_PACKAGE) }
         delay(1_500)
-        service.tapRemoteGestureLike(975.0, 2331.0) // 消息 tab (verified coordinate family)
-        delay(SETTLE_MS)
+        // Anchor first (duty-anchor gap 3): the verified 消息 tab content description
+        // positions the tap even when a keyboard or layout shift moved the old fixed
+        // coordinate onto IME keys. The coordinate stays an audited last resort.
+        val parked = DutyMessageListNav(object : DutyMessageListNav.Port {
+            override fun onMessageList(): Boolean = this@DutyController.onMessageList(service)
+
+            override suspend fun tapMessagesTabAnchor(): Boolean =
+                service.ensureMessageListTab(TargetLocatorRegistry.XIANYU_PACKAGE)
+
+            override suspend fun tapCoordinate(x: Double, y: Double) {
+                // Never blind-tap a screen that is not verifiably the target app.
+                if (!service.isTargetForeground(TargetLocatorRegistry.XIANYU_PACKAGE)) {
+                    android.util.Log.w(TAG, "DUTY_NAV_COORD_FALLBACK_SKIPPED_NOT_FOREGROUND")
+                    return
+                }
+                service.tapRemoteGestureLike(x, y)
+            }
+
+            override fun event(code: String) { android.util.Log.i(TAG, code) }
+        }).execute()
+        if (!parked) android.util.Log.w(TAG, "duty navigation did not land on the message list")
     }
 
     private fun onMessageList(service: CloudCtlAccessibilityService): Boolean {

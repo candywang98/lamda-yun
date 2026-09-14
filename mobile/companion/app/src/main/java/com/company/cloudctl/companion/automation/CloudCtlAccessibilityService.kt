@@ -147,6 +147,28 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
     fun dutyBack() {
         performGlobalAction(GLOBAL_ACTION_BACK)
     }
+    /**
+     * Duty-mode tab navigation (duty-anchor gap 3): park the target on its
+     * message list by resolving the verified tab anchor and gesture-tapping the
+     * node center. A missing anchor (chat page open, keyboard up, app update)
+     * returns false after bounded retries; this method never blind-taps fixed
+     * screen coordinates.
+     */
+    suspend fun ensureMessageListTab(targetPackage: String): Boolean {
+        if (targetPackage != TargetLocatorRegistry.XIANYU_PACKAGE) return false
+        for (attempt in 1..DUTY_NAV_ANCHOR_ATTEMPTS) {
+            val node = runCatching {
+                resolveUniqueNode(targetPackage, DUTY_NAV_MESSAGES_TAB_LOCATOR)
+            }.getOrNull()
+            if (node != null && node.isVisibleToUser && gestureClick(node)) {
+                Log.i(TAG, "DUTY_NAV_ANCHOR_TAP attempt=$attempt locator=$DUTY_NAV_MESSAGES_TAB_LOCATOR")
+                return true
+            }
+            delay(DUTY_NAV_ANCHOR_RETRY_MS)
+        }
+        Log.w(TAG, "DUTY_NAV_ANCHOR_MISSING target=$targetPackage locator=$DUTY_NAV_MESSAGES_TAB_LOCATOR")
+        return false
+    }
 
     // ROOT-INTEGRATION live sink (p10-live/20260913.1): remote gestures via accessibility.
     fun remoteTap(x: Double, y: Double) {
@@ -1306,6 +1328,9 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         private const val PREVIEW_MAX_BYTES = 380_000
         private const val XIANYU_LAUNCHER_ACTIVITY = "com.taobao.fleamarket.home.activity.InitActivity"
         private const val NAV_SETTLE_MS = 800L
+        private const val DUTY_NAV_ANCHOR_ATTEMPTS = 3
+        private const val DUTY_NAV_ANCHOR_RETRY_MS = 500L
+        private const val DUTY_NAV_MESSAGES_TAB_LOCATOR = "xianyu_messages_tab"
 
         @Volatile
         var active: CloudCtlAccessibilityService? = null
