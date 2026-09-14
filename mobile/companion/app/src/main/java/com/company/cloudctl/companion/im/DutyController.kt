@@ -113,7 +113,21 @@ object DutyController {
 
     private fun containsTabForm(node: AccessibilityNodeInfo): Boolean {
         val desc = node.contentDescription?.toString()
-        if (desc != null && TargetLocatorRegistry.isXianyuMessagesTabDescription(desc)) return true
+        // "On the message list" needs the tab to be ACTIVE: the unread prefix or the
+        // selected form. The unselected form also renders on every other page that
+        // shows the tab bar (verified on the idlefish home page), so counting it
+        // here made duty believe it was parked while sitting on the home feed.
+        if (desc != null &&
+            (
+                desc == TargetLocatorRegistry.MESSAGES_TAB_SELECTED_FORM ||
+                    (
+                        desc.startsWith(TargetLocatorRegistry.MESSAGES_TAB_UNREAD_PREFIX) &&
+                            node.isSelected
+                        )
+                )
+        ) {
+            return true
+        }
         for (index in 0 until node.childCount) {
             val child = node.getChild(index) ?: continue
             if (containsTabForm(child)) return true
