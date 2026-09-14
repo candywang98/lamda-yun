@@ -232,9 +232,12 @@ class ImService:
                     "steps": _reply_steps(thread.peer_name, text),
                 }
             )
-            task_view, _created = await self.mobile.create_task(
+            task_view, created = await self.mobile.create_task(
                 actor, f"im-reply:{thread.id}:{last_in.id}", body
             )
+            if not created:
+                # Idempotent replay: the task (and its OUT message) already exist.
+                return {"taskId": task_view["id"], "threadId": thread.id}
             session.add(
                 ImMessageRow(
                     id=str(uuid.uuid4()),
