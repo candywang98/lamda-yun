@@ -160,6 +160,9 @@ class MediaGalleryExporter(private val resolver: ContentResolver) {
     private fun rowUri(collection: Uri, id: Long): Uri = ContentUris.withAppendedId(collection, id)
 
     private companion object {
-        const val RELATIVE_DIR = "Pictures/CloudCtl"
+        // MediaStore canonicalizes RELATIVE_PATH with a trailing slash; querying
+        // without it matched nothing and every export fell through to Insert,
+        // duplicating the same asset as "(1)", "(2)"... copies (verified on device).
+        const val RELATIVE_DIR = "Pictures/CloudCtl/"
     }
 }
