@@ -38,6 +38,9 @@ from .routes import router
 from .services import ControlService
 from .settings import Settings, get_settings
 from .source_routes import router as source_router
+from .wechat_client import WeChatTransport
+from .wechat_routes import router as wechat_router
+from .wechat_service import WeChatPublisherService
 
 
 def _problem(
@@ -71,6 +74,7 @@ def create_app(
     settings: Settings | None = None,
     *,
     object_store: ObjectStore | None = None,
+    wechat_transport: WeChatTransport | None = None,
 ) -> FastAPI:
     resolved_settings = settings or get_settings()
     database = Database(resolved_settings)
@@ -90,6 +94,7 @@ def create_app(
         finally:
             if oidc_verifier is not None:
                 await oidc_verifier.close()
+            await app.state.wechat_publisher_service.close_transport()
             await database.dispose()
 
     app = FastAPI(
@@ -117,6 +122,9 @@ def create_app(
         database, resolved_settings, app.state.mobile_task_service
     )
     app.state.debug_session_service = DebugSessionService(database, resolved_settings)
+    app.state.wechat_publisher_service = WeChatPublisherService(
+        database, resolved_settings, transport=wechat_transport
+    )
     app.state.im_service = ImService(app.state.mobile_task_service)
     app.state.live_service = LiveService(app.state.mobile_task_service)
     app.state.mobile_task_service.live_service = app.state.live_service
@@ -201,6 +209,7 @@ def create_app(
     app.include_router(router)
     app.include_router(operation_router)
     app.include_router(source_router)
+    app.include_router(wechat_router)
     app.include_router(debug_router)
     app.include_router(mobile_operator_router)
     app.include_router(platform_task_router)

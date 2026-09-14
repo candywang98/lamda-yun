@@ -969,6 +969,93 @@ class SyncErrorRow(Base, TimestampMixin):
     __table_args__ = (Index("ix_sync_error_unresolved", "connection_id", "resolved_at"),)
 
 
+class WechatAccountRow(Base, TimestampMixin):
+    """Registered WeChat Official Account credential (ADR 0004 API publisher)."""
+
+    __tablename__ = "wechat_account"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(36), index=True, nullable=False)
+    app_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    display_label: Mapped[str] = mapped_column(String(160), nullable=False)
+    secret_ciphertext: Mapped[str] = mapped_column(String(2048), nullable=False)
+    secret_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    secret_key_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), index=True, nullable=False)
+    created_by: Mapped[str] = mapped_column(String(36), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "app_id", name="uq_wechat_account_tenant_app"),
+        CheckConstraint("status IN ('ACTIVE', 'REVOKED')", name="ck_wechat_account_status"),
+    )
+
+
+class WechatDraftRow(Base, TimestampMixin):
+    """Article draft pushed to the official draft box (draft/add)."""
+
+    __tablename__ = "wechat_draft"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(36), index=True, nullable=False)
+    account_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("wechat_account.id"), index=True, nullable=False
+    )
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    request_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    article: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    article_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), index=True, nullable=False)
+    media_id: Mapped[str | None] = mapped_column(String(256))
+    created_by: Mapped[str] = mapped_column(String(36), nullable=False)
+    error_code: Mapped[str | None] = mapped_column(String(80))
+    detail: Mapped[str | None] = mapped_column(Text)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "idempotency_key", name="uq_wechat_draft_idempotency"),
+        CheckConstraint(
+            "status IN ('PENDING', 'READY', 'UNKNOWN', 'FAILED')",
+            name="ck_wechat_draft_status",
+        ),
+    )
+
+
+class WechatPublishRow(Base, TimestampMixin):
+    """Server-side publish ledger: one authorization, one submit attempt, poll to resolve."""
+
+    __tablename__ = "wechat_publish"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(36), index=True, nullable=False)
+    draft_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("wechat_draft.id"), index=True, nullable=False
+    )
+    account_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("wechat_account.id"), index=True, nullable=False
+    )
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    request_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    parameter_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    authorized_by: Mapped[str] = mapped_column(String(36), nullable=False)
+    submitted_by: Mapped[str | None] = mapped_column(String(36))
+    status: Mapped[str] = mapped_column(String(32), index=True, nullable=False)
+    publish_id: Mapped[str | None] = mapped_column(String(256))
+    article_url: Mapped[str | None] = mapped_column(String(1024))
+    submit_attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    poll_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    error_code: Mapped[str | None] = mapped_column(String(80))
+    detail: Mapped[str | None] = mapped_column(Text)
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "idempotency_key", name="uq_wechat_publish_idempotency"),
+        UniqueConstraint("draft_id", name="uq_wechat_publish_draft"),
+        CheckConstraint(
+            "status IN ('INTENT', 'SUBMITTING', 'SUBMITTED', 'UNKNOWN', 'PUBLISHED', 'FAILED')",
+            name="ck_wechat_publish_status",
+        ),
+        CheckConstraint("submit_attempts BETWEEN 0 AND 1", name="ck_wechat_publish_one_attempt"),
+    )
+
+
 class Database:
     def __init__(self, settings: Settings) -> None:
         url = settings.resolved_database_url()
