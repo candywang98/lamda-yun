@@ -424,3 +424,79 @@ async def test_reconciled_reply_task_settles_delivery_state(api):  # noqa: F811
     assert reconciled.json()["state"] == "FAILED"
     items = await _thread_messages(client, dropped_thread["id"])
     assert _out_message(items)["deliveryState"] == "FAILED"
+
+
+READ_ONLY_ROLES = ("viewer", "content_editor", "publisher", "approver", "automation_developer")
+
+
+async def test_im_write_endpoints_require_device_control(api):  # noqa: F811
+    """PUT im/config and POST :reply are device writes gated on device.control.
+
+    Read-only roles keep full inbox read access but must not change monitoring
+    configuration nor trigger an outbound message on a real device.
+    """
+    client, _app = api
+    device = await create_direct_device(client, "im-acl-dev")
+    auth = await _enroll(client, device, "im-acl-instance")
+    when = datetime.now(UTC).replace(microsecond=0)
+    await _push(client, auth, peer="buyer_acl", text="还在吗", when=when)
+    thread = (await client.get("/api/v1/im/threads", headers=identity())).json()["items"][0]
+
+    for role in READ_ONLY_ROLES:
+        read_only = identity(role=role)
+        # Read paths stay open for every role.
+        threads = await client.get("/api/v1/im/threads", headers=read_only)
+        assert threads.status_code == 200, (role, threads.text)
+        config = await client.get(
+            "/api/v1/im/config", params={"deviceId": device}, headers=read_only
+        )
+        assert config.status_code == 200, (role, config.text)
+        # Write paths are rejected before any state changes.
+        denied_config = await client.put(
+            "/api/v1/im/config",
+            params={"deviceId": device},
+            headers=read_only,
+            json={"enabled": False, "platforms": ["xianyu"], "mode": "DUTY",
+                  "dutyStart": "09:00", "dutyEnd": "23:00"},
+        )
+        assert denied_config.status_code == 403, role
+        denied_reply = await client.post(
+            f"/api/v1/im/threads/{thread['id']}:reply",
+            headers=read_only,
+            json={"text": "越权回复"},
+        )
+        assert denied_reply.status_code == 403, role
+
+    # device.control holders (device_operator, security_admin, system_service) may write.
+    for role in ("device_operator", "security_admin", "system_service"):
+        allowed = await client.put(
+            "/api/v1/im/config",
+            params={"deviceId": device},
+            headers=identity(role=role),
+            json={"enabled": True, "platforms": ["xianyu", "douyin"], "mode": "DUTY",
+                  "dutyStart": "08:00", "dutyEnd": "22:00"},
+        )
+        assert allowed.status_code == 200, (role, allowed.text)
+        assert allowed.json()["platforms"] == ["xianyu", "douyin"]
+
+    approved = await client.post(
+        f"/api/v1/im/threads/{thread['id']}:reply",
+        headers=identity(role="device_operator"),
+        json={"text": "在的"},
+    )
+    assert approved.status_code == 201, approved.text
+    assert approved.json()["taskId"]
+
+    # The denied attempts left no OUT message and no task behind.
+    from cloudctl_api.db import ImMessageRow, MobileTaskRow
+    from sqlalchemy import select
+
+    async with _app.state.database.unit_of_work() as session:
+        outbound = list(
+            await session.scalars(
+                select(ImMessageRow).where(ImMessageRow.thread_id == thread["id"])
+            )
+        )
+        assert [row.direction for row in outbound].count("OUT") == 1
+        tasks = list(await session.scalars(select(MobileTaskRow)))
+        assert len(tasks) == 1

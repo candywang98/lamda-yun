@@ -16,6 +16,7 @@ from cloudctl_api import create_app
 from cloudctl_api.auth import OidcJwtVerifier
 from cloudctl_api.media_store import InMemoryObjectStore
 from cloudctl_api.settings import Settings
+from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec, rsa
 from jwt.algorithms import RSAAlgorithm
@@ -83,6 +84,7 @@ def production_settings(public_key: str) -> Settings:
         s3_endpoint="https://s3.example.test",
         s3_access_key=SecretStr("test-access-key"),
         s3_secret_key=SecretStr("test-secret-key"),
+        wechat_secret_encryption_key=SecretStr(Fernet.generate_key().decode()),
     )
 
 
@@ -137,6 +139,7 @@ async def test_es256_static_public_key_verification() -> None:
         s3_endpoint="https://s3.example.test",
         s3_access_key=SecretStr("test-access-key"),
         s3_secret_key=SecretStr("test-secret-key"),
+        wechat_secret_encryption_key=SecretStr(Fernet.generate_key().decode()),
     )
     app = create_app(settings, object_store=InMemoryObjectStore())
     now = int(time.time())
@@ -373,6 +376,29 @@ def test_production_configuration_is_fail_closed() -> None:
             database_url="sqlite+aiosqlite:///wrong-driver.db",
         )
 
+    # Production must provision the WeChat appSecret encryption key: without it
+    # the cipher degrades to a marked base64 envelope instead of Fernet.
+    with pytest.raises(PydanticValidationError, match="WECHAT_SECRET_ENCRYPTION_KEY is required"):
+        Settings(
+            env="production",
+            repository_mode="postgresql",
+            database_url="postgresql+asyncpg://cloudctl:test@db.example.test/cloudctl",
+            dev_auth_bypass=False,
+            oidc_issuer=ISSUER,
+            oidc_audience=AUDIENCE,
+            oidc_public_key_pem=public_pem(rsa_key()),
+            object_store_mode="s3",
+            s3_endpoint="https://s3.example.test",
+            s3_access_key=SecretStr("test-access-key"),
+            s3_secret_key=SecretStr("test-secret-key"),
+        )
+    # A configured key must be a usable Fernet key in every environment.
+    with pytest.raises(PydanticValidationError, match="valid Fernet key"):
+        Settings(
+            env="test",
+            repository_mode="memory",
+            wechat_secret_encryption_key=SecretStr("not-a-fernet-key"),
+        )
 
 @pytest.mark.asyncio
 async def test_production_startup_does_not_create_schema() -> None:

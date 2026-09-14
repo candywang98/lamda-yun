@@ -22,7 +22,9 @@ from cloudctl_api import create_app
 from cloudctl_api.db import AuditEventRow, WechatAccountRow, WechatDraftRow
 from cloudctl_api.settings import Settings
 from cloudctl_api.wechat_client import WeChatApiError, WeChatTransportError
+from cryptography.fernet import Fernet
 from fastapi import FastAPI
+from pydantic import SecretStr
 from sqlalchemy import select
 from test_control_api_migrations import ALEMBIC_INI, migration_config, table_columns, tables
 
@@ -35,6 +37,8 @@ FOREIGN_USER = "00000000-0000-7000-8000-000000000777"
 
 SECRET_A = "super-secret-appsecret-000001"
 SECRET_B = "super-secret-appsecret-000002"
+SECRET_FERNET_KEY = Fernet.generate_key().decode()
+
 
 WECHAT_REVISION = "20260915_0019"
 WECHAT_PARENT = "20260914_0018"
@@ -137,6 +141,27 @@ async def api() -> AsyncIterator[tuple[httpx.AsyncClient, FastAPI, FakeWeChatTra
         ) as client:
             yield client, app, transport
 
+
+@pytest.fixture
+async def encrypted_api() -> (
+    AsyncIterator[tuple[httpx.AsyncClient, FastAPI, FakeWeChatTransport]]
+):
+    """Same as ``api`` but with a Fernet key so secrets are encrypted at rest."""
+    transport = FakeWeChatTransport()
+    app = create_app(
+        Settings(
+            env="test",
+            repository_mode="memory",
+            dev_auth_bypass=True,
+            wechat_secret_encryption_key=SecretStr(SECRET_FERNET_KEY),
+        ),
+        wechat_transport=transport,
+    )
+    async with app.router.lifespan_context(app):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            yield client, app, transport
 
 async def register_account(
     client: httpx.AsyncClient,
@@ -270,6 +295,66 @@ async def test_account_registration_hides_secret_and_audits(api):
         json={"appId": "wxabcdefabcdefab", "appSecret": SECRET_A, "displayLabel": "越权"},
     )
     assert viewer.status_code == 403
+
+
+async def test_fernet_key_encrypts_secret_at_rest_and_round_trips(encrypted_api):
+    """With a configured key the stored envelope is Fernet, not base64."""
+    client, app, transport = encrypted_api
+    account = await register_account(client)
+
+    cipher = app.state.wechat_publisher_service.cipher
+    assert cipher.encrypted is True
+    assert cipher.key_id.startswith("fernet-")
+
+    async with app.state.database.unit_of_work() as session:
+        row = await session.get(WechatAccountRow, account["id"])
+        assert row is not None
+        assert row.secret_ciphertext.startswith("v1:")
+        assert not row.secret_ciphertext.startswith("dev-b64:")
+        assert SECRET_A not in row.secret_ciphertext
+        assert row.secret_key_id == cipher.key_id
+        # Round trip: the stored envelope decrypts back to the plaintext secret.
+        assert cipher.decrypt(row.secret_ciphertext) == SECRET_A
+
+    # Views keep exposing only the fingerprint and the audit metadata stays clean.
+    assert "appSecret" not in account
+    assert len(account["secretFingerprint"]) == 12
+    assert SECRET_A not in json.dumps(account)
+    events = await audit_actions(app)
+    registered = [e for e in events if e["action"] == "wechat.account.registered"]
+    assert len(registered) == 1
+    assert registered[0]["metadata"]["secretEncryptedAtRest"] is True
+    assert SECRET_A not in json.dumps(events)
+    assert transport.calls == []  # registration never calls the official API
+
+
+async def test_fernet_secret_decrypts_for_official_token_call(encrypted_api):
+    """The official-API flow decrypts the stored envelope to fetch a token."""
+    client, _app, transport = encrypted_api
+    account = await register_account(client)
+    response = await create_draft(
+        client, transport, account["id"], "fernet-token-1", title="Fernet 解密链路"
+    )
+    assert response.status_code == 201, response.text
+    assert transport.count("/cgi-bin/token") == 1
+    assert transport.count("/cgi-bin/draft/add") == 1
+
+
+async def test_without_key_dev_falls_back_to_marked_base64_envelope(api):
+    """Development/test stays runnable without a key, with a marked envelope."""
+    client, app, _transport = api
+    account = await register_account(client)
+
+    cipher = app.state.wechat_publisher_service.cipher
+    assert cipher.encrypted is False
+    assert cipher.key_id == "development-unencrypted"
+
+    async with app.state.database.unit_of_work() as session:
+        row = await session.get(WechatAccountRow, account["id"])
+        assert row is not None
+        assert row.secret_ciphertext.startswith("dev-b64:")
+        assert SECRET_A not in row.secret_ciphertext
+        assert cipher.decrypt(row.secret_ciphertext) == SECRET_A
 
 
 # ----------------------------------------------------------------- drafts

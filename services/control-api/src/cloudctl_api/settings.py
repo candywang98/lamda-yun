@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Literal
 from urllib.parse import urlsplit
 
+from cryptography.fernet import Fernet
 from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -142,6 +143,28 @@ class Settings(BaseSettings):
                 )
             if self.env == "production" and parsed.scheme != "https":
                 raise ValueError(f"executor URL for {operation_key} must use HTTPS in production")
+        # WeChat appSecret material must be Fernet-encrypted at rest. Without a
+        # key the cipher falls back to a marked base64 envelope, which is only
+        # acceptable outside production; a production deployment must provision
+        # the key so the schema guarantee ("stored encrypted at rest") holds.
+        wechat_secret_key = (
+            self.wechat_secret_encryption_key.get_secret_value().strip()
+            if self.wechat_secret_encryption_key is not None
+            else ""
+        )
+        if wechat_secret_key:
+            try:
+                Fernet(wechat_secret_key.encode())
+            except (TypeError, ValueError) as exc:
+                raise ValueError(
+                    "CLOUDCTL_WECHAT_SECRET_ENCRYPTION_KEY must be a valid Fernet key "
+                    "(32 url-safe base64-encoded bytes, e.g. Fernet.generate_key())"
+                ) from exc
+        if self.env == "production" and not wechat_secret_key:
+            raise ValueError(
+                "CLOUDCTL_WECHAT_SECRET_ENCRYPTION_KEY is required in production so "
+                "WeChat appSecret material is encrypted at rest"
+            )
         return self
 
     def resolved_database_url(self) -> str:
