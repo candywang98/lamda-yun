@@ -842,8 +842,18 @@ class ImMessageRow(Base):
     text_content: Mapped[str] = mapped_column(Text, nullable=False)
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     dedupe_key: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
-    reply_task_id: Mapped[str | None] = mapped_column(String(36))
+    reply_task_id: Mapped[str | None] = mapped_column(String(36), index=True)
+    # Delivery truth for operator replies: PENDING until the bound task reaches a
+    # terminal state, then DELIVERED (SUCCEEDED) or FAILED (FAILED/CANCELLED/EXPIRED).
+    # Inbound companion-pushed rows are observed facts and stay DELIVERED.
+    delivery_state: Mapped[str] = mapped_column(String(16), default="DELIVERED", nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    __table_args__ = (
+        CheckConstraint("direction IN ('IN', 'OUT')", name="ck_im_message_direction"),
+        CheckConstraint("content_type IN ('TEXT', 'SYSTEM')", name="ck_im_message_content_type"),
+        CheckConstraint("delivery_state IN ('PENDING', 'DELIVERED', 'FAILED')",
+                        name="ck_im_message_delivery_state"),
+    )
 
 
 class MobileTaskEventRow(Base):
