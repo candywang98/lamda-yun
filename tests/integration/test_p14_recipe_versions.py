@@ -18,7 +18,7 @@ from cloudctl_api.builtin_recipes import builtin_recipe_ref
 from cloudctl_api.db import AuditEventRow, MobileTaskRow, RecipeDeploymentRow
 from cloudctl_api.settings import Settings
 from cloudctl_automation_sdk import package_signature_payload
-from cloudctl_automation_sdk.recipe import canonical_recipe_bytes
+from cloudctl_automation_sdk.recipe import CURRENT_ENGINE_VERSION, canonical_recipe_bytes
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from test_backend_control_api import (
@@ -263,7 +263,9 @@ async def test_atomic_stale_history_and_tenant_permissions(api):
         )
     ).status_code == 403
     assert (
-        await client.post("/api/v1/recipes", headers=DEVELOPER, json=package("4", engine=2))
+        await client.post(
+            "/api/v1/recipes", headers=DEVELOPER, json=package("4", engine=CURRENT_ENGINE_VERSION + 1)
+        )
     ).status_code == 422
 
 

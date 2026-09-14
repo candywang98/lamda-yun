@@ -96,7 +96,10 @@ async def test_real_tls_wss_auth_and_command_forwarding(tmp_path: Path) -> None:
     client_context = ssl.create_default_context(cafile=str(cert_path))
     try:
         async with websockets.asyncio.client.connect(
-            f"wss://localhost:{port}/debug", ssl=client_context, origin="https://studio.example"
+            f"wss://localhost:{port}/debug",
+            ssl=client_context,
+            origin="https://studio.example",
+            proxy=None,
         ) as websocket:
             await websocket.send(
                 json.dumps({"type": "debug.auth", "sessionId": "s1", "token": token})

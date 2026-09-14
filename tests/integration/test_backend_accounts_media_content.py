@@ -449,7 +449,7 @@ async def test_checksum_bound_media_upload_and_derivative_result(
     )
     assert upload_response.status_code == 201, upload_response.text
     upload = upload_response.json()
-    assert upload["uploadUrl"].startswith("memory://uploads/")
+    assert upload["uploadUrl"] == f"/api/v1/media/uploads/{upload['id']}/content"
 
     store = app.state.object_store
     assert isinstance(store, InMemoryObjectStore)
@@ -705,8 +705,9 @@ async def test_saved_product_can_dispatch_text_publish_to_direct_device(
     assert payload["deviceId"] == device_id
     assert payload["tapsPublish"] is False
     assert payload["mobileTask"]["targetPackage"] == "com.taobao.idlefish"
-    assert payload["mobileTask"]["steps"][4]["value"] == "自用闲置，功能正常，支持当面交易"
-    assert payload["mobileTask"]["steps"][5]["value"] == "128"
+    steps = {step["stepId"]: step for step in payload["mobileTask"]["steps"]}
+    assert steps["fill-description"]["value"] == "自用闲置，功能正常，支持当面交易"
+    assert steps["fill-price"]["value"] == "128"
     replay = await client.post(
         f"/api/v1/content/{content_id}:dispatch-xianyu",
         headers={**operator, "Idempotency-Key": "post-dispatch-1"},

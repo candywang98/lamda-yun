@@ -1516,6 +1516,119 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "ImBatchIn": {
+        "additionalProperties": false,
+        "properties": {
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/ImMessageIn"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Messages",
+            "type": "array"
+          }
+        },
+        "required": [
+          "messages"
+        ],
+        "title": "ImBatchIn",
+        "type": "object"
+      },
+      "ImConfigIn": {
+        "additionalProperties": false,
+        "properties": {
+          "dutyEnd": {
+            "default": "23:00",
+            "pattern": "^[0-2][0-9]:[0-5][0-9]$",
+            "title": "Dutyend",
+            "type": "string"
+          },
+          "dutyStart": {
+            "default": "09:00",
+            "pattern": "^[0-2][0-9]:[0-5][0-9]$",
+            "title": "Dutystart",
+            "type": "string"
+          },
+          "enabled": {
+            "default": true,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "mode": {
+            "default": "NOTIFICATION",
+            "pattern": "^(NOTIFICATION|DUTY)$",
+            "title": "Mode",
+            "type": "string"
+          },
+          "platforms": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 4,
+            "minItems": 1,
+            "title": "Platforms",
+            "type": "array"
+          }
+        },
+        "required": [
+          "platforms"
+        ],
+        "title": "ImConfigIn",
+        "type": "object"
+      },
+      "ImMessageIn": {
+        "additionalProperties": false,
+        "properties": {
+          "occurredAt": {
+            "format": "date-time",
+            "title": "Occurredat",
+            "type": "string"
+          },
+          "peerKey": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Peerkey",
+            "type": "string"
+          },
+          "peerName": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Peername",
+            "type": "string"
+          },
+          "text": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "peerKey",
+          "peerName",
+          "text",
+          "occurredAt"
+        ],
+        "title": "ImMessageIn",
+        "type": "object"
+      },
+      "ImReplyIn": {
+        "additionalProperties": false,
+        "properties": {
+          "text": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "ImReplyIn",
+        "type": "object"
+      },
       "InputStep": {
         "additionalProperties": false,
         "properties": {
@@ -2544,6 +2657,7 @@
                   "ui.input": "#/components/schemas/InputStep",
                   "ui.screenshot": "#/components/schemas/ScreenshotStep",
                   "ui.tap": "#/components/schemas/TapStep",
+                  "ui.tapText": "#/components/schemas/TapTextStep",
                   "ui.wait": "#/components/schemas/WaitStep"
                 },
                 "propertyName": "action"
@@ -2554,6 +2668,9 @@
                 },
                 {
                   "$ref": "#/components/schemas/TapStep"
+                },
+                {
+                  "$ref": "#/components/schemas/TapTextStep"
                 },
                 {
                   "$ref": "#/components/schemas/InputStep"
@@ -5376,6 +5493,42 @@
         "title": "TapStep",
         "type": "object"
       },
+      "TapTextStep": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "const": "ui.tapText",
+            "title": "Action",
+            "type": "string"
+          },
+          "stepId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Stepid",
+            "type": "string"
+          },
+          "timeoutMs": {
+            "default": 10000,
+            "maximum": 60000.0,
+            "minimum": 100.0,
+            "title": "Timeoutms",
+            "type": "integer"
+          },
+          "value": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "stepId",
+          "action",
+          "value"
+        ],
+        "title": "TapTextStep",
+        "type": "object"
+      },
       "TargetStateUpdate": {
         "properties": {
           "detail": {
@@ -6983,6 +7136,226 @@
         "summary": "Release Device Lease"
       }
     },
+    "/api/v1/devices/{device_id}/live": {
+      "post": {
+        "operationId": "open_live_api_v1_devices__device_id__live_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Open Live Api V1 Devices  Device Id  Live Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Open Live",
+        "tags": [
+          "live-operator"
+        ]
+      }
+    },
+    "/api/v1/devices/{device_id}/live/{sid}": {
+      "get": {
+        "operationId": "live_status_api_v1_devices__device_id__live__sid__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "title": "Sid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Live Status Api V1 Devices  Device Id  Live  Sid  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Live Status",
+        "tags": [
+          "live-operator"
+        ]
+      }
+    },
+    "/api/v1/devices/{device_id}/live/{sid}:release": {
+      "post": {
+        "operationId": "release_api_v1_devices__device_id__live__sid__release_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "title": "Sid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Release Api V1 Devices  Device Id  Live  Sid  Release Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Release",
+        "tags": [
+          "live-operator"
+        ]
+      }
+    },
+    "/api/v1/devices/{device_id}/live/{sid}:stop": {
+      "post": {
+        "operationId": "stop_api_v1_devices__device_id__live__sid__stop_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "title": "Sid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Stop Api V1 Devices  Device Id  Live  Sid  Stop Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Stop",
+        "tags": [
+          "live-operator"
+        ]
+      }
+    },
+    "/api/v1/devices/{device_id}/live/{sid}:take-control": {
+      "post": {
+        "operationId": "take_control_api_v1_devices__device_id__live__sid__take_control_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "title": "Sid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Take Control Api V1 Devices  Device Id  Live  Sid  Take Control Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Take Control",
+        "tags": [
+          "live-operator"
+        ]
+      }
+    },
     "/api/v1/devices/{device_id}:maintenance": {
       "post": {
         "operationId": "set_device_maintenance_api_v1_devices__device_id__maintenance_post",
@@ -7179,6 +7552,361 @@
           }
         },
         "summary": "Poll Events"
+      }
+    },
+    "/api/v1/im/config": {
+      "get": {
+        "operationId": "get_im_config_api_v1_im_config_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "deviceId",
+            "required": true,
+            "schema": {
+              "title": "Deviceid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Im Config Api V1 Im Config Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Im Config",
+        "tags": [
+          "im-operator"
+        ]
+      },
+      "put": {
+        "operationId": "put_im_config_api_v1_im_config_put",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "deviceId",
+            "required": true,
+            "schema": {
+              "title": "Deviceid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImConfigIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Put Im Config Api V1 Im Config Put",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Im Config",
+        "tags": [
+          "im-operator"
+        ]
+      }
+    },
+    "/api/v1/im/threads": {
+      "get": {
+        "operationId": "list_threads_api_v1_im_threads_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "deviceId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Deviceid"
+            }
+          },
+          {
+            "in": "query",
+            "name": "unread",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Unread",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "After"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Threads Api V1 Im Threads Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Threads",
+        "tags": [
+          "im-operator"
+        ]
+      }
+    },
+    "/api/v1/im/threads/{thread_id}/messages": {
+      "get": {
+        "operationId": "list_messages_api_v1_im_threads__thread_id__messages_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "thread_id",
+            "required": true,
+            "schema": {
+              "title": "Thread Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "After"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Messages Api V1 Im Threads  Thread Id  Messages Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Messages",
+        "tags": [
+          "im-operator"
+        ]
+      }
+    },
+    "/api/v1/im/threads/{thread_id}:mark-read": {
+      "post": {
+        "operationId": "mark_read_api_v1_im_threads__thread_id__mark_read_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "thread_id",
+            "required": true,
+            "schema": {
+              "title": "Thread Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Mark Read Api V1 Im Threads  Thread Id  Mark Read Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Mark Read",
+        "tags": [
+          "im-operator"
+        ]
+      }
+    },
+    "/api/v1/im/threads/{thread_id}:reply": {
+      "post": {
+        "operationId": "reply_api_v1_im_threads__thread_id__reply_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "thread_id",
+            "required": true,
+            "schema": {
+              "title": "Thread Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImReplyIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Reply Api V1 Im Threads  Thread Id  Reply Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reply",
+        "tags": [
+          "im-operator"
+        ]
       }
     },
     "/api/v1/media-groups": {
@@ -11404,6 +12132,74 @@
         "summary": "Enroll",
         "tags": [
           "mobile-companion"
+        ]
+      }
+    },
+    "/companion/v2/im/config": {
+      "get": {
+        "operationId": "companion_im_config_companion_v2_im_config_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Companion Im Config Companion V2 Im Config Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Companion Im Config",
+        "tags": [
+          "im-companion"
+        ]
+      }
+    },
+    "/companion/v2/im/messages": {
+      "post": {
+        "operationId": "push_messages_companion_v2_im_messages_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImBatchIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "integer"
+                  },
+                  "title": "Response Push Messages Companion V2 Im Messages Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Push Messages",
+        "tags": [
+          "im-companion"
         ]
       }
     },

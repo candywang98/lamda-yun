@@ -588,11 +588,6 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         return dispatchStroke(x, y, x + 1f, y, dwellMs)
     }
 
-    private fun shellTap(x: Int, y: Int): Boolean {
-        return runCatching {
-            Runtime.getRuntime().exec(arrayOf("input", "tap", x.toString(), y.toString())).waitFor() == 0
-        }.getOrDefault(false)
-    }
 
     private suspend fun dispatchStroke(x: Float, y: Float, durationMs: Long): Boolean {
         val endX = if (durationMs >= 400L) x + 3f else x
