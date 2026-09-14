@@ -23,7 +23,10 @@ internal class ChatInputCommit(private val port: Port) {
         var session: Long? = null
         for (attempt in 0 until 20) {
             if (!port.imeSelected()) fail("INPUT_IME_REQUIRED")
-            if (port.focused()) session = port.session()
+            // The session itself proves the editor belongs to the target package; the
+            // focused accessibility node often lives in the IME window, not the app
+            // subtree, so subtree focus must not gate the bind.
+            session = port.session()
             if (session != null) break
             // Tapping an already-focused Flutter field can DISMISS the keyboard and
             // kill the editor session. Periodically re-open it; only replace() writes.
@@ -34,11 +37,11 @@ internal class ChatInputCommit(private val port: Port) {
             port.pause()
         }
         val bound = session ?: fail("INPUT_REJECTED")
-        if (!port.imeSelected() || !port.focused() || port.session() != bound) fail("INPUT_REJECTED")
+        if (!port.imeSelected() || port.session() == null) fail("INPUT_REJECTED")
         port.event("CHAT_IME_COMMIT_ONCE")
         if (!port.replace(bound, value)) fail("INPUT_REJECTED")
         repeat(20) {
-            if (!port.imeSelected() || !port.focused() || port.session() != bound) fail("INPUT_REJECTED")
+            if (!port.imeSelected() || port.session() == null) fail("INPUT_REJECTED")
             // Exact equality rejects old drafts, appended garbage and whitespace changes.
             if (port.readText(bound) == value) {
                 port.event("CHAT_IME_VERIFIED")

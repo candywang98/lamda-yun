@@ -32,7 +32,7 @@ class ChatInputCommitTest {
             onWrite()
             return acknowledged
         }
-        override fun readText(session: Long) = actual
+        override fun readText(session: Long) = actual?.takeIf { session == token }
         override fun event(code: String) { events += code }
         override suspend fun pause() { pauses++; onPause() }
     }
@@ -70,10 +70,12 @@ class ChatInputCommitTest {
         assertEquals(0, fake.writes)
     }
 
-    @Test fun missingComposerFocusNeverWrites() = runBlocking {
+    @Test fun subtreeFocusInImeWindowStillBindsSession() = runBlocking {
+        // The focused accessibility node lives in the IME window on device; the
+        // package-scoped session is the bind guarantee, not subtree focus.
         val fake = Fake().apply { focus = false }
-        rejected(fake)
-        assertEquals(0, fake.writes)
+        ChatInputCommit(fake).execute("reply")
+        assertEquals(1, fake.writes)
     }
 
     @Test fun cancelledGestureNeverWrites() = runBlocking {
@@ -115,8 +117,9 @@ class ChatInputCommitTest {
         assertEquals(1, fake.writes)
     }
 
-    @Test fun lostFocusCannotConfirmCommit() = runBlocking {
-        rejected(Fake().apply { onWrite = { focus = false } })
+    @Test fun endedSessionCannotConfirmCommit() = runBlocking {
+        // Leaving the editor kills the session: no live connection, no confirmation.
+        rejected(Fake().apply { onWrite = { token = null } })
     }
 
     @Test fun imeSwitchWhileWaitingFailsBeforeWrite() = runBlocking {
