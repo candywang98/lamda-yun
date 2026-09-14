@@ -3,6 +3,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
+import pytest
 from alembic import command
 from alembic.config import Config
 
@@ -234,3 +235,73 @@ def test_upgrade_and_downgrade_preserve_legacy_operation_rows(tmp_path: Path) ->
     command.downgrade(config, "base")
     with sqlite3.connect(database_path) as connection:
         assert tables(connection) <= {"alembic_version"}
+
+
+def test_im_message_delivery_state_backfills_and_downgrades(tmp_path: Path) -> None:
+    """20260915_0020: old im_message rows become DELIVERED; up/down is symmetric."""
+    database_path = tmp_path / "im-delivery-migrations.db"
+    config = migration_config(database_path)
+    command.upgrade(config, "20260915_0019")
+
+    with sqlite3.connect(database_path) as connection:
+        connection.execute(
+            """
+            INSERT INTO im_thread (
+                id, tenant_id, device_id, platform, peer_key, peer_name,
+                last_message_at, last_direction, unread_count, created_at, updated_at
+            ) VALUES (
+                '00000000-0000-7000-8000-000000009001',
+                '00000000-0000-7000-8000-000000009002',
+                '00000000-0000-7000-8000-000000009003',
+                'xianyu', 'buyer_legacy', 'buyer_legacy',
+                '2026-09-14 10:00:00+00:00', 'OUT', 0,
+                '2026-09-14 10:00:00+00:00', '2026-09-14 10:00:00+00:00'
+            )
+            """
+        )
+        for number, direction in ((1, "IN"), (2, "OUT")):
+            connection.execute(
+                """
+                INSERT INTO im_message (
+                    id, tenant_id, thread_id, direction, content_type, text_content,
+                    occurred_at, dedupe_key, reply_task_id, created_at
+                ) VALUES (?, '00000000-0000-7000-8000-000000009002',
+                          '00000000-0000-7000-8000-000000009001', ?, 'TEXT', ?,
+                          '2026-09-14 10:00:00+00:00', ?, NULL,
+                          '2026-09-14 10:00:00+00:00')
+                """,
+                (
+                    f"00000000-0000-7000-8000-00000000901{number}",
+                    direction,
+                    f"legacy-{number}",
+                    f"legacy-dedupe-{number}",
+                ),
+            )
+        connection.commit()
+
+    command.upgrade(config, "head")
+    with sqlite3.connect(database_path) as connection:
+        assert "delivery_state" in table_columns(connection, "im_message")
+        states = connection.execute(
+            "SELECT direction, delivery_state FROM im_message ORDER BY id"
+        ).fetchall()
+        # Conservative backfill: pre-migration rows are treated as delivered.
+        assert states == [("IN", "DELIVERED"), ("OUT", "DELIVERED")]
+        with pytest.raises(sqlite3.IntegrityError):
+            connection.execute(
+                "UPDATE im_message SET delivery_state = 'LOST' WHERE direction = 'OUT'"
+            )
+        indexes = {
+            name
+            for (name,) in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'im_message'"
+            ).fetchall()
+        }
+        assert "ix_im_message_reply_task_id" in indexes
+
+    command.downgrade(config, "20260915_0019")
+    with sqlite3.connect(database_path) as connection:
+        assert "delivery_state" not in table_columns(connection, "im_message")
+        assert connection.execute("SELECT count(*) FROM im_message").fetchone() == (2,)
+
+    command.upgrade(config, "head")

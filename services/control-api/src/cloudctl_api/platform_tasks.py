@@ -145,6 +145,13 @@ def _canonical(value: object) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
 
+async def _settle_reply_delivery(session: Any, task_id: str, business_state: str) -> None:
+    """Forward terminal task state to the bound IM reply OUT message."""
+    from .im_service import settle_reply_delivery
+
+    await settle_reply_delivery(session, task_id, business_state)
+
+
 def _probe_steps() -> list[dict[str, Any]]:
     return [
         {
@@ -305,6 +312,7 @@ class PlatformTaskService:
                 row.completed_at = now
                 row.lease_id = None
                 row.lease_expires_at = None
+                await _settle_reply_delivery(session, row.id, "CANCELLED")
             else:
                 row.business_state = "CANCEL_REQUESTED"
                 row.stall_reason = reason
@@ -421,6 +429,7 @@ class PlatformTaskService:
                     "platformItemId": request.platform_item_id,
                 }
                 row.reconciliation = {"status": "APPLIED", "history": history}
+                await _settle_reply_delivery(session, row.id, "SUCCEEDED")
                 return self._business_view(row)
             row.status = "FAILED"
             row.business_state = "FAILED"
@@ -428,6 +437,7 @@ class PlatformTaskService:
             row.detail = request.evidence
             row.completed_at = now
             row.reconciliation = {"status": "NOT_SUBMITTED", "history": history}
+            await _settle_reply_delivery(session, row.id, "FAILED")
             return self._business_view(row)
 
     async def pause(self, actor: Actor, task_id: str, reason: str) -> dict[str, Any]:

@@ -607,6 +607,9 @@ class ControlService:
             task.completed_at = now
             task.lease_id = None
             task.lease_expires_at = None
+            from .im_service import settle_reply_delivery
+
+            await settle_reply_delivery(session, task.id, "FAILED")
         open_plans = list(
             await session.scalars(
                 select(PublishPlanRow)

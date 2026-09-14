@@ -806,6 +806,9 @@ class MobileTaskService:
                     candidate.completed_at = now
                     candidate.lease_id = None
                     candidate.lease_expires_at = None
+                    from .im_service import settle_reply_delivery
+
+                    await settle_reply_delivery(session, candidate.id, "FAILED")
                     continue
                 row = candidate
                 break
@@ -1008,6 +1011,10 @@ class MobileTaskService:
             row.status, row.result, row.error_code, row.detail = status, result, error_code, detail
             row.business_state = RUNNER_TO_BUSINESS.get(status, status)
             row.completed_at, row.lease_expires_at = _now(), None
+            # Reply OUT messages follow the task terminal state (idempotent).
+            from .im_service import settle_reply_delivery
+
+            await settle_reply_delivery(session, row.id, row.business_state)
             lease = await session.get(DeviceLeaseRow, binding.device_id, with_for_update=True)
             if lease is not None and lease.lease_id == row.lease_id:
                 lease.canceled_at = row.completed_at

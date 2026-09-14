@@ -26,6 +26,41 @@ REPLY_COOLDOWN = timedelta(seconds=60)
 
 REPLY_STEPS_PACKAGE = "com.taobao.idlefish"
 
+# Terminal business state -> delivery state of the OUT message bound to the task.
+# DELIVERED is absorbing: once a reply is confirmed delivered it is never
+# downgraded, so a late/duplicated failure report cannot retract a sent message.
+TASK_TERMINAL_DELIVERY = {
+    "SUCCEEDED": "DELIVERED",
+    "FAILED": "FAILED",
+    "CANCELLED": "FAILED",
+    "CANCELED": "FAILED",
+    "EXPIRED": "FAILED",
+}
+
+
+async def settle_reply_delivery(session: Any, task_id: str, business_state: str) -> None:
+    """Idempotently settle the OUT im_message bound to a terminal reply task.
+
+    Called from every server-side path that writes a terminal task state
+    (companion complete/fail, operator cancel, reconciliation). Repeated reports
+    of the same terminal state are no-ops; a FAILED/CANCELLED/EXPIRED report
+    never overwrites DELIVERED.
+    """
+    target = TASK_TERMINAL_DELIVERY.get(business_state)
+    if target is None:
+        return
+    rows = list(
+        await session.scalars(
+            select(ImMessageRow)
+            .where(ImMessageRow.reply_task_id == task_id)
+            .with_for_update()
+        )
+    )
+    for row in rows:
+        if row.delivery_state == "DELIVERED":
+            continue
+        row.delivery_state = target
+
 
 def _dedupe_key(device_id: str, peer_key: str, occurred_at: datetime, text: str) -> str:
     bucket = int(occurred_at.timestamp())
@@ -55,6 +90,7 @@ def _message_view(row: ImMessageRow) -> dict[str, Any]:
         "text": row.text_content,
         "occurredAt": row.occurred_at,
         "replyTaskId": row.reply_task_id,
+        "deliveryState": row.delivery_state,
     }
 
 
@@ -200,6 +236,8 @@ class ImService:
                         text_content=text,
                         occurred_at=occurred,
                         dedupe_key=key,
+                        # Inbound push is an observed fact on the device.
+                        delivery_state="DELIVERED",
                         created_at=now,
                     )
                 )
@@ -328,6 +366,8 @@ class ImService:
                     occurred_at=now,
                     dedupe_key=hashlib.sha256(f"out|{task_view['id']}".encode()).hexdigest(),
                     reply_task_id=task_view["id"],
+                    # Dispatched, not yet delivered: settled when the task ends.
+                    delivery_state="PENDING",
                     created_at=now,
                 )
             )
