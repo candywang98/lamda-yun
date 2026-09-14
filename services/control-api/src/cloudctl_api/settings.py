@@ -58,6 +58,12 @@ class Settings(BaseSettings):
     operation_executor_timeout_seconds: float = Field(default=15.0, ge=1.0, le=120.0)
     automation_signing_public_keys: dict[str, str] = Field(default_factory=dict)
     automation_rollout_max_failure_rate: float = Field(default=0.02, ge=0.0, le=0.25)
+    wechat_api_base_url: str = Field(
+        default="https://api.weixin.qq.com", min_length=8, max_length=512
+    )
+    wechat_http_timeout_seconds: float = Field(default=10.0, ge=1.0, le=60.0)
+    wechat_token_expiry_margin_seconds: int = Field(default=120, ge=30, le=600)
+    wechat_secret_encryption_key: SecretStr | None = None
     apk_analysis_public_keys: dict[str, str] = Field(default_factory=dict)
     apk_denied_permissions: list[str] = Field(
         default_factory=lambda: [
