@@ -48,6 +48,16 @@ data class ImMonitorConfig(
         const val PLATFORM_DOUYIN = "douyin"
         const val PLATFORM_WECHAT = "wechat"
 
+        /**
+         * DM-like channels only for platforms whose push feed also notifies;
+         * Xianyu DM notifications carry no distinguishing channel (all accepted).
+         */
+        fun isChannelAllowed(platform: String, channelId: String?): Boolean {
+            if (platform == PLATFORM_XIANYU) return true
+            val id = channelId?.lowercase() ?: return false
+            return listOf("message", "msg", "im", "chat", "私信").any { it in id }
+        }
+
         /** Platform key by notification package. */
         fun platformOfPackage(pkg: String): String? = when (pkg) {
             "com.taobao.idlefish" -> PLATFORM_XIANYU

@@ -75,6 +75,9 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
             ?: "").trim()
         if (title.isEmpty() || text.isEmpty()) return
         val platform = com.company.cloudctl.companion.im.ImMonitorConfig.platformOfPackage(pkg) ?: return
+        if (!com.company.cloudctl.companion.im.ImMonitorConfig.isChannelAllowed(
+                platform, notification.channelId)
+        ) return
         val deviceId = runCatching {
             val raw = getSharedPreferences("cloudctl_binding", android.content.Context.MODE_PRIVATE)
                 .getString("binding", null) ?: return

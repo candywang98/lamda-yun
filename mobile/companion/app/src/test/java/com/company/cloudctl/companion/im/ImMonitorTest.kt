@@ -61,6 +61,16 @@ class ImMonitorTest {
     }
 
     @Test
+    fun channelFilterBlocksFeedPushesForNonXianyuPlatforms() {
+        assertTrue(ImMonitorConfig.isChannelAllowed("xianyu", null))
+        assertTrue(ImMonitorConfig.isChannelAllowed("xianyu", "anything"))
+        assertTrue(ImMonitorConfig.isChannelAllowed("xhs", "message_push"))
+        assertFalse(ImMonitorConfig.isChannelAllowed("xhs", "push_oplus_category_content"))
+        assertFalse(ImMonitorConfig.isChannelAllowed("douyin", "pre84"))
+        assertFalse(ImMonitorConfig.isChannelAllowed("wechat", null))
+    }
+
+    @Test
     fun dedupeKeyBindsPlatform() {
         val a = event().dedupeKey("device-1")
         assertFalse(a == ImEvent("xhs", "buyer", "在吗", Instant.ofEpochSecond(1_800_000_000)).dedupeKey("device-1"))
