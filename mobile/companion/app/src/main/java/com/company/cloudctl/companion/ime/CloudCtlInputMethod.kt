@@ -2,6 +2,7 @@ package com.company.cloudctl.companion.ime
 
 import android.content.Context
 import android.inputmethodservice.InputMethodService
+import android.os.Looper
 import android.provider.Settings
 import android.util.Log
 import android.view.View
@@ -9,14 +10,12 @@ import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
 import android.view.inputmethod.InputMethodManager
 import android.widget.FrameLayout
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
-/**
- * Signed, companion-owned IME used only to commit automation text into Flutter fields
- * that ignore accessibility ACTION_SET_TEXT.
- */
+/** Companion-owned IME. Text requests never survive an input session or a failed call. */
 class CloudCtlInputMethod : InputMethodService() {
-    @Volatile
-    private var pendingText: String? = null
+    private var session: Long? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -25,9 +24,9 @@ class CloudCtlInputMethod : InputMethodService() {
     }
 
     override fun onDestroy() {
+        session = null
         if (active === this) active = null
         super.onDestroy()
-        Log.i(TAG, "IME destroyed")
     }
 
     override fun onCreateInputView(): View = FrameLayout(this).apply {
@@ -37,72 +36,68 @@ class CloudCtlInputMethod : InputMethodService() {
 
     override fun onStartInput(attribute: EditorInfo?, restarting: Boolean) {
         super.onStartInput(attribute, restarting)
-        flushPending()
+        session = ++generation
+        Log.i(TAG, "IME_SESSION_STARTED session=$session restarting=$restarting")
     }
 
-    override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
-        super.onStartInputView(info, restarting)
-        flushPending()
-    }
-
-    override fun onWindowShown() {
-        super.onWindowShown()
-        flushPending()
-    }
-
-    fun commitNow(text: String): Boolean {
-        pendingText = text
-        return flushPending()
-    }
-
-    private fun flushPending(): Boolean {
-        val text = pendingText ?: return currentInputConnection != null
-        val connection = currentInputConnection ?: return false
-        connection.finishComposingText()
-        connection.beginBatchEdit()
-        runCatching { connection.performContextMenuAction(android.R.id.selectAll) }
-        connection.deleteSurroundingText(10_000, 10_000)
-        val committed = connection.commitText(text, 1)
-        connection.endBatchEdit()
-        if (committed) {
-            pendingText = null
-            Log.i(TAG, "IME committed ${text.length} chars")
-        } else {
-            Log.w(TAG, "IME commitText returned false")
-        }
-        return committed
+    override fun onFinishInput() {
+        session = null
+        Log.i(TAG, "IME_SESSION_FINISHED")
+        super.onFinishInput()
     }
 
     companion object {
         private const val TAG = "CloudCtlIme"
+        private var generation = 0L
 
         @Volatile
         var active: CloudCtlInputMethod? = null
             private set
 
-        // Android 14 forbids Settings.Secure ENABLED_INPUT_METHODS reads for targetSdk 34+,
-        // so resolve enabled state through the public InputMethodManager list.
         fun isEnabled(context: Context): Boolean {
             val manager = context.getSystemService(InputMethodManager::class.java) ?: return false
-            return manager.enabledInputMethodList.any { it.packageName == context.packageName }
+            return manager.enabledInputMethodList.any { it.id in ImeAvailability.candidates(context.packageName) }
         }
 
         fun isSelected(context: Context): Boolean {
             val selected = runCatching {
                 Settings.Secure.getString(context.contentResolver, Settings.Secure.DEFAULT_INPUT_METHOD)
-            }.getOrNull() ?: return active != null
-            return ImeAvailability.listed(selected, context.packageName)
+            }.getOrNull() ?: return false
+            return selected in ImeAvailability.candidates(context.packageName)
         }
 
         fun isCurrent(context: Context): Boolean = isSelected(context) && active != null
 
         fun hasInputConnection(): Boolean = active?.currentInputConnection != null
 
-        fun requestCommit(text: String): Boolean {
-            val ime = active ?: return false
-            val connection: InputConnection = ime.currentInputConnection ?: return false
-            Log.i(TAG, "IME requestCommit chars=${text.length} connection=${connection.javaClass.simpleName}")
-            return ime.commitNow(text)
+        // Chat calls run on Main, serialized with IME lifecycle callbacks.
+        internal fun chatSession(targetPackage: String): Long? {
+            check(Looper.myLooper() == Looper.getMainLooper())
+            val ime = active ?: return null
+            if (!isSelected(ime) || ime.currentInputEditorInfo == null ||
+                ime.currentInputEditorInfo?.packageName != targetPackage || ime.currentInputConnection == null
+            ) return null
+            return ime.session
+        }
+
+        private fun chatConnection(targetPackage: String, session: Long): InputConnection? =
+            if (chatSession(targetPackage) == session) active?.currentInputConnection else null
+
+        internal fun replaceChatText(targetPackage: String, session: Long, text: String): Boolean {
+            val connection = chatConnection(targetPackage, session) ?: return false
+            return runCatching { ImeTextReplacement.replace(connection, text) }.getOrDefault(false)
+        }
+
+        internal fun readChatText(targetPackage: String, session: Long): String? {
+            val connection = chatConnection(targetPackage, session) ?: return null
+            return runCatching { ImeTextReplacement.read(connection) }.getOrNull()
+        }
+
+        suspend fun requestCommit(text: String): Boolean = withContext(Dispatchers.Main.immediate) {
+            val ime = active ?: return@withContext false
+            if (!isSelected(ime) || ime.currentInputEditorInfo == null) return@withContext false
+            val connection = ime.currentInputConnection ?: return@withContext false
+            runCatching { ImeTextReplacement.replace(connection, text) }.getOrDefault(false)
         }
     }
 }

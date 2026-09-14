@@ -246,12 +246,15 @@ private fun StatusContent(state: CompanionState, model: CompanionViewModel) {
         if (!state.permissions.inputMethodEnabled || !state.permissions.inputMethodCurrent) {
             KeepAlivePrompt(
                 title = if (!state.permissions.inputMethodEnabled) "自动化输入法未启用" else "自动化输入法未设为当前键盘",
-                detail = "闲鱼描述框是 Flutter，无障碍写不进去。请启用 CloudCtl Input，并在发布任务期间把它设为当前输入法。",
+                detail = "闲鱼发布与聊天回复需要 CloudCtl Input。未选中时，聊天回复将安全停止。",
                 action = "去设置",
                 onClick = {
-                    context.startActivity(
-                        Intent(Settings.ACTION_INPUT_METHOD_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                    )
+                    if (state.permissions.inputMethodEnabled) {
+                        context.getSystemService(android.view.inputmethod.InputMethodManager::class.java)
+                            ?.showInputMethodPicker()
+                    } else {
+                        context.startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
+                    }
                 },
             )
         }
@@ -393,9 +396,12 @@ private fun EnvironmentStatus(state: CompanionState, model: CompanionViewModel) 
         if (!state.permissions.inputMethodEnabled || !state.permissions.inputMethodCurrent) {
             Button(
                 onClick = {
-                    context.startActivity(
-                        Intent(Settings.ACTION_INPUT_METHOD_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                    )
+                    if (state.permissions.inputMethodEnabled) {
+                        context.getSystemService(android.view.inputmethod.InputMethodManager::class.java)
+                            ?.showInputMethodPicker()
+                    } else {
+                        context.startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
+                    }
                 },
                 modifier = Modifier.fillMaxWidth(),
             ) {
