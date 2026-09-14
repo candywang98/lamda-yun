@@ -274,6 +274,33 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         }
     }.getOrDefault(false)
 
+    override suspend fun dismissBlockedDialog(targetPackage: String): String? =
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main.immediate) {
+            if (BlockedDialogRegistry.rules(targetPackage).isEmpty() || !isTargetForeground(targetPackage)) {
+                return@withContext null
+            }
+            // Only the active target window: never combine title/buttons across windows.
+            val root = rootInActiveWindow ?: return@withContext null
+            if (root.packageName?.toString() != targetPackage) return@withContext null
+            val nodes = findNodes(root) { it.packageName?.toString() == targetPackage }
+            val match = BlockedDialogRegistry.match(targetPackage, nodes.map { node ->
+                BlockedDialogRegistry.Node(
+                    text = node.text?.toString(),
+                    description = node.contentDescription?.toString(),
+                    visible = node.isVisibleToUser,
+                    enabled = node.isEnabled,
+                    clickable = node.isClickable,
+                )
+            }) ?: return@withContext null
+            ensureReady(targetPackage)
+            if (rootInActiveWindow?.windowId != root.windowId) return@withContext null
+            // One dispatchGesture only; an unconfirmed tap fails closed, with no action fallback.
+            if (!gestureClick(nodes[match.nodeIndex])) {
+                throw ExecutorFailure("NAV_RESET_FAILED", "Recovery dialog gesture was not confirmed")
+            }
+            match.label
+        }
+
     override suspend fun goBack() {
         performGlobalAction(GLOBAL_ACTION_BACK)
         delay(NAV_SETTLE_MS)
