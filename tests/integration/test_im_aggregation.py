@@ -173,3 +173,40 @@ async def test_reply_rejects_busy_device_and_invalid_schema(api):  # noqa: F811
         },
     )
     assert long_value.status_code == 422
+
+
+async def test_monitor_config_crud_and_companion_fetch(api):  # noqa: F811
+    client, _app = api
+    device = await create_direct_device(client, "im-cfg-dev")
+    auth = await _enroll(client, device, "im-cfg-instance")
+
+    default = await client.get(
+        "/api/v1/im/config", params={"deviceId": device}, headers=identity()
+    )
+    assert default.status_code == 200
+    assert default.json()["platforms"] == ["xianyu"]
+    assert default.json()["mode"] == "NOTIFICATION"
+
+    saved = await client.put(
+        "/api/v1/im/config",
+        params={"deviceId": device},
+        headers=identity(),
+        json={"enabled": True, "platforms": ["xianyu", "xhs", "douyin"],
+              "mode": "DUTY", "dutyStart": "08:30", "dutyEnd": "22:00"},
+    )
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["platforms"] == ["xianyu", "xhs", "douyin"]
+    assert saved.json()["mode"] == "DUTY"
+
+    companion = await client.get("/companion/v2/im/config", headers=auth)
+    assert companion.status_code == 200
+    assert set(companion.json()["platforms"]) == {"xianyu", "xhs", "douyin"}
+    assert companion.json()["dutyStart"] == "08:30"
+
+    bad_platform = await client.put(
+        "/api/v1/im/config",
+        params={"deviceId": device},
+        headers=identity(),
+        json={"platforms": ["taobao"]},
+    )
+    assert bad_platform.status_code in (409, 422)

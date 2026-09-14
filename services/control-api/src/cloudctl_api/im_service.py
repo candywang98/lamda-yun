@@ -14,7 +14,7 @@ from typing import Any
 from cloudctl_domain import ConflictError, NotFoundError
 from sqlalchemy import select
 
-from .db import ImMessageRow, ImThreadRow, MobileTaskRow
+from .db import ImMessageRow, ImMonitorConfigRow, ImThreadRow, MobileTaskRow
 from .mobile_schemas import MobileTaskCreate
 from .mobile_service import MobileTaskService, _now
 
@@ -62,6 +62,77 @@ class ImService:
     def __init__(self, mobile: MobileTaskService) -> None:
         self.mobile = mobile
         self.database = mobile.database
+
+
+    ALLOWED_PLATFORMS = {"xianyu", "xhs", "douyin", "wechat"}
+
+    async def get_config(self, actor: Any, device_id: str) -> dict[str, Any]:
+        async with self.database.unit_of_work() as session:
+            row = await session.get(ImMonitorConfigRow, device_id)
+            if row is not None and row.tenant_id != str(actor.tenant_id):
+                raise NotFoundError("device was not found")
+            return self._config_view(row, device_id)
+
+    async def companion_config(self, binding_row: Any) -> dict[str, Any]:
+        async with self.database.unit_of_work() as session:
+            row = await session.get(ImMonitorConfigRow, binding_row.device_id)
+            return self._config_view(row, binding_row.device_id)
+
+    async def upsert_config(self, actor: Any, device_id: str, body: dict[str, Any]) -> dict[str, Any]:
+        platforms = body.get("platforms") or ["xianyu"]
+        if not isinstance(platforms, list) or not platforms:
+            raise ConflictError("platforms must be a non-empty list")
+        if len(platforms) > len(self.ALLOWED_PLATFORMS) or any(
+            item not in self.ALLOWED_PLATFORMS for item in platforms
+        ):
+            raise ConflictError("platforms contains an unsupported value")
+        mode = body.get("mode", "NOTIFICATION")
+        if mode not in ("NOTIFICATION", "DUTY"):
+            raise ConflictError("mode is invalid")
+        duty_start = self._validate_clock(body.get("dutyStart", "09:00"))
+        duty_end = self._validate_clock(body.get("dutyEnd", "23:00"))
+        enabled = bool(body.get("enabled", True))
+        now = _now()
+        async with self.database.unit_of_work() as session:
+            from .db import DeviceRow
+
+            found = await session.get(DeviceRow, device_id)
+            if found is None or found.tenant_id != str(actor.tenant_id):
+                raise NotFoundError("device was not found")
+            row = await session.get(ImMonitorConfigRow, device_id, with_for_update=True)
+            if row is None:
+                row = ImMonitorConfigRow(
+                    device_id=device_id, tenant_id=str(actor.tenant_id), platforms=platforms,
+                    mode=mode, duty_start=duty_start, duty_end=duty_end, enabled=enabled,
+                    updated_at=now, updated_by=str(actor.user_id),
+                )
+                session.add(row)
+            else:
+                row.platforms = platforms
+                row.mode = mode
+                row.duty_start = duty_start
+                row.duty_end = duty_end
+                row.enabled = enabled
+                row.updated_at = now
+                row.updated_by = str(actor.user_id)
+            return self._config_view(row, device_id)
+
+    @staticmethod
+    def _validate_clock(value: str) -> str:
+        import re as _re
+
+        if not _re.fullmatch(r"[0-2][0-9]:[0-5][0-9]", value or ""):
+            raise ConflictError("duty window is invalid")
+        return value
+
+    @staticmethod
+    def _config_view(row, device_id: str) -> dict[str, Any]:
+        if row is None:
+            return {"deviceId": device_id, "enabled": True, "platforms": ["xianyu"],
+                    "mode": "NOTIFICATION", "dutyStart": "09:00", "dutyEnd": "23:00", "updatedAt": None}
+        return {"deviceId": row.device_id, "enabled": row.enabled, "platforms": row.platforms,
+                "mode": row.mode, "dutyStart": row.duty_start, "dutyEnd": row.duty_end,
+                "updatedAt": row.updated_at}
 
     async def ingest(self, binding_row: Any, items: list[dict[str, Any]]) -> dict[str, int]:
         if not 1 <= len(items) <= MAX_BATCH:

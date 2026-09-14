@@ -816,6 +816,22 @@ class ImThreadRow(Base):
     __table_args__ = (UniqueConstraint("tenant_id", "device_id", "peer_key", name="uq_im_thread_peer"),)
 
 
+class ImMonitorConfigRow(Base):
+    __tablename__ = "im_monitor_config"
+    device_id: Mapped[str] = mapped_column(String(36), ForeignKey("device.id"), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(36), index=True, nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    platforms: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False)
+    mode: Mapped[str] = mapped_column(String(16), default="NOTIFICATION", nullable=False)
+    duty_start: Mapped[str] = mapped_column(String(5), default="09:00", nullable=False)
+    duty_end: Mapped[str] = mapped_column(String(5), default="23:00", nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_by: Mapped[str] = mapped_column(String(36), nullable=False)
+    __table_args__ = (
+        CheckConstraint("mode IN ('NOTIFICATION', 'DUTY')", name="ck_im_monitor_mode"),
+    )
+
+
 class ImMessageRow(Base):
     __tablename__ = "im_message"
     id: Mapped[str] = mapped_column(String(36), primary_key=True)

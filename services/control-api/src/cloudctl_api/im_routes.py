@@ -98,3 +98,32 @@ async def mark_read(thread_id: str, actor: ActorDep, im: Service) -> dict[str, A
 @operator_router.post("/threads/{thread_id}:reply", status_code=status.HTTP_201_CREATED)
 async def reply(thread_id: str, body: ImReplyIn, actor: ActorDep, im: Service) -> dict[str, Any]:
     return await im.reply(actor, thread_id, body.text)
+
+
+class ImConfigIn(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    enabled: bool = True
+    platforms: list[str] = Field(min_length=1, max_length=4)
+    mode: str = Field(default="NOTIFICATION", pattern="^(NOTIFICATION|DUTY)$")
+    duty_start: str = Field(default="09:00", alias="dutyStart", pattern=r"^[0-2][0-9]:[0-5][0-9]$")
+    duty_end: str = Field(default="23:00", alias="dutyEnd", pattern=r"^[0-2][0-9]:[0-5][0-9]$")
+
+
+@operator_router.get("/config")
+async def get_im_config(actor: ActorDep, im: Service, device_id: str = Query(alias="deviceId")) -> dict[str, Any]:
+    return await im.get_config(actor, device_id)
+
+
+@operator_router.put("/config")
+async def put_im_config(
+    body: ImConfigIn, actor: ActorDep, im: Service, device_id: str = Query(alias="deviceId")
+) -> dict[str, Any]:
+    return await im.upsert_config(actor, device_id, {
+        "enabled": body.enabled, "platforms": body.platforms, "mode": body.mode,
+        "dutyStart": body.duty_start, "dutyEnd": body.duty_end,
+    })
+
+
+@companion_router.get("/config")
+async def companion_im_config(binding_row: BindingDep, im: Service) -> dict[str, Any]:
+    return await im.companion_config(binding_row)
