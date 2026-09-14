@@ -69,3 +69,23 @@
 **运行前提（产品语义，非缺陷）**：IM 自动回复任务要求 CloudCtl Input 为当前输入法（应用内会引导选择；未选中时任务 INPUT_IME_REQUIRED 安全失败，零副作用）。验收后已把设备输入法恢复为搜狗。
 
 缺口 1 就此关闭；其余缺口（OUT 消息行回撤、值班锚点定位、三项行为级验证、完整对抗审查）不变。
+
+## 七、追加第二轮（2026-09-14 深夜）：行为级验证、缺口批量关闭
+
+并行推进（4 写入子智能体 + 2 拆分审查员 + 控制器真机验证），集成 HEAD 推进至本次收尾提交：
+
+| 事项 | 结果 |
+|---|---|
+| **正文回填闭环**（缺口4之一） | ✅ 真机通过：闲鱼全页文本仅走 content-desc（node.text 全空，JVM 测不出的真机事实）；气泡=可滚动列表内 clickable 节点；坐标从列表 bounds 派生（键盘压缩场景实测）。任务后 1 次下拉即读到对方消息，云端 IN 新行=「这个多少钱」（lucas 真实文本）。attempt=1 inbound=true queued=true |
+| **监控配置行为级验证**（缺口4之一） | ✅ DUTY 值班内：tick 每 45s、锚点优先、坐标兜底打点（DUTY_NAV_COORD_FALLBACK）、未落地告警、零误输入；值班外（03:00-04:00）：40 秒完全静默；已恢复 NOTIFICATION |
+| **值班导航锚点化**（缺口3） | ✅ agent/duty-anchor：DutyMessageListNav 锚点优先+有界坐标兜底+前台校验；真机聊天页场景实证锚点缺失时安全兜底 |
+| **失败回复 OUT 行回撤**（缺口2） | ✅ agent/im-out-retract：im_message.delivery_state（PENDING/DELIVERED/FAILED，DB CHECK），任务终态幂等单向联动，历史回填 DELIVERED，迁移 0020；574 passed |
+| **完整对抗审查**（缺口5） | ✅ 拆分两路完成：Android 五项全过（可部署）；后端/Web 发现 2 应修——均已由 agent/im-route-permissions 修复（IM 写端点服务端 device.control 权限 403 矩阵实测；appSecret 生产 Fernet 强制+测试覆盖），579 passed |
+| 缺陷期垃圾数据清理 | ✅ 生产库删除 2 条回填垃圾（语音按钮/系统提示）+ 2 个营销推送假线程；lucas 线程仅存真实数据 |
+
+**新发现缺口（登记待办）**：
+1. **闲鱼营销推送制造假会话**：广告推送（「全场支持验货保真…」「附近上新…」）经通知通道进入 im_thread 成为假 peer——8985945 的 DM 过滤对闲鱼放行全部通道。需要按通知渠道/标题模式过滤闲鱼非私信推送（服务端或 Android 侧）。
+2. 值班导航从内页（如聊天页）出发时锚点必然缺失，应先有限次返回再找锚点（当前安全兜底但导航不生效）。
+3. MediaStore upsert 去重的真机行为级验证仍未做（需媒体导出任务，未在本轮窗口）。
+4. 审查建议：气泡读取整树兜底加文本黑名单；固定坐标加分辨率守卫（换机失效表现为静默失败）；:mark-read 是否收紧另议。
+5. 公众号 publisher 部署：用户已明确搁置（含 CLOUDCTL_WECHAT_SECRET_ENCRYPTION_KEY 生产配置项，已写入 runbook）。

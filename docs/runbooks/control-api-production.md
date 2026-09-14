@@ -19,6 +19,17 @@ export CLOUDCTL_OIDC_JWKS_URL='https://identity.example.com/realms/cloudctl/prot
 export CLOUDCTL_OIDC_ALLOWED_ALGORITHMS='["RS256"]'
 ```
 
+## WeChat publisher secret encryption
+
+Production requires `CLOUDCTL_WECHAT_SECRET_ENCRYPTION_KEY`, a valid Fernet key
+(32-byte url-safe base64; generate with `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`).
+The Control API refuses to start in production without it, and any configured
+key is validated at startup. Without the key only development/test deployments
+degrade to an obfuscated at-rest form (`dev-b64:` prefix); that is never allowed
+in production. Rotating the key requires re-encrypting existing
+`wechat_account.secret_ciphertext` rows offline; there is no multi-version key
+support yet.
+
 Exactly one of `CLOUDCTL_OIDC_JWKS_URL`, `CLOUDCTL_OIDC_PUBLIC_KEY_PEM`, or
 `CLOUDCTL_OIDC_PUBLIC_KEY_PATH` may be configured. Prefer JWKS for managed rotation. A production JWKS URL and
 issuer must use HTTPS; redirects are not followed. Static keys are limited to 64 KiB. The algorithm allowlist
