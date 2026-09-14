@@ -49,8 +49,10 @@ data class ImMonitorConfig(
         const val PLATFORM_WECHAT = "wechat"
 
         /**
-         * DM-like channels only for platforms whose push feed also notifies;
-         * Xianyu DM notifications carry no distinguishing channel (all accepted).
+         * DM-like channels only for platforms whose push feed also notifies.
+         * Xianyu is governed by [ImFeedNoiseFilter] (channel calibration +
+         * peer-name shape); this check accepts it and other platforms filter
+         * by channel-id substring.
          */
         fun isChannelAllowed(platform: String, channelId: String?): Boolean {
             if (platform == PLATFORM_XIANYU) return true

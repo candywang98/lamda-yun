@@ -3,7 +3,9 @@ package com.company.cloudctl.companion.automation
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertTrue
 
 class TargetLocatorRegistryTest {
     @Test
@@ -99,5 +101,45 @@ class TargetLocatorRegistryTest {
         assertFailsWith<IllegalArgumentException> {
             TargetLocatorRegistry.resolve(TargetLocatorRegistry.XIANYU_PACKAGE, "xianyu_gallery_select_50")
         }
+    }
+
+    // im-feed-noise / duty-anchor (device evidence 2026-09-14): the 消息 tab
+    // exposes three a11y forms; the 闲鱼 home tab must never match.
+
+    @Test
+    fun messagesTabLocatorKeepsTheVerifiedUnreadPrefixAsFirstAlternative() {
+        val locator = assertIs<ApprovedLocator.AnyOf>(
+            TargetLocatorRegistry.resolve(TargetLocatorRegistry.XIANYU_PACKAGE, "xianyu_messages_tab"),
+        )
+        val unread = assertIs<ApprovedLocator.ContentDescriptionPrefix>(locator.alternatives.first())
+        assertEquals("消息，未读消息数", unread.prefix)
+        assertEquals(3, locator.alternatives.size)
+    }
+
+    @Test
+    fun messagesTabLocatorMatchesAllThreeTabFormsButNeverTheHomeTab() {
+        val locator = TargetLocatorRegistry.resolve(TargetLocatorRegistry.XIANYU_PACKAGE, "xianyu_messages_tab")
+        // 有未读 (verified 2026-09-13).
+        assertTrue(TargetLocatorRegistry.acceptsDescription(locator, "消息，未读消息数1"))
+        assertTrue(TargetLocatorRegistry.acceptsDescription(locator, "消息，未读消息数3，选中状态"))
+        // 无未读 / 未选中 (verified 2026-09-14, bounds [663,2202][859,2352]).
+        assertTrue(TargetLocatorRegistry.acceptsDescription(locator, "消息，未选中状态"))
+        // 选中态.
+        assertTrue(TargetLocatorRegistry.acceptsDescription(locator, "消息，选中状态"))
+        // 首页 tab 以「闲鱼，」开头，绝不能误配.
+        assertFalse(TargetLocatorRegistry.acceptsDescription(locator, "闲鱼，未读消息数0，选中状态"))
+        assertFalse(TargetLocatorRegistry.acceptsDescription(locator, "闲鱼，未选中状态"))
+        assertFalse(TargetLocatorRegistry.acceptsDescription(locator, "闲鱼，选中状态"))
+        // Partial strings are not tab forms.
+        assertFalse(TargetLocatorRegistry.acceptsDescription(locator, "消息"))
+    }
+
+    @Test
+    fun xianyuMessagesTabFormDetectorMirrorsTheLocatorForms() {
+        assertTrue(TargetLocatorRegistry.isXianyuMessagesTabDescription("消息，未读消息数1"))
+        assertTrue(TargetLocatorRegistry.isXianyuMessagesTabDescription("消息，未选中状态"))
+        assertTrue(TargetLocatorRegistry.isXianyuMessagesTabDescription("消息，选中状态"))
+        assertFalse(TargetLocatorRegistry.isXianyuMessagesTabDescription("闲鱼，未读消息数0，选中状态"))
+        assertFalse(TargetLocatorRegistry.isXianyuMessagesTabDescription("卖闲置"))
     }
 }
