@@ -416,20 +416,40 @@ class CompanionSyncService : Service() {
             return
         }
         var bubbles = service.chatBubbles(task.targetPackage)
-        if (com.company.cloudctl.companion.im.ChatPageReading.latestInbound(bubbles) == null) {
-            // Our own replies push the contact's last message out of the semantics
-            // tree; reveal it with one backward swipe, read, then restore the view.
+        var attempts = 0
+        while (attempts < ENRICH_SWIPE_ATTEMPTS &&
+            com.company.cloudctl.companion.im.ChatPageReading.latestInbound(bubbles) == null
+        ) {
+            attempts++
+            // Our own replies push the contact's last message out of the Flutter
+            // semantics tree. Drag the list down inside its own bounds (the old
+            // fixed start point was consumed by the IME) to reveal it, re-read,
+            // and stop as soon as an inbound bubble becomes visible.
             runCatching {
-                service.swipeConversationList(backward = true)
-                kotlinx.coroutines.delay(600)
-                bubbles = service.chatBubbles(task.targetPackage)
-                service.swipeConversationList(backward = false)
+                service.swipeConversationList(task.targetPackage, backward = true)
+                delay(ENRICH_SWIPE_SETTLE_MS)
+            }
+            bubbles = service.chatBubbles(task.targetPackage)
+            android.util.Log.i(
+                "CompanionSync",
+                "IM body enrichment attempt=$attempts bubbles=${bubbles.size} " +
+                    "inbound=${com.company.cloudctl.companion.im.ChatPageReading.latestInbound(bubbles) != null}",
+            )
+        }
+        if (attempts > 0) {
+            // Restore the view so our newest replies are visible again. Exact
+            // placement is not required; bottom overscroll is harmless.
+            runCatching {
+                repeat(attempts) {
+                    service.swipeConversationList(task.targetPackage, backward = false)
+                    delay(ENRICH_SWIPE_SETTLE_MS)
+                }
             }
         }
         val queued = imBodyEnricher.enrich(peer, bubbles)
         android.util.Log.i(
             "CompanionSync",
-            "IM body enrichment peer=${peer.take(32)} bubbles=${bubbles.size} queued=$queued",
+            "IM body enrichment peer=${peer.take(32)} bubbles=${bubbles.size} queued=$queued attempts=$attempts",
         )
     }
 
@@ -1239,5 +1259,9 @@ class CompanionSyncService : Service() {
         const val HEARTBEAT_RETRY_MAXIMUM_MILLIS = 10_000L
         const val IDLE_POLL_INTERVAL_MILLIS = 2_000L
         const val OUTBOX_POLL_INTERVAL_MILLIS = 1_000L
+
+        /** IM body enrichment: at most 3 backward swipes, stop at the first readable inbound. */
+        const val ENRICH_SWIPE_ATTEMPTS = 3
+        const val ENRICH_SWIPE_SETTLE_MS = 600L
     }
 }

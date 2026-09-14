@@ -355,13 +355,32 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
             .flatMap { root -> collect(root, requireScrollableAncestor = true).ifEmpty { collect(root, false) } }
     }
 
-    /** Reveal older conversation content (backward) or return to the newest (forward). */
-    suspend fun swipeConversationList(backward: Boolean) {
-        if (backward) {
-            dispatchStroke(540f, 1600f, 540f, 700f, 350L)
-        } else {
-            dispatchStroke(540f, 700f, 540f, 1600f, 350L)
+    /**
+     * Reveal older conversation content (backward=true) or return to the newest
+     * (backward=false) by swiping inside the conversation list's own bounds.
+     *
+     * Rationale (bubble-reader gap, device acceptance 2026-09-14): the legacy
+     * fixed start point (540,1600) landed inside the IME window while the chat
+     * keyboard was open, so the keyboard consumed the stroke and the list never
+     * scrolled. The scrollable list node compresses with the keyboard, so a
+     * stroke in its 30%-70% height band on the center-x line always stays
+     * within the visible list (fix plan option a; the fixed pair survives only
+     * as the no-node fallback). Dragging down pulls older peer bubbles into
+     * view; dragging up returns to our newest replies at the bottom.
+     */
+    suspend fun swipeConversationList(targetPackage: String, backward: Boolean) {
+        val bounds = findScrollableContainer(targetPackage)?.let { node ->
+            val rect = Rect()
+            node.getBoundsInScreen(rect)
+            com.company.cloudctl.companion.im.ConversationListSwipe.Bounds(
+                left = rect.left,
+                top = rect.top,
+                right = rect.right,
+                bottom = rect.bottom,
+            )
         }
+        val stroke = com.company.cloudctl.companion.im.ConversationListSwipe.stroke(bounds, backward = backward)
+        dispatchStroke(stroke.startX, stroke.startY, stroke.endX, stroke.endY, CONVERSATION_SWIPE_MS)
     }
 
     override fun ensureReady(targetPackage: String) {
@@ -1348,6 +1367,7 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         private const val PREVIEW_MAX_BYTES = 380_000
         private const val XIANYU_LAUNCHER_ACTIVITY = "com.taobao.fleamarket.home.activity.InitActivity"
         private const val NAV_SETTLE_MS = 800L
+        private const val CONVERSATION_SWIPE_MS = 350L
         private const val DUTY_NAV_ANCHOR_ATTEMPTS = 3
         private const val DUTY_NAV_ANCHOR_RETRY_MS = 500L
         private const val DUTY_NAV_MESSAGES_TAB_LOCATOR = "xianyu_messages_tab"
