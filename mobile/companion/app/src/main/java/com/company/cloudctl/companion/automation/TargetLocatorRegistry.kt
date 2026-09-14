@@ -9,6 +9,8 @@ internal sealed interface ApprovedLocator {
     data class TextPrefix(val prefix: String) : ApprovedLocator
     data class IndexedResourceId(val value: String, val index: Int) : ApprovedLocator
     data class IndexedContentDescriptionPrefix(val prefix: String, val index: Int) : ApprovedLocator
+    /** Full-match regular expression over a single content description / text value. */
+    data class DescRegex(val pattern: Regex) : ApprovedLocator
     data class IndexedContentDescriptionPrefixParent(val prefix: String, val index: Int) : ApprovedLocator
 
     /**
@@ -83,6 +85,17 @@ internal object TargetLocatorRegistry {
         ),
         "xianyu_chat_input" to ApprovedLocator.ContentDescriptionPrefix("想跟TA说点什么"),
         "xianyu_chat_send" to ApprovedLocator.ContentDescription("发送"),
+        // Verified on-device 2026-09-15 (contract
+        // contracts/phase1/xianyu-maintenance-anchors-20260915.md, OnePlus 9R):
+        // the profile tab reads 「我的，未选中状态」/「我的，选中状态」/「我的」;
+        // the 我发布的 entry reads 「我发布的」; the published-goods tabs carry an
+        // optional leading badge line (「1\n在卖」/「在卖」, 「N\n草稿」, 「N\n已下架」).
+        // Full-match regexes keep the 「闲鱼，…」 home tab and unrelated nodes out.
+        "xianyu_profile_tab" to ApprovedLocator.ContentDescriptionPrefix("我的"),
+        "xianyu_my_published" to ApprovedLocator.ContentDescription("我发布的"),
+        "xianyu_pub_tab_onsale" to ApprovedLocator.DescRegex(Regex("^(\\d{1,4}\\n)?在卖$")),
+        "xianyu_pub_tab_draft" to ApprovedLocator.DescRegex(Regex("^(\\d{1,4}\\n)?草稿$")),
+        "xianyu_pub_tab_delisted" to ApprovedLocator.DescRegex(Regex("^(\\d{1,4}\\n)?已下架$")),
     )
 
     private val xhsLocators = mapOf(
@@ -172,6 +185,7 @@ internal object TargetLocatorRegistry {
         is ApprovedLocator.TextPrefix -> value.startsWith(locator.prefix)
         is ApprovedLocator.IndexedContentDescriptionPrefix -> value.startsWith(locator.prefix)
         is ApprovedLocator.IndexedContentDescriptionPrefixParent -> value.startsWith(locator.prefix)
+        is ApprovedLocator.DescRegex -> locator.pattern.matches(value)
         is ApprovedLocator.AnyOf -> locator.alternatives.any { acceptsDescription(it, value) }
         is ApprovedLocator.ResourceId, is ApprovedLocator.IndexedResourceId -> false
     }
@@ -183,7 +197,7 @@ internal object TargetLocatorRegistry {
      */
     fun rootAnchorRefs(targetPackage: String): List<String> = when (targetPackage) {
         COMPANION_PACKAGE -> listOf("companion_home_root")
-        XIANYU_PACKAGE -> listOf("xianyu_home_sell", "xianyu_messages_tab")
+        XIANYU_PACKAGE -> listOf("xianyu_home_sell", "xianyu_messages_tab", "xianyu_my_published")
         XHS_PACKAGE -> listOf("xhs_home_publish")
         DOUYIN_PACKAGE -> listOf("dy_home_publish")
         else -> emptyList()

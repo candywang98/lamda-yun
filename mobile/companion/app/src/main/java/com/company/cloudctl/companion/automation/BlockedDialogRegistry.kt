@@ -21,8 +21,20 @@ internal object BlockedDialogRegistry {
         otherButton = "\u53bb\u7f16\u8f91",
     ))
 
+    // Xianyu publish-editor exit (contract xianyu-maintenance-anchors-20260915,
+    // 2026-09-15): dialog title 「确定要退出发布吗？」 with 「我再想想」 and
+    // 「确定退出」. Navigation reset only ever confirms the exit — leaving the
+    // editor so a maintenance flow can start from a root page — and only under
+    // the same triple co-occurrence rule as XHS.
+    private val xianyu = listOf(Rule(
+        title = "\u786e\u5b9a\u8981\u9000\u51fa\u53d1\u5e03\u5417\uff1f",
+        safeButton = "\u786e\u5b9a\u9000\u51fa",
+        otherButton = "\u6211\u518d\u60f3\u60f3",
+    ))
+
     fun rules(targetPackage: String): List<Rule> = when (targetPackage) {
         TargetLocatorRegistry.XHS_PACKAGE -> xhs
+        TargetLocatorRegistry.XIANYU_PACKAGE -> xianyu
         // No verified Douyin camera/draft dialog policy yet. Unknown apps fail closed.
         else -> emptyList()
     }

@@ -11,6 +11,7 @@ data class LocalNodeState(
     val clickable: Boolean,
     val editable: Boolean,
     val text: String?,
+    val description: String? = null,
 )
 
 data class ScreenshotEvidence(val path: String, val size: Long, val sha256: String)
@@ -63,6 +64,18 @@ interface LocalAutomationUi {
 
     /** Scrolls the visible list forward; implementations settle before returning. */
     suspend fun scrollTextListForward(targetPackage: String) {}
+
+    // Structured xianyu maintenance coordinates (contract
+    // xianyu-maintenance-anchors-20260915): the live screen size feeds the
+    // 1080x2400 resolution guard, and taps go through one dispatchGesture only.
+
+    /** Live screen size for the layout guard; null fails the coordinate path closed. */
+    fun screenSize(targetPackage: String): Pair<Int, Int>? = null
+
+    /** Single-shot coordinate tap; no fallback path, an unconfirmed gesture fails closed. */
+    suspend fun tapScreenAt(targetPackage: String, x: Int, y: Int) {
+        throw ExecutorFailure("COORDINATE_TAP_UNAVAILABLE", "UI does not provide single-shot coordinate taps")
+    }
 }
 
 private val GATED_PUBLISH_LOCATORS = setOf("xianyu_publish_button", "xhs_publish_button", "dy_publish_button")
@@ -73,13 +86,18 @@ class LocalAutomationExecutor(
     private val elapsedMs: () -> Long = { android.os.SystemClock.elapsedRealtime() },
     private val sleep: suspend (Long) -> Unit = { delay(it) },
     private val commitGate: CommitGate? = null,
+    private val destructiveGate: DestructiveClickGate? = null,
 ) {
+    /** Badge baselines (tab locator -> count at the strike) captured during one run. */
+    private val badgeBaselines = mutableMapOf<String, Int>()
+
     suspend fun execute(
         task: AutomationTask,
         control: ExecutionControl? = null,
         startAfterIndex: Int = -1,
         journal: (AutomationStep, String) -> Unit,
     ) {
+        badgeBaselines.clear()
         if (!task.expiresAt.isAfter(now())) throw ExecutorFailure("TASK_EXPIRED", "Task has expired")
         val runDeadline = elapsedMs() + task.maxRunSeconds * 1_000L
         // Fresh runs start from the target root page; resumed runs keep their
@@ -188,18 +206,131 @@ class LocalAutomationExecutor(
             )
             is AutomationStep.Screenshot -> {
                 throwIfControlRequested(control, lastCompleted, lastCompletedIndex)
-                val evidence = ui.screenshot(task.taskId, step.label)
-                if (evidence.size <= 0L || !SHA256.matches(evidence.sha256) || evidence.path.isBlank()) {
-                    throw ExecutorFailure("SCREENSHOT_INVALID", "Screenshot evidence is incomplete")
-                }
-                ui.log(LogLevel.INFO, "SCREENSHOT_CAPTURED")
+                captureScreenshot(task, step.label)
             }
             is AutomationStep.Assert -> if (!matches(task, step.locatorRef, step.predicate)) {
                 throw ExecutorFailure("ASSERTION_FAILED", "UI assertion failed")
             }
             is AutomationStep.Log -> ui.log(step.level, step.messageCode)
+            is AutomationStep.TapLayout -> executeTapLayout(
+                task, step, runDeadline, control, lastCompleted, lastCompletedIndex,
+            )
+            is AutomationStep.AssertBadge -> awaitBadgeAssertion(task, step, runDeadline)
         }
         return false
+    }
+
+    /**
+     * Structured coordinate tap on the frozen xianyu maintenance layout. The
+     * resolution guard rejects anything but 1080x2400 (fail-safe, no guessing);
+     * the destructive confirm actions route through the controlled ledger
+     * (one authorization -> one tap -> badge verification), while every other
+     * layout click is evidence-screenshotted before and after but never
+     * enters the ledger.
+     */
+    private suspend fun executeTapLayout(
+        task: AutomationTask,
+        step: AutomationStep.TapLayout,
+        runDeadline: Long,
+        control: ExecutionControl?,
+        lastCompleted: AutomationStep?,
+        lastCompletedIndex: Int,
+    ) {
+        throwIfControlRequested(control, lastCompleted, lastCompletedIndex)
+        ensureWithinTaskDeadline(task, runDeadline)
+        if (task.targetPackage != TargetLocatorRegistry.XIANYU_PACKAGE) {
+            throw ExecutorFailure("TARGET_PACKAGE_REJECTED", "Layout actions are approved for xianyu only")
+        }
+        ui.ensureReady(task.targetPackage)
+        val size = ui.screenSize(task.targetPackage)
+            ?: throw ExecutorFailure("LAYOUT_GUARD_REJECTED", "Screen size unavailable; coordinate path fails closed")
+        val point = XianyuMaintenanceLayout.resolve(size.first, size.second, step.tab, step.layoutAction, step.cardIndex)
+            ?: throw ExecutorFailure(
+                "LAYOUT_ACTION_UNMAPPED",
+                "Layout ${step.layoutAction} on ${step.tab}#${step.cardIndex} has no guarded coordinate " +
+                    "for ${size.first}x${size.second}",
+            )
+        ui.log(LogLevel.INFO, "LAYOUT_GUARD_PASSED")
+
+        if (step.layoutAction in XianyuMaintenanceLayout.GATED_DESTRUCTIVE_CONFIRM_ACTIONS) {
+            // Destructive second strike: stop-and-wait happens inside the ledger
+            // (intent -> one authorization); a prior recorded intent only reconciles.
+            val gate = destructiveGate
+                ?: throw ExecutorFailure("G3_NOT_ACCEPTED", "Destructive confirm requires the controlled ledger")
+            val badgeRef = XianyuMaintenanceLayout.badgeLocatorFor(step.layoutAction)
+                ?: throw ExecutorFailure("G3_NOT_ACCEPTED", "No badge verification signal for ${step.layoutAction}")
+            val baseline = gate.confirmOnce(task, step)
+            // Null means a prior intent reconciled: no fresh strike, no valid delta baseline.
+            if (baseline != null) badgeBaselines[badgeRef] = baseline
+            return
+        }
+
+        // First strike / light-risk write: capture the badge baseline of the
+        // affected tab, then screenshot-click-screenshot so the coordinate and
+        // the resulting UI state are both evidenced.
+        XianyuMaintenanceLayout.badgeLocatorFor(step.layoutAction)?.let { badgeRef ->
+            XianyuMaintenanceLayout.parseBadge(ui.inspect(task.targetPackage, badgeRef)?.description)
+                ?.let { badge -> badgeBaselines.putIfAbsent(badgeRef, badge) }
+        }
+        captureScreenshot(task, layoutEvidenceLabel(step, "before"))
+        ui.tapScreenAt(task.targetPackage, point.x, point.y)
+        captureScreenshot(task, layoutEvidenceLabel(step, "after"))
+    }
+
+    /** Polls a published-goods tab badge until the expected value or delta holds. */
+    private suspend fun awaitBadgeAssertion(
+        task: AutomationTask,
+        step: AutomationStep.AssertBadge,
+        runDeadline: Long,
+    ) {
+        try {
+            TargetLocatorRegistry.resolve(task.targetPackage, step.locatorRef)
+        } catch (failure: IllegalArgumentException) {
+            throw ExecutorFailure("LOCATOR_NOT_APPROVED", "Locator is not approved for this target", failure)
+        }
+        val deadline = elapsedMs() + step.timeoutMs
+        while (true) {
+            // The step-scoped badge deadline must surface as the assertion
+            // failure itself, not as a task-wide TASK_TIMEOUT, so it is checked
+            // before the task deadline guard (same ordering as tapText).
+            if (elapsedMs() >= deadline) {
+                throw ExecutorFailure(
+                    "ASSERTION_FAILED",
+                    "Badge '${step.locatorRef}' did not reach the expected value before the step deadline",
+                )
+            }
+            ensureWithinTaskDeadline(task, runDeadline)
+            ui.ensureReady(task.targetPackage)
+            val parsed = XianyuMaintenanceLayout.parseBadge(ui.inspect(task.targetPackage, step.locatorRef)?.description)
+            if (parsed != null) {
+                val satisfied = if (step.expectedValue != null) {
+                    parsed == step.expectedValue
+                } else {
+                    val baseline = badgeBaselines[step.locatorRef]
+                        ?: throw ExecutorFailure(
+                            "BADGE_BASELINE_MISSING",
+                            "No in-run badge baseline for '${step.locatorRef}'; delta cannot be verified",
+                        )
+                    parsed == baseline + requireNotNull(step.expectedDelta)
+                }
+                if (satisfied) return
+            }
+            sleep(minOf(200L, step.timeoutMs))
+        }
+    }
+
+    private suspend fun captureScreenshot(task: AutomationTask, label: String) {
+        val evidence = ui.screenshot(task.taskId, label)
+        if (evidence.size <= 0L || !SHA256.matches(evidence.sha256) || evidence.path.isBlank()) {
+            throw ExecutorFailure("SCREENSHOT_INVALID", "Screenshot evidence is incomplete")
+        }
+        ui.log(LogLevel.INFO, "SCREENSHOT_CAPTURED")
+    }
+
+    private fun layoutEvidenceLabel(step: AutomationStep.TapLayout, stage: String): String {
+        // Evidence labels stay stepId-based: the id charset is path-safe, the
+        // free-form backup value never reaches a file name.
+        return "layout-${step.stepId}-$stage"
     }
 
     /** Fresh runs recover allowlisted blocking dialogs before bounded BACK/relaunch navigation. */

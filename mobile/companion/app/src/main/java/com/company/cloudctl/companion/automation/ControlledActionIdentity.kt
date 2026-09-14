@@ -34,8 +34,14 @@ data class ControlledActionIdentity(
         .put("bindingVersion", bindingVersion).put("commandType", commandType)
         .put("recipeVersionId", recipeVersionId).put("recipeSha256", recipeSha256)
         .put("snapshotSha256", snapshotSha256).put("actionId", actionId)
-
     companion object {
+
+        /** Reviewed maintenance command types (backend contract 2026-09-15). */
+        val MAINTENANCE_COMMAND_TYPES = setOf(
+            "xianyu.polish.steps.v1",
+            "xianyu.delist.steps.v1",
+            "xianyu.delete_delisted.steps.v1",
+        )
         fun from(command: CommandV1, actionId: String) = ControlledActionIdentity(
             command.taskId, command.deviceId, command.accountId, command.bindingVersion,
             command.commandType, command.recipeVersionId, command.recipeSha256, command.snapshotSha256, actionId,
@@ -67,6 +73,31 @@ data class ControlledActionIdentity(
                 recipeSha256 = digest,
                 snapshotSha256 = digest,
                 actionId = "click-publish",
+            )
+        }
+
+        /**
+         * Maintenance steps identity (contract xianyu-maintenance-anchors-
+         * 20260915): the claimed payload must carry one of the reviewed
+         * maintenance command types; the actionId names the gated destructive
+         * confirm strike so several strikes in one task stay ledger-distinct.
+         * The server re-derives the same shape from the canonical steps text.
+         */
+        fun fromMaintenanceStepsPayload(payload: JSONObject, actionId: String): ControlledActionIdentity {
+            val commandType = payload.optString("commandType")
+            require(commandType in MAINTENANCE_COMMAND_TYPES) { "G3_NOT_ACCEPTED" }
+            val steps = payload.getJSONArray("steps")
+            val digest = digest(canonicalSteps(steps))
+            return ControlledActionIdentity(
+                taskId = payload.getString("taskId"),
+                deviceId = payload.getString("deviceId"),
+                accountId = payload.getString("deviceId"),
+                bindingVersion = payload.optInt("bindingVersion", 0),
+                commandType = commandType,
+                recipeVersionId = "steps",
+                recipeSha256 = digest,
+                snapshotSha256 = digest,
+                actionId = actionId,
             )
         }
 

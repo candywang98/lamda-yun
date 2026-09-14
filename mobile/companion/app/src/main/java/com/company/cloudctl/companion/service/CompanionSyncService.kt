@@ -31,6 +31,8 @@ import com.company.cloudctl.companion.automation.RecipePackage
 import com.company.cloudctl.companion.automation.ResumeValidator
 import com.company.cloudctl.companion.automation.TargetLocatorRegistry
 import com.company.cloudctl.companion.automation.TaskPausedException
+import com.company.cloudctl.companion.automation.DestructiveClickGate
+import com.company.cloudctl.companion.automation.XianyuMaintenanceLayout
 import com.company.cloudctl.companion.data.AutomationStore
 import com.company.cloudctl.companion.im.DutyController
 import com.company.cloudctl.companion.im.ImMonitor
@@ -482,6 +484,7 @@ class CompanionSyncService : Service() {
             return true
         }
         val commitGate = buildStepsPublishGate(service, task)
+        val destructiveGate = buildMaintenanceDestructiveGate(service, task)
         try {
             sendInitialHeartbeat(client, task.taskId, pending.leaseId, control)
             throwIfControlRequested(control)
@@ -508,7 +511,7 @@ class CompanionSyncService : Service() {
                         "TASK_STARTED",
                     )
                     withTimeout(task.maxRunSeconds * 1_000L) {
-                        service.execute(task, control, startAfterIndex = -1, commitGate = commitGate) { step, state ->
+                        service.execute(task, control, startAfterIndex = -1, commitGate = commitGate, destructiveGate = destructiveGate) { step, state ->
                             val stepIndex = task.steps.indexOf(step)
                             currentStep.set(stepIndex)
                             store.recordStepEvent(
@@ -604,6 +607,7 @@ class CompanionSyncService : Service() {
             return
         }
         val commitGate = buildStepsPublishGate(service, task)
+        val destructiveGate = buildMaintenanceDestructiveGate(service, task)
         val checkpoint = store.latestCheckpoint(task.taskId)
         if (checkpoint == null) {
             persistPaused(task.taskId, pending, TaskPausedException(null, -1, "resume checkpoint missing"))
@@ -635,7 +639,7 @@ class CompanionSyncService : Service() {
                         "RESUME_CHECK",
                     )
                     withTimeout(task.maxRunSeconds * 1_000L) {
-                        service.execute(task, control, startAfterIndex, commitGate = commitGate) { step, state ->
+                        service.execute(task, control, startAfterIndex, commitGate = commitGate, destructiveGate = destructiveGate) { step, state ->
                             val stepIndex = task.steps.indexOf(step)
                             currentStep.set(stepIndex)
                             store.recordStepEvent(
@@ -953,6 +957,31 @@ class CompanionSyncService : Service() {
         if (!publishes) return null
         val connection = loadConnection()?.first ?: return null
         return StepsPublishCommitGate(
+            ControlledActionExecutor(store, PinnedControlledActionLedger(connection)),
+            service,
+        )
+    }
+
+    /**
+     * Gated destructive confirms for the xianyu maintenance steps task
+     * (contract xianyu-maintenance-anchors-20260915): delist/delete confirm
+     * strikes run through the controlled ledger. Only built when the task
+     * actually carries such a strike; otherwise the executor fails closed on
+     * G3_NOT_ACCEPTED, and a task without a controlled connection fails the
+     * same way instead of ever tapping ungated.
+     */
+    private fun buildMaintenanceDestructiveGate(
+        service: CloudCtlAccessibilityService,
+        task: AutomationTask,
+    ): DestructiveClickGate? {
+        if (task.targetPackage != TargetLocatorRegistry.XIANYU_PACKAGE) return null
+        val confirms = task.steps.any {
+            it is AutomationStep.TapLayout &&
+                it.layoutAction in XianyuMaintenanceLayout.GATED_DESTRUCTIVE_CONFIRM_ACTIONS
+        }
+        if (!confirms) return null
+        val connection = loadConnection()?.first ?: return null
+        return XianyuMaintenanceCommitGate(
             ControlledActionExecutor(store, PinnedControlledActionLedger(connection)),
             service,
         )

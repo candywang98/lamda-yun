@@ -123,11 +123,13 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         control: ExecutionControl? = null,
         startAfterIndex: Int = -1,
         commitGate: CommitGate? = null,
+        destructiveGate: DestructiveClickGate? = null,
         journal: (AutomationStep, String) -> Unit,
     ) {
         if (active !== this) throw ExecutorFailure("ACCESSIBILITY_NOT_ACTIVE", "Accessibility service is not active")
         launchTargetApp(task.targetPackage)
-        LocalAutomationExecutor(this, commitGate = commitGate).execute(task, control, startAfterIndex, journal)
+        LocalAutomationExecutor(this, commitGate = commitGate, destructiveGate = destructiveGate)
+            .execute(task, control, startAfterIndex, journal)
     }
 
     override suspend fun tapText(targetPackage: String, value: String) {
@@ -459,8 +461,32 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
                 clickable = true,
                 editable = canAcceptText(node),
                 text = collectDisplayedText(node),
+                // The node's own content description carries the published-goods
+                // tab badge signal (「1\n在卖」) asserted by ui.assertBadge.
+                description = node.contentDescription?.toString(),
             )
         }
+
+    override fun screenSize(targetPackage: String): Pair<Int, Int>? = runCatching {
+        val metrics = resources.displayMetrics
+        metrics.widthPixels to metrics.heightPixels
+    }.getOrNull()
+
+    override suspend fun tapScreenAt(targetPackage: String, x: Int, y: Int) {
+        // Structured maintenance coordinates (xianyu only): one dispatchGesture
+        // path, bounds-checked against the live screen, no fallback click.
+        if (targetPackage != TargetLocatorRegistry.XIANYU_PACKAGE) {
+            throw ExecutorFailure("COORDINATE_TAP_REJECTED", "Coordinate taps are not approved for this target")
+        }
+        ensureReady(targetPackage)
+        val metrics = resources.displayMetrics
+        if (x !in 0 until metrics.widthPixels || y !in 0 until metrics.heightPixels) {
+            throw ExecutorFailure("COORDINATE_OUT_OF_BOUNDS", "Coordinate tap left the guarded screen")
+        }
+        if (!tapScreen(x.toFloat(), y.toFloat())) {
+            throw ExecutorFailure("CLICK_UNCONFIRMED", "Coordinate gesture was not confirmed")
+        }
+    }
 
     override suspend fun tapOnce(targetPackage: String, locatorRef: String) {
         val node = resolveUniqueNode(targetPackage, locatorRef)
@@ -779,6 +805,7 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
             // string tests come from TargetLocatorRegistry.acceptsDescription so
             // node matching and unit tests share one semantic.
             is ApprovedLocator.ContentDescription -> stringMatches(root, locator)
+            is ApprovedLocator.DescRegex -> stringMatches(root, locator)
             is ApprovedLocator.ContentDescriptionPrefix -> stringMatches(root, locator)
             is ApprovedLocator.Text -> stringMatches(root, locator)
             is ApprovedLocator.TextPrefix -> stringMatches(root, locator)
