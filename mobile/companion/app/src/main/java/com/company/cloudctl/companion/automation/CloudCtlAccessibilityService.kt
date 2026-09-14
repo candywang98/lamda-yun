@@ -396,18 +396,14 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
     }
 
     override suspend fun replaceText(targetPackage: String, locatorRef: String, value: String) {
+        if (locatorRef == "xianyu_chat_input") {
+            commitChatInput(targetPackage, locatorRef, value)
+            return
+        }
         val node = resolveUniqueNode(targetPackage, locatorRef)
             ?: throw ExecutorFailure("LOCATOR_NOT_FOUND", "Approved locator was not found")
         if (!node.isVisibleToUser || !node.isEnabled) {
             throw ExecutorFailure("NODE_NOT_EDITABLE", "Approved locator is not safely editable")
-        }
-        if (locatorRef == "xianyu_chat_input") {
-            // The chat composer is single-line and replaces cleanly with SET_TEXT.
-            // Never route it through the description fallback chain: clipboard seeds,
-            // long-press pastes, and offset gesture clicks append garbage that can be
-            // sent to a real contact. Fail the step safely instead.
-            commitChatInput(targetPackage, locatorRef, node, value)
-            return
         }
         if (targetPackage == TargetLocatorRegistry.XHS_PACKAGE ||
             targetPackage == TargetLocatorRegistry.DOUYIN_PACKAGE
@@ -429,26 +425,43 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         commitFlutterDescription(targetPackage, locatorRef, node, value)
     }
 
-    /**
-     * Single-shot chat input commit: activate the field with a real gesture click,
-     * SET_TEXT, then poll the composer node's own text. No clipboard, no
-     * context-menu paste, no offset gestures on neighbouring controls.
-     */
-    private suspend fun commitChatInput(targetPackage: String, locatorRef: String, node: AccessibilityNodeInfo, value: String) {
-        node.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
-        gestureClick(node)
-        // Let the Flutter edit session attach before replacing the text: SET_TEXT
-        // fired mid-keyboard-animation is silently dropped by the composer.
-        delay(600)
-        setTextAnywhere(node, value)
-        repeat(20) {
-            val current = resolveUniqueNode(targetPackage, locatorRef) ?: node
-            val actual = current.text?.toString().orEmpty()
-            if (FlutterTextCommit.accepted(actual, value)) return
-            setTextAnywhere(current, value)
-            delay(300)
+    /** Chat never enters the description SET_TEXT/clipboard/paste fallback chain. */
+    private suspend fun commitChatInput(targetPackage: String, locatorRef: String, value: String) {
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main.immediate) {
+            fun composer(): AccessibilityNodeInfo? {
+                ensureReady(targetPackage)
+                val locator = TargetLocatorRegistry.resolve(targetPackage, locatorRef)
+                return allRoots().filter { it.packageName?.toString() == targetPackage }
+                    .flatMap { findMatches(it, locator) }.distinct()
+                    .filter { it.isVisibleToUser && it.isEnabled }.singleOrNull()
+            }
+            ChatInputCommit(object : ChatInputCommit.Port {
+                override fun imeSelected() = CloudCtlInputMethod.isEnabled(this@CloudCtlAccessibilityService) &&
+                    CloudCtlInputMethod.isSelected(this@CloudCtlAccessibilityService)
+
+                override suspend fun activate(): Boolean {
+                    val target = composer() ?: return false
+                    target.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
+                    return gestureClick(target)
+                }
+
+                override fun focused(): Boolean = composer()?.let { findFocused(it) != null } == true
+                override fun session() = CloudCtlInputMethod.chatSession(targetPackage)
+                override fun replace(session: Long, value: String) =
+                    CloudCtlInputMethod.replaceChatText(targetPackage, session, value)
+
+                override fun readText(session: Long): String? {
+                    val target = composer() ?: return null
+                    val inputText = CloudCtlInputMethod.readChatText(targetPackage, session) ?: return null
+                    // Flutter may expose only a placeholder semantics View. If it does
+                    // expose a value, disagreement with the IME is not acceptance.
+                    val semanticsText = target.text?.toString().orEmpty()
+                    return inputText.takeIf { semanticsText.isEmpty() || semanticsText == inputText }
+                }
+
+                override fun event(code: String) { Log.i(TAG, code) }
+            }).execute(value)
         }
-        throw ExecutorFailure("INPUT_REJECTED", "Chat input did not accept the reply text")
     }
 
 
