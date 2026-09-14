@@ -88,6 +88,12 @@ class CompanionSyncService : Service() {
     @Volatile
     private var pendingResume: ResumeCommand? = null
 
+    // im-live slice 2, gap 2: corrects placeholder notification bodies with the
+    // real conversation text once a reply task leaves the chat page open.
+    private val imBodyEnricher = com.company.cloudctl.companion.im.ImBodyEnricher(
+        deviceId = { loadConnection()?.second },
+    )
+
     override fun onCreate() {
         super.onCreate()
         store = AutomationStore(this)
@@ -388,6 +394,24 @@ class CompanionSyncService : Service() {
         }
     }
 
+    /**
+     * im-live slice 2, gap 2: after a xianyu reply task finishes, the conversation
+     * page is still open, so the newest inbound bubble can backfill the placeholder
+     * body that push notifications deliver (「发来一条新消息」). Best effort only.
+     */
+    private fun enrichImReplyBody(task: AutomationTask, service: CloudCtlAccessibilityService) {
+        val peer = com.company.cloudctl.companion.im.ImReplyTaskShape.peerNameOf(task) ?: return
+        val chatOpen = runCatching {
+            service.inspect(
+                task.targetPackage,
+                com.company.cloudctl.companion.im.ImReplyTaskShape.CHAT_INPUT_LOCATOR,
+            )?.visible == true
+        }.getOrDefault(false)
+        if (!chatOpen) return
+        val queued = imBodyEnricher.enrich(peer, service.chatBubbles(task.targetPackage))
+        if (queued) android.util.Log.i("CompanionSync", "IM body enriched for peer=${peer.take(32)}")
+    }
+
     private suspend fun runNext(
         client: CloudTaskClient,
     ): Boolean {
@@ -464,6 +488,10 @@ class CompanionSyncService : Service() {
                             )
                         }
                     }
+                    // im-live slice 2, gap 2: backfill the placeholder notification body
+                    // with the real conversation text; never blocks or fails the task.
+                    runCatching { enrichImReplyBody(task, service) }
+                        .onFailure { android.util.Log.w("CompanionSync", "IM body enrichment skipped", it) }
                 } finally {
                     heartbeatJob.cancelAndJoin()
                 }
@@ -587,6 +615,9 @@ class CompanionSyncService : Service() {
                             )
                         }
                     }
+                    // im-live slice 2, gap 2: enrichment also covers resumed reply tasks.
+                    runCatching { enrichImReplyBody(task, service) }
+                        .onFailure { android.util.Log.w("CompanionSync", "IM body enrichment skipped", it) }
                 } finally {
                     heartbeatJob.cancelAndJoin()
                 }

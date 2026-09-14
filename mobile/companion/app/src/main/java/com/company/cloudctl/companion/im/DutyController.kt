@@ -137,13 +137,10 @@ object DutyController {
             org.json.JSONObject(raw).getString("deviceId")
         }.getOrNull() ?: return
         for (root in roots) {
-            val bubbles = ArrayList<Pair<String, Boolean>>() // text, inbound
+            val bubbles = ArrayList<ChatBubble>()
             collectBubbles(root, bubbles)
             if (bubbles.isEmpty()) continue
-            val inbound = bubbles.filter { it.second }.map { it.first }
-            val outbound = bubbles.filter { !it.second }.map { it.first }.toSet()
-            val fresh = inbound.filter { it !in outbound }
-            fresh.forEach { text ->
+            ChatPageReading.freshInbound(bubbles).forEach { text ->
                 ImMonitor.accept(
                     deviceId,
                     ImEvent(
@@ -154,7 +151,7 @@ object DutyController {
                     ),
                 )
             }
-            if (fresh.isNotEmpty()) android.util.Log.i(TAG, "duty queued ${fresh.size} messages from $peer")
+            android.util.Log.i(TAG, "duty queued ${ChatPageReading.freshInbound(bubbles).size} messages from $peer")
             return
         }
     }
@@ -180,13 +177,17 @@ object DutyController {
         return false
     }
 
-    private fun collectBubbles(node: AccessibilityNodeInfo, out: MutableList<Pair<String, Boolean>>) {
+    /** Node traversal stays Android-bound; bubble geometry rules live in ChatBubble. */
+    private fun collectBubbles(node: AccessibilityNodeInfo, out: MutableList<ChatBubble>) {
         val text = node.text?.toString()?.trim()
-        if (text != null && text.length in 2..500) {
+        if (!text.isNullOrEmpty()) {
             val bounds = Rect().also { node.getBoundsInScreen(it) }
-            if (bounds.height() in 30..260 && bounds.width() in 60..900) {
-                out.add(text to (bounds.exactCenterX() < 540f))
-            }
+            out += ChatBubble(
+                text = text,
+                centerX = bounds.exactCenterX(),
+                width = bounds.width(),
+                height = bounds.height(),
+            )
         }
         for (index in 0 until node.childCount) {
             node.getChild(index)?.let { collectBubbles(it, out) }
