@@ -19,8 +19,17 @@ class MediaGalleryExporter(private val resolver: ContentResolver) {
         // Content-addressed upsert (im-live slice 2, gap 4): MediaStore renames
         // repeated same-name inserts into "(26)(25)..." copies until inserts
         // fail, so exports address the newest same-name row instead of inserting.
+        // MediaStore appends the canonical extension for the MIME type when the
+        // display name lacks one, so the query must address the stored name or it
+        // never matches and every export inserts a fresh copy (verified on device).
+        val displayName = displayNameFor(item)
         val contentSha256 = sha256Of(file)
-        val existing = queryExisting(collection, item, file.length())
+        val existing = queryExisting(collection, displayName, file.length())
+        android.util.Log.i(
+            "CompanionSync",
+            "gallery upsert name=$displayName existing=${existing.size} " +
+                "decision=${GalleryUpsert.decide(existing, contentSha256, file.length())::class.simpleName}",
+        )
         return when (val decision = GalleryUpsert.decide(existing, contentSha256, file.length())) {
             is GalleryUpsert.Decision.Reuse -> {
                 touchDates(collection, decision.row.id)
@@ -32,15 +41,29 @@ class MediaGalleryExporter(private val resolver: ContentResolver) {
                 touchDates(collection, decision.row.id)
                 uri
             }
-            GalleryUpsert.Decision.Insert -> insertNew(collection, file, item)
+            GalleryUpsert.Decision.Insert -> insertNew(collection, file, item, displayName)
         }
+    }
+
+    private fun displayNameFor(item: MediaManifestItem): String {
+        if (item.fileName.contains('.')) return item.fileName
+        val extension = when (item.contentType) {
+            "image/jpeg" -> ".jpg"
+            "image/png" -> ".png"
+            "image/webp" -> ".webp"
+            "image/gif" -> ".gif"
+            "video/mp4" -> ".mp4"
+            "video/webm" -> ".webm"
+            else -> ""
+        }
+        return item.fileName + extension
     }
 
     fun delete(uri: Uri): Int = resolver.delete(uri, null, null)
 
-    private fun insertNew(collection: Uri, file: File, item: MediaManifestItem): Uri {
+    private fun insertNew(collection: Uri, file: File, item: MediaManifestItem, displayName: String): Uri {
         val values = ContentValues().apply {
-            put(MediaStore.MediaColumns.DISPLAY_NAME, item.fileName)
+            put(MediaStore.MediaColumns.DISPLAY_NAME, displayName)
             put(MediaStore.MediaColumns.MIME_TYPE, item.contentType)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 put(MediaStore.MediaColumns.RELATIVE_PATH, RELATIVE_DIR)
@@ -90,7 +113,7 @@ class MediaGalleryExporter(private val resolver: ContentResolver) {
 
     private fun queryExisting(
         collection: Uri,
-        item: MediaManifestItem,
+        displayName: String,
         contentSize: Long,
     ): List<GalleryUpsert.ExistingRow> {
         val projection = arrayOf(
@@ -102,10 +125,10 @@ class MediaGalleryExporter(private val resolver: ContentResolver) {
         val args: Array<String>
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             selection = "${MediaStore.MediaColumns.DISPLAY_NAME}=? AND ${MediaStore.MediaColumns.RELATIVE_PATH}=?"
-            args = arrayOf(item.fileName, RELATIVE_DIR)
+            args = arrayOf(displayName, RELATIVE_DIR)
         } else {
             selection = "${MediaStore.MediaColumns.DISPLAY_NAME}=?"
-            args = arrayOf(item.fileName)
+            args = arrayOf(displayName)
         }
         val rows = runCatching {
             resolver.query(collection, projection, selection, args, null)?.use { cursor ->
@@ -121,6 +144,12 @@ class MediaGalleryExporter(private val resolver: ContentResolver) {
                     }
                 }
             }
+        }.onFailure { error ->
+            android.util.Log.w(
+                "CompanionSync",
+                "gallery upsert query failed selection=$selection args=${args.joinToString()}",
+                error,
+            )
         }.getOrNull() ?: return emptyList()
         // Hash the stored bytes only when the size already matches, so the
         // reuse check costs one stream read at most.
