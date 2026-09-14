@@ -343,6 +343,12 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
         arrayOf(STATE_PAUSED, STATE_RESUME_CHECK, STATE_RECONCILING),
     ).use { it.moveToFirst() } || readableDatabase.hasUnresolvedAction()
 
+    /** Single writer: any running/paused/reconciling task or unresolved action owns the device. */
+    fun hasActiveTask(): Boolean = readableDatabase.rawQuery(
+        "SELECT 1 FROM task_inbox WHERE state IN (?,?,?,?) LIMIT 1",
+        arrayOf(STATE_RUNNING, STATE_PAUSED, STATE_RESUME_CHECK, STATE_RECONCILING),
+    ).use { it.moveToFirst() } || readableDatabase.hasUnresolvedAction()
+
     fun finish(
         taskId: String,
         succeeded: Boolean,

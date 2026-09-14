@@ -41,7 +41,7 @@ object DutyController {
         val config = ImMonitor.config
         if (!config.enabled || !config.dutyActive()) return
         if (ImMonitorConfig.PLATFORM_XIANYU !in config.platforms) return
-        if (store.hasBlockingHead()) return // single writer: tasks win over duty
+        if (store.hasActiveTask()) return // single writer: running and blocked tasks win over duty
         val service = CloudCtlAccessibilityService.active ?: return
         if (!busy.compareAndSet(false, true)) return
         scope.launch {
@@ -70,8 +70,11 @@ object DutyController {
 
     private suspend fun ensureOnMessageList(service: CloudCtlAccessibilityService) {
         val now = System.currentTimeMillis()
-        if (now - lastNav.get() < NAVIGATE_INTERVAL_MS && onMessageList(service)) return
+        // Throttle navigation purely by interval: navigating on every tick when the
+        // phone is not parked on the message list relaunches the app in a tight loop.
+        if (now - lastNav.get() < NAVIGATE_INTERVAL_MS) return
         lastNav.set(now)
+        if (onMessageList(service)) return
         runCatching { service.launchTargetApp("com.taobao.idlefish") }
         delay(1_500)
         service.tapRemoteGestureLike(975.0, 2331.0) // 消息 tab (verified coordinate family)

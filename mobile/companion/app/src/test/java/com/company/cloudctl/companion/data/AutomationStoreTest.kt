@@ -344,6 +344,18 @@ class AutomationStoreTest {
         assertTrue(store.hasBlockingHead())
     }
 
+    @Test
+    fun `duty yields to a running task via hasActiveTask`() {
+        assertFalse(store.hasActiveTask())
+        store.enqueueTask("task-duty", "payload", "lease-duty", 0)
+        assertNotNull(store.claimNext())
+        // Claiming moves the task into RUNNING; the duty controller must treat
+        // that as device ownership even though nothing is paused or reconciling.
+        assertTrue(store.hasActiveTask())
+        store.finish("task-duty", succeeded = true)
+        assertFalse(store.hasActiveTask())
+    }
+
     private fun taskState(taskId: String): String = store.readableDatabase.rawQuery(
         "SELECT state FROM task_inbox WHERE task_id=?",
         arrayOf(taskId),
