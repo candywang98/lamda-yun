@@ -127,7 +127,58 @@ class ScreenshotStep(StrictModel):
         if not STEP_ID_PATTERN.fullmatch(value):
             raise ValueError("stepId is invalid")
         return value
+XIANYU_TAP_LAYOUT_REFS = frozenset(
+    {
+        "polish_all",
+        "more",
+        "delist_menu_item",
+        "confirm_delist",
+        "delete_card",
+        "confirm_delete",
+    }
+)
+MAX_CARD_INDEX = 49
 
+
+class TapLayoutStep(StrictModel):
+    """Coordinate-derived xianyu region tap guarded by the frozen 20260915 anchors."""
+
+    step_id: str = Field(alias="stepId", min_length=1, max_length=128)
+    action: Literal["ui.tapLayout"]
+    layout_ref: str = Field(alias="layoutRef", min_length=1, max_length=128)
+    card_index: int | None = Field(default=None, alias="cardIndex", ge=0, le=MAX_CARD_INDEX)
+    timeout_ms: int = Field(default=10_000, alias="timeoutMs", ge=100, le=60_000)
+
+    @field_validator("step_id")
+    @classmethod
+    def valid_step_id(cls, value: str) -> str:
+        if not STEP_ID_PATTERN.fullmatch(value):
+            raise ValueError("stepId is invalid")
+        return value
+
+    @field_validator("layout_ref")
+    @classmethod
+    def approved_layout(cls, value: str) -> str:
+        if value not in XIANYU_TAP_LAYOUT_REFS:
+            raise ValueError("layoutRef must be an approved xianyu maintenance layout")
+        return value
+
+
+class AssertBadgeStep(StrictModel):
+    """Verify the published-lists tab badge moved by exactly the expected delta."""
+
+    step_id: str = Field(alias="stepId", min_length=1, max_length=128)
+    action: Literal["ui.assertBadge"]
+    tab: Literal["onsale", "delisted"]
+    delta: int = Field(ge=-50, le=0)
+    timeout_ms: int = Field(default=15_000, alias="timeoutMs", ge=100, le=60_000)
+
+    @field_validator("step_id")
+    @classmethod
+    def valid_step_id(cls, value: str) -> str:
+        if not STEP_ID_PATTERN.fullmatch(value):
+            raise ValueError("stepId is invalid")
+        return value
 
 class AssertStep(LocatorStep):
     action: Literal["ui.assert"]
@@ -150,7 +201,16 @@ class LogStep(StrictModel):
 
 
 MobileStep = Annotated[
-    FindStep | TapStep | TapTextStep | InputStep | WaitStep | ScreenshotStep | AssertStep | LogStep,
+    FindStep
+    | TapStep
+    | TapTextStep
+    | InputStep
+    | WaitStep
+    | ScreenshotStep
+    | TapLayoutStep
+    | AssertBadgeStep
+    | AssertStep
+    | LogStep,
     Field(discriminator="action"),
 ]
 

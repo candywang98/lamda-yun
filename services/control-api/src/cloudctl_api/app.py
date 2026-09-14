@@ -17,30 +17,32 @@ from .auth import OidcJwtVerifier
 from .db import Database
 from .debug_routes import router as debug_router
 from .debug_service import DebugSessionService
+from .dev_seed import seed_development_data
 from .im_routes import companion_router as im_companion_router
 from .im_routes import operator_router as im_operator_router
 from .im_service import ImService
-from .live import companion_router as live_companion_router
 from .live import LiveService
+from .live import companion_router as live_companion_router
 from .live import operator_router as live_operator_router
-from .dev_seed import seed_development_data
 from .media_store import ObjectStore, create_object_store
 from .mobile_routes import companion_router
 from .mobile_routes import operator_router as mobile_operator_router
 from .mobile_service import MobileTaskService
-from .platform_task_routes import router as platform_task_router
-from .platform_tasks import PlatformTaskService
-from .schedule_routes import router as schedule_router
-from .schedules import TaskScheduleService
 from .operation_routes import router as operation_router
 from .operation_service import OperationService
+from .platform_task_routes import router as platform_task_router
+from .platform_tasks import PlatformTaskService
 from .routes import router
+from .schedule_routes import router as schedule_router
+from .schedules import TaskScheduleService
 from .services import ControlService
 from .settings import Settings, get_settings
 from .source_routes import router as source_router
 from .wechat_client import WeChatTransport
 from .wechat_routes import router as wechat_router
 from .wechat_service import WeChatPublisherService
+from .xianyu_maintenance import XianyuMaintenanceService
+from .xianyu_maintenance_routes import router as xianyu_maintenance_router
 
 
 def _problem(
@@ -110,6 +112,9 @@ def create_app(
     )
     app.state.object_store = resolved_object_store
     app.state.mobile_task_service = MobileTaskService(database, resolved_object_store)
+    app.state.xianyu_maintenance_service = XianyuMaintenanceService(
+        database, app.state.mobile_task_service
+    )
     app.state.platform_task_service = PlatformTaskService(database, app.state.mobile_task_service)
     app.state.task_schedule_service = TaskScheduleService(database, app.state.platform_task_service)
     app.state.control_service = ControlService(
@@ -210,6 +215,7 @@ def create_app(
     app.include_router(operation_router)
     app.include_router(source_router)
     app.include_router(wechat_router)
+    app.include_router(xianyu_maintenance_router)
     app.include_router(debug_router)
     app.include_router(mobile_operator_router)
     app.include_router(platform_task_router)

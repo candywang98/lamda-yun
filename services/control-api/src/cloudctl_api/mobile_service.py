@@ -591,6 +591,12 @@ class MobileTaskService:
         if not key or len(key) > 128:
             raise ValidationError("Idempotency-Key is required and must be at most 128 characters")
         document = body.model_dump(mode="json", by_alias=True, exclude_none=True)
+        # Xianyu maintenance steps (ui.tapLayout/ui.assertBadge) are accepted only
+        # when they match exactly one frozen maintenance command shape.
+        from .mobile_actions import uses_maintenance_step_actions, validate_maintenance_steps
+
+        if uses_maintenance_step_actions(document["steps"]):
+            validate_maintenance_steps(body.target_package, document["steps"])
         digest = hashlib.sha256(_canonical(document).encode()).hexdigest()
         now = _now()
         try:
