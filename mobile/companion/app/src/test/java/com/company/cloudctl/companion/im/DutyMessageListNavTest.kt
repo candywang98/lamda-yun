@@ -14,6 +14,7 @@ class DutyMessageListNavTest {
         val coordinateTaps = mutableListOf<Pair<Double, Double>>()
         val order = mutableListOf<String>()
         var anchorTaps = 0
+        var backs = 0
         var settles = 0
 
         override fun onMessageList(): Boolean = onList()
@@ -21,6 +22,11 @@ class DutyMessageListNavTest {
             anchorTaps++
             order += "anchor"
             return anchorOutcome()
+        }
+
+        override fun goBack() {
+            backs++
+            order += "back"
         }
 
         override suspend fun tapCoordinate(x: Double, y: Double) {
@@ -40,51 +46,69 @@ class DutyMessageListNavTest {
         val fake = Fake().apply { onList = { true } }
         assertTrue(DutyMessageListNav(fake).execute())
         assertEquals(0, fake.anchorTaps)
+        assertEquals(0, fake.backs)
         assertTrue(fake.coordinateTaps.isEmpty())
         assertTrue(fake.events.isEmpty())
         assertEquals(0, fake.settles)
     }
 
-    @Test fun anchorHitTapsAnchorWithoutCoordinateFallback() = runBlocking {
+    @Test fun anchorDirectHitTapsAnchorWithoutBackOrCoordinateFallback() = runBlocking {
         val fake = Fake().apply { anchorOutcome = { true } }
         assertTrue(DutyMessageListNav(fake).execute())
         assertEquals(1, fake.anchorTaps)
+        assertEquals(0, fake.backs)
         assertEquals(1, fake.settles)
         assertTrue(fake.coordinateTaps.isEmpty())
         assertTrue(DutyMessageListNav.COORD_FALLBACK_EVENT !in fake.events)
+        assertTrue(DutyMessageListNav.BACK_EVENT !in fake.events)
     }
 
-    @Test fun anchorMissOffListFallsBackToVerifiedCoordinateOnceWithAuditEvent() = runBlocking {
-        val answers = ArrayDeque(listOf(false, false, true))
-        val fake = Fake().apply {
-            anchorOutcome = { false }
-            onList = { answers.removeFirst() }
-        }
+    @Test fun anchorMissBacksOnceThenAnchorHitsAndStops() = runBlocking {
+        var anchorCalls = 0
+        val fake = Fake().apply { anchorOutcome = { ++anchorCalls > 1 } }
         assertTrue(DutyMessageListNav(fake).execute())
-        assertEquals(listOf("DUTY_NAV_COORD_FALLBACK"), fake.events)
-        assertEquals(listOf(975.0 to 2331.0), fake.coordinateTaps)
+        // Initial resolve + one retry after the first BACK.
+        assertEquals(2, fake.anchorTaps)
+        assertEquals(1, fake.backs)
         assertEquals(1, fake.settles)
-        // The audit flag must precede the blind tap, not explain it afterwards.
-        assertTrue(fake.order.indexOf("event:DUTY_NAV_COORD_FALLBACK") < fake.order.indexOf("coord:975.0,2331.0"))
+        assertEquals(listOf(DutyMessageListNav.BACK_EVENT), fake.events)
+        assertTrue(fake.coordinateTaps.isEmpty())
     }
 
-    @Test fun anchorMissWhileAlreadyOnMessageListNeverClicks() = runBlocking {
-        val answers = ArrayDeque(listOf(false, true))
+    @Test fun landingOnListAfterOneBackStopsWithoutFurtherTaps() = runBlocking {
         val fake = Fake().apply {
             anchorOutcome = { false }
-            onList = { answers.removeFirst() }
+            onList = { backs > 0 }
         }
         assertTrue(DutyMessageListNav(fake).execute())
         assertEquals(1, fake.anchorTaps)
+        assertEquals(1, fake.backs)
         assertTrue(fake.coordinateTaps.isEmpty())
-        assertTrue(fake.events.isEmpty())
-        assertEquals(0, fake.settles)
+        assertEquals(listOf(DutyMessageListNav.BACK_EVENT), fake.events)
+    }
+
+    @Test fun backAttemptsExhaustedFallsBackToVerifiedCoordinateOnceWithAuditEvent() = runBlocking {
+        val fake = Fake().apply {
+            anchorOutcome = { false }
+            onList = { coordinateTaps.isNotEmpty() }
+        }
+        assertTrue(DutyMessageListNav(fake).execute())
+        assertEquals(2, fake.backs)
+        assertEquals(
+            listOf(DutyMessageListNav.BACK_EVENT, DutyMessageListNav.BACK_EVENT, DutyMessageListNav.COORD_FALLBACK_EVENT),
+            fake.events,
+        )
+        assertEquals(listOf(975.0 to 2331.0), fake.coordinateTaps)
+        assertEquals(1, fake.settles)
+        // The audit flag must precede the blind tap, not explain it afterwards.
+        assertTrue(fake.order.indexOf("event:${DutyMessageListNav.COORD_FALLBACK_EVENT}") < fake.order.indexOf("coord:975.0,2331.0"))
     }
 
     @Test fun fallbackFiresExactlyOnceEvenWhenItDoesNotLand() = runBlocking {
         val fake = Fake().apply { anchorOutcome = { false } }
         assertFalse(DutyMessageListNav(fake).execute())
+        assertEquals(2, fake.backs)
         assertEquals(listOf(975.0 to 2331.0), fake.coordinateTaps)
-        assertEquals(listOf("DUTY_NAV_COORD_FALLBACK"), fake.events)
+        assertTrue(fake.events.count { it == DutyMessageListNav.COORD_FALLBACK_EVENT } == 1)
     }
 }

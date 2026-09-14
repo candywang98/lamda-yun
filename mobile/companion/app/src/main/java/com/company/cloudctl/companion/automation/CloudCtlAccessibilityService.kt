@@ -75,6 +75,21 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
             ?: "").trim()
         if (title.isEmpty() || text.isEmpty()) return
         val platform = com.company.cloudctl.companion.im.ImMonitorConfig.platformOfPackage(pkg) ?: return
+        // im-feed-noise (2026-09-14): every monitored notification is logged with
+        // package + channel id + a truncated title so one on-device capture can
+        // calibrate the xianyu DM vs feed channel ids (ImFeedNoiseFilter).
+        Log.i(TAG, "IM_NOTIF pkg=$pkg channel=${notification.channelId} title=${title.take(24)}")
+        val dropped = com.company.cloudctl.companion.im.ImFeedNoiseFilter.dropReason(
+            platform, notification.channelId, title,
+        )
+        if (dropped != null) {
+            Log.i(
+                TAG,
+                "${com.company.cloudctl.companion.im.ImFeedNoiseFilter.DROP_EVENT} " +
+                    "platform=$platform reason=${dropped.reason} channel=${notification.channelId} title=${title.take(48)}",
+            )
+            return
+        }
         if (!com.company.cloudctl.companion.im.ImMonitorConfig.isChannelAllowed(
                 platform, notification.channelId)
         ) return
@@ -733,26 +748,32 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
     private fun findMatches(root: AccessibilityNodeInfo, locator: ApprovedLocator): List<AccessibilityNodeInfo> =
         when (locator) {
             is ApprovedLocator.ResourceId -> root.findAccessibilityNodeInfosByViewId(locator.value)
-            is ApprovedLocator.ContentDescription -> findContentDescription(root) { it == locator.value }
-            is ApprovedLocator.ContentDescriptionPrefix -> findContentDescription(root) { it.startsWith(locator.prefix) }
-            is ApprovedLocator.IndexedContentDescription -> findContentDescription(root) { it == locator.value }
+            // findContentDescription matches content-desc and text alike; the
+            // string tests come from TargetLocatorRegistry.acceptsDescription so
+            // node matching and unit tests share one semantic.
+            is ApprovedLocator.ContentDescription -> stringMatches(root, locator)
+            is ApprovedLocator.ContentDescriptionPrefix -> stringMatches(root, locator)
+            is ApprovedLocator.Text -> stringMatches(root, locator)
+            is ApprovedLocator.TextPrefix -> stringMatches(root, locator)
+            is ApprovedLocator.AnyOf -> locator.alternatives
+                .flatMap { findMatches(root, it) }
+                .distinct()
+            is ApprovedLocator.IndexedContentDescription -> stringMatches(root, locator)
                 .getOrNull(locator.index)?.let(::listOf).orEmpty()
-            // findContentDescription matches content-desc and text alike.
-            is ApprovedLocator.Text -> findContentDescription(root) { it == locator.value }
-            is ApprovedLocator.TextPrefix -> findContentDescription(root) { it.startsWith(locator.prefix) }
             is ApprovedLocator.IndexedResourceId -> root.findAccessibilityNodeInfosByViewId(locator.value)
                 .sortedBy { node -> node.boundsTop() }
                 .getOrNull(locator.index)?.let(::listOf).orEmpty()
             // Selection marks may report invisible or carry trailing text;
             // their visible cell container is the tap target.
-            is ApprovedLocator.IndexedContentDescriptionPrefixParent -> findContentDescription(root) {
-                it.startsWith(locator.prefix)
-            }.getOrNull(locator.index)?.parent?.let(::listOf).orEmpty()
+            is ApprovedLocator.IndexedContentDescriptionPrefixParent -> stringMatches(root, locator)
+                .getOrNull(locator.index)?.parent?.let(::listOf).orEmpty()
             // The mark node itself is the checkbox overlay on the cell; tapping it selects.
-            is ApprovedLocator.IndexedContentDescriptionPrefix -> findContentDescription(root) {
-                it.startsWith(locator.prefix)
-            }.getOrNull(locator.index)?.let(::listOf).orEmpty()
+            is ApprovedLocator.IndexedContentDescriptionPrefix -> stringMatches(root, locator)
+                .getOrNull(locator.index)?.let(::listOf).orEmpty()
         }
+
+    private fun stringMatches(root: AccessibilityNodeInfo, locator: ApprovedLocator): List<AccessibilityNodeInfo> =
+        findContentDescription(root) { TargetLocatorRegistry.acceptsDescription(locator, it) }
 
     private fun AccessibilityNodeInfo.boundsTop(): Int {
         val bounds = Rect()

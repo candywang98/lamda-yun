@@ -87,6 +87,8 @@ object DutyController {
             override suspend fun tapMessagesTabAnchor(): Boolean =
                 service.ensureMessageListTab(TargetLocatorRegistry.XIANYU_PACKAGE)
 
+            override fun goBack() { service.dutyBack() }
+
             override suspend fun tapCoordinate(x: Double, y: Double) {
                 // Never blind-tap a screen that is not verifiably the target app.
                 if (!service.isTargetForeground(TargetLocatorRegistry.XIANYU_PACKAGE)) {
@@ -101,9 +103,22 @@ object DutyController {
         if (!parked) android.util.Log.w(TAG, "duty navigation did not land on the message list")
     }
 
+    // Multi-form (device evidence 2026-09-14): the list page also parks with the
+    // tab reading "消息，未选中状态"/"消息，选中状态" when there is no unread;
+    // recognizing only the unread form mistook a parked phone for a lost one.
     private fun onMessageList(service: CloudCtlAccessibilityService): Boolean {
         val roots = service.allRootsForDuty() ?: return false
-        return roots.any { root -> containsDesc(root, "消息，未读消息数") }
+        return roots.any { root -> containsTabForm(root) }
+    }
+
+    private fun containsTabForm(node: AccessibilityNodeInfo): Boolean {
+        val desc = node.contentDescription?.toString()
+        if (desc != null && TargetLocatorRegistry.isXianyuMessagesTabDescription(desc)) return true
+        for (index in 0 until node.childCount) {
+            val child = node.getChild(index) ?: continue
+            if (containsTabForm(child)) return true
+        }
+        return false
     }
 
     /** Entry container with a fresh unread badge: (tapNode=badge's entry, peerName). */

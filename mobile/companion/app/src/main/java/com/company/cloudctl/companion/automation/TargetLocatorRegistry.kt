@@ -10,6 +10,14 @@ internal sealed interface ApprovedLocator {
     data class IndexedResourceId(val value: String, val index: Int) : ApprovedLocator
     data class IndexedContentDescriptionPrefix(val prefix: String, val index: Int) : ApprovedLocator
     data class IndexedContentDescriptionPrefixParent(val prefix: String, val index: Int) : ApprovedLocator
+
+    /**
+     * Any alternative can satisfy the locator. Used for controls the target app
+     * exposes in several accessibility forms (e.g. a tab with and without an
+     * unread badge); alternatives are tried against the same node tree and the
+     * results are merged, so a node matching any form resolves exactly as before.
+     */
+    data class AnyOf(val alternatives: List<ApprovedLocator>) : ApprovedLocator
 }
 
 /**
@@ -21,6 +29,13 @@ internal object TargetLocatorRegistry {
     const val XIANYU_PACKAGE = "com.taobao.idlefish"
     const val XHS_PACKAGE = "com.xingin.xhs"
     const val DOUYIN_PACKAGE = "com.ss.android.ugc.aweme"
+
+    // Verified 消息 tab accessibility forms (uiautomator dump 2026-09-14):
+    // unread "消息，未读消息数1", plain "消息，未选中状态" / "消息，选中状态".
+    // The home tab is "闲鱼，未读消息数0，选中状态" and never matches these.
+    const val MESSAGES_TAB_UNREAD_PREFIX = "消息，未读消息数"
+    const val MESSAGES_TAB_UNSELECTED_FORM = "消息，未选中状态"
+    const val MESSAGES_TAB_SELECTED_FORM = "消息，选中状态"
 
     private val companionLocators = mapOf(
         "companion_home_root" to ApprovedLocator.ContentDescription("companion_home_root"),
@@ -53,9 +68,19 @@ internal object TargetLocatorRegistry {
         "xianyu_location_saved_0" to ApprovedLocator.ContentDescriptionPrefix("北营新村丰景佳园"),
         "xianyu_publish_blocked_ack" to ApprovedLocator.ContentDescription("我知道了"),
         "xianyu_publish_button" to ApprovedLocator.ContentDescription("发布"),
-        // Verified on-device 2026-09-13 (pa-im): the messages tab exposes a compound
-        // desc "消息，未读消息数N，…状态"; the chat composer placeholder is a Flutter view.
-        "xianyu_messages_tab" to ApprovedLocator.ContentDescriptionPrefix("消息，未读消息数"),
+        // Verified on-device 2026-09-13 + 2026-09-14 (pa-im): the 消息 tab exposes
+        // three accessibility forms — unread "消息，未读消息数N，…状态", plain
+        // "消息，未选中状态" (no unread) and "消息，选中状态". The home tab reads
+        // "闲鱼，未读消息数N，…状态", so every alternative is anchored on the
+        // leading "消息，" and can never match it. The unread prefix stays the
+        // first alternative so existing unread-scenario matching is unchanged.
+        "xianyu_messages_tab" to ApprovedLocator.AnyOf(
+            listOf(
+                ApprovedLocator.ContentDescriptionPrefix(MESSAGES_TAB_UNREAD_PREFIX),
+                ApprovedLocator.ContentDescription(MESSAGES_TAB_UNSELECTED_FORM),
+                ApprovedLocator.ContentDescription(MESSAGES_TAB_SELECTED_FORM),
+            ),
+        ),
         "xianyu_chat_input" to ApprovedLocator.ContentDescriptionPrefix("想跟TA说点什么"),
         "xianyu_chat_send" to ApprovedLocator.ContentDescription("发送"),
     )
@@ -119,6 +144,36 @@ internal object TargetLocatorRegistry {
             }
         }
         throw IllegalArgumentException("Unknown Companion locator")
+    }
+
+    /**
+     * True when a node content description / text string is one of the verified
+     * xianyu 消息 tab forms (used both by the xianyu_messages_tab locator and by
+     * duty-mode list detection). The 闲鱼 home tab form never matches.
+     */
+    fun isXianyuMessagesTabDescription(description: String): Boolean =
+        description.startsWith(MESSAGES_TAB_UNREAD_PREFIX) ||
+            description == MESSAGES_TAB_UNSELECTED_FORM ||
+            description == MESSAGES_TAB_SELECTED_FORM
+
+    /**
+     * Canonical string test for description/text-based locators: does a single
+     * content description (or text) value satisfy this locator? View-id and
+     * indexed locators decide over node lists (the index is applied by the
+     * caller), so only their string test is reflected here. AnyOf recurses into
+     * its alternatives. Shared by node matching and unit tests so semantics
+     * cannot drift between them.
+     */
+    fun acceptsDescription(locator: ApprovedLocator, value: String): Boolean = when (locator) {
+        is ApprovedLocator.ContentDescription -> value == locator.value
+        is ApprovedLocator.ContentDescriptionPrefix -> value.startsWith(locator.prefix)
+        is ApprovedLocator.IndexedContentDescription -> value == locator.value
+        is ApprovedLocator.Text -> value == locator.value
+        is ApprovedLocator.TextPrefix -> value.startsWith(locator.prefix)
+        is ApprovedLocator.IndexedContentDescriptionPrefix -> value.startsWith(locator.prefix)
+        is ApprovedLocator.IndexedContentDescriptionPrefixParent -> value.startsWith(locator.prefix)
+        is ApprovedLocator.AnyOf -> locator.alternatives.any { acceptsDescription(it, value) }
+        is ApprovedLocator.ResourceId, is ApprovedLocator.IndexedResourceId -> false
     }
 
     /**
