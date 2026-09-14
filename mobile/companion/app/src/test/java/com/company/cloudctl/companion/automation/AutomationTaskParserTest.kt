@@ -162,4 +162,73 @@ class AutomationTaskParserTest {
         }
     }
 
+    @Test
+    fun parsesMaintenanceLayoutAndBadgeSteps() {
+        val task = AutomationTaskParser.parse(maintenanceJson())
+        assertEquals(TargetLocatorRegistry.XIANYU_PACKAGE, task.targetPackage)
+
+        val openMenu = task.steps[0] as AutomationStep.TapLayout
+        assertEquals(XianyuMaintenanceLayout.Tab.ONSALE, openMenu.tab)
+        assertEquals(XianyuMaintenanceLayout.LayoutAction.MORE, openMenu.layoutAction)
+        assertEquals(0, openMenu.cardIndex)
+        assertEquals(null, openMenu.value)
+
+        val confirm = task.steps[1] as AutomationStep.TapLayout
+        assertEquals(XianyuMaintenanceLayout.Tab.ONSALE, confirm.tab)
+        assertEquals(XianyuMaintenanceLayout.LayoutAction.CONFIRM_DELIST, confirm.layoutAction)
+        assertEquals("受控下架确认", confirm.value)
+
+        // 角标核验：相对（N-1）与绝对两种形态，二选一。
+        val delta = task.steps[2] as AutomationStep.AssertBadge
+        assertEquals("xianyu_pub_tab_onsale", delta.locatorRef)
+        assertEquals(-1, delta.expectedDelta)
+        assertEquals(null, delta.expectedValue)
+        val absolute = task.steps[3] as AutomationStep.AssertBadge
+        assertEquals("xianyu_pub_tab_delisted", absolute.locatorRef)
+        assertEquals(null, absolute.expectedDelta)
+        assertEquals(0, absolute.expectedValue)
+    }
+
+    @Test
+    fun rejectsInvalidMaintenanceLayoutAndBadgeSteps() {
+        // 未知 layoutAction / tab → 拒绝。
+        assertFailsWith<IllegalStateException> {
+            AutomationTaskParser.parse(maintenanceJson().replace("\"confirm_delist\"", "\"confirm_buy\""))
+        }
+        assertFailsWith<IllegalStateException> {
+            AutomationTaskParser.parse(maintenanceJson().replace("\"tab\":\"onsale\"", "\"tab\":\"onsold\""))
+        }
+        // cardIndex 越界、未知字段 → 拒绝。
+        assertFailsWith<IllegalArgumentException> {
+            AutomationTaskParser.parse(maintenanceJson().replace("\"cardIndex\":0", "\"cardIndex\":10"))
+        }
+        assertFailsWith<IllegalArgumentException> {
+            AutomationTaskParser.parse(maintenanceJson().replace("\"cardIndex\":0", "\"cardIndex\":0,\"x\":1"))
+        }
+        // 角标 locator 只允许三个已发布 tab ref。
+        assertFailsWith<IllegalArgumentException> {
+            AutomationTaskParser.parse(maintenanceJson().replace("xianyu_pub_tab_onsale", "xianyu_home_sell"))
+        }
+        // expectedDelta 与 expectedValue 必须二选一。
+        assertFailsWith<IllegalArgumentException> {
+            AutomationTaskParser.parse(maintenanceJson().replace("\"expectedDelta\":-1", "\"expectedDelta\":-1,\"expectedValue\":2"))
+        }
+        assertFailsWith<IllegalArgumentException> {
+            AutomationTaskParser.parse(maintenanceJson().replace(",\"expectedDelta\":-1", ""))
+        }
+        // delta 越界 → 拒绝。
+        assertFailsWith<IllegalArgumentException> {
+            AutomationTaskParser.parse(maintenanceJson().replace("\"expectedDelta\":-1", "\"expectedDelta\":-51"))
+        }
+    }
+
+    private fun maintenanceJson() = """
+      {"protocolVersion":"cloudctl.mobile/v1","taskId":"task-xianyu-maintenance-001","deviceId":"device-1",
+      "targetPackage":"com.taobao.idlefish","issuedAt":"2026-09-15T08:00:00Z",
+      "expiresAt":"2026-09-15T08:10:00Z","maxRunSeconds":90,"commandType":"xianyu.delist.steps.v1","steps":[
+      {"stepId":"open-more","action":"ui.tapLayout","timeoutMs":8000,"layoutAction":"more","tab":"onsale","cardIndex":0},
+      {"stepId":"confirm-delist","action":"ui.tapLayout","timeoutMs":8000,"layoutAction":"confirm_delist","tab":"onsale","cardIndex":0,"value":"受控下架确认"},
+      {"stepId":"verify-onsale","action":"ui.assertBadge","timeoutMs":8000,"locatorRef":"xianyu_pub_tab_onsale","expectedDelta":-1},
+      {"stepId":"verify-delisted","action":"ui.assertBadge","timeoutMs":8000,"locatorRef":"xianyu_pub_tab_delisted","expectedValue":0}]}
+    """.trimIndent()
 }

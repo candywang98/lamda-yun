@@ -53,6 +53,36 @@ sealed interface AutomationStep {
         val level: LogLevel,
         val messageCode: String,
     ) : AutomationStep
+
+    /**
+     * Structured coordinate tap on the frozen xianyu maintenance layout
+     * (contract xianyu-maintenance-anchors-20260915). Coordinates are never
+     * supplied by the task: they are derived from the tab, the layout action
+     * and the card index under the 1080x2400 resolution guard. [value] is an
+     * optional human-readable backup label for evidence only.
+     */
+    data class TapLayout(
+        override val stepId: String,
+        override val timeoutMs: Long,
+        val tab: XianyuMaintenanceLayout.Tab,
+        val layoutAction: XianyuMaintenanceLayout.LayoutAction,
+        val cardIndex: Int,
+        val value: String?,
+    ) : AutomationStep
+
+    /**
+     * Badge assertion over a published-goods tab description (「1\n在卖」 → 1).
+     * Exactly one of [expectedDelta] (relative to the badge baseline captured
+     * at the gated/first strike of the same run) and [expectedValue] (absolute)
+     * is set; the contract freezes the signal: 下架成功⇒在卖 N-1, 删除成功⇒已下架 N-1.
+     */
+    data class AssertBadge(
+        override val stepId: String,
+        override val timeoutMs: Long,
+        val locatorRef: String,
+        val expectedDelta: Int?,
+        val expectedValue: Int?,
+    ) : AutomationStep
 }
 
 enum class NodeCondition { EXISTS, NOT_EXISTS, ENABLED }
@@ -62,6 +92,13 @@ object AutomationTaskParser {
     private val idPattern = Regex("^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
     private val locatorPattern = Regex("^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
     private val messagePattern = Regex("^[A-Z0-9_]{1,80}$")
+
+    /** The only locator refs whose descriptions carry the maintenance badge signal. */
+    val BADGE_TAB_LOCATOR_REFS = setOf(
+        "xianyu_pub_tab_onsale",
+        "xianyu_pub_tab_draft",
+        "xianyu_pub_tab_delisted",
+    )
 
     fun parse(encoded: String): AutomationTask {
         require(encoded.toByteArray().size <= 256 * 1024) { "Task payload exceeds limit" }
@@ -163,6 +200,28 @@ object AutomationTaskParser {
                 requireKeys(value, keys)
                 AutomationStep.Assert(stepId, timeout, locator(value, keys), enumValue<NodeCondition>(value.getString("predicate")))
             }
+            "ui.tapLayout" -> {
+                val keys = common + setOf("layoutAction", "tab", "cardIndex") + optional(value, "value")
+                requireKeys(value, keys)
+                val layoutAction = layoutActionOf(value.getString("layoutAction"))
+                val tab = tabOf(value.getString("tab"))
+                val cardIndex = value.getInt("cardIndex").also { require(it in 0..9) { "cardIndex is invalid" } }
+                val label = optionalString(value, "value")?.also {
+                    require(it.length in 1..80 && '\u0000' !in it) { "tapLayout value is invalid" }
+                }
+                AutomationStep.TapLayout(stepId, timeout, tab, layoutAction, cardIndex, label)
+            }
+            "ui.assertBadge" -> {
+                val keys = common + setOf("locatorRef") +
+                    optional(value, "expectedDelta") + optional(value, "expectedValue")
+                requireKeys(value, keys)
+                val badgeRef = locator(value, keys)
+                require(badgeRef in BADGE_TAB_LOCATOR_REFS) { "assertBadge requires a xianyu published-tab locator" }
+                val delta = optionalInt(value, "expectedDelta")?.also { require(it in -50..50) { "expectedDelta is invalid" } }
+                val expected = optionalInt(value, "expectedValue")?.also { require(it in 0..9999) { "expectedValue is invalid" } }
+                require((delta != null) != (expected != null)) { "assertBadge takes exactly one expected measure" }
+                AutomationStep.AssertBadge(stepId, timeout, badgeRef, delta, expected)
+            }
             "run.log" -> {
                 val keys = common + setOf("level", "messageCode")
                 requireKeys(value, keys)
@@ -174,6 +233,14 @@ object AutomationTaskParser {
             else -> error("Unknown action is not permitted")
         }
     }
+
+    private fun layoutActionOf(value: String): XianyuMaintenanceLayout.LayoutAction =
+        enumValues<XianyuMaintenanceLayout.LayoutAction>().firstOrNull { it.name.lowercase() == value }
+            ?: error("Unsupported layout action")
+
+    private fun tabOf(value: String): XianyuMaintenanceLayout.Tab =
+        enumValues<XianyuMaintenanceLayout.Tab>().firstOrNull { it.name.lowercase() == value }
+            ?: error("Unsupported layout tab")
 
     private fun locator(value: JSONObject, keys: Set<String>): String {
         requireKeys(value, keys)
@@ -189,6 +256,11 @@ object AutomationTaskParser {
     private fun optionalString(value: JSONObject, key: String): String? {
         if (!value.has(key) || value.isNull(key)) return null
         return value.opt(key) as? String
+    }
+
+    private fun optionalInt(value: JSONObject, key: String): Int? {
+        if (!value.has(key) || value.isNull(key)) return null
+        return value.opt(key) as? Int
     }
 
     private fun validateMediaDelivery(value: JSONObject) {

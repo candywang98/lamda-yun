@@ -78,6 +78,7 @@ class ControlledActionExecutor(
         timeoutMs: Long = 40_000,
         effect: suspend () -> Unit,
         postconditionEvidence: suspend () -> String?,
+        identity: ControlledActionIdentity? = null,
     ): IrreversibleActionOutcome {
         requireEvidence(beforeEvidence)
         require(timeoutMs > 0)
@@ -91,10 +92,12 @@ class ControlledActionExecutor(
         ) {
             "G3_NOT_ACCEPTED"
         }
-        val identity = ControlledActionIdentity.fromStepsPayload(payload)
-        val prior = checkJournal(identity, taskId)
+        // Maintenance confirms pass their own frozen identity (explicit command
+        // type + per-strike actionId); the publish flow keeps the legacy form.
+        val actionIdentity = identity ?: ControlledActionIdentity.fromStepsPayload(payload)
+        val prior = checkJournal(actionIdentity, taskId)
         if (prior != null) return prior
-        return commitOnce(identity, task, beforeEvidence, timeoutMs, effect, postconditionEvidence)
+        return commitOnce(actionIdentity, task, beforeEvidence, timeoutMs, effect, postconditionEvidence)
     }
 
     fun persistedPayload(taskId: String): String? = store.persistedTask(taskId)?.payload

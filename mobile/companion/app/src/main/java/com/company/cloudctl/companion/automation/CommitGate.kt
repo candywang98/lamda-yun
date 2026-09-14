@@ -8,3 +8,17 @@ package com.company.cloudctl.companion.automation
 fun interface CommitGate {
     suspend fun publishOnce(task: AutomationTask, locatorRef: String)
 }
+
+/**
+ * Durable once-only gate for the destructive confirm click of a xianyu
+ * maintenance action (下架/删除已下架 second strike). The tap happens only
+ * after one fresh server authorization; the ledger verifies the badge
+ * postcondition and reports UNKNOWN when unconfirmed — never retried.
+ *
+ * Implementations return the pre-strike badge baseline so a follow-up
+ * `ui.assertBadge` step can assert the expected delta, or null when a prior
+ * recorded intent only reconciled (no fresh strike, no valid baseline).
+ */
+fun interface DestructiveClickGate {
+    suspend fun confirmOnce(task: AutomationTask, step: AutomationStep.TapLayout): Int?
+}

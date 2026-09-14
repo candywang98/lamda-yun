@@ -185,10 +185,33 @@ class BlockedDialogNavigationTest {
 
     @Test
     fun unverifiedPlatformsHaveNoRecoveryActions() {
-        for (target in listOf(TargetLocatorRegistry.DOUYIN_PACKAGE, TargetLocatorRegistry.XIANYU_PACKAGE, "unknown")) {
+        for (target in listOf(TargetLocatorRegistry.DOUYIN_PACKAGE, "unknown")) {
             assertTrue(BlockedDialogRegistry.rules(target).isEmpty())
             assertNull(BlockedDialogRegistry.match(target, dialog()))
         }
+    }
+
+    @Test
+    fun xianyuExitPublishDialogConfirmsTheExitOnly() {
+        // 闲鱼发布编辑页退出确认（contract xianyu-maintenance-anchors-20260915）：
+        // 标题「确定要退出发布吗？」+「我再想想」+「确定退出」，导航复位只点确定退出。
+        val exitTitle = "\u786e\u5b9a\u8981\u9000\u51fa\u53d1\u5e03\u5417\uff1f"
+        val exit = "\u786e\u5b9a\u9000\u51fa"
+        val rethink = "\u6211\u518d\u60f3\u60f3"
+        val nodes = listOf(
+            BlockedDialogRegistry.Node(exitTitle),
+            BlockedDialogRegistry.Node(rethink, clickable = true),
+            BlockedDialogRegistry.Node(exit, clickable = true),
+        )
+        assertEquals(1, BlockedDialogRegistry.rules(TargetLocatorRegistry.XIANYU_PACKAGE).size)
+        assertEquals(exit, BlockedDialogRegistry.match(TargetLocatorRegistry.XIANYU_PACKAGE, nodes)?.label)
+        // 任一元素缺失或不可点 → fail closed；其他平台绝不复用闲鱼规则。
+        assertNull(BlockedDialogRegistry.match(TargetLocatorRegistry.XIANYU_PACKAGE, nodes.filterNot { it.text == exit }))
+        assertNull(BlockedDialogRegistry.match(TargetLocatorRegistry.XIANYU_PACKAGE, nodes.filterNot { it.text == exitTitle }))
+        assertNull(BlockedDialogRegistry.match(TargetLocatorRegistry.XIANYU_PACKAGE, nodes.filterNot { it.text == rethink }))
+        assertNull(BlockedDialogRegistry.match(TargetLocatorRegistry.XIANYU_PACKAGE, nodes.map { if (it.text == exit) it.copy(clickable = false) else it }))
+        assertNull(BlockedDialogRegistry.match(TargetLocatorRegistry.DOUYIN_PACKAGE, nodes))
+        assertNull(BlockedDialogRegistry.match(pkg, nodes))
     }
 
     @Test
