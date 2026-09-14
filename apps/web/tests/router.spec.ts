@@ -4,8 +4,9 @@ import { coreRoutes, operationRoutes } from '@/router'
 
 describe('core route contract', () => {
   it('keeps legacy CloudCtl paths only as redirects into the operations workspace', () => {
-    expect(coreRoutes).toHaveLength(21)
-    expect(new Set(coreRoutes.map((route) => route.path)).size).toBe(21)
+    expect(coreRoutes).toHaveLength(22)
+    expect(new Set(coreRoutes.map((route) => route.path)).size).toBe(22)
+    expect(coreRoutes.find((route) => route.name === 'im-inbox')?.component).toBeTruthy()
     expect(coreRoutes.find((route) => route.name === 'mobile-automation')?.redirect).toBe('/operations/system-home/system-home-02')
     expect(coreRoutes.find((route) => route.name === 'devices')?.redirect).toBe('/operations/system-home/system-home-02')
     expect(coreRoutes.find((route) => route.name === 'device-detail')?.component).toBeTruthy()
