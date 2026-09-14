@@ -89,3 +89,18 @@
 3. MediaStore upsert 去重的真机行为级验证仍未做（需媒体导出任务，未在本轮窗口）。
 4. 审查建议：气泡读取整树兜底加文本黑名单；固定坐标加分辨率守卫（换机失效表现为静默失败）；:mark-read 是否收紧另议。
 5. 公众号 publisher 部署：用户已明确搁置（含 CLOUDCTL_WECHAT_SECRET_ENCRYPTION_KEY 生产配置项，已写入 runbook）。
+
+## 八、追加第三轮（2026-09-14 深夜收尾）：upsert 闭环、噪声过滤、值班停驻
+
+| 事项 | 结果 |
+|---|---|
+| **MediaStore upsert 真机闭环**（缺口4最后一项） | ✅ 连续 8 次同资产导出任务定位出**双根因**：① RELATIVE_PATH 需尾斜杠；② **insert 时系统按 MIME 自动补 `.jpg` 扩展名，查询用裸资产名永不命中**——统一 displayName（含扩展名）后终验 `existing=1 decision=Reuse`、行数零增长。验证遗留副本已清空（相册 0 行）。决策/异常日志已留 `gallery upsert` 打点 |
+| **闲鱼营销推送过滤**（新缺口1） | ✅ agent/im-feed-noise `ce8b7cd`：分层防御——通道层（未标定态保持中性，需真机抓 IM_NOTIF 日志标定 channel 后启用）+ 形态层（peer 名>16 字/含换行/含营销关键词即丢弃，双生产样本形态覆盖）；IM_NOTIF/IM_FEED_DROPPED 审计打点。真机标定待后续推送窗口 |
+| **消息 tab 多形态锚点** | ✅ 三形态（未读前缀/未选中/选中），「闲鱼，」不误配；回复任务有未读场景命中集合严格不变（测试论证） |
+| **值班停驻三连修**（真机逐层实证） | ✅ ① 内页先返回再锚点（DUTY_NAV_BACK ≤2 次）；② 「未选中」形态在任何带 tab 栏的页面都存在——停驻判定收紧为选中形态/未读+isSelected；③ **消息列表页 tab bar 根本不在 semantics 树**——补会话条目内容特征（时间戳/红点提醒）作停驻证据。终验：首页出发锚点直击、内页 1 返回后命中、停驻后 105 秒完全静默、全程零坐标兜底 |
+| 测试基线 | Android 274/0/0（+12）；后端 579/1 维持；Web 155 维持 |
+
+**新登记待办**：
+1. XHS NAV_RESET_FAILED：小红书从内页（编辑页）回不到根——rootAnchorRefs 的 xhs 锚点在内页不可见 + Flutter 恢复路由；本轮 upsert 验证任务 2/3 均失败于此（不影响 upsert 结论，导出在 preflight 已完成）。需为 xhs 补内页退出策略（独立工作项）。
+2. 营销过滤通道层标定：等下一条真实 feed 推送到达时抓 IM_NOTIF 的 channel id 填入白/黑名单。
+3. 相册导出行清理策略：MediaDeliveryCoordinator 成功任务后有删除清理路径，失败任务遗留行需确认清理时机（本轮验证已手工清空）。
