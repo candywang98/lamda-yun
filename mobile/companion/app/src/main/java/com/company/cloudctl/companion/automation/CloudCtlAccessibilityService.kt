@@ -114,8 +114,11 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
                 "Expected exactly one visible '$value' node, found ${matches.size}",
             )
         }
-        if (!activate(matches.first())) {
-            throw ExecutorFailure("TAP_TEXT_NOT_UNIQUE", "Unique '$value' node could not be activated")
+        // Flutter views report ACTION_CLICK success without handling it; a real
+        // synthesized touch on the node center is the reliable tap (pa-im/20260913.1).
+        val node = matches.first()
+        if (!gestureClick(node) && !activate(node)) {
+            throw ExecutorFailure("TAP_TEXT_NOT_UNIQUE", "Unique '$value' node could not be tapped")
         }
     }
 
