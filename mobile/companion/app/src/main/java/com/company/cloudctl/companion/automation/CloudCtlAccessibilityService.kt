@@ -158,7 +158,7 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
                 )
                 throw ExecutorFailure("APP_NOT_INSTALLED", "Target package is not installed")
             }
-            launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             try {
                 startActivity(launch)
             } catch (_: ActivityNotFoundException) {
