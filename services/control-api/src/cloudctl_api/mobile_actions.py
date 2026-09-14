@@ -8,7 +8,7 @@ import uuid
 from typing import Annotated, Any, Literal
 
 from cloudctl_automation_sdk.recipe import validate_recipe_package
-from cloudctl_domain import ConflictError, NotFoundError
+from cloudctl_domain import ConflictError, NotFoundError, ValidationError
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 from sqlalchemy import select
 
@@ -110,35 +110,18 @@ STEPS_SHAPES = {
 }
 
 
-def steps_action_identity(task: MobileTaskRow) -> dict[str, Any]:
-    # The claim path prepends a dynamic header entry (controlEpoch/lease fields,
-    # no "action" key) to the stored steps; identity covers the real steps only,
-    # exactly matching what the Companion hashes from its claimed payload.
-    shape = STEPS_SHAPES.get(task.target_package or "")
-    if shape is None:
-        raise ConflictError("G3_NOT_ACCEPTED")
-    steps = [step for step in (task.steps or []) if step.get("action")]
-    publish_taps = [
-        step
-        for step in steps
-        if step.get("action") == "ui.tap" and step.get("locatorRef") == shape["publish_button"]
-    ]
-    has_postcondition = any(step.get("locatorRef") == shape["postcondition"] for step in steps)
-    has_description = any(
-        step.get("action") == "ui.input" and step.get("locatorRef") == shape["content_input"]
-        for step in steps
-    )
-    if len(publish_taps) != 1 or not has_postcondition or not has_description:
-        raise ConflictError("G3_NOT_ACCEPTED")
+def _steps_action_row(
+    command_type: str, action_id: str, task: MobileTaskRow, steps: list[dict[str, Any]]
+) -> dict[str, Any]:
     digest = hashlib.sha256(canonical_steps(steps).encode()).hexdigest()
     key, parameters = action_identity(
         task.id,
-        shape["command_type"],
+        command_type,
         task.device_id,
         task.binding_version or 0,
         digest,
         digest,
-        STEPS_ACTION_ID,
+        action_id,
     )
     return dict(
         action_key=key,
@@ -150,10 +133,216 @@ def steps_action_identity(task: MobileTaskRow) -> dict[str, Any]:
         recipe_version_id="steps",
         recipe_sha256=digest,
         snapshot_sha256=digest,
-        action_id=STEPS_ACTION_ID,
+        action_id=action_id,
         parameter_hash=parameters,
     )
 
+
+def steps_action_identity(task: MobileTaskRow) -> dict[str, Any]:
+    # The claim path prepends a dynamic header entry (controlEpoch/lease fields,
+    # no "action" key) to the stored steps; identity covers the real steps only,
+    # exactly matching what the Companion hashes from its claimed payload.
+    steps = [step for step in (task.steps or []) if step.get("action")]
+    shape = STEPS_SHAPES.get(task.target_package or "")
+    if shape is not None and _publish_shape_matches(shape, steps):
+        return _steps_action_row(shape["command_type"], STEPS_ACTION_ID, task, steps)
+    for command_type, maintenance in XIANYU_MAINTENANCE_SHAPES.items():
+        if maintenance["action_id"] is None:
+            # Light-risk shapes (polish) have no ledger gated click by contract.
+            continue
+        if _maintenance_shape_error(maintenance, steps) is None:
+            return _steps_action_row(command_type, maintenance["action_id"], task, steps)
+    raise ConflictError("G3_NOT_ACCEPTED")
+
+
+def _publish_shape_matches(shape: dict[str, Any], steps: list[dict[str, Any]]) -> bool:
+    publish_taps = [
+        step
+        for step in steps
+        if step.get("action") == "ui.tap" and step.get("locatorRef") == shape["publish_button"]
+    ]
+    has_postcondition = any(step.get("locatorRef") == shape["postcondition"] for step in steps)
+    has_description = any(
+        step.get("action") == "ui.input" and step.get("locatorRef") == shape["content_input"]
+        for step in steps
+    )
+    return len(publish_taps) == 1 and has_postcondition and has_description
+
+
+# Frozen xianyu maintenance shapes against the device-verified 20260915 anchors.
+# "screenshot_rules" entries are ("between", layoutA, layoutB) evidence captured
+# before the gated confirm, or ("after_layout", layout) / ("after_badge", None)
+# post-effect evidence requirements.
+XIANYU_MAINTENANCE_SHAPES: dict[str, dict[str, Any]] = {
+    "xianyu.polish.steps.v1": {
+        "package": XIANYU_PACKAGE,
+        "action": "polish",
+        "action_id": None,
+        "navigation": ("xianyu_profile_tab", "xianyu_my_published"),
+        "layout_taps": {"polish_all": {"count": 1, "card": False}},
+        "gated_layout": None,
+        "badge": None,
+        "screenshot_rules": (("after_layout", "polish_all"),),
+        "log_code": "XIANYU_POLISH_DONE",
+    },
+    "xianyu.delist.steps.v1": {
+        "package": XIANYU_PACKAGE,
+        "action": "delist",
+        "action_id": "confirm-delist",
+        "navigation": ("xianyu_profile_tab", "xianyu_my_published"),
+        "layout_taps": {
+            "more": {"count": 1, "card": True},
+            "delist_menu_item": {"count": 1, "card": False},
+            "confirm_delist": {"count": 1, "card": False},
+        },
+        "gated_layout": "confirm_delist",
+        "badge": {"tab": "onsale", "delta": -1},
+        "screenshot_rules": (
+            ("between", "more", "delist_menu_item"),
+            ("between", "delist_menu_item", "confirm_delist"),
+            ("after_badge", None),
+        ),
+        "log_code": "XIANYU_DELIST_DONE",
+    },
+    "xianyu.delete_delisted.steps.v1": {
+        "package": XIANYU_PACKAGE,
+        "action": "delete",
+        "action_id": "confirm-delete",
+        "navigation": (
+            "xianyu_profile_tab",
+            "xianyu_my_published",
+            "xianyu_pub_tab_delisted",
+        ),
+        "layout_taps": {
+            "delete_card": {"count": 1, "card": True},
+            "confirm_delete": {"count": 1, "card": False},
+        },
+        "gated_layout": "confirm_delete",
+        "badge": {"tab": "delisted", "delta": -1},
+        "screenshot_rules": (
+            ("between", "delete_card", "confirm_delete"),
+            ("after_badge", None),
+        ),
+        "log_code": "XIANYU_DELETE_DELISTED_DONE",
+    },
+}
+MAINTENANCE_STEP_ACTIONS = frozenset({"ui.tapLayout", "ui.assertBadge"})
+
+
+def uses_maintenance_step_actions(steps: list[dict[str, Any]]) -> bool:
+    return any(step.get("action") in MAINTENANCE_STEP_ACTIONS for step in steps)
+
+
+def _step_index(steps: list[dict[str, Any]], predicate: Any) -> int:
+    return next(position for position, step in enumerate(steps) if predicate(step))
+
+
+def _layout_index(steps: list[dict[str, Any]], layout: str) -> int:
+    return _step_index(
+        steps,
+        lambda step: step.get("action") == "ui.tapLayout" and step.get("layoutRef") == layout,
+    )
+
+
+def _maintenance_shape_error(shape: dict[str, Any], steps: list[dict[str, Any]]) -> str | None:
+    """Return the first shape violation, or None when the steps match exactly."""
+
+    command = f"{shape['action']} ({shape['package']})"
+    layout_steps = [step for step in steps if step.get("action") == "ui.tapLayout"]
+    badge_steps = [step for step in steps if step.get("action") == "ui.assertBadge"]
+    tap_steps = [step for step in steps if step.get("action") == "ui.tap"]
+    for ref in shape["navigation"]:
+        hits = [step for step in tap_steps if step.get("locatorRef") == ref]
+        if len(hits) != 1:
+            return f"{command}: navigation tap {ref} must appear exactly once"
+    for step in tap_steps:
+        if step.get("locatorRef") not in shape["navigation"]:
+            return f"{command}: ui.tap to {step.get('locatorRef')} is not part of the shape"
+    for layout, rule in shape["layout_taps"].items():
+        hits = [step for step in layout_steps if step.get("layoutRef") == layout]
+        if len(hits) != rule["count"]:
+            return f"{command}: tapLayout({layout}) must appear exactly {rule['count']} time(s)"
+        for hit in hits:
+            has_card = isinstance(hit.get("cardIndex"), int)
+            if rule["card"] and not has_card:
+                return f"{command}: tapLayout({layout}) requires cardIndex"
+            if not rule["card"] and has_card:
+                return f"{command}: tapLayout({layout}) must not carry cardIndex"
+    for step in layout_steps:
+        if step.get("layoutRef") not in shape["layout_taps"]:
+            return f"{command}: tapLayout({step.get('layoutRef')}) is not part of the shape"
+    if shape["badge"] is None:
+        if badge_steps:
+            return f"{command}: badge assertions are not part of this shape"
+    else:
+        if len(badge_steps) != 1:
+            return f"{command}: exactly one ui.assertBadge step is required"
+        badge = badge_steps[0]
+        expected = shape["badge"]
+        if badge.get("tab") != expected["tab"] or badge.get("delta") != expected["delta"]:
+            return (
+                f"{command}: badge assertion must verify {expected['tab']} delta "
+                f"{expected['delta']}"
+            )
+    shots = [
+        position for position, step in enumerate(steps) if step.get("action") == "ui.screenshot"
+    ]
+    if layout_steps:
+        first_layout = min(steps.index(step) for step in layout_steps)
+        nav_indexes = [
+            _step_index(
+                steps,
+                lambda step, ref=ref: step.get("action") == "ui.tap"
+                and step.get("locatorRef") == ref,
+            )
+            for ref in shape["navigation"]
+        ]
+        if max(nav_indexes) > first_layout:
+            return f"{command}: navigation must complete before the first layout tap"
+    if shape["gated_layout"] is not None:
+        gated_index = _layout_index(steps, shape["gated_layout"])
+        if shape["badge"] is not None:
+            badge_index = _step_index(steps, lambda step: step.get("action") == "ui.assertBadge")
+            if badge_index < gated_index:
+                return f"{command}: badge assertion must follow the gated confirm tap"
+    for rule in shape["screenshot_rules"]:
+        if rule[0] == "between":
+            low = _layout_index(steps, rule[1])
+            high = _layout_index(steps, rule[2])
+            if not any(low < shot < high for shot in shots):
+                return f"{command}: a screenshot is required between {rule[1]} and {rule[2]}"
+        elif rule[0] == "after_layout":
+            low = _layout_index(steps, rule[1])
+            if not any(shot > low for shot in shots):
+                return f"{command}: a screenshot is required after {rule[1]}"
+        else:  # after_badge
+            badge_index = _step_index(steps, lambda step: step.get("action") == "ui.assertBadge")
+            if not any(shot > badge_index for shot in shots):
+                return f"{command}: a screenshot is required after the badge assertion"
+    if not any(
+        step.get("action") == "run.log" and step.get("messageCode") == shape["log_code"]
+        for step in steps
+    ):
+        return f"{command}: closing run.log {shape['log_code']} is required"
+    return None
+
+
+def validate_maintenance_steps(package: str, steps: list[dict[str, Any]]) -> str:
+    """Creation gate: steps using maintenance actions must match exactly one frozen shape."""
+
+    if not uses_maintenance_step_actions(steps):
+        raise ValidationError("maintenance step actions are required for this validation")
+    matches = [
+        command
+        for command, shape in XIANYU_MAINTENANCE_SHAPES.items()
+        if shape["package"] == package and _maintenance_shape_error(shape, steps) is None
+    ]
+    if len(matches) != 1:
+        raise ValidationError(
+            "xianyu maintenance steps must match exactly one frozen command shape "
+            "(one gated confirm tap, post-badge assertion, required screenshots)"
+        )
+    return matches[0]
 
 def action_view(row: MobileActionCommitRow) -> dict[str, Any]:
     names = (
