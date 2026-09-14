@@ -401,6 +401,14 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         if (!node.isVisibleToUser || !node.isEnabled) {
             throw ExecutorFailure("NODE_NOT_EDITABLE", "Approved locator is not safely editable")
         }
+        if (locatorRef == "xianyu_chat_input") {
+            // The chat composer is single-line and replaces cleanly with SET_TEXT.
+            // Never route it through the description fallback chain: clipboard seeds,
+            // long-press pastes, and offset gesture clicks append garbage that can be
+            // sent to a real contact. Fail the step safely instead.
+            commitChatInput(targetPackage, locatorRef, node, value)
+            return
+        }
         if (targetPackage == TargetLocatorRegistry.XHS_PACKAGE ||
             targetPackage == TargetLocatorRegistry.DOUYIN_PACKAGE
         ) {
@@ -420,6 +428,29 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         }
         commitFlutterDescription(targetPackage, locatorRef, node, value)
     }
+
+    /**
+     * Single-shot chat input commit: activate the field with a real gesture click,
+     * SET_TEXT, then poll the composer node's own text. No clipboard, no
+     * context-menu paste, no offset gestures on neighbouring controls.
+     */
+    private suspend fun commitChatInput(targetPackage: String, locatorRef: String, node: AccessibilityNodeInfo, value: String) {
+        node.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
+        gestureClick(node)
+        // Let the Flutter edit session attach before replacing the text: SET_TEXT
+        // fired mid-keyboard-animation is silently dropped by the composer.
+        delay(600)
+        setTextAnywhere(node, value)
+        repeat(20) {
+            val current = resolveUniqueNode(targetPackage, locatorRef) ?: node
+            val actual = current.text?.toString().orEmpty()
+            if (FlutterTextCommit.accepted(actual, value)) return
+            setTextAnywhere(current, value)
+            delay(300)
+        }
+        throw ExecutorFailure("INPUT_REJECTED", "Chat input did not accept the reply text")
+    }
+
 
     /** Native EditText targets (xiaohongshu composer) accept SET_TEXT directly. */
     private fun commitNativeText(node: AccessibilityNodeInfo, value: String) {
