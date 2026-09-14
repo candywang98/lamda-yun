@@ -57,12 +57,14 @@ def test_committed_openapi_matches_application() -> None:
     committed = json.loads(Path("packages/api-contracts/openapi.json").read_text(encoding="utf-8"))
     assert committed["openapi"] == expected["openapi"]
     assert committed["info"] == expected["info"]
-    assert set(committed["paths"]) <= set(expected["paths"])
-    for path, item in committed["paths"].items():
-        _assert_additive(item, expected["paths"][path], f"$.paths.{path}")
-    assert set(committed["components"]["schemas"]) <= set(expected["components"]["schemas"])
-    for name, schema in committed["components"]["schemas"].items():
-        _assert_additive(schema, expected["components"]["schemas"][name], f"$.schemas.{name}")
+    assert committed["paths"] == expected["paths"], (
+        "committed OpenAPI paths diverged from the application; the controller must "
+ "regenerate packages/api-contracts/openapi.json and restore strict equality"
+    )
+    assert committed["components"] == expected["components"], (
+        "committed OpenAPI schemas diverged from the application; the controller must "
+ "regenerate packages/api-contracts/openapi.json and restore strict equality"
+    )
     required_paths = {
         "/api/v1/operations/features",
         "/api/v1/operations/features/{feature_id}/config-draft",

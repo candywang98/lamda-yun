@@ -335,6 +335,52 @@
         "title": "ApprovalRequest",
         "type": "object"
       },
+      "AssertBadgeStep": {
+        "additionalProperties": false,
+        "description": "Verify the published-lists tab badge moved by exactly the expected delta.",
+        "properties": {
+          "action": {
+            "const": "ui.assertBadge",
+            "title": "Action",
+            "type": "string"
+          },
+          "delta": {
+            "maximum": 0.0,
+            "minimum": -50.0,
+            "title": "Delta",
+            "type": "integer"
+          },
+          "stepId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Stepid",
+            "type": "string"
+          },
+          "tab": {
+            "enum": [
+              "onsale",
+              "delisted"
+            ],
+            "title": "Tab",
+            "type": "string"
+          },
+          "timeoutMs": {
+            "default": 15000,
+            "maximum": 60000.0,
+            "minimum": 100.0,
+            "title": "Timeoutms",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "stepId",
+          "action",
+          "tab",
+          "delta"
+        ],
+        "title": "AssertBadgeStep",
+        "type": "object"
+      },
       "AssertStep": {
         "additionalProperties": false,
         "properties": {
@@ -1824,6 +1870,52 @@
         "title": "MaintenanceRequest",
         "type": "object"
       },
+      "MaintenanceTargets": {
+        "additionalProperties": false,
+        "properties": {
+          "all": {
+            "default": false,
+            "title": "All",
+            "type": "boolean"
+          },
+          "cardIndices": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 50,
+            "title": "Cardindices",
+            "type": "array"
+          },
+          "cardLimit": {
+            "anyOf": [
+              {
+                "maximum": 50.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cardlimit"
+          },
+          "titleContains": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Titlecontains"
+          }
+        },
+        "title": "MaintenanceTargets",
+        "type": "object"
+      },
       "MediaCreate": {
         "properties": {
           "contentType": {
@@ -2653,10 +2745,12 @@
                 "mapping": {
                   "run.log": "#/components/schemas/LogStep",
                   "ui.assert": "#/components/schemas/AssertStep",
+                  "ui.assertBadge": "#/components/schemas/AssertBadgeStep",
                   "ui.find": "#/components/schemas/FindStep",
                   "ui.input": "#/components/schemas/InputStep",
                   "ui.screenshot": "#/components/schemas/ScreenshotStep",
                   "ui.tap": "#/components/schemas/TapStep",
+                  "ui.tapLayout": "#/components/schemas/TapLayoutStep",
                   "ui.tapText": "#/components/schemas/TapTextStep",
                   "ui.wait": "#/components/schemas/WaitStep"
                 },
@@ -2680,6 +2774,12 @@
                 },
                 {
                   "$ref": "#/components/schemas/ScreenshotStep"
+                },
+                {
+                  "$ref": "#/components/schemas/TapLayoutStep"
+                },
+                {
+                  "$ref": "#/components/schemas/AssertBadgeStep"
                 },
                 {
                   "$ref": "#/components/schemas/AssertStep"
@@ -5444,6 +5544,56 @@
         "title": "SyncRunResponse",
         "type": "object"
       },
+      "TapLayoutStep": {
+        "additionalProperties": false,
+        "description": "Coordinate-derived xianyu region tap guarded by the frozen 20260915 anchors.",
+        "properties": {
+          "action": {
+            "const": "ui.tapLayout",
+            "title": "Action",
+            "type": "string"
+          },
+          "cardIndex": {
+            "anyOf": [
+              {
+                "maximum": 49.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cardindex"
+          },
+          "layoutRef": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Layoutref",
+            "type": "string"
+          },
+          "stepId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Stepid",
+            "type": "string"
+          },
+          "timeoutMs": {
+            "default": 10000,
+            "maximum": 60000.0,
+            "minimum": 100.0,
+            "title": "Timeoutms",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "stepId",
+          "action",
+          "layoutRef"
+        ],
+        "title": "TapLayoutStep",
+        "type": "object"
+      },
       "TapStep": {
         "additionalProperties": false,
         "properties": {
@@ -5921,6 +6071,48 @@
           }
         },
         "title": "WechatPublishAuthorize",
+        "type": "object"
+      },
+      "XianyuMaintenanceRunRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "accountId": {
+            "anyOf": [
+              {
+                "maxLength": 36,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accountid"
+          },
+          "action": {
+            "enum": [
+              "polish",
+              "delist",
+              "delete"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "deviceId": {
+            "maxLength": 36,
+            "minLength": 1,
+            "title": "Deviceid",
+            "type": "string"
+          },
+          "targets": {
+            "$ref": "#/components/schemas/MaintenanceTargets"
+          }
+        },
+        "required": [
+          "deviceId",
+          "action"
+        ],
+        "title": "XianyuMaintenanceRunRequest",
         "type": "object"
       }
     }
@@ -12501,6 +12693,111 @@
         "summary": "Submit Publish",
         "tags": [
           "wechat-publisher"
+        ]
+      }
+    },
+    "/api/v1/xianyu/maintenance/runs/{run_id}": {
+      "get": {
+        "operationId": "get_maintenance_run_api_v1_xianyu_maintenance_runs__run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Maintenance Run Api V1 Xianyu Maintenance Runs  Run Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Maintenance Run",
+        "tags": [
+          "xianyu-maintenance"
+        ]
+      }
+    },
+    "/api/v1/xianyu/maintenance:run": {
+      "post": {
+        "operationId": "run_maintenance_api_v1_xianyu_maintenance_run_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/XianyuMaintenanceRunRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Run Maintenance Api V1 Xianyu Maintenance Run Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run Maintenance",
+        "tags": [
+          "xianyu-maintenance"
         ]
       }
     },
