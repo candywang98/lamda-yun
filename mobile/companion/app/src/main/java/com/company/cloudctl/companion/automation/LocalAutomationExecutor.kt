@@ -47,6 +47,9 @@ interface LocalAutomationUi {
     /** True when a root-page anchor (for example the bottom tab bar) is visible. */
     fun atRootPage(targetPackage: String): Boolean = true
 
+    /** Returns the safe label only after a confirmed allowlisted dialog gesture; no generic dismissal. */
+    suspend fun dismissBlockedDialog(targetPackage: String): String? = null
+
     /** One system BACK press; implementations settle before returning. */
     suspend fun goBack() {}
 
@@ -199,35 +202,24 @@ class LocalAutomationExecutor(
         return false
     }
 
-    /**
-     * Navigation reset primitive (im-live slice 2, gap 1): idlefish (Flutter)
-     * restores its last route even after a CLEAR_TOP relaunch, so a task that
-     * starts while the app is parked on an inner page never sees its root
-     * anchors. Bounded BACK presses with a root-anchor check walk the app back
-     * to a root page; a forced relaunch is the last resort before failing closed.
-     */
+    /** Fresh runs recover allowlisted blocking dialogs before bounded BACK/relaunch navigation. */
     private suspend fun normalizeToRootPage(task: AutomationTask, runDeadline: Long, control: ExecutionControl?) {
-        if (ui.atRootPage(task.targetPackage)) return
-        ui.log(LogLevel.WARN, "NAV_RESET_BACK")
-        if (ui.isTargetForeground(task.targetPackage)) {
-            repeat(NAV_RESET_MAX_BACKS) {
+        NavigationReset(object : NavigationReset.Port {
+            override fun atRootPage() = ui.atRootPage(task.targetPackage)
+            override fun isTargetForeground() = ui.isTargetForeground(task.targetPackage)
+            override suspend fun dismissBlockedDialog() = ui.dismissBlockedDialog(task.targetPackage)
+            override suspend fun goBack() = ui.goBack()
+            override suspend fun relaunch() = ui.restartTargetApp(task.targetPackage)
+            override suspend fun settle(ms: Long) = sleep(ms)
+            override fun checkpoint() {
                 throwIfControlRequested(control)
                 ensureWithinTaskDeadline(task, runDeadline)
-                ui.goBack()
-                if (ui.atRootPage(task.targetPackage)) return
             }
-        }
-        ui.log(LogLevel.WARN, "NAV_RESET_RELAUNCH")
-        ui.restartTargetApp(task.targetPackage)
-        repeat(NAV_RESET_RELAUNCH_POLLS) {
-            throwIfControlRequested(control)
-            ensureWithinTaskDeadline(task, runDeadline)
-            if (ui.atRootPage(task.targetPackage)) return
-            sleep(NAV_RESET_POLL_MS)
-        }
-        if (!ui.atRootPage(task.targetPackage)) {
-            throw ExecutorFailure("NAV_RESET_FAILED", "Target app could not be returned to its root page")
-        }
+            override fun event(code: String) = ui.log(
+                if (code.startsWith("NAV_DIALOG_DISMISSED")) LogLevel.INFO else LogLevel.WARN,
+                code,
+            )
+        }).execute()
     }
 
     /**
@@ -370,9 +362,6 @@ class LocalAutomationExecutor(
 
     private companion object {
         val SHA256 = Regex("^[a-f0-9]{64}$")
-        const val NAV_RESET_MAX_BACKS = 5
-        const val NAV_RESET_RELAUNCH_POLLS = 12
-        const val NAV_RESET_POLL_MS = 500L
         const val TAP_TEXT_MAX_SCROLLS = 10
     }
 }
