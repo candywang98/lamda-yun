@@ -11,7 +11,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from cloudctl_domain import ConflictError, NotFoundError
+from cloudctl_domain import ConflictError, NotFoundError, Permission, require_permissions
 from sqlalchemy import select
 
 from .db import ImMessageRow, ImMonitorConfigRow, ImThreadRow, MobileTaskRow
@@ -115,6 +115,10 @@ class ImService:
             return self._config_view(row, binding_row.device_id)
 
     async def upsert_config(self, actor: Any, device_id: str, body: dict[str, Any]) -> dict[str, Any]:
+        # Device-side monitoring configuration is a device write: the operator
+        # inbox UI gates it on ``device.control`` and the API enforces the same
+        # permission so read-only roles cannot change it with a raw credential.
+        require_permissions(actor.roles, Permission.DEVICE_CONTROL)
         platforms = body.get("platforms") or ["xianyu"]
         if not isinstance(platforms, list) or not platforms:
             raise ConflictError("platforms must be a non-empty list")
@@ -301,6 +305,9 @@ class ImService:
             return _thread_view(thread)
 
     async def reply(self, actor: Any, thread_id: str, text: str) -> dict[str, Any]:
+        # A reply sends a real outbound message through the device: require the
+        # same ``device.control`` write permission the operator inbox UI uses.
+        require_permissions(actor.roles, Permission.DEVICE_CONTROL)
         text = text.strip()
         if not text or len(text) > MAX_REPLY:
             raise ConflictError(f"reply text must be 1..{MAX_REPLY} characters")
