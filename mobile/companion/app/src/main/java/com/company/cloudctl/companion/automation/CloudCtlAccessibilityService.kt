@@ -302,24 +302,44 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
 
     /** Chat-page bubble snapshot for IM body enrichment (im-live slice 2, gap 2). */
     fun chatBubbles(targetPackage: String): List<com.company.cloudctl.companion.im.ChatBubble> {
-        val bubbles = mutableListOf<com.company.cloudctl.companion.im.ChatBubble>()
-        allRoots()
-            .filter { it.packageName?.toString() == targetPackage }
-            .forEach { root ->
-                findNodes(root) { true }.forEach { node ->
-                    val text = node.text?.toString()?.trim()
-                    if (text.isNullOrEmpty()) return@forEach
-                    val bounds = Rect()
-                    node.getBoundsInScreen(bounds)
-                    bubbles += com.company.cloudctl.companion.im.ChatBubble(
-                        text = text,
-                        centerX = bounds.exactCenterX(),
-                        width = bounds.width(),
-                        height = bounds.height(),
-                    )
+        fun collect(root: AccessibilityNodeInfo, requireScrollableAncestor: Boolean): List<com.company.cloudctl.companion.im.ChatBubble> {
+            val found = mutableListOf<com.company.cloudctl.companion.im.ChatBubble>()
+            fun visit(node: AccessibilityNodeInfo, inScrollable: Boolean) {
+                val scrollable = inScrollable || node.isScrollable
+                // Flutter idlefish exposes ALL page text through contentDescription
+                // (node.text is empty tree-wide, verified on device). Bubbles live in
+                // the scrollable conversation list; input-bar controls and the header
+                // card sit outside it and must not become fake inbound bubbles.
+                if ((!requireScrollableAncestor || scrollable) && node.isClickable) {
+                    val text = (node.text?.toString() ?: node.contentDescription?.toString() ?: "").trim()
+                    if (text.isNotEmpty()) {
+                        val bounds = Rect()
+                        node.getBoundsInScreen(bounds)
+                        found += com.company.cloudctl.companion.im.ChatBubble(
+                            text = text,
+                            centerX = bounds.exactCenterX(),
+                            width = bounds.width(),
+                            height = bounds.height(),
+                        )
+                    }
                 }
+                for (index in 0 until node.childCount) node.getChild(index)?.let { visit(it, scrollable) }
             }
-        return bubbles
+            visit(root, false)
+            return found
+        }
+        return allRoots()
+            .filter { it.packageName?.toString() == targetPackage }
+            .flatMap { root -> collect(root, requireScrollableAncestor = true).ifEmpty { collect(root, false) } }
+    }
+
+    /** Reveal older conversation content (backward) or return to the newest (forward). */
+    suspend fun swipeConversationList(backward: Boolean) {
+        if (backward) {
+            dispatchStroke(540f, 1600f, 540f, 700f, 350L)
+        } else {
+            dispatchStroke(540f, 700f, 540f, 1600f, 350L)
+        }
     }
 
     override fun ensureReady(targetPackage: String) {

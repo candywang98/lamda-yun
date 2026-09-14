@@ -399,17 +399,38 @@ class CompanionSyncService : Service() {
      * page is still open, so the newest inbound bubble can backfill the placeholder
      * body that push notifications deliver (「发来一条新消息」). Best effort only.
      */
-    private fun enrichImReplyBody(task: AutomationTask, service: CloudCtlAccessibilityService) {
-        val peer = com.company.cloudctl.companion.im.ImReplyTaskShape.peerNameOf(task) ?: return
+    private suspend fun enrichImReplyBody(task: AutomationTask, service: CloudCtlAccessibilityService) {
+        val peer = com.company.cloudctl.companion.im.ImReplyTaskShape.peerNameOf(task)
+        if (peer == null) {
+            android.util.Log.i("CompanionSync", "IM body enrichment: reply task shape not recognized")
+            return
+        }
         val chatOpen = runCatching {
             service.inspect(
                 task.targetPackage,
                 com.company.cloudctl.companion.im.ImReplyTaskShape.CHAT_INPUT_LOCATOR,
             )?.visible == true
         }.getOrDefault(false)
-        if (!chatOpen) return
-        val queued = imBodyEnricher.enrich(peer, service.chatBubbles(task.targetPackage))
-        if (queued) android.util.Log.i("CompanionSync", "IM body enriched for peer=${peer.take(32)}")
+        if (!chatOpen) {
+            android.util.Log.i("CompanionSync", "IM body enrichment: chat page not open after reply")
+            return
+        }
+        var bubbles = service.chatBubbles(task.targetPackage)
+        if (com.company.cloudctl.companion.im.ChatPageReading.latestInbound(bubbles) == null) {
+            // Our own replies push the contact's last message out of the semantics
+            // tree; reveal it with one backward swipe, read, then restore the view.
+            runCatching {
+                service.swipeConversationList(backward = true)
+                kotlinx.coroutines.delay(600)
+                bubbles = service.chatBubbles(task.targetPackage)
+                service.swipeConversationList(backward = false)
+            }
+        }
+        val queued = imBodyEnricher.enrich(peer, bubbles)
+        android.util.Log.i(
+            "CompanionSync",
+            "IM body enrichment peer=${peer.take(32)} bubbles=${bubbles.size} queued=$queued",
+        )
     }
 
     private suspend fun runNext(
