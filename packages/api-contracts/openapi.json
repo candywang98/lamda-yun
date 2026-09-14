@@ -5799,6 +5799,129 @@
         ],
         "title": "WaitStep",
         "type": "object"
+      },
+      "WechatAccountCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "appId": {
+            "description": "WeChat Official Account appId (e.g. wx1234567890abcdef).",
+            "maxLength": 64,
+            "minLength": 6,
+            "pattern": "^[A-Za-z0-9_-]+$",
+            "title": "Appid",
+            "type": "string"
+          },
+          "appSecret": {
+            "description": "appSecret; stored encrypted at rest, never returned or logged.",
+            "format": "password",
+            "maxLength": 128,
+            "minLength": 16,
+            "title": "Appsecret",
+            "type": "string",
+            "writeOnly": true
+          },
+          "displayLabel": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Displaylabel",
+            "type": "string"
+          }
+        },
+        "required": [
+          "appId",
+          "appSecret",
+          "displayLabel"
+        ],
+        "title": "WechatAccountCreate",
+        "type": "object"
+      },
+      "WechatDraftCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "accountId": {
+            "maxLength": 36,
+            "minLength": 36,
+            "title": "Accountid",
+            "type": "string"
+          },
+          "author": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author"
+          },
+          "contentHtml": {
+            "description": "Article HTML body pushed to draft/add.",
+            "maxLength": 20000,
+            "minLength": 1,
+            "title": "Contenthtml",
+            "type": "string"
+          },
+          "digest": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Digest"
+          },
+          "thumbMediaId": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Cover material media id.",
+            "title": "Thumbmediaid"
+          },
+          "title": {
+            "description": "Official limit: 64 characters.",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "accountId",
+          "title",
+          "contentHtml"
+        ],
+        "title": "WechatDraftCreate",
+        "type": "object"
+      },
+      "WechatPublishAuthorize": {
+        "additionalProperties": false,
+        "properties": {
+          "authorizationNote": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Authorizationnote"
+          }
+        },
+        "title": "WechatPublishAuthorize",
+        "type": "object"
       }
     }
   },
@@ -11964,6 +12087,421 @@
           }
         },
         "summary": "Update User Roles"
+      }
+    },
+    "/api/v1/wechat/accounts": {
+      "get": {
+        "operationId": "list_accounts_api_v1_wechat_accounts_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Accounts Api V1 Wechat Accounts Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Accounts",
+        "tags": [
+          "wechat-publisher"
+        ]
+      },
+      "post": {
+        "operationId": "register_account_api_v1_wechat_accounts_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WechatAccountCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Register Account Api V1 Wechat Accounts Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Register Account",
+        "tags": [
+          "wechat-publisher"
+        ]
+      }
+    },
+    "/api/v1/wechat/accounts/{account_id}": {
+      "get": {
+        "operationId": "get_account_api_v1_wechat_accounts__account_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "title": "Account Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Account Api V1 Wechat Accounts  Account Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Account",
+        "tags": [
+          "wechat-publisher"
+        ]
+      }
+    },
+    "/api/v1/wechat/drafts": {
+      "post": {
+        "operationId": "create_draft_api_v1_wechat_drafts_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WechatDraftCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Draft Api V1 Wechat Drafts Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Draft",
+        "tags": [
+          "wechat-publisher"
+        ]
+      }
+    },
+    "/api/v1/wechat/drafts/{draft_id}": {
+      "get": {
+        "operationId": "get_draft_api_v1_wechat_drafts__draft_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "draft_id",
+            "required": true,
+            "schema": {
+              "title": "Draft Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Draft Api V1 Wechat Drafts  Draft Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Draft",
+        "tags": [
+          "wechat-publisher"
+        ]
+      }
+    },
+    "/api/v1/wechat/drafts/{draft_id}:authorize-publish": {
+      "post": {
+        "operationId": "authorize_publish_api_v1_wechat_drafts__draft_id__authorize_publish_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "draft_id",
+            "required": true,
+            "schema": {
+              "title": "Draft Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WechatPublishAuthorize"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Authorize Publish Api V1 Wechat Drafts  Draft Id  Authorize Publish Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Authorize Publish",
+        "tags": [
+          "wechat-publisher"
+        ]
+      }
+    },
+    "/api/v1/wechat/publishes/{publish_id}": {
+      "get": {
+        "operationId": "get_publish_api_v1_wechat_publishes__publish_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "publish_id",
+            "required": true,
+            "schema": {
+              "title": "Publish Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Publish Api V1 Wechat Publishes  Publish Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Publish",
+        "tags": [
+          "wechat-publisher"
+        ]
+      }
+    },
+    "/api/v1/wechat/publishes/{publish_id}:poll": {
+      "post": {
+        "operationId": "poll_publish_api_v1_wechat_publishes__publish_id__poll_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "publish_id",
+            "required": true,
+            "schema": {
+              "title": "Publish Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Poll Publish Api V1 Wechat Publishes  Publish Id  Poll Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Poll Publish",
+        "tags": [
+          "wechat-publisher"
+        ]
+      }
+    },
+    "/api/v1/wechat/publishes/{publish_id}:submit": {
+      "post": {
+        "operationId": "submit_publish_api_v1_wechat_publishes__publish_id__submit_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "publish_id",
+            "required": true,
+            "schema": {
+              "title": "Publish Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Submit Publish Api V1 Wechat Publishes  Publish Id  Submit Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Submit Publish",
+        "tags": [
+          "wechat-publisher"
+        ]
       }
     },
     "/companion/v2/accounts/status": {
