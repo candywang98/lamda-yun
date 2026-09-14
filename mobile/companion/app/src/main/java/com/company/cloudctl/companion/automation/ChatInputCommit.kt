@@ -25,6 +25,12 @@ internal class ChatInputCommit(private val port: Port) {
             if (!port.imeSelected()) fail("INPUT_IME_REQUIRED")
             if (port.focused()) session = port.session()
             if (session != null) break
+            // Tapping an already-focused Flutter field can DISMISS the keyboard and
+            // kill the editor session. Periodically re-open it; only replace() writes.
+            if (attempt in 3..18 && (attempt - 3) % 5 == 0) {
+                port.event("CHAT_IME_REOPEN_KEYBOARD")
+                port.activate()
+            }
             port.pause()
         }
         val bound = session ?: fail("INPUT_REJECTED")
