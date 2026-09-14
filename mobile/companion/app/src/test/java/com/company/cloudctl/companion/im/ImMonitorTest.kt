@@ -8,7 +8,7 @@ import kotlin.test.assertTrue
 
 class ImMonitorTest {
     private fun event(peer: String = "buyer", text: String = "在吗", at: Instant = Instant.ofEpochSecond(1_800_000_000)) =
-        ImEvent(peerName = peer, text = text, occurredAt = at)
+        ImEvent(platform = "xianyu", peerName = peer, text = text, occurredAt = at)
 
     @Test
     fun dedupesIdenticalEventsAndKeepsDistinctOnes() {
@@ -37,5 +37,32 @@ class ImMonitorTest {
         assertEquals(a, event().dedupeKey("device-1"))
         assertFalse(a == event().dedupeKey("device-2"))
         assertFalse(a == event(text = "x").dedupeKey("device-1"))
+    }
+
+@Test
+    fun configGatesPackagesBySelectedPlatforms() {
+        ImMonitor.applyConfig(ImMonitorConfig(platforms = setOf("xhs")))
+        assertTrue(ImMonitor.isPackageEnabled("com.xingin.xhs"))
+        assertFalse(ImMonitor.isPackageEnabled("com.taobao.idlefish"))
+        assertFalse(ImMonitor.isPackageEnabled("com.unknown.app"))
+        ImMonitor.applyConfig(ImMonitorConfig(enabled = false, platforms = setOf("xhs")))
+        assertFalse(ImMonitor.isPackageEnabled("com.xingin.xhs"))
+        ImMonitor.applyConfig(ImMonitorConfig())
+    }
+
+    @Test
+    fun dutyWindowRespectsModeAndCrossesMidnight() {
+        val day = ImMonitorConfig(mode = "DUTY", dutyStart = "09:00", dutyEnd = "23:00")
+        assertTrue(day.dutyActive(java.time.LocalTime.of(12, 0)))
+        assertFalse(day.dutyActive(java.time.LocalTime.of(23, 30)))
+        val night = ImMonitorConfig(mode = "DUTY", dutyStart = "22:00", dutyEnd = "06:00")
+        assertTrue(night.dutyActive(java.time.LocalTime.of(2, 0)))
+        assertFalse(ImMonitorConfig(mode = "NOTIFICATION").dutyActive(java.time.LocalTime.of(12, 0)))
+    }
+
+    @Test
+    fun dedupeKeyBindsPlatform() {
+        val a = event().dedupeKey("device-1")
+        assertFalse(a == ImEvent("xhs", "buyer", "在吗", Instant.ofEpochSecond(1_800_000_000)).dedupeKey("device-1"))
     }
 }

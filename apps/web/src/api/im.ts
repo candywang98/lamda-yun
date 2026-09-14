@@ -78,3 +78,34 @@ export async function markImThreadRead(threadId: string): Promise<void> {
 export async function replyImThread(threadId: string, text: string): Promise<{ taskId: string }> {
   return request<{ taskId: string }>(`/threads/${threadId}:reply`, { text })
 }
+
+export interface ImMonitorConfig {
+  deviceId: string
+  enabled: boolean
+  platforms: string[]
+  mode: 'NOTIFICATION' | 'DUTY'
+  dutyStart: string
+  dutyEnd: string
+  updatedAt: string | null
+}
+
+export async function fetchImConfig(deviceId: string): Promise<ImMonitorConfig> {
+  return request<ImMonitorConfig>(`/config?deviceId=${encodeURIComponent(deviceId)}`)
+}
+
+export async function saveImConfig(deviceId: string, config: {
+  enabled: boolean
+  platforms: string[]
+  mode: string
+  dutyStart: string
+  dutyEnd: string
+}): Promise<ImMonitorConfig> {
+  const headers = new Headers(controlApiHeaders())
+  headers.set('Content-Type', 'application/json')
+  const response = await fetch(
+    `${controlApiBaseUrl()}/api/v1/im/config?deviceId=${encodeURIComponent(deviceId)}`,
+    { method: 'PUT', headers, credentials: 'same-origin', body: JSON.stringify(config) },
+  )
+  if (!response.ok) throw new ImApiError(response.status, `保存失败（HTTP ${response.status}）`)
+  return response.json() as Promise<ImMonitorConfig>
+}

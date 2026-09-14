@@ -32,6 +32,7 @@ import com.company.cloudctl.companion.automation.ResumeValidator
 import com.company.cloudctl.companion.automation.TargetLocatorRegistry
 import com.company.cloudctl.companion.automation.TaskPausedException
 import com.company.cloudctl.companion.data.AutomationStore
+import com.company.cloudctl.companion.im.DutyController
 import com.company.cloudctl.companion.im.ImMonitor
 import com.company.cloudctl.companion.data.PendingTask
 import com.company.cloudctl.companion.data.RuntimeStatusStore
@@ -323,6 +324,8 @@ class CompanionSyncService : Service() {
                 // pa-im/20260913.1: IM push must never block or fail the task loop.
                 runCatching { deliverImEvents(client) }
                     .onFailure { android.util.Log.w("CompanionSync", "IM push deferred", it) }
+                runCatching { refreshImConfig(client) }
+                DutyController.tick(this, store)
                 retryPolicy.reset()
                 if (!executed) delay(if (claimed == null) IDLE_POLL_INTERVAL_MILLIS else 100L)
             } catch (cancelled: CancellationException) {
@@ -339,6 +342,27 @@ class CompanionSyncService : Service() {
                 delay(retryPolicy.nextDelayMillis())
             }
         }
+    }
+
+    private var imConfigFetchedAt = 0L
+
+    private suspend fun refreshImConfig(client: CloudTaskClient) {
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (now - imConfigFetchedAt < 60_000) return
+        imConfigFetchedAt = now
+        val raw = client.fetchImConfig() ?: return
+        val platforms = buildSet {
+            val array = raw.optJSONArray("platforms") ?: return@buildSet
+            for (index in 0 until array.length()) add(array.optString(index))
+        }.ifEmpty { setOf(com.company.cloudctl.companion.im.ImMonitorConfig.PLATFORM_XIANYU) }
+        val config = com.company.cloudctl.companion.im.ImMonitorConfig(
+            enabled = raw.optBoolean("enabled", true),
+            platforms = platforms,
+            mode = raw.optString("mode", com.company.cloudctl.companion.im.ImMonitorConfig.MODE_NOTIFICATION),
+            dutyStart = raw.optString("dutyStart", "09:00"),
+            dutyEnd = raw.optString("dutyEnd", "23:00"),
+        )
+        com.company.cloudctl.companion.im.ImMonitor.applyConfig(config)
     }
 
     private suspend fun deliverImEvents(client: CloudTaskClient) {

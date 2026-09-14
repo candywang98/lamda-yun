@@ -49,22 +49,32 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
                 AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS or
                 AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
             eventTypes = eventTypes or AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED
+            eventTypes = eventTypes or AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
         }
         active = this
         CompanionServiceStarter.startIfBound(this)
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        // pa-im/20260913.1: monitor idlefish IM notifications only.
-        if (event == null || event.eventType != AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED) return
-        if (event.packageName?.toString() != TargetLocatorRegistry.XIANYU_PACKAGE) return
+        if (event == null) return
+        val pkg = event.packageName?.toString() ?: return
+        // pa-im slice 2: duty mode consumes list-page changes; notifications stay generic.
+        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) {
+            com.company.cloudctl.companion.im.DutyController.onPageContentChanged(pkg)
+            return
+        }
+        if (event.eventType != AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED) return
+        if (!com.company.cloudctl.companion.im.ImMonitor.isPackageEnabled(pkg)) return
         val notification = event.parcelableData as? android.app.Notification ?: return
         val extras = notification.extras
         val title = (extras.getCharSequence(android.app.Notification.EXTRA_TITLE)?.toString()
-            ?: event.packageName?.toString() ?: "").trim()
+            ?: extras.getCharSequence(android.app.Notification.EXTRA_CONVERSATION_TITLE)?.toString()
+            ?: "").trim()
         val text = (extras.getCharSequence(android.app.Notification.EXTRA_TEXT)?.toString()
+            ?: extras.getCharSequence(android.app.Notification.EXTRA_BIG_TEXT)?.toString()
             ?: "").trim()
         if (title.isEmpty() || text.isEmpty()) return
+        val platform = com.company.cloudctl.companion.im.ImMonitorConfig.platformOfPackage(pkg) ?: return
         val deviceId = runCatching {
             val raw = getSharedPreferences("cloudctl_binding", android.content.Context.MODE_PRIVATE)
                 .getString("binding", null) ?: return
@@ -73,6 +83,7 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         val accepted = com.company.cloudctl.companion.im.ImMonitor.accept(
             deviceId,
             com.company.cloudctl.companion.im.ImEvent(
+                platform = platform,
                 peerName = title.take(128),
                 text = text.take(4000),
                 occurredAt = java.time.Instant.ofEpochMilli(
@@ -120,6 +131,17 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         if (!gestureClick(node) && !activate(node)) {
             throw ExecutorFailure("TAP_TEXT_NOT_UNIQUE", "Unique '$value' node could not be tapped")
         }
+    }
+
+    // Duty-mode helpers (pa-im slice 2) + live sink (p10-live/20260913.1).
+    fun allRootsForDuty(): List<AccessibilityNodeInfo> = allRoots()
+
+    fun tapRemoteGestureLike(x: Double, y: Double) {
+        serviceScope.launch { tapScreen(x.toFloat(), y.toFloat()) }
+    }
+
+    fun dutyBack() {
+        performGlobalAction(GLOBAL_ACTION_BACK)
     }
 
     // ROOT-INTEGRATION live sink (p10-live/20260913.1): remote gestures via accessibility.

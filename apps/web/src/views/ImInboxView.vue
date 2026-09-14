@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import {
+  fetchImConfig,
   ImApiError,
   listImMessages,
   listImThreads,
   markImThreadRead,
   replyImThread,
+  saveImConfig,
   type ImMessage,
+  type ImMonitorConfig,
   type ImThread,
 } from '@/api/im'
 
@@ -15,6 +18,54 @@ const selected = ref<ImThread | null>(null)
 const messages = ref<ImMessage[]>([])
 const deviceFilter = ref('')
 const unreadOnly = ref(false)
+const cfgDevice = ref('')
+const cfgBusy = ref(false)
+const cfgMessage = ref('')
+const cfg = ref<ImMonitorConfig | null>(null)
+const platformOptions = [
+  { key: 'xianyu', label: '闲鱼' },
+  { key: 'xhs', label: '小红书' },
+  { key: 'douyin', label: '抖音' },
+  { key: 'wechat', label: '微信（仅收不发）' },
+]
+
+async function loadConfig() {
+  if (!cfgDevice.value) return
+  cfgMessage.value = ''
+  try {
+    cfg.value = await fetchImConfig(cfgDevice.value)
+  } catch (error) {
+    cfgMessage.value = error instanceof ImApiError ? error.message : '配置加载失败'
+  }
+}
+
+function togglePlatform(key: string) {
+  if (!cfg.value) return
+  const set = new Set(cfg.value.platforms)
+  if (set.has(key)) set.delete(key)
+  else set.add(key)
+  if (set.size > 0) cfg.value.platforms = [...set]
+}
+
+async function saveConfig() {
+  if (!cfg.value || !cfgDevice.value) return
+  cfgBusy.value = true
+  cfgMessage.value = ''
+  try {
+    cfg.value = await saveImConfig(cfgDevice.value, {
+      enabled: cfg.value.enabled,
+      platforms: cfg.value.platforms,
+      mode: cfg.value.mode,
+      dutyStart: cfg.value.dutyStart,
+      dutyEnd: cfg.value.dutyEnd,
+    })
+    cfgMessage.value = '已保存，手机下一轮同步生效（约 1 分钟内）'
+  } catch (error) {
+    cfgMessage.value = error instanceof ImApiError ? error.message : '保存失败'
+  } finally {
+    cfgBusy.value = false
+  }
+}
 const replyText = ref('')
 const busy = ref(false)
 const errorMessage = ref('')
@@ -109,6 +160,47 @@ onMounted(() => {
 
     <p v-if="errorMessage" class="yy-error">{{ errorMessage }}</p>
     <p v-if="successMessage" class="yy-ok">{{ successMessage }}</p>
+
+    <section v-if="deviceIds.length > 0" class="yy-panel im-config">
+      <header class="im-config-head">
+        <h2>监听设置</h2>
+        <select v-model="cfgDevice" @change="loadConfig">
+          <option value="" disabled>选择设备</option>
+          <option v-for="id in deviceIds" :key="id" :value="id">{{ id.slice(0, 8) }}</option>
+        </select>
+      </header>
+      <template v-if="cfg">
+        <div class="im-config-row">
+          <label class="yy-check"><input v-model="cfg.enabled" type="checkbox" /><span>监听总开关</span></label>
+          <label v-for="option in platformOptions" :key="option.key" class="yy-check">
+            <input
+              :checked="cfg.platforms.includes(option.key)"
+              type="checkbox"
+              @change="togglePlatform(option.key)"
+            />
+            <span>{{ option.label }}</span>
+          </label>
+        </div>
+        <div class="im-config-row">
+          <label class="yy-check">
+            <input v-model="cfg.mode" type="radio" value="NOTIFICATION" /><span>通知监听（后台，不占手机）</span>
+          </label>
+          <label class="yy-check">
+            <input v-model="cfg.mode" type="radio" value="DUTY" /><span>值班模式（驻守消息页，全文零漏收）</span>
+          </label>
+          <template v-if="cfg.mode === 'DUTY'">
+            <label class="yy-field"><span>值班起</span><input v-model="cfg.dutyStart" type="time" /></label>
+            <label class="yy-field"><span>值班止</span><input v-model="cfg.dutyEnd" type="time" /></label>
+          </template>
+        </div>
+        <div class="im-config-row">
+          <button class="yy-btn primary" type="button" :disabled="cfgBusy" @click="saveConfig">
+            {{ cfgBusy ? '保存中…' : '保存设置' }}
+          </button>
+          <span v-if="cfgMessage" class="yy-sub">{{ cfgMessage }}</span>
+        </div>
+      </template>
+    </section>
 
     <div class="im-layout">
       <aside class="im-threads" aria-label="会话列表">
@@ -264,4 +356,11 @@ onMounted(() => {
 .im-empty {
   margin: auto;
 }
+</style>
+
+<style scoped>
+.im-config { margin-bottom: 4px; }
+.im-config-head { display: flex; align-items: center; gap: 12px; }
+.im-config-head h2 { margin: 0; font-size: 15px; }
+.im-config-row { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-top: 10px; }
 </style>

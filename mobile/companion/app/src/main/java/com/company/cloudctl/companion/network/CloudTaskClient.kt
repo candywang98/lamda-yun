@@ -76,6 +76,26 @@ class CloudTaskClient(private val connection: CloudConnection) {
         return request("/companion/v2/devices/heartbeat", payload) ?: JSONObject()
     }
 
+    /** pa-im slice 2: device-scoped monitor configuration (GET). */
+    fun fetchImConfig(): JSONObject? {
+        val (status, response) = PinnedHttpsTransport.request(
+            baseUrl = connection.baseUrl,
+            path = "/companion/v2/im/config",
+            pin = connection.certificateSha256,
+            method = "GET",
+            headers = mapOf(
+                "Accept" to "application/json",
+                "Authorization" to "Bearer ${connection.bearerToken}",
+            ),
+            body = ByteArray(0),
+            connectTimeoutMs = 10_000,
+            readTimeoutMs = 15_000,
+        )
+        if (status !in 200..299) return null
+        val raw = JSONObject(response)
+        return if (raw.has("platforms")) raw else null
+    }
+
     /** pa-im/20260913.1: batch push of monitored IM notifications. */
     fun sendImMessages(payload: JSONObject): JSONObject {
         return request("/companion/v2/im/messages", payload) ?: JSONObject()
