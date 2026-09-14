@@ -36,8 +36,23 @@ internal class ChatInputCommit(private val port: Port) {
             }
             port.pause()
         }
-        val bound = session ?: fail("INPUT_REJECTED")
-        if (!port.imeSelected() || port.session() == null) fail("INPUT_REJECTED")
+        // Flutter restarts its chat editor roughly every second; a session bound the
+        // instant before its scheduled restart swallows the commit. Require the bound
+        // session to survive a short stability window before the single write.
+        var bound = session ?: fail("INPUT_REJECTED")
+        var stable = 0
+        for (attempt in 0 until 20) {
+            if (!port.imeSelected()) fail("INPUT_IME_REQUIRED")
+            val current = port.session() ?: fail("INPUT_REJECTED")
+            if (current == bound) {
+                if (++stable >= 2) break
+            } else {
+                bound = current
+                stable = 0
+            }
+            port.pause()
+        }
+        if (stable < 2) fail("INPUT_REJECTED")
         port.event("CHAT_IME_COMMIT_ONCE")
         if (!port.replace(bound, value)) fail("INPUT_REJECTED")
         repeat(20) {

@@ -29,6 +29,11 @@ internal object ImeTextReplacement {
         if (!connection.finishComposingText()) return false
         val before = runCatching { connection.getTextBeforeCursor(CURSOR_WINDOW, 0) }.getOrNull() ?: return false
         val after = runCatching { connection.getTextAfterCursor(CURSOR_WINDOW, 0) }.getOrNull() ?: return false
+        if (before.isEmpty() && after.isEmpty()) {
+            // An empty focused composer commits at the cursor; a selection change here is
+            // what provokes the Flutter editor restart that swallows the text.
+            return connection.commitText(text, 1)
+        }
         connection.beginBatchEdit()
         return try {
             if (!connection.setSelection(0, before.length + after.length)) false

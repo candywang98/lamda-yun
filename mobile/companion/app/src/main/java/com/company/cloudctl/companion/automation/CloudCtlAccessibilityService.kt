@@ -452,7 +452,10 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
 
                 override fun readText(session: Long): String? {
                     val target = composer() ?: return null
-                    val inputText = CloudCtlInputMethod.readChatText(targetPackage, session) ?: return null
+                    // The editor may legitimately restart right after the commit while
+                    // the text persists; verify through the live session, never a dead one.
+                    val live = CloudCtlInputMethod.chatSession(targetPackage) ?: session
+                    val inputText = CloudCtlInputMethod.readChatText(targetPackage, live) ?: return null
                     // Flutter may expose only a placeholder semantics View. If it does
                     // expose a value, disagreement with the IME is not acceptance.
                     val semanticsText = target.text?.toString().orEmpty()

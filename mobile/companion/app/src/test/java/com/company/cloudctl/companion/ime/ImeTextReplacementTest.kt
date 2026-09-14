@@ -63,10 +63,11 @@ class ImeTextReplacementTest {
         )
     }
 
-    @Test fun emptyDraftUsesEmptySelection() {
+    @Test fun emptyDraftCommitsAtCursorWithoutSelection() {
         val fake = Fake().apply { extracted!!.text = ""; beforeCursor = ""; afterCursor = "" }
         assertTrue(ImeTextReplacement.replace(fake.connection, "reply"))
-        assertEquals(listOf(0, 0), fake.selection)
+        assertEquals(emptyList(), fake.selection)
+        assertFalse("setSelection" in fake.calls)
     }
 
     @Test fun unavailableSnapshotNeverWrites() {

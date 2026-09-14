@@ -59,7 +59,8 @@ class ChatInputCommitTest {
     @Test fun waitsForConnectionInsteadOfFixedKeyboardDelay() = runBlocking {
         val fake = Fake().apply { token = null; onPause = { if (pauses == 5) token = 7 } }
         ChatInputCommit(fake).execute("reply")
-        assertEquals(5, fake.pauses)
+        // 5 pauses bind the session; one more confirms stability before the write.
+        assertEquals(6, fake.pauses)
         assertEquals(1, fake.writes)
     }
 
@@ -94,7 +95,7 @@ class ChatInputCommitTest {
         val fake = Fake().apply { actual = "" }
         rejected(fake)
         assertEquals(1, fake.writes)
-        assertEquals(20, fake.pauses)
+        assertEquals(21, fake.pauses)
     }
 
     @Test fun extraGarbageAndWhitespaceAreNotAccepted() = runBlocking {
@@ -111,11 +112,12 @@ class ChatInputCommitTest {
         assertEquals(1, fake.writes)
     }
 
-    @Test fun switchedSessionCannotConfirmOldCommit() = runBlocking {
-        val fake = Fake().apply { onWrite = { token = 2 } }
+    @Test fun churnedSessionWithoutReadableTextCannotConfirm() = runBlocking {
+        val fake = Fake().apply { onWrite = { token = 2; actual = null } }
         rejected(fake)
         assertEquals(1, fake.writes)
     }
+
 
     @Test fun endedSessionCannotConfirmCommit() = runBlocking {
         // Leaving the editor kills the session: no live connection, no confirmation.
