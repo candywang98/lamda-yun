@@ -232,8 +232,16 @@ class ImService:
                     "steps": _reply_steps(thread.peer_name, text),
                 }
             )
+            from sqlalchemy import func as sa_func
+
+            reply_ordinal = await session.scalar(
+                select(sa_func.count()).select_from(ImMessageRow).where(
+                    ImMessageRow.thread_id == thread.id,
+                    ImMessageRow.direction == "OUT",
+                )
+            ) or 0
             task_view, created = await self.mobile.create_task(
-                actor, f"im-reply:{thread.id}:{last_in.id}", body
+                actor, f"im-reply:{thread.id}:{last_in.id}:{reply_ordinal}", body
             )
             if not created:
                 # Idempotent replay: the task (and its OUT message) already exist.
