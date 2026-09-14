@@ -108,7 +108,10 @@ object DutyController {
     // recognizing only the unread form mistook a parked phone for a lost one.
     private fun onMessageList(service: CloudCtlAccessibilityService): Boolean {
         val roots = service.allRootsForDuty() ?: return false
-        return roots.any { root -> containsTabForm(root) }
+        // The message-list page does not always expose the tab bar in the Flutter
+        // semantics tree (verified on device), so parking also accepts conversation
+        // entry content marks: timestamp descriptions or unread badges.
+        return roots.any { root -> containsTabForm(root) || DutyPageMarks.looksLikeConversationList(root) }
     }
 
     private fun containsTabForm(node: AccessibilityNodeInfo): Boolean {
