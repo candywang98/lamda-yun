@@ -24,6 +24,8 @@ class ImeTextReplacementTest {
             partialStartOffset = -1
             partialEndOffset = -1
         }
+        var beforeCursor: String? = "old draft"
+        var afterCursor: String? = ""
         var selectionAccepted = true
         var commitAccepted = true
         var composingAccepted = true
@@ -35,6 +37,8 @@ class ImeTextReplacementTest {
             calls += method.name
             when (method.name) {
                 "getExtractedText" -> extracted
+                "getTextBeforeCursor" -> beforeCursor
+                "getTextAfterCursor" -> afterCursor
                 "finishComposingText" -> composingAccepted
                 "setSelection" -> { selection = args.toList(); selectionAccepted }
                 "commitText" -> {
@@ -53,34 +57,47 @@ class ImeTextReplacementTest {
         val fake = Fake()
         assertTrue(ImeTextReplacement.replace(fake.connection, "reply"))
         assertEquals(listOf(0, 9), fake.selection)
-        assertEquals(listOf("finishComposingText", "getExtractedText", "beginBatchEdit", "setSelection", "commitText", "endBatchEdit"), fake.calls)
+        assertEquals(
+            listOf("finishComposingText", "getTextBeforeCursor", "getTextAfterCursor", "beginBatchEdit", "setSelection", "commitText", "endBatchEdit"),
+            fake.calls,
+        )
     }
 
     @Test fun emptyDraftUsesEmptySelection() {
-        val fake = Fake().apply { extracted!!.text = "" }
+        val fake = Fake().apply { extracted!!.text = ""; beforeCursor = ""; afterCursor = "" }
         assertTrue(ImeTextReplacement.replace(fake.connection, "reply"))
         assertEquals(listOf(0, 0), fake.selection)
     }
 
     @Test fun unavailableSnapshotNeverWrites() {
-        val fake = Fake().apply { extracted = null }
+        val fake = Fake().apply { extracted = null; beforeCursor = null; afterCursor = null }
         assertFalse(ImeTextReplacement.replace(fake.connection, "reply"))
         assertFalse("commitText" in fake.calls)
     }
 
-    @Test fun partialOrOffsetSnapshotNeverWrites() {
-        for (field in 0..2) {
-            val fake = Fake().apply {
-                when (field) {
-                    0 -> extracted!!.startOffset = 1
-                    1 -> extracted!!.partialStartOffset = 0
-                    2 -> extracted!!.partialEndOffset = 2
-                }
-            }
-            assertNull(ImeTextReplacement.read(fake.connection))
-            assertFalse(ImeTextReplacement.replace(fake.connection, "reply"))
-            assertFalse("commitText" in fake.calls)
+    @Test fun platformPartialDefaultsStillReadTheSnapshot() {
+        // Real devices report partialStartOffset/partialEndOffset = 0 (the int default),
+        // not the documented -1 sentinel; with startOffset 0 the text is still whole.
+        val fake = Fake().apply { extracted!!.partialStartOffset = 0; extracted!!.partialEndOffset = 0 }
+        assertEquals("old draft", ImeTextReplacement.read(fake.connection))
+        assertTrue(ImeTextReplacement.replace(fake.connection, "reply"))
+    }
+
+    @Test fun offsetSnapshotFallsBackToCursorWindows() {
+        val fake = Fake().apply {
+            extracted!!.startOffset = 4
+            beforeCursor = "old "
+            afterCursor = "draft"
         }
+        assertEquals("old draft", ImeTextReplacement.read(fake.connection))
+        assertTrue(ImeTextReplacement.replace(fake.connection, "reply"))
+        assertEquals(listOf(0, 9), fake.selection)
+    }
+
+    @Test fun missingExtractedTextFallsBackToCursorWindows() {
+        val fake = Fake().apply { extracted = null }
+        assertEquals("old draft", ImeTextReplacement.read(fake.connection))
+        assertTrue(ImeTextReplacement.replace(fake.connection, "reply"))
     }
 
     @Test fun rejectedSelectionNeverCommitsAndEndsBatch() {
@@ -101,6 +118,13 @@ class ImeTextReplacementTest {
         assertFalse(ImeTextReplacement.replace(fake.connection, "reply"))
         ImeTextReplacement.read(fake.connection)
         assertEquals(1, fake.calls.count { it == "commitText" })
+    }
+
+    @Test fun cursorWindowFailureRefusesToWrite() {
+        val fake = Fake().apply { extracted = null; beforeCursor = null }
+        assertFalse(ImeTextReplacement.replace(fake.connection, "reply"))
+        assertNull(ImeTextReplacement.read(fake.connection))
+        assertFalse("commitText" in fake.calls)
     }
 
     @Test fun exceptionStillEndsBatch() {

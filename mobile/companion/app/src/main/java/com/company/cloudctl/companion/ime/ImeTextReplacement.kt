@@ -3,20 +3,35 @@ package com.company.cloudctl.companion.ime
 import android.view.inputmethod.ExtractedTextRequest
 import android.view.inputmethod.InputConnection
 
-/** No queued text, context menus, clipboard or unbounded deletion. */
+/**
+ * No queued text, context menus, clipboard or unbounded deletion.
+ *
+ * Flutter text fields frequently do not implement getExtractedText (or report the
+ * platform-default partial offsets of 0 instead of the documented -1 sentinel), so
+ * the snapshot path must degrade to exact cursor-window reads instead of failing.
+ */
 internal object ImeTextReplacement {
+    private const val CURSOR_WINDOW = 10_000
+
     fun read(connection: InputConnection): String? {
-        val extracted = connection.getExtractedText(ExtractedTextRequest(), 0) ?: return null
-        if (extracted.startOffset != 0 || extracted.partialStartOffset != -1 || extracted.partialEndOffset != -1) return null
-        return extracted.text?.toString()
+        val extracted = runCatching { connection.getExtractedText(ExtractedTextRequest(), 0) }.getOrNull()
+        if (extracted?.text != null && extracted.startOffset == 0) {
+            // With startOffset 0 and a non-null text the snapshot spans the whole field;
+            // partial offset values vary by implementation and are not authoritative.
+            return extracted.text?.toString()
+        }
+        val before = runCatching { connection.getTextBeforeCursor(CURSOR_WINDOW, 0) }.getOrNull() ?: return null
+        val after = runCatching { connection.getTextAfterCursor(CURSOR_WINDOW, 0) }.getOrNull() ?: return null
+        return "$before$after"
     }
 
     fun replace(connection: InputConnection, text: String): Boolean {
         if (!connection.finishComposingText()) return false
-        val previous = read(connection) ?: return false
+        val before = runCatching { connection.getTextBeforeCursor(CURSOR_WINDOW, 0) }.getOrNull() ?: return false
+        val after = runCatching { connection.getTextAfterCursor(CURSOR_WINDOW, 0) }.getOrNull() ?: return false
         connection.beginBatchEdit()
         return try {
-            if (!connection.setSelection(0, previous.length)) false
+            if (!connection.setSelection(0, before.length + after.length)) false
             else connection.commitText(text, 1)
         } finally {
             connection.endBatchEdit()
