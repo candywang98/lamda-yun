@@ -53,9 +53,10 @@ internal object TargetLocatorRegistry {
         "xianyu_location_saved_0" to ApprovedLocator.ContentDescriptionPrefix("北营新村丰景佳园"),
         "xianyu_publish_blocked_ack" to ApprovedLocator.ContentDescription("我知道了"),
         "xianyu_publish_button" to ApprovedLocator.ContentDescription("发布"),
-        // Anchors pending on-device verification (pa-im/20260913.1).
-        "xianyu_messages_tab" to ApprovedLocator.ContentDescription("消息"),
-        "xianyu_chat_input" to ApprovedLocator.ContentDescriptionPrefix("发送消息"),
+        // Verified on-device 2026-09-13 (pa-im): the messages tab exposes a compound
+        // desc "消息，未读消息数N，…状态"; the chat composer placeholder is a Flutter view.
+        "xianyu_messages_tab" to ApprovedLocator.ContentDescriptionPrefix("消息，未读消息数"),
+        "xianyu_chat_input" to ApprovedLocator.ContentDescriptionPrefix("想跟TA说点什么"),
         "xianyu_chat_send" to ApprovedLocator.ContentDescription("发送"),
     )
 
