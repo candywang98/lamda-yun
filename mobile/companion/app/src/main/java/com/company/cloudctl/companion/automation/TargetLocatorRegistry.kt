@@ -120,4 +120,17 @@ internal object TargetLocatorRegistry {
         }
         throw IllegalArgumentException("Unknown Companion locator")
     }
+
+    /**
+     * Root-page anchors (im-live slice 2, gap 1): any of these visible means the
+     * target sits on a root page with its bottom tab bar, so fresh task steps can
+     * start. Empty means the target has no reset contract.
+     */
+    fun rootAnchorRefs(targetPackage: String): List<String> = when (targetPackage) {
+        COMPANION_PACKAGE -> listOf("companion_home_root")
+        XIANYU_PACKAGE -> listOf("xianyu_home_sell", "xianyu_messages_tab")
+        XHS_PACKAGE -> listOf("xhs_home_publish")
+        DOUYIN_PACKAGE -> listOf("dy_home_publish")
+        else -> emptyList()
+    }
 }

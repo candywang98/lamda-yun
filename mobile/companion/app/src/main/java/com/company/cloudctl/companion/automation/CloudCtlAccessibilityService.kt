@@ -124,7 +124,8 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
             .filter { it.isVisibleToUser }
         if (matches.size != 1) {
             throw ExecutorFailure(
-                "TAP_TEXT_NOT_UNIQUE",
+                // Only a miss scrolls; an ambiguous match must fail the step as-is.
+                if (matches.isEmpty()) "TAP_TEXT_NOT_FOUND" else "TAP_TEXT_NOT_UNIQUE",
                 "Expected exactly one visible '$value' node, found ${matches.size}",
             )
         }
@@ -222,6 +223,103 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         return null
+    }
+
+    // Navigation reset primitive + conversation-list scrolling (im-live slice 2).
+
+    override fun isTargetForeground(targetPackage: String): Boolean =
+        runCatching { ensureReady(targetPackage) }.isSuccess
+
+    override fun atRootPage(targetPackage: String): Boolean = runCatching {
+        ensureReady(targetPackage)
+        TargetLocatorRegistry.rootAnchorRefs(targetPackage).any { anchor ->
+            runCatching { resolveUniqueNode(targetPackage, anchor) }.getOrNull()?.isVisibleToUser == true
+        }
+    }.getOrDefault(false)
+
+    override suspend fun goBack() {
+        performGlobalAction(GLOBAL_ACTION_BACK)
+        delay(NAV_SETTLE_MS)
+    }
+
+    override suspend fun restartTargetApp(targetPackage: String) {
+        // A plain launchTargetApp no-ops when the target is already foreground on
+        // an inner page; the forced relaunch below always re-enters the root task.
+        if (targetPackage !in setOf(
+                TargetLocatorRegistry.COMPANION_PACKAGE,
+                TargetLocatorRegistry.XIANYU_PACKAGE,
+                TargetLocatorRegistry.XHS_PACKAGE,
+                TargetLocatorRegistry.DOUYIN_PACKAGE,
+            )
+        ) {
+            throw ExecutorFailure("TARGET_PACKAGE_REJECTED", "Target package is not allowlisted")
+        }
+        val launch = resolveLaunchIntent(targetPackage)
+            ?: throw ExecutorFailure("APP_NOT_INSTALLED", "Target package is not installed")
+        launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        try {
+            startActivity(launch)
+        } catch (_: ActivityNotFoundException) {
+            throw ExecutorFailure("LAUNCH_REQUIRES_USER", "System blocked background launch")
+        } catch (_: SecurityException) {
+            throw ExecutorFailure("LAUNCH_REQUIRES_USER", "System blocked background launch")
+        }
+        waitUntilPackage(targetPackage)
+    }
+
+    override fun canScrollTextList(targetPackage: String): Boolean =
+        runCatching { ensureReady(targetPackage) }.isSuccess && findScrollableContainer(targetPackage) != null
+
+    override suspend fun scrollTextListForward(targetPackage: String) {
+        val container = findScrollableContainer(targetPackage)
+            ?: throw ExecutorFailure("SCROLL_CONTAINER_MISSING", "No visible scrollable list to scroll")
+        // Flutter lists ignore accessibility scroll actions; fall back to a gesture.
+        if (!container.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)) {
+            swipeUp()
+        }
+        delay(NAV_SETTLE_MS)
+    }
+
+    private fun findScrollableContainer(targetPackage: String): AccessibilityNodeInfo? =
+        allRoots()
+            .filter { it.packageName?.toString() == targetPackage }
+            .flatMap { root -> findNodes(root) { node -> node.isVisibleToUser && node.isScrollable } }
+            .firstOrNull()
+
+    /** Generic predicate traversal used by scroll-container discovery. */
+    private fun findNodes(
+        root: AccessibilityNodeInfo,
+        predicate: (AccessibilityNodeInfo) -> Boolean,
+    ): List<AccessibilityNodeInfo> {
+        val matches = mutableListOf<AccessibilityNodeInfo>()
+        fun visit(node: AccessibilityNodeInfo) {
+            if (predicate(node)) matches += node
+            for (index in 0 until node.childCount) node.getChild(index)?.let(::visit)
+        }
+        visit(root)
+        return matches
+    }
+
+    /** Chat-page bubble snapshot for IM body enrichment (im-live slice 2, gap 2). */
+    fun chatBubbles(targetPackage: String): List<com.company.cloudctl.companion.im.ChatBubble> {
+        val bubbles = mutableListOf<com.company.cloudctl.companion.im.ChatBubble>()
+        allRoots()
+            .filter { it.packageName?.toString() == targetPackage }
+            .forEach { root ->
+                findNodes(root) { true }.forEach { node ->
+                    val text = node.text?.toString()?.trim()
+                    if (text.isNullOrEmpty()) return@forEach
+                    val bounds = Rect()
+                    node.getBoundsInScreen(bounds)
+                    bubbles += com.company.cloudctl.companion.im.ChatBubble(
+                        text = text,
+                        centerX = bounds.exactCenterX(),
+                        width = bounds.width(),
+                        height = bounds.height(),
+                    )
+                }
+            }
+        return bubbles
     }
 
     override fun ensureReady(targetPackage: String) {
@@ -1160,6 +1258,7 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         private const val PREVIEW_MAX_SIDE = 720
         private const val PREVIEW_MAX_BYTES = 380_000
         private const val XIANYU_LAUNCHER_ACTIVITY = "com.taobao.fleamarket.home.activity.InitActivity"
+        private const val NAV_SETTLE_MS = 800L
 
         @Volatile
         var active: CloudCtlAccessibilityService? = null

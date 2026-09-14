@@ -37,6 +37,29 @@ interface LocalAutomationUi {
     suspend fun screenshot(taskId: String, label: String): ScreenshotEvidence
     suspend fun swipeUp() {}
     fun log(level: LogLevel, messageCode: String)
+
+    // Navigation reset primitive (im-live slice 2, gap 1): defaults are inert so
+    // plain executors keep running without back/relaunch support.
+
+    /** True when the target package currently owns the active accessibility window. */
+    fun isTargetForeground(targetPackage: String): Boolean = true
+
+    /** True when a root-page anchor (for example the bottom tab bar) is visible. */
+    fun atRootPage(targetPackage: String): Boolean = true
+
+    /** One system BACK press; implementations settle before returning. */
+    suspend fun goBack() {}
+
+    /** Forced relaunch of the target that lands on its root activity. */
+    suspend fun restartTargetApp(targetPackage: String) {}
+
+    // Conversation-list scrolling (im-live slice 2, gap 3): tapText retry support.
+
+    /** True when the visible list container can still scroll forward. */
+    fun canScrollTextList(targetPackage: String): Boolean = false
+
+    /** Scrolls the visible list forward; implementations settle before returning. */
+    suspend fun scrollTextListForward(targetPackage: String) {}
 }
 
 private val GATED_PUBLISH_LOCATORS = setOf("xianyu_publish_button", "xhs_publish_button", "dy_publish_button")
@@ -56,6 +79,9 @@ class LocalAutomationExecutor(
     ) {
         if (!task.expiresAt.isAfter(now())) throw ExecutorFailure("TASK_EXPIRED", "Task has expired")
         val runDeadline = elapsedMs() + task.maxRunSeconds * 1_000L
+        // Fresh runs start from the target root page; resumed runs keep their
+        // verified in-page state (ResumeValidator guards those separately).
+        if (startAfterIndex < 0) normalizeToRootPage(task, runDeadline, control)
         var lastCompleted: AutomationStep? = task.steps.getOrNull(startAfterIndex)
         var lastCompletedIndex = startAfterIndex
         for ((index, step) in task.steps.withIndex()) {
@@ -151,8 +177,7 @@ class LocalAutomationExecutor(
             }
             is AutomationStep.TapText -> {
                 throwIfControlRequested(control, lastCompleted, lastCompletedIndex)
-                ui.ensureReady(task.targetPackage)
-                ui.tapText(task.targetPackage, step.value)
+                tapTextWithScroll(task, step, runDeadline, control, lastCompleted, lastCompletedIndex)
             }
             is AutomationStep.Wait -> waitFor(
                 task, step.locatorRef, step.condition, step.pollMs, runDeadline, control,
@@ -174,6 +199,80 @@ class LocalAutomationExecutor(
         return false
     }
 
+    /**
+     * Navigation reset primitive (im-live slice 2, gap 1): idlefish (Flutter)
+     * restores its last route even after a CLEAR_TOP relaunch, so a task that
+     * starts while the app is parked on an inner page never sees its root
+     * anchors. Bounded BACK presses with a root-anchor check walk the app back
+     * to a root page; a forced relaunch is the last resort before failing closed.
+     */
+    private suspend fun normalizeToRootPage(task: AutomationTask, runDeadline: Long, control: ExecutionControl?) {
+        if (ui.atRootPage(task.targetPackage)) return
+        ui.log(LogLevel.WARN, "NAV_RESET_BACK")
+        if (ui.isTargetForeground(task.targetPackage)) {
+            repeat(NAV_RESET_MAX_BACKS) {
+                throwIfControlRequested(control)
+                ensureWithinTaskDeadline(task, runDeadline)
+                ui.goBack()
+                if (ui.atRootPage(task.targetPackage)) return
+            }
+        }
+        ui.log(LogLevel.WARN, "NAV_RESET_RELAUNCH")
+        ui.restartTargetApp(task.targetPackage)
+        repeat(NAV_RESET_RELAUNCH_POLLS) {
+            throwIfControlRequested(control)
+            ensureWithinTaskDeadline(task, runDeadline)
+            if (ui.atRootPage(task.targetPackage)) return
+            sleep(NAV_RESET_POLL_MS)
+        }
+        if (!ui.atRootPage(task.targetPackage)) {
+            throw ExecutorFailure("NAV_RESET_FAILED", "Target app could not be returned to its root page")
+        }
+    }
+
+    /**
+     * Conversation-list scrolling (im-live slice 2, gap 3): tapText only matches
+     * first-screen nodes, so scroll the visible list forward until the value
+     * appears or the bounded scroll budget runs out.
+     */
+    private suspend fun tapTextWithScroll(
+        task: AutomationTask,
+        step: AutomationStep.TapText,
+        runDeadline: Long,
+        control: ExecutionControl?,
+        lastCompleted: AutomationStep?,
+        lastCompletedIndex: Int,
+    ) {
+        val deadline = minOf(runDeadline, elapsedMs() + step.timeoutMs)
+        var scrolls = 0
+        while (true) {
+            throwIfControlRequested(control, lastCompleted, lastCompletedIndex)
+            // The step-scoped scroll deadline must surface as the tap failure
+            // itself, not as a task-wide TASK_TIMEOUT, so it is checked before
+            // the task deadline guard (only after a first attempt was made).
+            if (scrolls > 0 && elapsedMs() >= deadline) {
+                throw ExecutorFailure(
+                    "TAP_TEXT_NOT_FOUND",
+                    "tapText value '${step.value}' never became visible before the step deadline",
+                )
+            }
+            ensureWithinTaskDeadline(task, runDeadline)
+            ui.ensureReady(task.targetPackage)
+            try {
+                ui.tapText(task.targetPackage, step.value)
+                return
+            } catch (failure: ExecutorFailure) {
+                if (failure.code != "TAP_TEXT_NOT_FOUND") throw failure
+                if (scrolls >= TAP_TEXT_MAX_SCROLLS || elapsedMs() >= deadline ||
+                    !ui.canScrollTextList(task.targetPackage)
+                ) {
+                    throw failure
+                }
+                scrolls += 1
+                ui.scrollTextListForward(task.targetPackage)
+            }
+        }
+    }
     private fun requireNode(task: AutomationTask, locatorRef: String): LocalNodeState =
         ui.inspect(task.targetPackage, locatorRef)
             ?: throw ExecutorFailure("LOCATOR_NOT_FOUND", "Approved locator was not found")
@@ -271,5 +370,9 @@ class LocalAutomationExecutor(
 
     private companion object {
         val SHA256 = Regex("^[a-f0-9]{64}$")
+        const val NAV_RESET_MAX_BACKS = 5
+        const val NAV_RESET_RELAUNCH_POLLS = 12
+        const val NAV_RESET_POLL_MS = 500L
+        const val TAP_TEXT_MAX_SCROLLS = 10
     }
 }
