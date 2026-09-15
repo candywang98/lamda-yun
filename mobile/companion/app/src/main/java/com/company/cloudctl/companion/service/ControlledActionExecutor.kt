@@ -176,6 +176,40 @@ class ControlledActionExecutor(
             store.applyControlledActionResolution(row)
         } catch (cancelled: CancellationException) {
             throw cancelled
+        } catch (notFound: com.company.cloudctl.companion.network.CloudHttpException) {
+            // The server has no row for this action key: the intent was never
+            // accepted (device-verified: a rejected intent left the local journal
+            // pending and starved the claim loop with an unresolvable 404). An
+            // action the server never recorded was by definition never submitted,
+            // so close it locally with operator-visible evidence.
+            if (notFound.status == 404) {
+                val now = java.time.Instant.now().toString()
+                store.applyControlledActionResolution(
+                    com.company.cloudctl.companion.network.ActionCommit(
+                        actionKey = actionKey,
+                        taskId = identity.taskId,
+                        deviceId = identity.deviceId,
+                        accountId = identity.accountId,
+                        bindingVersion = identity.bindingVersion,
+                        recipeVersionId = identity.recipeVersionId,
+                        recipeSha256 = identity.recipeSha256,
+                        snapshotSha256 = identity.snapshotSha256,
+                        actionId = identity.actionId,
+                        parameterHash = identity.parameterHash,
+                        status = com.company.cloudctl.companion.network.ActionCommitStatus.NOT_SUBMITTED,
+                        beforeEvidence = "server-404",
+                        reportedEvidence = null,
+                        resolutionRevision = 1,
+                        resolutionEvidence = "server has no record of this action; intent was rejected and the strike never happened",
+                        resolvedAt = now,
+                        createdAt = now,
+                        updatedAt = now,
+                    ),
+                )
+                true
+            } else {
+                false
+            }
         } catch (_: Exception) {
             false
         }
