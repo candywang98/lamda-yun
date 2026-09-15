@@ -5,6 +5,7 @@ import OperationsView from '@/views/OperationsView.vue'
 import DisplaySettingsView from '@/views/DisplaySettingsView.vue'
 import SourceConnectionsView from '@/views/SourceConnectionsView.vue'
 import ImInboxView from './views/ImInboxView.vue'
+import OrdersView from '@/views/OrdersView.vue'
 import RecipeVersionsView from '@/views/RecipeVersionsView.vue'
 import { findOperation } from '@/data/operations-catalog'
 
@@ -14,6 +15,7 @@ const catalog = '/operations'
 
 export const coreRoutes: RouteRecordRaw[] = [
   { path: '/im', name: 'im-inbox', component: ImInboxView, meta: { title: '消息聚合', section: '运营目录' } },
+  { path: '/orders', name: 'orders', component: OrdersView, meta: { title: '订单同步', section: '运营目录' } },
   { path: '/recipes', name: 'recipe-versions', component: RecipeVersionsView, meta: { title: 'Recipe 版本管理', section: '版本管理' } },
   { path: '/', name: 'dashboard', redirect: catalog, meta: { title: '运营功能目录', section: '运营目录' } },
   { path: '/devices', name: 'devices', redirect: deviceList, meta: { title: '设备列表', section: '运营目录' } },
