@@ -344,24 +344,24 @@
             "title": "Action",
             "type": "string"
           },
-          "delta": {
+          "expectedDelta": {
             "maximum": 0.0,
             "minimum": -50.0,
-            "title": "Delta",
+            "title": "Expecteddelta",
             "type": "integer"
+          },
+          "locatorRef": {
+            "enum": [
+              "xianyu_pub_tab_onsale",
+              "xianyu_pub_tab_delisted"
+            ],
+            "title": "Locatorref",
+            "type": "string"
           },
           "stepId": {
             "maxLength": 128,
             "minLength": 1,
             "title": "Stepid",
-            "type": "string"
-          },
-          "tab": {
-            "enum": [
-              "onsale",
-              "delisted"
-            ],
-            "title": "Tab",
             "type": "string"
           },
           "timeoutMs": {
@@ -375,8 +375,8 @@
         "required": [
           "stepId",
           "action",
-          "tab",
-          "delta"
+          "locatorRef",
+          "expectedDelta"
         ],
         "title": "AssertBadgeStep",
         "type": "object"
@@ -5554,28 +5554,30 @@
             "type": "string"
           },
           "cardIndex": {
-            "anyOf": [
-              {
-                "maximum": 49.0,
-                "minimum": 0.0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Cardindex"
+            "maximum": 9.0,
+            "minimum": 0.0,
+            "title": "Cardindex",
+            "type": "integer"
           },
-          "layoutRef": {
+          "layoutAction": {
             "maxLength": 128,
             "minLength": 1,
-            "title": "Layoutref",
+            "title": "Layoutaction",
             "type": "string"
           },
           "stepId": {
             "maxLength": 128,
             "minLength": 1,
             "title": "Stepid",
+            "type": "string"
+          },
+          "tab": {
+            "enum": [
+              "onsale",
+              "draft",
+              "delisted"
+            ],
+            "title": "Tab",
             "type": "string"
           },
           "timeoutMs": {
@@ -5589,7 +5591,9 @@
         "required": [
           "stepId",
           "action",
-          "layoutRef"
+          "layoutAction",
+          "tab",
+          "cardIndex"
         ],
         "title": "TapLayoutStep",
         "type": "object"

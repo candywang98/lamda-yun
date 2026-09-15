@@ -137,7 +137,7 @@ XIANYU_TAP_LAYOUT_REFS = frozenset(
         "confirm_delete",
     }
 )
-MAX_CARD_INDEX = 49
+MAX_CARD_INDEX = 9  # Companion parser bound (AutomationTask.kt ui.tapLayout)
 
 
 class TapLayoutStep(StrictModel):
@@ -145,8 +145,9 @@ class TapLayoutStep(StrictModel):
 
     step_id: str = Field(alias="stepId", min_length=1, max_length=128)
     action: Literal["ui.tapLayout"]
-    layout_ref: str = Field(alias="layoutRef", min_length=1, max_length=128)
-    card_index: int | None = Field(default=None, alias="cardIndex", ge=0, le=MAX_CARD_INDEX)
+    layout_action: str = Field(alias="layoutAction", min_length=1, max_length=128)
+    tab: Literal["onsale", "draft", "delisted"]
+    card_index: int = Field(alias="cardIndex", ge=0, le=MAX_CARD_INDEX)
     timeout_ms: int = Field(default=10_000, alias="timeoutMs", ge=100, le=60_000)
 
     @field_validator("step_id")
@@ -156,11 +157,11 @@ class TapLayoutStep(StrictModel):
             raise ValueError("stepId is invalid")
         return value
 
-    @field_validator("layout_ref")
+    @field_validator("layout_action")
     @classmethod
     def approved_layout(cls, value: str) -> str:
         if value not in XIANYU_TAP_LAYOUT_REFS:
-            raise ValueError("layoutRef must be an approved xianyu maintenance layout")
+            raise ValueError("layoutAction must be an approved xianyu maintenance layout")
         return value
 
 
@@ -169,8 +170,10 @@ class AssertBadgeStep(StrictModel):
 
     step_id: str = Field(alias="stepId", min_length=1, max_length=128)
     action: Literal["ui.assertBadge"]
-    tab: Literal["onsale", "delisted"]
-    delta: int = Field(ge=-50, le=0)
+    locator_ref: Literal["xianyu_pub_tab_onsale", "xianyu_pub_tab_delisted"] = Field(
+        alias="locatorRef"
+    )
+    expected_delta: int = Field(alias="expectedDelta", ge=-50, le=0)
     timeout_ms: int = Field(default=15_000, alias="timeoutMs", ge=100, le=60_000)
 
     @field_validator("step_id")

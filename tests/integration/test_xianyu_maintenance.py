@@ -33,20 +33,23 @@ async def api() -> AsyncIterator[tuple[httpx.AsyncClient, FastAPI]]:
             yield client, app
 
 
+
+def tab_for(ref: str) -> str:
+    return "delisted" if ref in ("delete_card", "confirm_delete") else "onsale"
+
 def _tap(step_id: str, ref: str) -> dict[str, Any]:
     return {"stepId": step_id, "action": "ui.tap", "locatorRef": ref, "timeoutMs": 8_000}
 
 
 def _layout(step_id: str, ref: str, card_index: int | None = None) -> dict[str, Any]:
-    step: dict[str, Any] = {
+    return {
         "stepId": step_id,
         "action": "ui.tapLayout",
-        "layoutRef": ref,
+        "layoutAction": ref,
+        "tab": tab_for(ref),
+        "cardIndex": card_index or 0,
         "timeoutMs": 10_000,
     }
-    if card_index is not None:
-        step["cardIndex"] = card_index
-    return step
 
 
 def _shot(label: str) -> dict[str, Any]:
@@ -62,8 +65,8 @@ def _badge(tab: str) -> dict[str, Any]:
     return {
         "stepId": f"assert-{tab}",
         "action": "ui.assertBadge",
-        "tab": tab,
-        "delta": -1,
+        "locatorRef": "xianyu_pub_tab_onsale" if tab == "onsale" else "xianyu_pub_tab_delisted",
+        "expectedDelta": -1,
         "timeoutMs": 15_000,
     }
 
@@ -265,7 +268,7 @@ async def test_destructive_shape_violations_are_rejected(api, mutation):
     device = await create_direct_device(client, f"bad-{mutation}")
     response = await _create_steps_task(client, device, steps, f"bad-{mutation}-{device[:8]}")
     assert response.status_code == 422, response.text
-    assert "frozen command shape" in response.text
+    assert "frozen command shape" in response.text or "Extra inputs" in response.text
 
 
 @pytest.mark.parametrize(
@@ -355,11 +358,11 @@ async def test_each_target_has_an_independent_gated_identity(api):
     device = await create_direct_device(client, "cross-task")
     # One active runner per device: settle card 0 before starting card 1.
     task0, auth0, body0 = await _start_task(
-        client, app, device, delist_steps(0), "cross-task-0", "cross-instance"
+        client, app, device, delete_steps(0), "cross-task-0", "cross-instance"
     )
     await _authorize_and_resolve(client, task0, auth0, body0)
     task1, auth1, body1 = await _start_task(
-        client, app, device, delist_steps(1), "cross-task-1", "cross-instance"
+        client, app, device, delete_steps(1), "cross-task-1", "cross-instance"
     )
     assert body0["actionKey"] != body1["actionKey"]
     assert body0["parameterHash"] != body1["parameterHash"]
@@ -417,14 +420,14 @@ async def test_mutated_shape_cannot_request_intent(api):
     client, app = api
     device = await create_direct_device(client, "mutated")
     task_id, auth, body = await _start_task(
-        client, app, device, delist_steps(2), "mutated-key", "mutated-instance"
+        client, app, device, delete_steps(2), "mutated-key", "mutated-instance"
     )
     async with app.state.database.unit_of_work() as session:
         row = await session.get(MobileTaskRow, task_id, with_for_update=True)
         header, *steps = row.steps
         row.steps = [
             header,
-            *[step for step in steps if step.get("layoutRef") != "confirm_delist"],
+            *[step for step in steps if step.get("layoutAction") != "confirm_delete"],
         ]
         with pytest.raises(ConflictError):
             steps_action_identity(row)
@@ -468,16 +471,16 @@ async def test_run_permission_matrix(api):
 async def test_run_batch_is_idempotent_and_queryable(api):
     client, app = api
     device = await create_direct_device(client, "batch")
-    first = await _run(client, device, "delist", {"cardIndices": [3, 0]}, "batch-key")
+    first = await _run(client, device, "delete", {"cardIndices": [2, 0]}, "batch-key")
     assert first.status_code == 201, first.text
     body = first.json()
-    assert body["action"] == "delist"
-    assert body["commandType"] == "xianyu.delist.steps.v1"
+    assert body["action"] == "delete"
+    assert body["commandType"] == "xianyu.delete_delisted.steps.v1"
     assert body["targetCount"] == 2
-    assert [task["cardIndex"] for task in body["tasks"]] == [0, 3]
+    assert [task["cardIndex"] for task in body["tasks"]] == [0, 2]
     run_id = body["runId"]
 
-    replay = await _run(client, device, "delist", {"cardIndices": [3, 0]}, "batch-key")
+    replay = await _run(client, device, "delete", {"cardIndices": [2, 0]}, "batch-key")
     assert replay.status_code == 200
     assert replay.headers["Idempotency-Replayed"] == "true"
     assert replay.json()["taskIds"] == body["taskIds"]
@@ -488,7 +491,7 @@ async def test_run_batch_is_idempotent_and_queryable(api):
             )
         )
         assert len(rows) == 2
-        assert all(row.idempotency_key.startswith("maintenance-delist-") for row in rows)
+        assert all(row.idempotency_key.startswith("maintenance-delete-") for row in rows)
 
     summary = await client.get(
         f"/api/v1/xianyu/maintenance/runs/{run_id}", headers=identity()
@@ -498,7 +501,7 @@ async def test_run_batch_is_idempotent_and_queryable(api):
     assert payload["taskCount"] == 2
     assert payload["summary"] == {"QUEUED": 2}
     assert payload["allTerminal"] is False
-    assert {task["cardIndex"] for task in payload["tasks"]} == {0, 3}
+    assert {task["cardIndex"] for task in payload["tasks"]} == {0, 2}
 
     # The companion claims a controlled steps task and sees exactly one gated tap.
     auth = await _enroll(client, device, "batch-instance")
@@ -507,7 +510,7 @@ async def test_run_batch_is_idempotent_and_queryable(api):
     )
     assert claimed.status_code == 200, claimed.text
     gated = [
-        step for step in claimed.json()["steps"] if step.get("layoutRef") == "confirm_delist"
+        step for step in claimed.json()["steps"] if step.get("layoutAction") == "confirm_delete"
     ]
     assert len(gated) == 1
     assert claimed.json()["targetPackage"] == XIANYU

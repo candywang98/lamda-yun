@@ -64,17 +64,18 @@ def _tap(step_id: str, locator_ref: str) -> dict[str, Any]:
     }
 
 
-def _tap_layout(step_id: str, layout_ref: str, card_index: int | None = None) -> dict[str, Any]:
-    step: dict[str, Any] = {
+def _tap_layout(step_id: str, layout_action: str, tab: str, card_index: int) -> dict[str, Any]:
+    # Field contract frozen to the Companion parser (AutomationTask.kt ui.tapLayout):
+    # layoutAction + tab + cardIndex are always present; coordinates are derived
+    # on-device from the frozen layout table, never carried in the payload.
+    return {
         "stepId": step_id,
         "action": "ui.tapLayout",
-        "layoutRef": layout_ref,
+        "layoutAction": layout_action,
+        "tab": tab,
+        "cardIndex": card_index,
         "timeoutMs": LAYOUT_TAP_TIMEOUT_MS,
     }
-    if card_index is not None:
-        step["cardIndex"] = card_index
-    return step
-
 
 def _screenshot(label: str) -> dict[str, Any]:
     return {
@@ -86,11 +87,14 @@ def _screenshot(label: str) -> dict[str, Any]:
 
 
 def _assert_badge(tab: str) -> dict[str, Any]:
+    # Companion parser expects locatorRef + expectedDelta (AutomationTask.kt
+    # ui.assertBadge); the tab name maps to the frozen badge locator.
+    locator_ref = "xianyu_pub_tab_onsale" if tab == "onsale" else "xianyu_pub_tab_delisted"
     return {
         "stepId": f"assert-badge-{tab}",
         "action": "ui.assertBadge",
-        "tab": tab,
-        "delta": -1,
+        "locatorRef": locator_ref,
+        "expectedDelta": -1,
         "timeoutMs": BADGE_ASSERT_TIMEOUT_MS,
     }
 
@@ -109,7 +113,7 @@ def build_polish_steps() -> list[dict[str, Any]]:
     return [
         _tap("open-profile", "xianyu_profile_tab"),
         _tap("open-my-published", "xianyu_my_published"),
-        _tap_layout("tap-polish-all", "polish_all"),
+        _tap_layout("tap-polish-all", "polish_all", "onsale", 0),
         _screenshot("xianyu_polish_all"),
         _log("XIANYU_POLISH_DONE"),
     ]
@@ -119,11 +123,11 @@ def build_delist_steps(card_index: int) -> list[dict[str, Any]]:
     return [
         _tap("open-profile", "xianyu_profile_tab"),
         _tap("open-my-published", "xianyu_my_published"),
-        _tap_layout("open-card-menu", "more", card_index),
+        _tap_layout("open-card-menu", "more", "onsale", card_index),
         _screenshot("xianyu_delist_menu"),
-        _tap_layout("tap-delist-item", "delist_menu_item"),
+        _tap_layout("tap-delist-item", "delist_menu_item", "onsale", 0),
         _screenshot("xianyu_delist_confirm"),
-        _tap_layout("confirm-delist", "confirm_delist"),
+        _tap_layout("confirm-delist", "confirm_delist", "onsale", 0),
         _assert_badge("onsale"),
         _screenshot("xianyu_delist_result"),
         _log("XIANYU_DELIST_DONE"),
@@ -135,9 +139,9 @@ def build_delete_delisted_steps(card_index: int) -> list[dict[str, Any]]:
         _tap("open-profile", "xianyu_profile_tab"),
         _tap("open-my-published", "xianyu_my_published"),
         _tap("open-delisted-tab", "xianyu_pub_tab_delisted"),
-        _tap_layout("tap-delete-card", "delete_card", card_index),
+        _tap_layout("tap-delete-card", "delete_card", "delisted", card_index),
         _screenshot("xianyu_delete_confirm"),
-        _tap_layout("confirm-delete", "confirm_delete"),
+        _tap_layout("confirm-delete", "confirm_delete", "delisted", 0),
         _assert_badge("delisted"),
         _screenshot("xianyu_delete_result"),
         _log("XIANYU_DELETE_DELISTED_DONE"),
@@ -186,6 +190,14 @@ class XianyuMaintenanceRunRequest(BaseModel):
             )
         if any(not 0 <= index <= MAX_CARD_INDEX for index in targets.card_indices):
             raise ValueError(f"cardIndices must be within 0..{MAX_CARD_INDEX}")
+        if self.action == "delist":
+            # Frozen layout evidence covers the FIRST on-sale card row only; the
+            # companion layout table fail-closes any other index, so reject here
+            # with an explicit message instead of dispatching doomed tasks.
+            if targets.card_indices not in ([], [0]):
+                raise ValueError("delist currently supports only the first on-sale card (index 0)")
+            if targets.all and targets.card_limit is not None and targets.card_limit > 1:
+                raise ValueError("delist currently supports only the first on-sale card (cardLimit 1)")
         if self.action == "polish":
             if targets.all or targets.card_indices or targets.card_limit is not None:
                 raise ValueError("polish is a single one-tap task and takes no targets")

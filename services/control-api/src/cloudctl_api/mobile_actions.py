@@ -179,7 +179,7 @@ XIANYU_MAINTENANCE_SHAPES: dict[str, dict[str, Any]] = {
         "action": "polish",
         "action_id": None,
         "navigation": ("xianyu_profile_tab", "xianyu_my_published"),
-        "layout_taps": {"polish_all": {"count": 1, "card": False}},
+        "layout_taps": {"polish_all": {"count": 1, "tab": "onsale", "max_card": 0}},
         "gated_layout": None,
         "badge": None,
         "screenshot_rules": (("after_layout", "polish_all"),),
@@ -191,12 +191,12 @@ XIANYU_MAINTENANCE_SHAPES: dict[str, dict[str, Any]] = {
         "action_id": "confirm-delist",
         "navigation": ("xianyu_profile_tab", "xianyu_my_published"),
         "layout_taps": {
-            "more": {"count": 1, "card": True},
-            "delist_menu_item": {"count": 1, "card": False},
-            "confirm_delist": {"count": 1, "card": False},
+            "more": {"count": 1, "tab": "onsale", "max_card": 0},
+            "delist_menu_item": {"count": 1, "tab": "onsale", "max_card": 0},
+            "confirm_delist": {"count": 1, "tab": "onsale", "max_card": 0},
         },
         "gated_layout": "confirm_delist",
-        "badge": {"tab": "onsale", "delta": -1},
+        "badge": {"locator": "xianyu_pub_tab_onsale", "delta": -1},
         "screenshot_rules": (
             ("between", "more", "delist_menu_item"),
             ("between", "delist_menu_item", "confirm_delist"),
@@ -214,11 +214,11 @@ XIANYU_MAINTENANCE_SHAPES: dict[str, dict[str, Any]] = {
             "xianyu_pub_tab_delisted",
         ),
         "layout_taps": {
-            "delete_card": {"count": 1, "card": True},
-            "confirm_delete": {"count": 1, "card": False},
+            "delete_card": {"count": 1, "tab": "delisted", "max_card": 2},
+            "confirm_delete": {"count": 1, "tab": "delisted", "max_card": 0},
         },
         "gated_layout": "confirm_delete",
-        "badge": {"tab": "delisted", "delta": -1},
+        "badge": {"locator": "xianyu_pub_tab_delisted", "delta": -1},
         "screenshot_rules": (
             ("between", "delete_card", "confirm_delete"),
             ("after_badge", None),
@@ -240,7 +240,7 @@ def _step_index(steps: list[dict[str, Any]], predicate: Any) -> int:
 def _layout_index(steps: list[dict[str, Any]], layout: str) -> int:
     return _step_index(
         steps,
-        lambda step: step.get("action") == "ui.tapLayout" and step.get("layoutRef") == layout,
+        lambda step: step.get("action") == "ui.tapLayout" and step.get("layoutAction") == layout,
     )
 
 
@@ -259,18 +259,21 @@ def _maintenance_shape_error(shape: dict[str, Any], steps: list[dict[str, Any]])
         if step.get("locatorRef") not in shape["navigation"]:
             return f"{command}: ui.tap to {step.get('locatorRef')} is not part of the shape"
     for layout, rule in shape["layout_taps"].items():
-        hits = [step for step in layout_steps if step.get("layoutRef") == layout]
+        hits = [step for step in layout_steps if step.get("layoutAction") == layout]
         if len(hits) != rule["count"]:
             return f"{command}: tapLayout({layout}) must appear exactly {rule['count']} time(s)"
         for hit in hits:
-            has_card = isinstance(hit.get("cardIndex"), int)
-            if rule["card"] and not has_card:
-                return f"{command}: tapLayout({layout}) requires cardIndex"
-            if not rule["card"] and has_card:
-                return f"{command}: tapLayout({layout}) must not carry cardIndex"
+            # Companion contract: layoutAction + tab + cardIndex always present.
+            if hit.get("tab") != rule["tab"]:
+                return f"{command}: tapLayout({layout}) requires tab {rule['tab']}"
+            card = hit.get("cardIndex")
+            if not isinstance(card, int) or not 0 <= card <= rule["max_card"]:
+                return (
+                    f"{command}: tapLayout({layout}) cardIndex must be 0..{rule['max_card']}"
+                )
     for step in layout_steps:
-        if step.get("layoutRef") not in shape["layout_taps"]:
-            return f"{command}: tapLayout({step.get('layoutRef')}) is not part of the shape"
+        if step.get("layoutAction") not in shape["layout_taps"]:
+            return f"{command}: tapLayout({step.get('layoutAction')}) is not part of the shape"
     if shape["badge"] is None:
         if badge_steps:
             return f"{command}: badge assertions are not part of this shape"
@@ -279,9 +282,9 @@ def _maintenance_shape_error(shape: dict[str, Any], steps: list[dict[str, Any]])
             return f"{command}: exactly one ui.assertBadge step is required"
         badge = badge_steps[0]
         expected = shape["badge"]
-        if badge.get("tab") != expected["tab"] or badge.get("delta") != expected["delta"]:
+        if badge.get("locatorRef") != expected["locator"] or badge.get("expectedDelta") != expected["delta"]:
             return (
-                f"{command}: badge assertion must verify {expected['tab']} delta "
+                f"{command}: badge assertion must verify {expected['locator']} delta "
                 f"{expected['delta']}"
             )
     shots = [
