@@ -25,9 +25,9 @@ class XianyuMaintenanceLayoutTest {
 
     @Test
     fun delistedCardsStepByTheFrozen460RowPitch() {
-        // 已下架卡片：删除(657,y)/重新上架(904,y)；y = 1207/1667/2127（步进 460）。
+        // 已下架卡片：删除(657,y)/重新上架(904,y)；y = 675/1135/1595（步进 460）。
         assertEquals(
-            listOf(1207, 1667, 2127),
+            listOf(675, 1135, 1595),
             (0..2).map { index ->
                 resolve(XianyuMaintenanceLayout.Tab.DELISTED, XianyuMaintenanceLayout.LayoutAction.DELETE_CARD, index)!!.y
             },
@@ -39,11 +39,11 @@ class XianyuMaintenanceLayoutTest {
             },
         )
         assertEquals(
-            XianyuMaintenanceLayout.Point(904, 1207),
+            XianyuMaintenanceLayout.Point(904, 675),
             resolve(XianyuMaintenanceLayout.Tab.DELISTED, XianyuMaintenanceLayout.LayoutAction.RELIST_CARD, 0),
         )
         assertEquals(
-            XianyuMaintenanceLayout.Point(904, 2127),
+            XianyuMaintenanceLayout.Point(904, 1595),
             resolve(XianyuMaintenanceLayout.Tab.DELISTED, XianyuMaintenanceLayout.LayoutAction.RELIST_CARD, 2),
         )
     }
@@ -112,9 +112,9 @@ class XianyuMaintenanceLayoutTest {
 
     @Test
     fun cardRowsPastTheGuardedScreenFailClosed() {
-        // 已下架第 4 卡 y=2587、草稿第 5 卡 y=2710：越界 → null，不猜测。
-        assertNull(resolve(XianyuMaintenanceLayout.Tab.DELISTED, XianyuMaintenanceLayout.LayoutAction.DELETE_CARD, 3))
-        assertNull(resolve(XianyuMaintenanceLayout.Tab.DELISTED, XianyuMaintenanceLayout.LayoutAction.RELIST_CARD, 3))
+        // 已下架首卡 675 后第 4 卡 y=2515 越界、草稿第 5 卡 y=2710：越界 → null，不猜测。
+        assertNull(resolve(XianyuMaintenanceLayout.Tab.DELISTED, XianyuMaintenanceLayout.LayoutAction.DELETE_CARD, 4))
+        assertNull(resolve(XianyuMaintenanceLayout.Tab.DELISTED, XianyuMaintenanceLayout.LayoutAction.RELIST_CARD, 4))
         assertNull(resolve(XianyuMaintenanceLayout.Tab.DRAFT, XianyuMaintenanceLayout.LayoutAction.DELETE_CARD, 4))
         assertNull(resolve(XianyuMaintenanceLayout.Tab.DRAFT, XianyuMaintenanceLayout.LayoutAction.EDIT_CARD, 4))
         assertNull(resolve(XianyuMaintenanceLayout.Tab.ONSALE, XianyuMaintenanceLayout.LayoutAction.MORE, -1))
@@ -149,7 +149,7 @@ class XianyuMaintenanceLayoutTest {
         }
         // The frozen geometry alone maps.
         assertEquals(
-            XianyuMaintenanceLayout.Point(657, 1207),
+            XianyuMaintenanceLayout.Point(657, 675),
             XianyuMaintenanceLayout.resolve(1080, 2400, XianyuMaintenanceLayout.Tab.DELISTED, action, 0),
         )
     }

@@ -136,7 +136,7 @@ object XianyuMaintenanceLayout {
     /** 已下架卡片：删除(657,y)/重新上架(904,y)；y=1207/1667/2127（步进 460）。 */
     private const val DELISTED_DELETE_X = 657
     private const val DELISTED_RELIST_X = 904
-    private const val DELISTED_FIRST_CARD_Y = 1207
+    private const val DELISTED_FIRST_CARD_Y = 675
     private const val DELISTED_CARD_STEP = 460
 
     /** 草稿卡片：删除(695,y)/编辑(920,y)；y=1138/1531（步进 393）。 */
