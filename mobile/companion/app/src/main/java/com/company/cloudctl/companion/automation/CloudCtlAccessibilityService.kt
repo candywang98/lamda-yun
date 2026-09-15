@@ -124,11 +124,12 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         startAfterIndex: Int = -1,
         commitGate: CommitGate? = null,
         destructiveGate: DestructiveClickGate? = null,
+        orderReporter: OrderReporter? = null,
         journal: (AutomationStep, String) -> Unit,
     ) {
         if (active !== this) throw ExecutorFailure("ACCESSIBILITY_NOT_ACTIVE", "Accessibility service is not active")
         launchTargetApp(task.targetPackage)
-        LocalAutomationExecutor(this, commitGate = commitGate, destructiveGate = destructiveGate)
+        LocalAutomationExecutor(this, commitGate = commitGate, destructiveGate = destructiveGate, orderReporter = orderReporter)
             .execute(task, control, startAfterIndex, journal)
     }
 
@@ -728,8 +729,14 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
 
     private fun resolveUniqueNode(targetPackage: String, locatorRef: String): AccessibilityNodeInfo? {
         ensureReady(targetPackage)
+        // Order-sync slice 1 (§7 fail-closed): registered-but-unverified locator
+        // refs terminate the step with LOCATOR_UNVERIFIED before any node lookup,
+        // so navigation taps and the readOrders container share one gate.
         val locator = try {
-            TargetLocatorRegistry.resolve(targetPackage, locatorRef)
+            TargetLocatorRegistry.resolveVerified(targetPackage, locatorRef) ?: throw ExecutorFailure(
+                "LOCATOR_UNVERIFIED",
+                "Locator '$locatorRef' is registered but not device-verified; failing closed",
+            )
         } catch (error: IllegalArgumentException) {
             throw ExecutorFailure("LOCATOR_NOT_APPROVED", "Locator is not approved for this target", error)
         }
@@ -747,6 +754,47 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
             Log.w(TAG, "dy locator '$locatorRef' matched nothing; contains 未选中=${haystack.contains("未选中")} sample=${haystack.takeLast(160)}")
         }
         return matches.singleOrNull()
+    }
+
+    /**
+     * Order-sync slice 1 (§5 + addendum 20260915.2): the current screen's
+     * order rows. A row is a visible direct child of the container matched by
+     * [locatorRef] whose content-desc starts with 「订单信息」 (surveyed marker;
+     * rows are NOT clickable — the clickable price Buttons live inside them).
+     * A row's entry is the ordered text/content-desc lines of its subtree;
+     * per-node text/desc duplicates collapse, but equal lines on different
+     * nodes are kept (U+200B price fragments legitimately repeat shapes).
+     * At most [maxRows] rows are returned; zero rows is a successful empty read.
+     */
+    override fun readOrderRows(targetPackage: String, locatorRef: String, maxRows: Int): List<List<String>> {
+        val container = resolveUniqueNode(targetPackage, locatorRef)
+            ?: throw ExecutorFailure("LOCATOR_NOT_FOUND", "Approved locator was not found")
+        val rows = mutableListOf<List<String>>()
+        for (index in 0 until container.childCount) {
+            if (rows.size >= maxRows) break
+            val child = container.getChild(index) ?: continue
+            if (!child.isVisibleToUser) continue
+            val marker = child.contentDescription?.toString()?.trim().orEmpty()
+            if (!marker.startsWith(OrderRowParser.ROW_MARKER_PREFIX)) continue
+            val lines = mutableListOf<String>()
+            collectNodeLines(child, lines)
+            if (lines.isEmpty()) continue
+            rows += lines
+        }
+        return rows
+    }
+
+    private fun collectNodeLines(node: AccessibilityNodeInfo, out: MutableList<String>) {
+        val text = node.text?.toString()?.trim()?.takeIf { it.isNotBlank() }
+        val description = node.contentDescription?.toString()?.trim()?.takeIf { it.isNotBlank() }
+        when {
+            text != null && description != null && text == description -> out += text
+            else -> {
+                text?.let(out::add)
+                description?.let(out::add)
+            }
+        }
+        for (index in 0 until node.childCount) node.getChild(index)?.let { collectNodeLines(it, out) }
     }
 
     private fun findLabelAnywhere(label: String): AccessibilityNodeInfo? {

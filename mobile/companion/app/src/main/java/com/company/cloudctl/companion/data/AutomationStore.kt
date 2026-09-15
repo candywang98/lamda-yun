@@ -557,7 +557,9 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
         }
         if (succeeded && sanitizedResult.length() == 0) {
             sanitizedResult.put("outcome", "ok")
-            sanitizedResult.put("resultType", resultTypeForPayload(taskId))
+            // Steps-shaped command types carry no registered result; the field is
+            // omitted so the server cannot reject the complete event (W1 fact ①).
+            resultTypeForPayload(taskId)?.let { sanitizedResult.put("resultType", it) }
             sanitizedResult.put("schemaVersion", 1)
         }
         val body = if (succeeded) {
@@ -599,7 +601,7 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
         }
     }
 
-    private fun SQLiteDatabase.resultTypeForPayload(taskId: String): String {
+    private fun SQLiteDatabase.resultTypeForPayload(taskId: String): String? {
         val payload = row("SELECT payload FROM task_inbox WHERE task_id=?", arrayOf(taskId)).orEmpty()
         return resultTypeForClaimPayload(payload)
     }
@@ -933,20 +935,35 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
         internal const val DATABASE_NAME = "cloudctl-automation.sqlite3"
         private const val VERSION = 5
 
-        internal fun resultTypeForClaimPayload(payload: String): String {
+        /**
+         * resultType for a claim payload, or null when the complete event must
+         * NOT carry one. The backend RESULT_TYPES registry only defines the
+         * four command-based types; a task whose commandType is present but
+         * unregistered (every `*.steps.v1` form, order-sync/20260915.1 §5's
+         * `xianyu.collect_orders.steps.v1` included) gets the field omitted —
+         * the server rejects any resultType for such commands. Legacy claims
+         * without a commandType keep the targetPackage-based fallback (their
+         * server rows have no command type either, so the field is tolerated).
+         */
+        internal fun resultTypeForClaimPayload(payload: String): String? {
             if (payload.isBlank() || !payload.trimStart().startsWith("{")) {
                 return "DeviceProbeResult"
             }
             val json = runCatching { JSONObject(payload) }.getOrNull() ?: return "DeviceProbeResult"
-            return when (json.optString("commandType")) {
-                "xianyu.publish_listing.v1" -> "XianyuPublishListingResult"
-                "xianyu.collect_orders.v1" -> "XianyuCollectOrdersResult"
-                "xiaohongshu.publish_note.v1" -> "XiaohongshuPublishNoteResult"
-                "device.probe_capabilities.v1" -> "DeviceProbeResult"
-                else -> when (json.optString("targetPackage")) {
+            val commandType = json.optString("commandType")
+            return when {
+                commandType.isBlank() -> when (json.optString("targetPackage")) {
                     "com.taobao.idlefish" -> "XianyuPublishListingResult"
                     "com.xingin.xhs" -> "XiaohongshuPublishNoteResult"
                     else -> "DeviceProbeResult"
+                }
+                else -> when (commandType) {
+                    "xianyu.publish_listing.v1" -> "XianyuPublishListingResult"
+                    "xianyu.collect_orders.v1" -> "XianyuCollectOrdersResult"
+                    "xiaohongshu.publish_note.v1" -> "XiaohongshuPublishNoteResult"
+                    "device.probe_capabilities.v1" -> "DeviceProbeResult"
+                    // Unregistered commandType (steps forms): no resultType at all.
+                    else -> null
                 }
             }
         }

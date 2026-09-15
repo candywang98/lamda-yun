@@ -142,4 +142,42 @@ class TargetLocatorRegistryTest {
         assertFalse(TargetLocatorRegistry.isXianyuMessagesTabDescription("闲鱼，未读消息数0，选中状态"))
         assertFalse(TargetLocatorRegistry.isXianyuMessagesTabDescription("卖闲置"))
     }
+
+    // order-sync/20260915.1 §7：三个订单定位器未真机验证，一律 fail-closed，
+    // resolveVerified() 必须返回 null（→ 步失败 LOCATOR_UNVERIFIED）。
+
+    @Test
+    fun orderSyncLocatorsStayFailClosedUntilDeviceVerified() {
+        val refs = setOf(
+            "xianyu_order_list_sold",
+            "xianyu_order_list_bought",
+            "xianyu_orders_container",
+        )
+        assertEquals(refs, TargetLocatorRegistry.UNVERIFIED_XIANYU_LOCATOR_REFS)
+        refs.forEach { ref ->
+            assertTrue(TargetLocatorRegistry.isUnverifiedLocator(TargetLocatorRegistry.XIANYU_PACKAGE, ref), ref)
+            assertEquals(null, TargetLocatorRegistry.resolveVerified(TargetLocatorRegistry.XIANYU_PACKAGE, ref), ref)
+            // 既未验证也绝不混入已验证注册表（resolve() 不认它）。
+            assertFailsWith<IllegalArgumentException> {
+                TargetLocatorRegistry.resolve(TargetLocatorRegistry.XIANYU_PACKAGE, ref)
+            }
+        }
+    }
+
+    @Test
+    fun verifiedLocatorsResolveAsBeforeThroughTheVerifiedGate() {
+        val locator = TargetLocatorRegistry.resolveVerified(
+            TargetLocatorRegistry.XIANYU_PACKAGE,
+            "xianyu_home_sell",
+        )
+        assertEquals(
+            TargetLocatorRegistry.resolve(TargetLocatorRegistry.XIANYU_PACKAGE, "xianyu_home_sell"),
+            locator,
+        )
+        // 未验证集合只作用于闲鱼包：同名 ref 出现在别的包不受影响（仍走原 allowlist 拒绝）。
+        assertFalse(TargetLocatorRegistry.isUnverifiedLocator(TargetLocatorRegistry.COMPANION_PACKAGE, "xianyu_orders_container"))
+        assertFailsWith<IllegalArgumentException> {
+            TargetLocatorRegistry.resolveVerified(TargetLocatorRegistry.COMPANION_PACKAGE, "xianyu_orders_container")
+        }
+    }
 }

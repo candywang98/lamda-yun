@@ -76,9 +76,24 @@ interface LocalAutomationUi {
     suspend fun tapScreenAt(targetPackage: String, x: Int, y: Int) {
         throw ExecutorFailure("COORDINATE_TAP_UNAVAILABLE", "UI does not provide single-shot coordinate taps")
     }
+
+    // Order-sync slice 1 (contract order-sync/20260915.1 §5): read the current
+    // screen's order rows out of the list container resolved from [locatorRef].
+    // A row is one clickable child of the container; its entry is the ordered
+    // text/content-desc lines of that child's subtree. At most [maxRows] rows
+    // come back; an empty list is a successful read of zero rows.
+
+    fun readOrderRows(targetPackage: String, locatorRef: String, maxRows: Int): List<List<String>> =
+        error("readOrders is not supported by this executor")
 }
 
 private val GATED_PUBLISH_LOCATORS = setOf("xianyu_publish_button", "xhs_publish_button", "dy_publish_button")
+
+private class PendingOrderReport(
+    val direction: OrderDirection,
+    val collected: List<OrderRowSnapshot>,
+    val skipped: List<SkippedOrderRow>,
+)
 
 class LocalAutomationExecutor(
     private val ui: LocalAutomationUi,
@@ -87,9 +102,13 @@ class LocalAutomationExecutor(
     private val sleep: suspend (Long) -> Unit = { delay(it) },
     private val commitGate: CommitGate? = null,
     private val destructiveGate: DestructiveClickGate? = null,
+    private val orderReporter: OrderReporter? = null,
 ) {
     /** Badge baselines (tab locator -> count at the strike) captured during one run. */
     private val badgeBaselines = mutableMapOf<String, Int>()
+
+    /** Collected orders awaiting the post-step §5 batch report (one readOrders step per run). */
+    private var pendingOrderReport: PendingOrderReport? = null
 
     suspend fun execute(
         task: AutomationTask,
@@ -98,6 +117,7 @@ class LocalAutomationExecutor(
         journal: (AutomationStep, String) -> Unit,
     ) {
         badgeBaselines.clear()
+        pendingOrderReport = null
         MaintenanceBadgeSnapshots.clear(task.taskId)
         if (!task.expiresAt.isAfter(now())) throw ExecutorFailure("TASK_EXPIRED", "Task has expired")
         val runDeadline = elapsedMs() + task.maxRunSeconds * 1_000L
@@ -140,6 +160,10 @@ class LocalAutomationExecutor(
             journal(step, "SUCCEEDED")
             lastCompleted = step
             lastCompletedIndex = index
+            // §5: the collected-order batch report fires immediately after the
+            // readOrders step is journaled SUCCEEDED — outside the step's UI
+            // timeout, so upload latency can never surface as STEP_TIMEOUT.
+            reportPendingOrders(task)
             throwIfControlRequested(control, lastCompleted, lastCompletedIndex)
             if (stopAfterCommit) return
         }
@@ -217,8 +241,48 @@ class LocalAutomationExecutor(
                 task, step, runDeadline, control, lastCompleted, lastCompletedIndex,
             )
             is AutomationStep.AssertBadge -> awaitBadgeAssertion(task, step, runDeadline)
+            is AutomationStep.ReadOrders -> executeReadOrders(task, step)
         }
         return false
+    }
+
+    /**
+     * Order-sync slice 1 §5: read the current screen's order rows and parse
+     * them. Rows without a parseable order key land in skipped (NO_KEY /
+     * AMBIGUOUS_KEY) and never fail the task — short reads and empty lists are
+     * successes (0 rows reported). §7 fail-closed: an unverified container
+     * locator aborts with LOCATOR_UNVERIFIED before anything is read, leaving
+     * zero side effects.
+     */
+    private suspend fun executeReadOrders(task: AutomationTask, step: AutomationStep.ReadOrders) {
+        if (task.targetPackage != TargetLocatorRegistry.XIANYU_PACKAGE) {
+            throw ExecutorFailure("TARGET_PACKAGE_REJECTED", "readOrders is approved for xianyu only")
+        }
+        ui.ensureReady(task.targetPackage)
+        if (TargetLocatorRegistry.isUnverifiedLocator(task.targetPackage, step.locatorRef)) {
+            throw ExecutorFailure(
+                "LOCATOR_UNVERIFIED",
+                "Order container locator '${step.locatorRef}' is not device-verified; failing closed",
+            )
+        }
+        val collected = mutableListOf<OrderRowSnapshot>()
+        val skipped = mutableListOf<SkippedOrderRow>()
+        ui.readOrderRows(task.targetPackage, step.locatorRef, step.maxRows).forEachIndexed { index, lines ->
+            when (val outcome = OrderRowParser.parse(step.direction, lines)) {
+                is OrderRowParseOutcome.Parsed -> collected += outcome.toSnapshot(step.direction, lines)
+                is OrderRowParseOutcome.Skipped -> skipped += SkippedOrderRow(index, outcome.reason)
+            }
+        }
+        ui.log(LogLevel.INFO, "ORDERS_READ_${collected.size}")
+        if (skipped.isNotEmpty()) ui.log(LogLevel.WARN, "ORDERS_SKIPPED_${skipped.size}")
+        pendingOrderReport = PendingOrderReport(step.direction, collected, skipped)
+    }
+
+    /** Flushes the readOrders collection to the §5 reporter, exactly once per run. */
+    private suspend fun reportPendingOrders(task: AutomationTask) {
+        val report = pendingOrderReport ?: return
+        pendingOrderReport = null
+        orderReporter?.reportOrders(task.taskId, report.direction, report.collected, report.skipped)
     }
 
     /**

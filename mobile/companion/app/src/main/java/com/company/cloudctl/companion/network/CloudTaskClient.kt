@@ -101,6 +101,16 @@ class CloudTaskClient(private val connection: CloudConnection) {
         return request("/companion/v2/im/messages", payload) ?: JSONObject()
     }
 
+    /**
+     * order-sync/20260915.1 §3: idempotent batch order upload. A 201/200 body
+     * carries {"accepted": n, "duplicates": m} (see [parseOrdersBatchResponse]);
+     * per-row validation failures surface as CloudHttpException(422, detail).
+     * Build the body with [buildOrdersBatchPayload]; the batch is 1..20 rows.
+     */
+    fun sendOrders(payload: JSONObject): JSONObject {
+        return request("/companion/v2/orders/batch", payload) ?: JSONObject()
+    }
+
     fun uploadPreview(payload: JSONObject): JSONObject {
         return request("/companion/v2/devices/preview", payload) ?: JSONObject()
     }
