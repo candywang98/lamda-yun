@@ -468,8 +468,12 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         }
 
     override fun screenSize(targetPackage: String): Pair<Int, Int>? = runCatching {
-        val metrics = resources.displayMetrics
-        metrics.widthPixels to metrics.heightPixels
+        // The service-context displayMetrics exclude system bars (device-verified:
+        // the frozen 1080x2400 guard failed on a 2340-high metric). Real bounds
+        // are what the frozen coordinates were captured against.
+        val manager = getSystemService(android.view.WindowManager::class.java) ?: return null
+        val bounds = manager.maximumWindowMetrics.bounds
+        bounds.width() to bounds.height()
     }.getOrNull()
 
     override suspend fun tapScreenAt(targetPackage: String, x: Int, y: Int) {
