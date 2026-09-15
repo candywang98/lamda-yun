@@ -1,0 +1,1 @@
+{"name":"price 为 null（负）","request":{"method":"POST","path":"/api/v1/products","body":{"spuCode":"BOOK-0002","title":"坏例","description":"x","price":null},"headers":{}},"expect":{"status":422,"problem+json":{"code":"VALIDATION_ERROR","fields":{"price":"非空十进制字符串 ^[0-9]+(\\.[0-9]{1,2})?$"}}},"notes":"裁决项 D1：null 一律 422，无面议语义；'12.800'（三位小数）与 '-1'、'abc' 同为 422"}

@@ -1,0 +1,1 @@
+{"name":"RECONCILING 下 cancel（负）","request":{"method":"POST","path":"/api/v1/platform-tasks/{id}:cancel"},"precondition":"business_state=RECONCILING（受控动作 UNKNOWN 待对账）","expect":{"status":409,"problem+json":{"code":"CONFLICT","detail":"须先完成对账裁决"}},"notes":"终态任务再 cancel：已 CANCELLED→幂等 200；SUCCEEDED/FAILED→409"}

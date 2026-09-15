@@ -1,0 +1,1 @@
+{"name":"引用不存在的媒体资产（负，A06 空池失败同型）","request":{"method":"POST","path":"/api/v1/products","body":{"spuCode":"BOOK-0003","title":"坏例","description":"x","price":"8.88","mediaAssetIds":["00000000-0000-7000-8000-00000000dead"]},"headers":{}},"expect":{"status":404,"problem+json":{"code":"NOT_FOUND"}},"notes":"跨租户 media id → 403 FORBIDDEN（隔离，非 404）"}
