@@ -71,3 +71,47 @@ apps/web/tests/router.spec.ts      |  13 +-
 - 等 W1 后端合入后做真实联调（重点核对 §4 响应字段大小写与 total 语义）。
 - 真机定位器验证（总控持 DEVICE 锁）后启用采集按钮并接 run 状态轮询。
 - 建议总控在 OperationsShell 侧栏补 `/orders` 导航入口。
+
+---
+
+# 集成修正（integration fix，2026-09-15 第二轮）
+
+- 本轮 BranchSHA=220e3ea（`agent/order-web`）；前一轮交付 SHA=2353cbc。
+- 裁决依据：W1 后端已合并（`afca8c2`），响应线格式为仓库 camelCase 惯例，总控裁定以 W1 实测线格式为准，W3 修正。
+
+## 步骤 0：合入集成分支
+
+`git merge integration/p14-20260909` → 干净合入（exit 0，无冲突），带入 W1 后端 + 总控提交（含 `da63740 web: add /orders sidebar entry`，侧栏入口已由总控补上，前一轮未决项 3 关闭）。我的两个提交已在集成分支中，无重复。
+
+## W1 实测线格式（源码核实，与裁决一致）
+
+1. `GET /api/v1/orders` → `{"items":[…],"total":n}`，item 字段 camelCase：`id, deviceId, platform, direction, orderKey, itemTitle, buyerName, amountCents, statusText, occurredAt, createdAt, updatedAt`（`orders_service._order_view`，无 tenantId）；**列表项不含 raw**。
+2. `GET /api/v1/orders/{id}` → 同上 + `raw`；404 → `order was not found`。
+3. 查询参数保持 snake_case（W1 `Query` 参数即 snake，未改）。
+4. `POST /api/v1/xianyu/orders:collect`：请求体 `{device_id, direction, max_rows}` 未改（后端 populate_by_name 双兼容）；响应 201/200 + 头 `Idempotency-Replayed: false|true`，体含 `runId`、`taskIds`、`tasks[{taskId, state, …}]`（state=businessState 回退 status）。
+5. `GET /api/v1/xianyu/orders/runs/{run_id}` → `{runId, deviceId, direction, maxRows, commandType, taskCount, summary, allTerminal, tasks[{taskId, state, runnerStatus, errorCode, stallReason, createdAt, completedAt}]}`。
+
+## W3 修正内容（commit 220e3ea，4 files +273 -92）
+
+- `apps/web/src/api/orders.ts`：`OrderRow` 全字段改 camelCase；新增 `OrderDetail = OrderRow + raw`（对齐列表无 raw / 详情有 raw）；collect 结果类型对齐 W1 形状并把 `Idempotency-Replayed` 响应头解析为 `idempotencyReplayed`；runs 视图按 W1 冻结形状收紧（保留索引签名前向兼容）；request 辅助重构为 `performRequest` 以透出响应头。查询参数拼装与 collect 请求体**未动**。
+- `apps/web/src/views/OrdersView.vue`：行取值全部改 camelCase；行展开改为按需 `fetchOrder(id)` 拉 raw（列表行已无 raw 字段），带过期响应守卫、加载态与 fail-closed 错误态（详情拉取失败不渲染占位 raw）。raw 详情/空态/错误态行为语义不变。
+- `apps/web/tests/orders-api.spec.ts`：fixture 拆为列表行/详情两套（camelCase）；新增 collect 重放头解析、runs camelCase 形状断言（12→13 个测试）。
+- `apps/web/tests/orders-view.spec.ts`：断言 camelCase；新增「详情拉取失败 fail-closed」用例（8→9 个测试）。
+- `apps/web/tests/router.spec.ts`：本轮无改动（集成未动 web 路由测试）。
+
+## 门禁（本轮真实执行）
+
+| 命令 | 退出码 | 结果 |
+| --- | --- | --- |
+| `pnpm install --frozen-lockfile` | 0 | Done in 485ms |
+| `pnpm --filter @cloudctl/web test` | 0 | **178 passed / 32 files**（上轮 176 + 新增 2：详情拉取失败 api/view 用例） |
+| `pnpm --filter @cloudctl/web typecheck`（vue-tsc -b） | 0 | 无错误 |
+| `pnpm --filter @cloudctl/web build` | 0 | built in 2.55s |
+
+## 未决项更新
+
+- ~~DTO 线格式假设~~：已按 W1 afca8c2 实测 camelCase 对齐（本轮完成）。
+- ~~侧边栏导航入口~~：总控已在集成分支补上（`da63740`），随合并带入。
+- collect/runs 响应形状：已按 W1 源码收紧 typing；采集按钮仍为禁用态 + fail-closed 说明，待真机定位器验证（契约 §7）后接线。
+- 备注：W1 的 `status_text` 过滤是**精确匹配**（`OrderRow.status_text == status_text`），前端照传原文，placeholder 提示「如：待发货」按精确匹配语义使用。
+

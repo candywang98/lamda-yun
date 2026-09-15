@@ -1,7 +1,8 @@
 import { controlApiBaseUrl, controlApiConfigured, controlApiHeaders } from '@/api/control'
 
-// Local DTOs frozen at order-sync/20260915.1. Shared generated clients are Root-owned.
-// 订单后端按契约返回 snake_case 字段（contract §2/§4），与 im 的 camelCase 线格式不同。
+// Local DTOs frozen at order-sync/20260915.1 (integration alignment, W1 afca8c2).
+// Shared generated clients are Root-owned. 订单后端按仓库 camelCase 惯例序列化行视图；
+// 查询参数按契约 §4 保持 snake_case（device_id/direction/status_text/limit/offset）。
 
 export type OrderDirection = 'SOLD' | 'BOUGHT'
 
@@ -22,22 +23,28 @@ export function orderDirectionLabel(direction: string): string {
   return direction
 }
 
-/** 契约 §2：xianyu_order 行视图。字段与后端 snake_case 线格式一致。 */
+/**
+ * 契约 §4 列表行视图（W1 `orders_service._order_view` 实测线格式，camelCase）。
+ * 列表项不含 raw；raw 仅在 GET /api/v1/orders/{id} 详情视图返回。
+ */
 export interface OrderRow {
   id: string
-  tenant_id: string
-  device_id: string
+  deviceId: string
   platform: string
   direction: OrderDirection
-  order_key: string
-  item_title: string | null
-  buyer_name: string | null
-  amount_cents: number | null
-  status_text: string | null
-  occurred_at: string | null
+  orderKey: string
+  itemTitle: string | null
+  buyerName: string | null
+  amountCents: number | null
+  statusText: string | null
+  occurredAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+/** 契约 §4 详情视图：列表行 + raw（行原文最小化快照）。 */
+export interface OrderDetail extends OrderRow {
   raw: unknown
-  created_at: string
-  updated_at: string
 }
 
 export interface OrderListResult {
@@ -107,7 +114,12 @@ interface RequestOptions {
   idempotencyKey?: string
 }
 
-async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+interface RequestOutcome {
+  payload: unknown
+  headers: Headers
+}
+
+async function performRequest(path: string, options: RequestOptions = {}): Promise<RequestOutcome> {
   if (!controlApiConfigured) throw new OrdersApiError(0, '未配置 Control API，无法读取订单')
   const headers = new Headers(controlApiHeaders())
   headers.set('Accept', 'application/json')
@@ -129,6 +141,11 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     }
     throw new OrdersApiError(response.status, `${detail}（HTTP ${response.status}）`)
   }
+  return { payload, headers: response.headers }
+}
+
+async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const { payload } = await performRequest(path, options)
   return payload as T
 }
 
@@ -141,44 +158,87 @@ export async function listOrders(query: OrderListQuery = {}): Promise<OrderListR
   if (query.limit !== undefined) params.set('limit', String(query.limit))
   if (query.offset !== undefined) params.set('offset', String(query.offset))
   const search = params.toString()
-  const data = await request<OrderListResult>(`/api/v1/orders${search ? `?${search}` : ''}`)
+  const data = await request<OrderListResult | null>(`/api/v1/orders${search ? `?${search}` : ''}`)
   return { items: data?.items ?? [], total: typeof data?.total === 'number' ? data.total : (data?.items ?? []).length }
 }
 
-/** 契约 §4：GET /api/v1/orders/{id}，404 语义见后端。 */
-export async function fetchOrder(id: string): Promise<OrderRow> {
-  return request<OrderRow>(`/api/v1/orders/${encodeURIComponent(id)}`)
+/** 契约 §4：GET /api/v1/orders/{id}，含 raw；404 语义见后端。 */
+export async function fetchOrder(id: string): Promise<OrderDetail> {
+  return request<OrderDetail>(`/api/v1/orders/${encodeURIComponent(id)}`)
 }
 
-/** 契约 §6：POST /api/v1/xianyu/orders:collect（Idempotency-Key 头，模式同 maintenance:run）。 */
+/**
+ * 契约 §6：POST /api/v1/xianyu/orders:collect（Idempotency-Key 头，模式同 maintenance:run）。
+ * 请求体后端 populate_by_name 双兼容，按契约保持 snake_case；响应 201（新建）/200（重放）
+ * 并带 Idempotency-Replayed 响应头。
+ */
 export interface XianyuOrderCollectInput {
   deviceId: string
   direction: OrderDirection
   maxRows: number
 }
 
+export interface XianyuOrderCollectTask {
+  taskId: string
+  /** businessState 优先，缺省回退 runner status。 */
+  state: string | null
+  createdAt: string | null
+  [key: string]: unknown
+}
+
 export interface XianyuOrderCollectResult {
-  run_id: string
+  runId: string
+  deviceId: string
+  direction: OrderDirection
+  maxRows: number
+  commandType: string | null
+  targetCount: number
+  taskIds: string[]
+  tasks: XianyuOrderCollectTask[]
+  /** true = 幂等重放（HTTP 200）；false = 新建（HTTP 201）。来自 Idempotency-Replayed 响应头。 */
+  idempotencyReplayed: boolean
 }
 
 export async function startXianyuOrderCollect(
   input: XianyuOrderCollectInput,
   idempotencyKey: string,
 ): Promise<XianyuOrderCollectResult> {
-  return request<XianyuOrderCollectResult>('/api/v1/xianyu/orders:collect', {
+  const outcome = await performRequest('/api/v1/xianyu/orders:collect', {
     body: { device_id: input.deviceId, direction: input.direction, max_rows: input.maxRows },
     idempotencyKey,
   })
+  const replayed = outcome.headers.get('Idempotency-Replayed')
+  return {
+    ...(typeof outcome.payload === 'object' && outcome.payload !== null ? outcome.payload : {}),
+    idempotencyReplayed: replayed === 'true',
+  } as XianyuOrderCollectResult
 }
 
 /**
- * 契约 §6：GET /api/v1/xianyu/orders/runs/{run_id} 聚合状态。
- * 响应形状契约未冻结，仅约束 run_id 定位；这里按宽松视图透传，
- * 等 W1 冻结 run 视图后再收紧（未决项）。
+ * 契约 §6：GET /api/v1/xianyu/orders/runs/{run_id} 聚合状态（W1 实测形状：
+ * runId/deviceId/direction/maxRows/commandType/taskCount/summary/allTerminal/tasks）。
  */
+export interface XianyuOrderRunTask {
+  taskId: string
+  state: string | null
+  runnerStatus: string | null
+  errorCode: string | null
+  stallReason: string | null
+  createdAt: string | null
+  completedAt: string | null
+  [key: string]: unknown
+}
+
 export interface XianyuOrderRunView {
-  run_id: string
-  status?: string
+  runId: string
+  deviceId: string | null
+  direction: OrderDirection | null
+  maxRows: number | null
+  commandType: string | null
+  taskCount: number
+  summary: Record<string, number>
+  allTerminal: boolean
+  tasks: XianyuOrderRunTask[]
   [key: string]: unknown
 }
 
