@@ -72,14 +72,23 @@ class XianyuMaintenanceCommitGate(
         // The centered confirm dialog covers the tab bar from the semantics tree
         // (device-verified: BADGE_UNREADABLE with the delete dialog open), so the
         // authoritative baseline is the first-strike snapshot; a live read only
-        // applies when no dialog has covered the tabs yet.
+        // applies when no dialog has covered the tabs yet. On the v2 title path
+        // the confirm runs on the detail page where the tabs are structurally
+        // gone — a missing baseline degrades to UNKNOWN (operator verifies with
+        // platformItemId evidence, P09 delete precedent) instead of blocking.
+        val v2TitlePath = payload.optString("commandType").endsWith(".steps.v2")
         val baseline = MaintenanceBadgeSnapshots.take(task.taskId, badgeRef)
             ?: XianyuMaintenanceLayout.parseBadge(ui.inspect(task.targetPackage, badgeRef)?.description)
-            ?: throw ExecutorFailure("BADGE_UNREADABLE", "Verification badge '$badgeRef' is unreadable; confirm blocked")
+            ?: if (v2TitlePath) {
+                ui.log(LogLevel.WARN, "GATED_BADGE_UNKNOWN")
+                null
+            } else {
+                throw ExecutorFailure("BADGE_UNREADABLE", "Verification badge '$badgeRef' is unreadable; confirm blocked")
+            }
         // Device-verified: the delisted tab never carries a numeric badge, so the
         // precondition only guards badge-delta verifications (delist). Delete
         // verifies through the dialog-dismissal signal instead.
-        if (step.layoutAction == XianyuMaintenanceLayout.LayoutAction.CONFIRM_DELIST && baseline <= 0) {
+        if (baseline != null && step.layoutAction == XianyuMaintenanceLayout.LayoutAction.CONFIRM_DELIST && baseline <= 0) {
             throw ExecutorFailure("BADGE_PRECONDITION_INVALID", "Badge '$badgeRef' has nothing to remove")
         }
         val before = evidence(task.taskId, identity.actionKey, "before")
@@ -96,21 +105,28 @@ class XianyuMaintenanceCommitGate(
                 ui.tapScreenAt(task.targetPackage, point.x, point.y)
             },
             postconditionEvidence = {
-                var reference: String? = null
-                for (attempt in 0 until BADGE_POLL_ATTEMPTS) {
-                    currentCoroutineContext().ensureActive()
-                    ui.ensureReady(task.targetPackage)
-                    val value = XianyuMaintenanceLayout.parseBadge(
-                        ui.inspect(task.targetPackage, badgeRef)?.description,
-                    )
-                    if (value == baseline - 1) {
-                        reference = evidence(task.taskId, identity.actionKey, "after")
-                        require(reference != before) { "Postcondition screenshot did not change" }
-                        break
+                if (baseline == null) {
+                    // v2 degraded verification: capture operator evidence only —
+                    // returning null keeps the commit UNKNOWN (no machine APPLIED).
+                    evidence(task.taskId, identity.actionKey, "after")
+                    null
+                } else {
+                    var reference: String? = null
+                    for (attempt in 0 until BADGE_POLL_ATTEMPTS) {
+                        currentCoroutineContext().ensureActive()
+                        ui.ensureReady(task.targetPackage)
+                        val value = XianyuMaintenanceLayout.parseBadge(
+                            ui.inspect(task.targetPackage, badgeRef)?.description,
+                        )
+                        if (value == baseline - 1) {
+                            reference = evidence(task.taskId, identity.actionKey, "after")
+                            require(reference != before) { "Postcondition screenshot did not change" }
+                            break
+                        }
+                        delay(BADGE_POLL_INTERVAL_MS)
                     }
-                    delay(BADGE_POLL_INTERVAL_MS)
+                    reference
                 }
-                reference
             },
         )
         return baseline
