@@ -36,11 +36,13 @@ data class ControlledActionIdentity(
         .put("snapshotSha256", snapshotSha256).put("actionId", actionId)
     companion object {
 
-        /** Reviewed maintenance command types (backend contract 2026-09-15). */
+        /** Reviewed maintenance command types (backend contract 2026-09-15; v2 title path same day). */
         val MAINTENANCE_COMMAND_TYPES = setOf(
             "xianyu.polish.steps.v1",
             "xianyu.delist.steps.v1",
             "xianyu.delete_delisted.steps.v1",
+            "xianyu.delist.steps.v2",
+            "xianyu.delete_delisted.steps.v2",
         )
         fun from(command: CommandV1, actionId: String) = ControlledActionIdentity(
             command.taskId, command.deviceId, command.accountId, command.bindingVersion,

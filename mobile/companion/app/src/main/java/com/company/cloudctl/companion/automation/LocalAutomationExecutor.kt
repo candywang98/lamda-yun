@@ -85,6 +85,18 @@ interface LocalAutomationUi {
 
     fun readOrderRows(targetPackage: String, locatorRef: String, maxRows: Int): List<List<String>> =
         error("readOrders is not supported by this executor")
+
+    // W4 maintenance v2 (contract xianyu-anchors-20260915 §1/§2): open a
+    // published-list card by its title text. Implementations resolve the live
+    // tab-strip bottom edge (never a hardcoded y), search the visible cards of
+    // the scrollable list below it, and tap the unique matching card's bounds
+    // center with one gesture. Zero matches -> CARD_TITLE_NOT_FOUND, several
+    // distinct cards -> CARD_TITLE_AMBIGUOUS, list still rendering ->
+    // LIST_TAB_NOT_FOUND / SCROLL_CONTAINER_MISSING; all before any gesture.
+
+    suspend fun tapCardByTitle(targetPackage: String, tab: XianyuMaintenanceLayout.Tab, titleContains: String) {
+        error("tapCardByTitle is not supported by this executor")
+    }
 }
 
 private val GATED_PUBLISH_LOCATORS = setOf("xianyu_publish_button", "xhs_publish_button", "dy_publish_button")
@@ -245,6 +257,9 @@ class LocalAutomationExecutor(
             )
             is AutomationStep.AssertBadge -> awaitBadgeAssertion(task, step, runDeadline)
             is AutomationStep.ReadOrders -> executeReadOrders(task, step, runDeadline)
+            is AutomationStep.TapCardByTitle -> executeTapCardByTitle(
+                task, step, runDeadline, control, lastCompleted, lastCompletedIndex,
+            )
         }
         return false
     }
@@ -363,6 +378,64 @@ class LocalAutomationExecutor(
         captureScreenshot(task, layoutEvidenceLabel(step, "before"))
         ui.tapScreenAt(task.targetPackage, point.x, point.y)
         captureScreenshot(task, layoutEvidenceLabel(step, "after"))
+    }
+
+    /**
+     * W4 maintenance v2 (contract xianyu-anchors-20260915 §1/§2): open the
+     * published-list card whose text contains the title fragment, entering the
+     * detail page. This is the v2 first strike: the onsale/delisted tab badge
+     * is captured while the list tabs are still the live page, because the
+     * gated confirm later runs on the detail page where the tabs are gone
+     * (the gate resolves its baseline from MaintenanceBadgeSnapshots first).
+     * List rendering misses (tab/scrollable/card absent) retry inside the step
+     * window; an ambiguous title match fails immediately — a guess tap would
+     * risk the wrong listing, zero side effects instead.
+     */
+    private suspend fun executeTapCardByTitle(
+        task: AutomationTask,
+        step: AutomationStep.TapCardByTitle,
+        runDeadline: Long,
+        control: ExecutionControl?,
+        lastCompleted: AutomationStep?,
+        lastCompletedIndex: Int,
+    ) {
+        throwIfControlRequested(control, lastCompleted, lastCompletedIndex)
+        if (task.targetPackage != TargetLocatorRegistry.XIANYU_PACKAGE) {
+            throw ExecutorFailure("TARGET_PACKAGE_REJECTED", "Card title taps are approved for xianyu only")
+        }
+        ui.ensureReady(task.targetPackage)
+        // Best-effort gated-confirm baseline: the tab must be visible for the
+        // card search anyway, so a readable badge here is the last chance before
+        // the detail page covers the tab strip.
+        XianyuMaintenanceLayout.publishedTabLocator(step.tab)?.let { badgeRef ->
+            runCatching {
+                XianyuMaintenanceLayout.parseBadge(ui.inspect(task.targetPackage, badgeRef)?.description)
+            }.getOrNull()?.let { badge ->
+                badgeBaselines.putIfAbsent(badgeRef, badge)
+                MaintenanceBadgeSnapshots.record(task.taskId, badgeRef, badge)
+            }
+        }
+        val deadline = minOf(runDeadline, elapsedMs() + step.timeoutMs)
+        while (true) {
+            throwIfControlRequested(control, lastCompleted, lastCompletedIndex)
+            // No ensureWithinTaskDeadline here (readOrders pattern): the caller
+            // passes runDeadline already capped to this step's window, so the
+            // exhausted window must surface as the step failure below, never
+            // as a task-wide TASK_TIMEOUT.
+            ui.ensureReady(task.targetPackage)
+            try {
+                ui.tapCardByTitle(task.targetPackage, step.tab, step.titleContains)
+                return
+            } catch (failure: ExecutorFailure) {
+                if (failure.code != "CARD_TITLE_NOT_FOUND" && failure.code != "LIST_TAB_NOT_FOUND" &&
+                    failure.code != "SCROLL_CONTAINER_MISSING"
+                ) {
+                    throw failure
+                }
+                if (elapsedMs() >= deadline) throw failure
+                sleep(CARD_SEARCH_POLL_MS)
+            }
+        }
     }
 
     /** Polls a published-goods tab badge until the expected value or delta holds. */
@@ -582,5 +655,6 @@ class LocalAutomationExecutor(
     private companion object {
         val SHA256 = Regex("^[a-f0-9]{64}$")
         const val TAP_TEXT_MAX_SCROLLS = 10
+        const val CARD_SEARCH_POLL_MS = 700L
     }
 }

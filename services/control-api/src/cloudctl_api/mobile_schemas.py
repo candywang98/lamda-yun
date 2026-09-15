@@ -197,6 +197,30 @@ class ReadOrdersStep(LocatorStep):
     max_rows: int = Field(alias="maxRows", ge=1, le=10)
 
 
+class TapCardByTitleStep(StrictModel):
+    """Open a published-list card by its title text (maintenance v2 title path).
+
+    Contract xianyu-anchors-20260915 §1/§2: the companion searches the visible
+    cards below the live tab strip on the requested list, taps the unique
+    matching card's bounds center and enters the detail page. Zero or several
+    matches fail the step with zero side effects; the draft tab has no
+    surveyed cards, so only onsale/delisted are addressable.
+    """
+
+    step_id: str = Field(alias="stepId", min_length=1, max_length=128)
+    action: Literal["ui.tapCardByTitle"]
+    title_contains: str = Field(alias="titleContains", min_length=1, max_length=64)
+    tab: Literal["onsale", "delisted"]
+    timeout_ms: int = Field(default=10_000, alias="timeoutMs", ge=100, le=60_000)
+
+    @field_validator("step_id")
+    @classmethod
+    def valid_step_id(cls, value: str) -> str:
+        if not STEP_ID_PATTERN.fullmatch(value):
+            raise ValueError("stepId is invalid")
+        return value
+
+
 class AssertStep(LocatorStep):
     action: Literal["ui.assert"]
     predicate: Literal["EXISTS", "NOT_EXISTS", "ENABLED"]
@@ -227,6 +251,7 @@ MobileStep = Annotated[
     | TapLayoutStep
     | AssertBadgeStep
     | ReadOrdersStep
+    | TapCardByTitleStep
     | AssertStep
     | LogStep,
     Field(discriminator="action"),

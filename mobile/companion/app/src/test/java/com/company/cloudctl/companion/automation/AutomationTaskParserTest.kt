@@ -287,4 +287,51 @@ class AutomationTaskParserTest {
       {"stepId":"capture-orders","action":"ui.screenshot","timeoutMs":8000,"label":"xianyu_orders_screen"},
       {"stepId":"mark-done","action":"run.log","timeoutMs":1000,"level":"INFO","messageCode":"XIANYU_ORDERS_COLLECTED"}]}
     """.trimIndent()
+
+    // W4 维护动作 v2：ui.tapCardByTitle（标题定位 → 详情页）。参数 titleContains
+    // 1..64 必填、tab 仅 onsale/delisted（草稿无标定卡片）。
+    @Test
+    fun parsesTapCardByTitleStepAndRejectsInvalidParameters() {
+        val task = AutomationTaskParser.parse(tapCardByTitleJson())
+        val onsale = task.steps[0] as AutomationStep.TapCardByTitle
+        assertEquals(XianyuMaintenanceLayout.Tab.ONSALE, onsale.tab)
+        assertEquals("黄同学漫画二战史", onsale.titleContains)
+        assertEquals("open-card-by-title", onsale.stepId)
+
+        val delisted = AutomationTaskParser.parse(
+            tapCardByTitleJson().replace("\"tab\":\"onsale\"", "\"tab\":\"delisted\""),
+        )
+        assertEquals(XianyuMaintenanceLayout.Tab.DELISTED, (delisted.steps[0] as AutomationStep.TapCardByTitle).tab)
+
+        // 草稿 tab（契约 §1：无已标定卡片）→ 拒绝；未知 tab → 拒绝。
+        assertFailsWith<IllegalArgumentException> {
+            AutomationTaskParser.parse(tapCardByTitleJson().replace("\"tab\":\"onsale\"", "\"tab\":\"draft\""))
+        }
+        assertFailsWith<IllegalStateException> {
+            AutomationTaskParser.parse(tapCardByTitleJson().replace("\"tab\":\"onsale\"", "\"tab\":\"onsold\""))
+        }
+        // 空标题 / 65 字符 / 缺 tab / 缺 titleContains / 未知字段 → 拒绝。
+        assertFailsWith<IllegalArgumentException> {
+            AutomationTaskParser.parse(tapCardByTitleJson().replace("黄同学漫画二战史", ""))
+        }
+        assertFailsWith<IllegalArgumentException> {
+            AutomationTaskParser.parse(tapCardByTitleJson().replace("黄同学漫画二战史", "标".repeat(65)))
+        }
+        assertFailsWith<IllegalArgumentException> {
+            AutomationTaskParser.parse(tapCardByTitleJson().replace(",\"tab\":\"onsale\"", ""))
+        }
+        assertFailsWith<IllegalArgumentException> {
+            AutomationTaskParser.parse(tapCardByTitleJson().replace("\"titleContains\":\"黄同学漫画二战史\",", ""))
+        }
+        assertFailsWith<IllegalArgumentException> {
+            AutomationTaskParser.parse(tapCardByTitleJson().replace("\"tab\":\"onsale\"", "\"tab\":\"onsale\",\"cardIndex\":0"))
+        }
+    }
+
+    private fun tapCardByTitleJson() = """
+      {"protocolVersion":"cloudctl.mobile/v1","taskId":"task-xianyu-maint-v2-001","deviceId":"device-1",
+      "targetPackage":"com.taobao.idlefish","issuedAt":"2026-09-15T08:00:00Z",
+      "expiresAt":"2026-09-15T08:10:00Z","maxRunSeconds":90,"commandType":"xianyu.delist.steps.v2","steps":[
+      {"stepId":"open-card-by-title","action":"ui.tapCardByTitle","timeoutMs":10000,"titleContains":"黄同学漫画二战史","tab":"onsale"}]}
+    """.trimIndent()
 }
