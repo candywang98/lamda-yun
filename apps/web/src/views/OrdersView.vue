@@ -1,17 +1,22 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { controlApiConfigured, createControlApiClient } from '@/api/control'
 import { mapControlDevice } from '@/api/devices'
 import {
   ORDER_DIRECTION_OPTIONS,
   fetchOrder,
+  fetchXianyuOrderRun,
   formatOrderAmount,
   formatOrderTime,
+  isXianyuOrderRunTerminal,
   listOrders,
   orderDirectionLabel,
   OrdersApiError,
+  startXianyuOrderCollect,
   type OrderDetail,
+  type OrderDirection,
   type OrderRow,
+  type XianyuOrderRunView,
 } from '@/api/orders'
 
 /** 契约 §4：limit 1..100 默认 20；本页按「加载更多」翻页。 */
@@ -136,10 +141,107 @@ function rawJson(row: OrderDetail): string {
   return JSON.stringify(row.raw ?? {}, null, 2)
 }
 
+/* ---------------- 采集入口（order-sync slice2 §4：定位器已真机验证，启用） ---------------- */
+
+/** 契约 slice2 §2：max_rows 为每屏上限（1..10），采集取上限读满一屏。 */
+const COLLECT_MAX_ROWS_PER_SCREEN = 10
+const RUN_POLL_INTERVAL_MS = 2000
+const RUN_POLL_TIMEOUT_MS = 60000
+
+const collectDirection = ref<OrderDirection>('SOLD')
+const collectScreens = ref<1 | 2 | 3>(1)
+const collectBusy = ref(false)
+const collectNote = ref('')
+const collectError = ref('')
+const collectRun = ref<XianyuOrderRunView | null>(null)
+
+let runPollTimer: number | undefined
+
+function clearRunPoll() {
+  if (runPollTimer !== undefined) window.clearTimeout(runPollTimer)
+  runPollTimer = undefined
+}
+
+/** 终态收口：全部任务 SUCCEEDED → 刷新列表；否则逐任务如实展示 state/errorCode（fail-closed，不吞错）。 */
+function finishCollect(run: XianyuOrderRunView) {
+  collectBusy.value = false
+  collectRun.value = run
+  const tasks = run.tasks
+  if (tasks.length > 0 && tasks.every((task) => task.state === 'SUCCEEDED')) {
+    collectNote.value = `采集完成（${tasks.length} 个任务全部成功），已刷新订单列表。`
+    void refresh()
+    return
+  }
+  const problems = tasks
+    .filter((task) => task.state !== 'SUCCEEDED')
+    .map((task) => `${task.state ?? 'UNKNOWN'}${task.errorCode ? `（${task.errorCode}）` : ''}`)
+    .join('；')
+  collectError.value = `采集未全部成功：${problems || '未返回任务状态'}`
+}
+
+async function pollRun(runId: string, startedAt: number) {
+  let run: XianyuOrderRunView
+  try {
+    run = await fetchXianyuOrderRun(runId)
+  } catch (error) {
+    // fail-closed：轮询读状态失败如实展示并停止，不吞错也不假装成功。
+    collectBusy.value = false
+    collectError.value = error instanceof OrdersApiError ? error.message : '采集运行状态读取失败'
+    return
+  }
+  collectRun.value = run
+  if (isXianyuOrderRunTerminal(run)) {
+    finishCollect(run)
+    return
+  }
+  if (Date.now() - startedAt >= RUN_POLL_TIMEOUT_MS) {
+    // 超时不算失败也不算成功：任务可能仍在真机执行，如实提示后停止本页轮询。
+    collectBusy.value = false
+    collectNote.value = `采集仍在运行（已轮询超过 ${RUN_POLL_TIMEOUT_MS / 1000} 秒），结果请稍后手动刷新确认。`
+    return
+  }
+  runPollTimer = window.setTimeout(() => void pollRun(runId, startedAt), RUN_POLL_INTERVAL_MS)
+}
+
+async function startCollect() {
+  // 设备复用上方「设备」过滤下拉：未选具体设备（=全部）时按钮已禁用，此处兜底校验。
+  const deviceId = deviceFilter.value
+  if (!deviceId) {
+    collectError.value = '请先在上方「设备」下拉选择具体设备后再发起采集。'
+    return
+  }
+  clearRunPoll()
+  collectBusy.value = true
+  collectError.value = ''
+  collectNote.value = '采集任务提交中…'
+  collectRun.value = null
+  try {
+    const result = await startXianyuOrderCollect(
+      {
+        deviceId,
+        direction: collectDirection.value,
+        maxRows: COLLECT_MAX_ROWS_PER_SCREEN,
+        // 契约 slice2 §4：屏数为 1 时不发 screens 字段（后端默认 1，走 v1 入参兼容）。
+        ...(collectScreens.value === 1 ? {} : { screens: collectScreens.value }),
+      },
+      crypto.randomUUID(),
+    )
+    collectNote.value = `采集已提交（run ${result.runId.slice(0, 8)}…），每 ${RUN_POLL_INTERVAL_MS / 1000} 秒轮询运行状态…`
+    const startedAt = Date.now()
+    runPollTimer = window.setTimeout(() => void pollRun(result.runId, startedAt), RUN_POLL_INTERVAL_MS)
+  } catch (error) {
+    collectBusy.value = false
+    collectNote.value = ''
+    collectError.value = error instanceof OrdersApiError ? error.message : '采集任务提交失败'
+  }
+}
+
 onMounted(() => {
   void refresh()
   void loadDeviceOptions()
 })
+
+onUnmounted(clearRunPoll)
 </script>
 
 <template>
@@ -187,8 +289,46 @@ onMounted(() => {
     <p v-if="loadError" class="yy-error">{{ loadError }}</p>
 
     <div class="orders-collect">
-      <button class="yy-btn" type="button" disabled>采集订单</button>
-      <span class="yy-sub">采集入口待真机定位器验证后启用（订单列表定位器未验证，fail-closed）。</span>
+      <label class="yy-field">
+        <span>采集方向</span>
+        <select v-model="collectDirection">
+          <option v-for="option in ORDER_DIRECTION_OPTIONS" :key="option.key" :value="option.key">
+            {{ option.label }}
+          </option>
+        </select>
+      </label>
+      <label class="yy-field">
+        <span>屏数</span>
+        <select v-model="collectScreens">
+          <option :value="1">1 屏</option>
+          <option :value="2">2 屏</option>
+          <option :value="3">3 屏</option>
+        </select>
+      </label>
+      <button
+        class="yy-btn"
+        type="button"
+        :disabled="!deviceFilter || collectBusy"
+        @click="startCollect"
+      >
+        {{ collectBusy ? '采集运行中…' : '开始采集' }}
+      </button>
+      <span v-if="!deviceFilter" class="yy-sub">请先在上方「设备」下拉选择具体设备（「全部」不能发起采集）。</span>
+      <span v-else-if="collectNote" class="yy-sub">{{ collectNote }}</span>
+    </div>
+
+    <p v-if="collectError" class="yy-error">{{ collectError }}</p>
+
+    <div v-if="collectRun" class="orders-collect-run">
+      <span class="yy-sub">run {{ collectRun.runId.slice(0, 8) }}… 任务状态：</span>
+      <span
+        v-for="task in collectRun.tasks"
+        :key="task.taskId"
+        class="orders-task-state"
+        :data-state="task.state ?? 'UNKNOWN'"
+      >
+        {{ task.state ?? 'UNKNOWN' }}<template v-if="task.errorCode">（{{ task.errorCode }}）</template>
+      </span>
     </div>
 
     <table class="orders-table">
@@ -270,6 +410,24 @@ onMounted(() => {
   gap: 10px;
   margin-bottom: 12px;
 }
+.orders-collect-run {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: -4px 0 12px;
+}
+.orders-task-state {
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.orders-task-state[data-state='SUCCEEDED'] { border-color: #bbf7d0; background: #f0fdf4; color: #166534; }
+.orders-task-state[data-state='FAILED'] { border-color: #fecaca; background: #fef2f2; color: #991b1b; }
 .orders-table {
   width: 100%;
   border-collapse: collapse;

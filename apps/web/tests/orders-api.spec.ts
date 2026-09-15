@@ -5,12 +5,14 @@ import {
   formatOrderAmount,
   formatOrderTime,
   isOrderDirection,
+  isXianyuOrderRunTerminal,
   listOrders,
   orderDirectionLabel,
   OrdersApiError,
   startXianyuOrderCollect,
   type OrderDetail,
   type OrderRow,
+  type XianyuOrderRunTask,
 } from '@/api/orders'
 
 const config = vi.hoisted(() => ({ configured: true }))
@@ -255,5 +257,87 @@ describe('xianyu order collect api wiring (contract §6, W1 afca8c2 wire format)
     expect(run.tasks[0]?.runnerStatus).toBe('SUCCEEDED')
     expect(fetcher.mock.calls[0][0]).toBe('http://control.test/api/v1/xianyu/orders/runs/018f-run-0001')
     expect((fetcher.mock.calls[0][1] as RequestInit).method).toBe('GET')
+  })
+
+  it('sends screens only when provided (slice2 §2: omitted = backend default 1 / v1 compatible)', async () => {
+    respond(
+      {
+        runId: '018f-run-0002',
+        deviceId: 'dev-alpha-0001',
+        direction: 'SOLD',
+        maxRows: 10,
+        commandType: 'xianyu.collect_orders.steps.v2',
+        targetCount: 1,
+        taskIds: ['task-0002'],
+        tasks: [{ taskId: 'task-0002', state: 'QUEUED', createdAt: '2026-09-15T10:00:00.000Z' }],
+      },
+      201,
+      { 'Idempotency-Replayed': 'false' },
+    )
+    await startXianyuOrderCollect(
+      { deviceId: 'dev-alpha-0001', direction: 'SOLD', maxRows: 10, screens: 3 },
+      'idem-key-2',
+    )
+    expect(JSON.parse(String((fetcher.mock.calls[0][1] as RequestInit).body))).toEqual({
+      device_id: 'dev-alpha-0001',
+      direction: 'SOLD',
+      max_rows: 10,
+      screens: 3,
+    })
+
+    respond(
+      {
+        runId: '018f-run-0003',
+        deviceId: 'dev-alpha-0001',
+        direction: 'SOLD',
+        maxRows: 10,
+        commandType: 'xianyu.collect_orders.steps.v1',
+        targetCount: 1,
+        taskIds: ['task-0003'],
+        tasks: [{ taskId: 'task-0003', state: 'QUEUED', createdAt: '2026-09-15T10:00:00.000Z' }],
+      },
+      201,
+      { 'Idempotency-Replayed': 'false' },
+    )
+    await startXianyuOrderCollect(
+      { deviceId: 'dev-alpha-0001', direction: 'SOLD', maxRows: 10 },
+      'idem-key-3',
+    )
+    // 缺省不携带 screens 字段（等价后端默认 1）
+    expect(JSON.parse(String((fetcher.mock.calls[1][1] as RequestInit).body))).toEqual({
+      device_id: 'dev-alpha-0001',
+      direction: 'SOLD',
+      max_rows: 10,
+    })
+  })
+
+  it('classifies run terminality against the backend TERMINAL_BUSINESS vocabulary', () => {
+    const task = (state: string | null): XianyuOrderRunTask => ({
+      taskId: `task-${state ?? 'null'}`,
+      state,
+      runnerStatus: null,
+      errorCode: null,
+      stallReason: null,
+      createdAt: null,
+      completedAt: null,
+    })
+    const run = (states: (string | null)[], allTerminal?: boolean) => ({
+      ...(allTerminal === undefined ? {} : { allTerminal }),
+      tasks: states.map(task),
+    })
+    // 后端 xianyu_orders.py TERMINAL_BUSINESS：SUCCEEDED/FAILED/CANCELLED/EXPIRED
+    expect(isXianyuOrderRunTerminal(run(['SUCCEEDED'], true))).toBe(true)
+    expect(isXianyuOrderRunTerminal(run(['FAILED'], true))).toBe(true)
+    expect(isXianyuOrderRunTerminal(run(['CANCELLED'], true))).toBe(true)
+    expect(isXianyuOrderRunTerminal(run(['EXPIRED'], true))).toBe(true)
+    // 非终态词汇
+    expect(isXianyuOrderRunTerminal(run(['QUEUED'], false))).toBe(false)
+    expect(isXianyuOrderRunTerminal(run(['RUNNING'], false))).toBe(false)
+    expect(isXianyuOrderRunTerminal(run([null], false))).toBe(false)
+    expect(isXianyuOrderRunTerminal(run(['SUCCEEDED', 'RUNNING'], false))).toBe(false)
+    // allTerminal 缺失时按 tasks 词汇兜底
+    expect(isXianyuOrderRunTerminal(run(['SUCCEEDED', 'FAILED']))).toBe(true)
+    expect(isXianyuOrderRunTerminal(run(['RUNNING']))).toBe(false)
+    expect(isXianyuOrderRunTerminal(run([]))).toBe(false)
   })
 })
