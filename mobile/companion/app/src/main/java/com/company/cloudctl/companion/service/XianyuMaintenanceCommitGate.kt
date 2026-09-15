@@ -6,6 +6,7 @@ import com.company.cloudctl.companion.automation.ControlledActionIdentity
 import com.company.cloudctl.companion.automation.DestructiveClickGate
 import com.company.cloudctl.companion.automation.ExecutorFailure
 import com.company.cloudctl.companion.automation.LocalAutomationUi
+import com.company.cloudctl.companion.automation.MaintenanceBadgeSnapshots
 import com.company.cloudctl.companion.automation.LogLevel
 import com.company.cloudctl.companion.automation.TargetLocatorRegistry
 import com.company.cloudctl.companion.automation.XianyuMaintenanceLayout
@@ -68,7 +69,12 @@ class XianyuMaintenanceCommitGate(
                 "LAYOUT_ACTION_UNMAPPED",
                 "Confirm ${step.layoutAction} has no guarded coordinate for ${size.first}x${size.second}",
             )
-        val baseline = XianyuMaintenanceLayout.parseBadge(ui.inspect(task.targetPackage, badgeRef)?.description)
+        // The centered confirm dialog covers the tab bar from the semantics tree
+        // (device-verified: BADGE_UNREADABLE with the delete dialog open), so the
+        // authoritative baseline is the first-strike snapshot; a live read only
+        // applies when no dialog has covered the tabs yet.
+        val baseline = MaintenanceBadgeSnapshots.take(task.taskId, badgeRef)
+            ?: XianyuMaintenanceLayout.parseBadge(ui.inspect(task.targetPackage, badgeRef)?.description)
             ?: throw ExecutorFailure("BADGE_UNREADABLE", "Verification badge '$badgeRef' is unreadable; confirm blocked")
         if (baseline <= 0) {
             throw ExecutorFailure("BADGE_PRECONDITION_INVALID", "Badge '$badgeRef' has nothing to remove")

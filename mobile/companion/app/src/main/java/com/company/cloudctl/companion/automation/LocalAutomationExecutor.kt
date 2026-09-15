@@ -98,6 +98,7 @@ class LocalAutomationExecutor(
         journal: (AutomationStep, String) -> Unit,
     ) {
         badgeBaselines.clear()
+        MaintenanceBadgeSnapshots.clear(task.taskId)
         if (!task.expiresAt.isAfter(now())) throw ExecutorFailure("TASK_EXPIRED", "Task has expired")
         val runDeadline = elapsedMs() + task.maxRunSeconds * 1_000L
         // Fresh runs start from the target root page; resumed runs keep their
@@ -270,7 +271,10 @@ class LocalAutomationExecutor(
         // the resulting UI state are both evidenced.
         XianyuMaintenanceLayout.badgeLocatorFor(step.layoutAction)?.let { badgeRef ->
             XianyuMaintenanceLayout.parseBadge(ui.inspect(task.targetPackage, badgeRef)?.description)
-                ?.let { badge -> badgeBaselines.putIfAbsent(badgeRef, badge) }
+                ?.let { badge ->
+                    badgeBaselines.putIfAbsent(badgeRef, badge)
+                    MaintenanceBadgeSnapshots.record(task.taskId, badgeRef, badge)
+                }
         }
         captureScreenshot(task, layoutEvidenceLabel(step, "before"))
         ui.tapScreenAt(task.targetPackage, point.x, point.y)
