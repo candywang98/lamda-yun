@@ -841,10 +841,37 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         val snapshots = scrollables.map { snapshotCardTree(it) }
         when (val outcome = PublishedCardLocator.locate(snapshots, tabBounds.bottom, titleContains)) {
             is PublishedCardLocator.Outcome.Card -> {
-                val card = outcome.bounds
+                // Device-verified 2026-09-16: the task's own navigation (tab
+                // switch) resets the list scroll, so a matched card may sit at
+                // the screen bottom with its full logical bounds extending
+                // past the viewport — a center tap there never opens the
+                // detail page. Scroll the card fully into view first.
+                val screenBottom = resources.displayMetrics.heightPixels
+                var card = outcome.bounds
+                var scrolls = 0
+                while (card.bottom > screenBottom && scrolls < CARD_SCROLL_ATTEMPTS) {
+                    swipeUp()
+                    scrolls++
+                    // Node handles go stale across a scroll; re-harvest the tree.
+                    scrollables.clear()
+                    allRoots().filter { it.packageName?.toString() == targetPackage }.forEach(::harvest)
+                    if (scrollables.isEmpty()) break
+                    val relocated = PublishedCardLocator.locate(
+                        scrollables.map { snapshotCardTree(it) }, tabBounds.bottom, titleContains,
+                    )
+                    if (relocated !is PublishedCardLocator.Outcome.Card) break
+                    card = relocated.bounds
+                    if (card.bottom <= screenBottom) break
+                }
+                if (card.bottom > screenBottom) {
+                    throw ExecutorFailure(
+                        "CARD_NOT_FULLY_VISIBLE",
+                        "Card for '$titleContains' cannot be scrolled fully into view (bottom=${card.bottom}, screen=$screenBottom)",
+                    )
+                }
                 Log.i(
                     TAG,
-                    "CARD_TITLE_TAP title=$titleContains tab=$tab card=${card.left},${card.top},${card.right},${card.bottom}",
+                    "CARD_TITLE_TAP title=$titleContains tab=$tab card=${card.left},${card.top},${card.right},${card.bottom} scrolls=$scrolls",
                 )
                 // One dispatchGesture only; a rejected/cancelled gesture is
                 // ambiguous and fails closed (no fallback click, no retry).
@@ -1581,6 +1608,8 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         private const val NAV_SETTLE_MS = 800L
         private const val CONVERSATION_SWIPE_MS = 350L
         private const val DUTY_NAV_ANCHOR_ATTEMPTS = 3
+        /** Max list scrolls to bring a title-matched card fully into the viewport. */
+        private const val CARD_SCROLL_ATTEMPTS = 5
         private const val DUTY_NAV_ANCHOR_RETRY_MS = 500L
         private const val DUTY_NAV_MESSAGES_TAB_LOCATOR = "xianyu_messages_tab"
 
