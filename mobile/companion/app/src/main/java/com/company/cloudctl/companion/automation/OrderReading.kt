@@ -213,6 +213,12 @@ object OrderRowParser {
  * Receives the readOrders collection the moment its step succeeds (§5): the
  * companion calls the §3 batch endpoint immediately after SUCCEEDED; failure
  * codes like LOCATOR_UNVERIFIED never reach this port.
+ *
+ * Slice 2 (order-sync-slice2/20260915.1 §3): one call per screen — the
+ * multi-screen executor fires this after every readOrders step, so later
+ * screens failing never loses the screens already reported. [screen] is the
+ * 1-based ordinal of the readOrders step inside the run and is log material
+ * only: it never enters the §3 batch payload or the hashed step fields.
  */
 fun interface OrderReporter {
     suspend fun reportOrders(
@@ -220,7 +226,45 @@ fun interface OrderReporter {
         direction: OrderDirection,
         collected: List<OrderRowSnapshot>,
         skipped: List<SkippedOrderRow>,
+        screen: Int,
     )
+}
+
+/**
+ * Pure geometry for the slice-2 in-container swipe (contract
+ * order-sync-slice2/20260915.1 §1): one upward stroke strictly inside the
+ * order-list container bounds, derived from the LIVE resolved node — never
+ * from screen coordinates. A full-screen swipe is forbidden (bottom tabs /
+ * banners); keeping the math dependency-free keeps it unit-testable.
+ */
+object OrderSwipeGeometry {
+    /** Screen-space rect of the resolved container node. */
+    data class Bounds(val left: Int, val top: Int, val right: Int, val bottom: Int)
+
+    data class Stroke(val startX: Float, val startY: Float, val endX: Float, val endY: Float)
+
+    /** Minimum container height that can still host a meaningful one-screen swipe. */
+    const val MIN_CONTAINER_HEIGHT = 160
+
+    /**
+     * Maps the container bounds to one upward swipe stroke: vertical center
+     * line, from 80% down to 20% down (60% of the container height ≈ one
+     * screen with overlap for the cross-screen order_key dedup). Null means
+     * the bounds are degenerate and the step must fail closed instead of
+     * guessing (never widen to the full screen).
+     */
+    fun oneScreenSwipe(bounds: Bounds): Stroke? {
+        val width = bounds.right - bounds.left
+        val height = bounds.bottom - bounds.top
+        if (width <= 0 || height < MIN_CONTAINER_HEIGHT) return null
+        val x = bounds.left + width / 2f
+        return Stroke(
+            startX = x,
+            startY = bounds.top + height * 0.80f,
+            endX = x,
+            endY = bounds.top + height * 0.20f,
+        )
+    }
 }
 
 /** Binds a parser outcome to its direction and raw line material. */

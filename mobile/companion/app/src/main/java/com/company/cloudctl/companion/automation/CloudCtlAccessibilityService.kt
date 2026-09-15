@@ -882,6 +882,34 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
     }
 
     /**
+     * Order-sync slice 2 (contract order-sync-slice2/20260915.1 §1 + anchors
+     * §3): one upward swipe STRICTLY inside the live bounds of the resolved
+     * order-list container. The stroke derives from the container rect
+     * (never screen coordinates), so the bottom tab bar and the top banners
+     * can never be dragged. Degenerate bounds fail the step closed — the
+     * swipe is never widened to the full screen.
+     */
+    override suspend fun swipeUpWithin(targetPackage: String, locatorRef: String) {
+        val container = resolveUniqueNode(targetPackage, locatorRef)
+            ?: throw ExecutorFailure("LOCATOR_NOT_FOUND", "Approved locator was not found")
+        val rect = Rect()
+        container.getBoundsInScreen(rect)
+        val stroke = OrderSwipeGeometry.oneScreenSwipe(
+            OrderSwipeGeometry.Bounds(rect.left, rect.top, rect.right, rect.bottom),
+        ) ?: throw ExecutorFailure(
+            "SWIPE_BOUNDS_INVALID",
+            "Order container bounds $rect cannot host a bounded swipe; failing closed",
+        )
+        val completed = dispatchStroke(
+            stroke.startX, stroke.startY, stroke.endX, stroke.endY, ORDERS_SWIPE_DURATION_MS,
+        )
+        if (!completed) {
+            throw ExecutorFailure("SWIPE_DISPATCH_CANCELLED", "Bounded container swipe was cancelled")
+        }
+        delay(ORDERS_SWIPE_SETTLE_MS)
+    }
+
+    /**
      * W4 maintenance v2 (contract xianyu-anchors-20260915 §1/§2): open the
      * published-list card whose text contains [titleContains] with one
      * gesture on the card bounds center. The card area starts at the LIVE
@@ -1837,6 +1865,10 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         private const val XIANYU_LAUNCHER_ACTIVITY = "com.taobao.fleamarket.home.activity.InitActivity"
         private const val NAV_SETTLE_MS = 800L
         private const val CONVERSATION_SWIPE_MS = 350L
+        // Order-sync slice 2: one in-container swipe per screen, 500ms stroke
+        // + 250ms settle so the Flutter list inertia lands before the next read.
+        private const val ORDERS_SWIPE_DURATION_MS = 500L
+        private const val ORDERS_SWIPE_SETTLE_MS = 250L
         private const val DUTY_NAV_ANCHOR_ATTEMPTS = 3
         /** Max list scrolls to bring a title-matched card fully into the viewport. */
         private const val CARD_SCROLL_ATTEMPTS = 5

@@ -223,6 +223,7 @@ class ReadOrdersExecutorTest {
             direction: OrderDirection,
             collected: List<OrderRowSnapshot>,
             skipped: List<SkippedOrderRow>,
+            screen: Int,
         ) {
             calls += Triple(taskId, direction, collected to skipped)
             onReport?.invoke()

@@ -86,6 +86,18 @@ interface LocalAutomationUi {
     fun readOrderRows(targetPackage: String, locatorRef: String, maxRows: Int): List<List<String>> =
         error("readOrders is not supported by this executor")
 
+    // Order-sync slice 2 (contract order-sync-slice2/20260915.1 §1): one
+    // upward swipe STRICTLY inside the bounds of the node resolved from
+    // [locatorRef] (the orders list container, xianyu-anchors §3). A
+    // full-screen swipe is forbidden — the bottom tab bar and the banners
+    // must stay untouched. Implementations derive the stroke from the live
+    // container bounds; LOCATOR_NOT_FOUND keeps the readOrders retry
+    // semantics while the Flutter list settles.
+
+    suspend fun swipeUpWithin(targetPackage: String, locatorRef: String) {
+        error("swipeUpWithin is not supported by this executor")
+    }
+
     // W4 maintenance v2 (contract xianyu-anchors-20260915 §1/§2): open a
     // published-list card by its title text. Implementations resolve the live
     // tab-strip bottom edge (never a hardcoded y), search the visible cards of
@@ -109,6 +121,7 @@ private class PendingOrderReport(
     val direction: OrderDirection,
     val collected: List<OrderRowSnapshot>,
     val skipped: List<SkippedOrderRow>,
+    val screen: Int,
 )
 
 class LocalAutomationExecutor(
@@ -123,8 +136,20 @@ class LocalAutomationExecutor(
     /** Badge baselines (tab locator -> count at the strike) captured during one run. */
     private val badgeBaselines = mutableMapOf<String, Int>()
 
-    /** Collected orders awaiting the post-step §5 batch report (one readOrders step per run). */
+    /** Collected orders awaiting the post-step §5 batch report (one slot per readOrders screen). */
     private var pendingOrderReport: PendingOrderReport? = null
+
+    /**
+     * Slice-2 cross-screen dedup (order-sync-slice2/20260915.1 §3): order keys
+     * already handed to the reporter by EARLIER readOrders screens of this
+     * run. Overlap rows the scrolled list re-exposes are skipped here (never
+     * re-reported); same-screen duplicates keep the slice1 semantics — both
+     * rows report and the server-side idempotent key absorbs them.
+     */
+    private val reportedOrderKeys = mutableSetOf<String>()
+
+    /** 1-based readOrders screen counter for this run (log material only). */
+    private var ordersScreensRead = 0
 
     suspend fun execute(
         task: AutomationTask,
@@ -134,6 +159,8 @@ class LocalAutomationExecutor(
     ) {
         badgeBaselines.clear()
         pendingOrderReport = null
+        reportedOrderKeys.clear()
+        ordersScreensRead = 0
         MaintenanceBadgeSnapshots.clear(task.taskId)
         if (!task.expiresAt.isAfter(now())) throw ExecutorFailure("TASK_EXPIRED", "Task has expired")
         val runDeadline = elapsedMs() + task.maxRunSeconds * 1_000L
@@ -267,6 +294,7 @@ class LocalAutomationExecutor(
             )
             is AutomationStep.AssertBadge -> awaitBadgeAssertion(task, step, runDeadline)
             is AutomationStep.ReadOrders -> executeReadOrders(task, step, runDeadline)
+            is AutomationStep.SwipeUp -> executeSwipeUp(task, step, runDeadline)
             is AutomationStep.TapCardByTitle -> executeTapCardByTitle(
                 task, step, runDeadline, control, lastCompleted, lastCompletedIndex,
             )
@@ -287,6 +315,13 @@ class LocalAutomationExecutor(
      * successes (0 rows reported). §7 fail-closed: an unverified container
      * locator aborts with LOCATOR_UNVERIFIED before anything is read, leaving
      * zero side effects.
+     *
+     * Slice 2 (order-sync-slice2/20260915.1 §1/§3): one call per screen.
+     * Cross-screen overlap rows (order keys reported by an earlier screen of
+     * this run) are absorbed silently — not re-reported, not counted as
+     * duplicates, not skipped-rows; same-screen duplicates keep slice1
+     * semantics. The screen ordinal reaches LOG events only; a single-read
+     * (v1) task logs exactly what slice1 logged.
      */
     private suspend fun executeReadOrders(task: AutomationTask, step: AutomationStep.ReadOrders, runDeadline: Long) {
         if (task.targetPackage != TargetLocatorRegistry.XIANYU_PACKAGE) {
@@ -316,24 +351,78 @@ class LocalAutomationExecutor(
                 null
             }
         }
+        val screen = ordersScreensRead + 1
         val collected = mutableListOf<OrderRowSnapshot>()
         val skipped = mutableListOf<SkippedOrderRow>()
+        var overlap = 0
         rows.forEachIndexed { index, lines ->
             when (val outcome = OrderRowParser.parse(step.direction, lines)) {
-                is OrderRowParseOutcome.Parsed -> collected += outcome.toSnapshot(step.direction, lines)
+                is OrderRowParseOutcome.Parsed -> {
+                    val snapshot = outcome.toSnapshot(step.direction, lines)
+                    if (snapshot.orderKey in reportedOrderKeys) {
+                        // Cross-screen overlap (scrolled list inertia): the row
+                        // already went to the §3 endpoint from an earlier
+                        // screen — absorb it here instead of re-reporting.
+                        overlap += 1
+                    } else {
+                        collected += snapshot
+                    }
+                }
                 is OrderRowParseOutcome.Skipped -> skipped += SkippedOrderRow(index, outcome.reason)
             }
         }
+        ordersScreensRead = screen
+        reportedOrderKeys += collected.map { it.orderKey }
         ui.log(LogLevel.INFO, "ORDERS_READ_${collected.size}")
         if (skipped.isNotEmpty()) ui.log(LogLevel.WARN, "ORDERS_SKIPPED_${skipped.size}")
-        pendingOrderReport = PendingOrderReport(step.direction, collected, skipped)
+        if (overlap > 0) ui.log(LogLevel.INFO, "ORDERS_OVERLAP_${overlap}")
+        // Screen ordinal is log material only (§1); single-read (v1) tasks
+        // keep their slice1 log lines byte-identical.
+        if (isMultiScreenOrdersTask(task)) ui.log(LogLevel.INFO, "ORDERS_READ_SCREEN_${screen}")
+        pendingOrderReport = PendingOrderReport(step.direction, collected, skipped, screen)
     }
 
-    /** Flushes the readOrders collection to the §5 reporter, exactly once per run. */
+    /**
+     * Order-sync slice 2 §1: the between-screens scroll. One upward swipe
+     * strictly inside the order-list container resolved from the step's
+     * locator (the UI layer derives the stroke from the live container
+     * bounds; a full-screen swipe can never happen through this path).
+     * Fail-closed exactly like readOrders: xianyu-only target, §7 unverified
+     * locator, and the bounded LOCATOR_NOT_FOUND retry while the list
+     * settles — zero side effects on any rejection.
+     */
+    private suspend fun executeSwipeUp(task: AutomationTask, step: AutomationStep.SwipeUp, runDeadline: Long) {
+        if (task.targetPackage != TargetLocatorRegistry.XIANYU_PACKAGE) {
+            throw ExecutorFailure("TARGET_PACKAGE_REJECTED", "swipeUp is approved for xianyu only")
+        }
+        ui.ensureReady(task.targetPackage)
+        if (TargetLocatorRegistry.isUnverifiedLocator(task.targetPackage, step.locatorRef)) {
+            throw ExecutorFailure(
+                "LOCATOR_UNVERIFIED",
+                "Swipe container locator '${step.locatorRef}' is not device-verified; failing closed",
+            )
+        }
+        while (true) {
+            try {
+                ui.swipeUpWithin(task.targetPackage, step.locatorRef)
+                return
+            } catch (failure: ExecutorFailure) {
+                if (failure.code != "LOCATOR_NOT_FOUND" || elapsedMs() >= runDeadline) throw failure
+                sleep(ORDER_ROW_POLL_MS)
+            }
+        }
+    }
+
+    /** True when the task carries the multi-screen (v2) orders shape. */
+    private fun isMultiScreenOrdersTask(task: AutomationTask): Boolean =
+        task.steps.count { it is AutomationStep.ReadOrders } > 1 ||
+            task.steps.any { it is AutomationStep.SwipeUp }
+
+    /** Flushes the current screen's readOrders collection to the §5 reporter, exactly once per screen. */
     private suspend fun reportPendingOrders(task: AutomationTask) {
         val report = pendingOrderReport ?: return
         pendingOrderReport = null
-        orderReporter?.reportOrders(task.taskId, report.direction, report.collected, report.skipped)
+        orderReporter?.reportOrders(task.taskId, report.direction, report.collected, report.skipped, report.screen)
     }
 
     /**
