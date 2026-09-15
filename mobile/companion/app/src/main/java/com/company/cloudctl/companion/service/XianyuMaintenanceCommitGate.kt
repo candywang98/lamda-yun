@@ -41,11 +41,11 @@ class XianyuMaintenanceCommitGate(
         when (step.layoutAction) {
             XianyuMaintenanceLayout.LayoutAction.CONFIRM_DELIST -> {
                 badgeRef = BADGE_ONSALE // 下架成功 ⇒ 在卖 N-1
-                actionId = "$ACTION_CONFIRM_DELIST_PREFIX${step.stepId}"
+                actionId = ACTION_CONFIRM_DELIST  // frozen server contract (mobile_actions XIANYU_MAINTENANCE_SHAPES action_id)
             }
             XianyuMaintenanceLayout.LayoutAction.CONFIRM_DELETE -> {
                 badgeRef = BADGE_DELISTED // 删除成功 ⇒ 已下架 N-1
-                actionId = "$ACTION_CONFIRM_DELETE_PREFIX${step.stepId}"
+                actionId = ACTION_CONFIRM_DELETE
             }
             else -> throw ExecutorFailure("G3_NOT_ACCEPTED", "Layout action is not a gated confirm")
         }
@@ -117,8 +117,8 @@ class XianyuMaintenanceCommitGate(
     companion object {
         const val BADGE_ONSALE = "xianyu_pub_tab_onsale"
         const val BADGE_DELISTED = "xianyu_pub_tab_delisted"
-        const val ACTION_CONFIRM_DELIST_PREFIX = "click-confirm-delist:"
-        const val ACTION_CONFIRM_DELETE_PREFIX = "click-confirm-delete:"
+        const val ACTION_CONFIRM_DELIST = "confirm-delist"
+        const val ACTION_CONFIRM_DELETE = "confirm-delete"
         private const val BADGE_POLL_ATTEMPTS = 24
         private const val BADGE_POLL_INTERVAL_MS = 250L
     }
