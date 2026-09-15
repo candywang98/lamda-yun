@@ -2950,6 +2950,31 @@
         "title": "MobileTaskFailure",
         "type": "object"
       },
+      "MobileTaskRelease": {
+        "additionalProperties": false,
+        "properties": {
+          "leaseId": {
+            "maxLength": 36,
+            "minLength": 1,
+            "title": "Leaseid",
+            "type": "string"
+          },
+          "reason": {
+            "enum": [
+              "ACCESSIBILITY_NOT_ENABLED",
+              "ACCESSIBILITY_NOT_ACTIVE"
+            ],
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "leaseId",
+          "reason"
+        ],
+        "title": "MobileTaskRelease",
+        "type": "object"
+      },
       "OperationApprovalRequest": {
         "additionalProperties": false,
         "properties": {
@@ -14306,6 +14331,60 @@
           }
         },
         "summary": "Heartbeat",
+        "tags": [
+          "mobile-companion"
+        ]
+      }
+    },
+    "/companion/v2/tasks/{task_id}/release": {
+      "post": {
+        "operationId": "release_companion_v2_tasks__task_id__release_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MobileTaskRelease"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Release Companion V2 Tasks  Task Id  Release Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Release",
         "tags": [
           "mobile-companion"
         ]

@@ -29,6 +29,7 @@ from .db import (
     DevicePreviewRow,
     DeviceRow,
     MediaAssetRow,
+    MobileActionCommitRow,
     MobileBindingRow,
     MobileEnrollmentRow,
     MobileTaskEventRow,
@@ -895,6 +896,70 @@ class MobileTaskService:
                     )
                 )
             return self._task_view(row, companion_claim=True)
+
+    async def release(
+        self,
+        binding: MobileBindingRow,
+        task_id: str,
+        lease_id: str,
+        reason: str,
+    ) -> dict[str, Any]:
+        if reason not in {"ACCESSIBILITY_NOT_ENABLED", "ACCESSIBILITY_NOT_ACTIVE"}:
+            raise ValidationError("unsupported task release reason")
+        now = _now()
+        async with self.database.unit_of_work() as session:
+            device = await session.get(DeviceRow, binding.device_id, with_for_update=True)
+            if device is None or device.tenant_id != binding.tenant_id:
+                raise NotFoundError("device was not found")
+            stored_binding = await session.get(MobileBindingRow, binding.id)
+            if (
+                stored_binding is None
+                or stored_binding.revoked_at is not None
+                or stored_binding.tenant_id != binding.tenant_id
+                or stored_binding.device_id != binding.device_id
+            ):
+                raise AuthenticationError("invalid or revoked Companion bearer token")
+            if device.active_binding_id != stored_binding.id:
+                raise AuthenticationError("companion instance is no longer the active binding")
+
+            task = await session.get(MobileTaskRow, task_id, with_for_update=True)
+            self._validate_owned_task(task, stored_binding)
+            assert task is not None
+            if task.status != "CLAIMED" or task.business_state != "PREFLIGHT":
+                raise ConflictError("only a claimed task in PREFLIGHT can be released")
+            if task.lease_id != lease_id:
+                raise ConflictError("mobile task lease does not match")
+            if task.lease_expires_at is None or _aware(task.lease_expires_at) <= now:
+                raise ConflictError("mobile task lease has expired")
+            if "commitIntent" in (task.command_payload or {}):
+                raise ConflictError("task has a legacy commit intent and cannot be released")
+            device_lease = await session.get(
+                DeviceLeaseRow, binding.device_id, with_for_update=True
+            )
+            if (
+                device_lease is None
+                or device_lease.tenant_id != task.tenant_id
+                or device_lease.lease_id != lease_id
+                or device_lease.owner_type != "AUTO"
+                or device_lease.owner_workflow_id != f"auto/{task.id}"
+                or device_lease.canceled_at is not None
+                or _aware(device_lease.expires_at) <= now
+            ):
+                raise ConflictError("matching active device lease is required")
+            action = await session.scalar(
+                select(MobileActionCommitRow)
+                .where(MobileActionCommitRow.task_id == task.id)
+                .with_for_update()
+            )
+            if action is not None:
+                raise ConflictError("task has an action commit row and cannot be released")
+
+            device_lease.canceled_at = now
+            task.status = "QUEUED"
+            task.business_state = "QUEUED"
+            task.lease_id = None
+            task.lease_expires_at = None
+            return self._task_view(task)
 
     async def heartbeat(
         self,

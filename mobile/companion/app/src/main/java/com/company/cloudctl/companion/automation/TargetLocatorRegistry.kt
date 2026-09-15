@@ -12,6 +12,11 @@ internal sealed interface ApprovedLocator {
     /** Full-match regular expression over a single content description / text value. */
     data class DescRegex(val pattern: Regex) : ApprovedLocator
     data class IndexedContentDescriptionPrefixParent(val prefix: String, val index: Int) : ApprovedLocator
+    data class GuardedDialogAction(
+        val actionText: String,
+        val dialogText: String,
+        val cancelText: String,
+    ) : ApprovedLocator
 
     /**
      * Any alternative can satisfy the locator. Used for controls the target app
@@ -193,6 +198,13 @@ internal object TargetLocatorRegistry {
         "xianyu_manage_delist" to ApprovedLocator.Text("下架"),
         "xianyu_manage_delete" to ApprovedLocator.Text("删除"),
         "xianyu_manage_cancel" to ApprovedLocator.Text("取消"),
+        // Device-verified 2026-09-16 on OnePlus 9R: the destructive delete
+        // dialog exposes one title plus separate 取消/确定 Text nodes.
+        "xianyu_delete_confirm" to ApprovedLocator.GuardedDialogAction(
+            actionText = "确定",
+            dialogText = "确定删除该宝贝吗",
+            cancelText = "取消",
+        ),
     )
 
     // §7 fail-closed registry (contract order-sync/20260915.1 §7): refs listed
@@ -250,6 +262,7 @@ internal object TargetLocatorRegistry {
         is ApprovedLocator.IndexedContentDescriptionPrefixParent -> value.startsWith(locator.prefix)
         is ApprovedLocator.DescRegex -> locator.pattern.matches(value)
         is ApprovedLocator.AnyOf -> locator.alternatives.any { acceptsDescription(it, value) }
+        is ApprovedLocator.GuardedDialogAction -> value == locator.actionText
         is ApprovedLocator.ResourceId, is ApprovedLocator.IndexedResourceId -> false
     }
 

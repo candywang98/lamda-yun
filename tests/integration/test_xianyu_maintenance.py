@@ -630,7 +630,7 @@ def delete_v2_steps(title: str = "黄同学漫画二战史") -> list[dict[str, A
         _shot("xianyu_delete_menu_v2"),
         _tap("tap-delete-item", "xianyu_manage_delete"),
         _shot("xianyu_delete_confirm_v2"),
-        _layout("confirm-delete", "confirm_delete"),
+        _tap("confirm-delete", "xianyu_delete_confirm"),
         _shot("xianyu_delete_result_v2"),
         _log("XIANYU_DELETE_DELISTED_DONE"),
     ]
@@ -652,6 +652,46 @@ async def test_valid_v2_shapes_are_accepted(api, build, command):
     assert validate_maintenance_steps(XIANYU, steps) == command
 
 
+def test_v2_gated_confirm_targets_are_frozen_by_action_kind():
+    delist_confirm = next(step for step in delist_v2_steps() if step["stepId"] == "confirm-delist")
+    assert delist_confirm == _layout("confirm-delist", "confirm_delist")
+
+    delete_confirm = next(step for step in delete_v2_steps() if step["stepId"] == "confirm-delete")
+    assert delete_confirm == _tap("confirm-delete", "xianyu_delete_confirm")
+
+
+async def test_v2_delete_run_emits_semantic_confirm_at_the_frozen_position(api):
+    client, app = api
+    device = await create_direct_device(client, "v2-delete-semantic")
+    response = await client.post(
+        "/api/v1/xianyu/maintenance:run",
+        headers={**identity(), "Idempotency-Key": "v2-delete-semantic-key"},
+        json={
+            "deviceId": device,
+            "action": "delete",
+            "path": "v2",
+            "targets": {"titles": ["黄同学漫画二战史"]},
+        },
+    )
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["commandType"] == "xianyu.delete_delisted.steps.v2"
+
+    async with app.state.database.unit_of_work() as session:
+        row = await session.get(MobileTaskRow, body["taskIds"][0])
+        _, *steps = row.steps
+    confirm_index = next(
+        index for index, step in enumerate(steps) if step["stepId"] == "confirm-delete"
+    )
+    assert steps[confirm_index] == _tap("confirm-delete", "xianyu_delete_confirm")
+    assert [step["stepId"] for step in steps[confirm_index - 1 : confirm_index + 2]] == [
+        "capture-xianyu_delete_confirm_v2",
+        "confirm-delete",
+        "capture-xianyu_delete_result_v2",
+    ]
+    assert not any(step.get("layoutAction") == "confirm_delete" for step in steps)
+
+
 @pytest.mark.parametrize(
     "mutation",
     [
@@ -661,13 +701,24 @@ async def test_valid_v2_shapes_are_accepted(api, build, command):
         "two_card_steps",
         "missing_evidence_screenshot",
         "wrong_menu_action",
+        "wrong_delete_confirm_locator",
+        "wrong_delete_confirm_step_id",
+        "coordinate_delete_confirm",
+        "misplaced_delete_confirm",
         "missing_run_log",
         "empty_title",
     ],
 )
 async def test_v2_shape_violations_are_rejected(api, mutation):
     client, _ = api
-    steps = delete_v2_steps() if mutation == "missing_gated_confirm" else delist_v2_steps()
+    delete_mutations = {
+        "missing_gated_confirm",
+        "wrong_delete_confirm_locator",
+        "wrong_delete_confirm_step_id",
+        "coordinate_delete_confirm",
+        "misplaced_delete_confirm",
+    }
+    steps = delete_v2_steps() if mutation in delete_mutations else delist_v2_steps()
     if mutation == "missing_gated_confirm":
         steps = _drop(steps, step_id="confirm-delete")
     elif mutation == "missing_manage_menu_tap":
@@ -689,6 +740,35 @@ async def test_v2_shape_violations_are_rejected(api, mutation):
             else step
             for step in steps
         ]
+    elif mutation == "wrong_delete_confirm_locator":
+        steps = [
+            dict(step, locatorRef="xianyu_manage_delete")
+            if step["stepId"] == "confirm-delete"
+            else step
+            for step in steps
+        ]
+    elif mutation == "wrong_delete_confirm_step_id":
+        steps = [
+            dict(step, stepId="confirm-delete-renamed")
+            if step["stepId"] == "confirm-delete"
+            else step
+            for step in steps
+        ]
+    elif mutation == "coordinate_delete_confirm":
+        steps = [
+            _layout("confirm-delete", "confirm_delete")
+            if step["stepId"] == "confirm-delete"
+            else step
+            for step in steps
+        ]
+    elif mutation == "misplaced_delete_confirm":
+        confirm_index = next(
+            index for index, step in enumerate(steps) if step["stepId"] == "confirm-delete"
+        )
+        steps[confirm_index - 1], steps[confirm_index] = (
+            steps[confirm_index],
+            steps[confirm_index - 1],
+        )
     elif mutation == "missing_run_log":
         steps = _drop(steps, step_id="mark-done")
     else:  # empty_title

@@ -17,10 +17,13 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.Process
+import android.os.SystemClock
 import android.util.Log
 import android.view.Display
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import com.company.cloudctl.companion.BuildConfig
 import com.company.cloudctl.companion.ClipboardRelayActivity
 import com.company.cloudctl.companion.ime.CloudCtlInputMethod
 import com.company.cloudctl.companion.network.PreviewFrame
@@ -42,6 +45,8 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         kotlinx.coroutines.Dispatchers.Default + kotlinx.coroutines.SupervisorJob(),
     )
 
+    private val generation = nextGeneration()
+
     override fun onServiceConnected() {
         serviceInfo = serviceInfo.apply {
             flags = flags or
@@ -52,6 +57,11 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
             eventTypes = eventTypes or AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
         }
         active = this
+        Log.i(
+            TAG,
+            "ACCESSIBILITY_CONNECTED pid=${Process.myPid()} generation=$generation " +
+                "elapsedMs=${SystemClock.elapsedRealtime()} revision=${BuildConfig.SOURCE_REVISION}",
+        )
         CompanionServiceStarter.startIfBound(this)
     }
 
@@ -113,8 +123,23 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
     }
     override fun onInterrupt() = Unit
 
+    override fun onUnbind(intent: Intent?): Boolean {
+        if (active === this) active = null
+        Log.i(
+            TAG,
+            "ACCESSIBILITY_UNBOUND pid=${Process.myPid()} generation=$generation " +
+                "elapsedMs=${SystemClock.elapsedRealtime()} revision=${BuildConfig.SOURCE_REVISION}",
+        )
+        return super.onUnbind(intent)
+    }
+
     override fun onDestroy() {
         if (active === this) active = null
+        Log.i(
+            TAG,
+            "ACCESSIBILITY_DESTROYED pid=${Process.myPid()} generation=$generation " +
+                "elapsedMs=${SystemClock.elapsedRealtime()} revision=${BuildConfig.SOURCE_REVISION}",
+        )
         super.onDestroy()
     }
 
@@ -494,13 +519,60 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
     }
 
     override suspend fun tapOnce(targetPackage: String, locatorRef: String) {
-        val node = resolveUniqueNode(targetPackage, locatorRef)
-            ?: throw ExecutorFailure("LOCATOR_NOT_FOUND", "Approved locator was not found")
-        if (!node.isVisibleToUser || !node.isEnabled) {
-            throw ExecutorFailure("NODE_NOT_CLICKABLE", "Approved locator is not safely clickable")
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main.immediate) {
+            val locator = resolveGuardedDialogLocator(targetPackage, locatorRef)
+            val evidenceId = "g$generation-${nextGestureEvidenceId()}"
+            val firstRoot = rootInActiveWindow
+            val first = guardedActiveWindowSnapshot(firstRoot, locator)
+            logSingleShotSnapshot(evidenceId, "FIRST", first)
+
+            // Refresh only the captured active root, then reacquire it. Any
+            // window, structure, or bounds change fails before the sole strike.
+            if (firstRoot == null || !firstRoot.refresh()) {
+                Log.w(TAG, "SINGLE_SHOT_REJECTED id=$evidenceId code=ACTIVE_WINDOW_REFRESH_FAILED")
+                throw ExecutorFailure(
+                    "ACTIVE_WINDOW_REFRESH_FAILED",
+                    "Active dialog window could not be refreshed before dispatch",
+                )
+            }
+            val second = guardedActiveWindowSnapshot(rootInActiveWindow, locator)
+            logSingleShotSnapshot(evidenceId, "SECOND", second)
+
+            val ready = when (val outcome = SingleShotGestureGuard.validate(targetPackage, first, second)) {
+                is SingleShotGestureGuard.Outcome.Allowed -> outcome.ready
+                is SingleShotGestureGuard.Outcome.Rejected -> {
+                    Log.w(TAG, "SINGLE_SHOT_REJECTED id=$evidenceId code=${outcome.code}")
+                    throw ExecutorFailure(outcome.code, "Single-shot dialog changed before dispatch")
+                }
+            }
+            Log.i(
+                TAG,
+                "SINGLE_SHOT_SELECTED id=$evidenceId locator=$locatorRef windowId=${ready.windowId} " +
+                    "bounds=${ready.bounds} center=${ready.centerX},${ready.centerY}",
+            )
+            // Revalidate inside the dispatch runnable. Android cannot atomically
+            // lock another app's window to a screen-coordinate gesture, but this
+            // leaves no app-side queue hop between the final check and dispatch.
+            if (!tapScreen(
+                    ready.centerX,
+                    ready.centerY,
+                    evidenceId = evidenceId,
+                    beforeDispatch = {
+                        val third = guardedActiveWindowSnapshot(rootInActiveWindow, locator)
+                        logSingleShotSnapshot(evidenceId, "PRE_DISPATCH", third)
+                        when (val finalCheck = SingleShotGestureGuard.validate(targetPackage, second, third)) {
+                            is SingleShotGestureGuard.Outcome.Allowed -> Unit
+                            is SingleShotGestureGuard.Outcome.Rejected -> {
+                                Log.w(TAG, "SINGLE_SHOT_REJECTED id=$evidenceId code=${finalCheck.code}")
+                                throw ExecutorFailure(finalCheck.code, "Single-shot dialog changed before dispatch")
+                            }
+                        }
+                    },
+                )
+            ) {
+                throw ExecutorFailure("CLICK_UNCONFIRMED", "Single-shot gesture was not confirmed")
+            }
         }
-        // A rejected/cancelled gesture is ambiguous. Never attempt a fallback click.
-        if (!gestureClick(node)) throw ExecutorFailure("CLICK_UNCONFIRMED", "Single-shot gesture was not confirmed")
     }
 
     override suspend fun tap(targetPackage: String, locatorRef: String) {
@@ -742,9 +814,21 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         }
         val matches = allRoots()
             .filter { it.packageName?.toString() == targetPackage }
-            .flatMap { findMatches(it, locator) }
+            .flatMap { root ->
+                if (locator is ApprovedLocator.GuardedDialogAction) {
+                    guardedDialogMatches(root, locator)
+                } else {
+                    findMatches(root, locator)
+                }
+            }
             .distinct()
-        if (matches.size > 1) {
+        if (locator is ApprovedLocator.GuardedDialogAction && matches.size > 1) {
+            throw ExecutorFailure(
+                "LOCATOR_NOT_UNIQUE",
+                "Locator '$locatorRef' matched ${matches.size} visible nodes; failing closed",
+            )
+        }
+        if (locator !is ApprovedLocator.GuardedDialogAction && matches.size > 1) {
             return matches.firstOrNull { it.isVisibleToUser } ?: matches.first()
         }
         if (matches.isEmpty() && locatorRef.startsWith("dy_")) {
@@ -891,9 +975,15 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
                 // a card too low for its own safe band taps at the band floor,
                 // which still lands inside a ~460px card.
                 val tapX = card.centerX.coerceIn(80f, screenWidth - 80f)
-                val safeLow = card.top + 60f
-                val safeHigh = screenBottom - 120f
-                val tapY = if (safeHigh > safeLow) card.centerY.coerceIn(safeLow, safeHigh) else safeHigh
+                val safeLow = maxOf(card.top + 60f, tabBounds.bottom + 1f)
+                val safeHigh = minOf(card.bottom - 60f, screenBottom - 120f)
+                if (safeHigh < safeLow || tapX < card.left || tapX > card.right) {
+                    throw ExecutorFailure(
+                        "CARD_TAP_BAND_UNSAFE",
+                        "Matched card has no verified tappable area inside the visible safe band",
+                    )
+                }
+                val tapY = card.centerY.coerceIn(safeLow, safeHigh)
                 Log.i(
                     TAG,
                     "CARD_TITLE_TAP title=$titleContains tab=$tab card=${card.left},${card.top},${card.right},${card.bottom} scrolls=$scrolls tap=$tapX,$tapY",
@@ -913,6 +1003,11 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
                 throw ExecutorFailure(
                     "CARD_TITLE_AMBIGUOUS",
                     "'$titleContains' matched ${outcome.count} cards; refusing to guess",
+                )
+            is PublishedCardLocator.Outcome.UnverifiedBounds ->
+                throw ExecutorFailure(
+                    "CARD_BOUNDS_UNVERIFIED",
+                    "'$titleContains' matched text but no safe card rectangle was proved",
                 )
         }
     }
@@ -1013,7 +1108,85 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
             // The mark node itself is the checkbox overlay on the cell; tapping it selects.
             is ApprovedLocator.IndexedContentDescriptionPrefix -> stringMatches(root, locator)
                 .getOrNull(locator.index)?.let(::listOf).orEmpty()
+            is ApprovedLocator.GuardedDialogAction -> guardedDialogMatches(root, locator)
         }
+
+    private fun resolveGuardedDialogLocator(
+        targetPackage: String,
+        locatorRef: String,
+    ): ApprovedLocator.GuardedDialogAction {
+        ensureReady(targetPackage)
+        val locator = try {
+            TargetLocatorRegistry.resolveVerified(targetPackage, locatorRef)
+        } catch (error: IllegalArgumentException) {
+            throw ExecutorFailure("LOCATOR_NOT_APPROVED", "Locator is not approved for this target", error)
+        }
+        return locator as? ApprovedLocator.GuardedDialogAction
+            ?: throw ExecutorFailure("LOCATOR_NOT_APPROVED", "Single-shot tap requires a guarded dialog locator")
+    }
+
+    private fun guardedActiveWindowSnapshot(
+        root: AccessibilityNodeInfo?,
+        locator: ApprovedLocator.GuardedDialogAction,
+    ): SingleShotGestureGuard.Snapshot {
+        if (root == null) {
+            return SingleShotGestureGuard.Snapshot(null, null, 0, 0, 0, null)
+        }
+        val titles = findContentDescription(root) { it == locator.dialogText }
+        val cancels = findContentDescription(root) { it == locator.cancelText }
+        val actions = findContentDescription(root) { it == locator.actionText }
+        return SingleShotGestureGuard.Snapshot(
+            windowId = root.windowId,
+            packageName = root.packageName?.toString(),
+            titleCandidates = titles.count { it.isVisibleToUser },
+            cancelCandidates = cancels.count { it.isVisibleToUser && it.isEnabled },
+            actionCandidates = actions.count { it.isVisibleToUser && it.isEnabled && it.isClickable },
+            action = GuardedDialogLocator.uniqueAction(
+                titles.map(::dialogCandidate),
+                cancels.map(::dialogCandidate),
+                actions.map(::dialogCandidate),
+            ),
+        )
+    }
+
+    private fun logSingleShotSnapshot(
+        evidenceId: String,
+        phase: String,
+        snapshot: SingleShotGestureGuard.Snapshot,
+    ) {
+        Log.i(
+            TAG,
+            "SINGLE_SHOT_RESOLVED id=$evidenceId phase=$phase windowId=${snapshot.windowId} " +
+                "package=${snapshot.packageName} candidates=${snapshot.titleCandidates}/" +
+                "${snapshot.cancelCandidates}/${snapshot.actionCandidates} bounds=${snapshot.action?.bounds}",
+        )
+    }
+
+    private fun guardedDialogMatches(
+        root: AccessibilityNodeInfo,
+        locator: ApprovedLocator.GuardedDialogAction,
+    ): List<AccessibilityNodeInfo> {
+        val titles = findContentDescription(root) { it == locator.dialogText }
+        val cancels = findContentDescription(root) { it == locator.cancelText }
+        val actions = findContentDescription(root) { it == locator.actionText }
+        val action = GuardedDialogLocator.uniqueAction(
+            titles.map(::dialogCandidate),
+            cancels.map(::dialogCandidate),
+            actions.map(::dialogCandidate),
+        ) ?: return emptyList()
+        return actions.filter { dialogCandidate(it) == action }
+    }
+
+    private fun dialogCandidate(node: AccessibilityNodeInfo) = GuardedDialogLocator.Candidate(
+        bounds = node.screenBounds().let {
+            GuardedDialogLocator.Bounds(it.left, it.top, it.right, it.bottom)
+        },
+        visible = node.isVisibleToUser,
+        enabled = node.isEnabled,
+        clickable = node.isClickable,
+    )
+
+    private fun AccessibilityNodeInfo.screenBounds(): Rect = Rect().also(::getBoundsInScreen)
 
     private fun stringMatches(root: AccessibilityNodeInfo, locator: ApprovedLocator): List<AccessibilityNodeInfo> =
         findContentDescription(root) { TargetLocatorRegistry.acceptsDescription(locator, it) }
@@ -1054,8 +1227,14 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         return tapScreen(bounds.exactCenterX(), bounds.exactCenterY())
     }
 
-    private suspend fun tapScreen(x: Float, y: Float, dwellMs: Long = 50L): Boolean {
-        return dispatchStroke(x, y, x + 1f, y, dwellMs)
+    private suspend fun tapScreen(
+        x: Float,
+        y: Float,
+        dwellMs: Long = 50L,
+        evidenceId: String? = null,
+        beforeDispatch: (() -> Unit)? = null,
+    ): Boolean {
+        return dispatchStroke(x, y, x + 1f, y, dwellMs, evidenceId, beforeDispatch)
     }
 
 
@@ -1065,7 +1244,15 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         return dispatchStroke(x, y, endX, endY, durationMs)
     }
 
-    private suspend fun dispatchStroke(startX: Float, startY: Float, endX: Float, endY: Float, durationMs: Long): Boolean {
+    private suspend fun dispatchStroke(
+        startX: Float,
+        startY: Float,
+        endX: Float,
+        endY: Float,
+        durationMs: Long,
+        evidenceId: String? = null,
+        beforeDispatch: (() -> Unit)? = null,
+    ): Boolean {
         val path = Path().apply {
             moveTo(startX, startY)
             lineTo(endX, endY)
@@ -1073,19 +1260,37 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         val gesture = GestureDescription.Builder()
             .addStroke(GestureDescription.StrokeDescription(path, 0, durationMs))
             .build()
+        val startedAt = SystemClock.elapsedRealtime()
         return suspendCancellableCoroutine { continuation ->
             val callback = object : GestureResultCallback() {
                 override fun onCompleted(gestureDescription: GestureDescription?) {
+                    evidenceId?.let {
+                        Log.i(TAG, "SINGLE_SHOT_CALLBACK id=$it result=COMPLETED latencyMs=${SystemClock.elapsedRealtime() - startedAt}")
+                    }
                     if (continuation.isActive) continuation.resume(true)
                 }
 
                 override fun onCancelled(gestureDescription: GestureDescription?) {
+                    evidenceId?.let {
+                        Log.w(TAG, "SINGLE_SHOT_CALLBACK id=$it result=CANCELLED latencyMs=${SystemClock.elapsedRealtime() - startedAt}")
+                    }
                     if (continuation.isActive) continuation.resume(false)
                 }
             }
             val main = Handler(Looper.getMainLooper())
             val runner = Runnable {
-                val dispatched = dispatchGesture(gesture, callback, main)
+                if (!continuation.isActive) {
+                    evidenceId?.let { Log.w(TAG, "SINGLE_SHOT_DISPATCH id=$it accepted=false reason=CANCELLED_BEFORE_DISPATCH") }
+                    return@Runnable
+                }
+                val dispatched = SingleShotDispatchBoundary.dispatch(
+                    validateImmediatelyBeforeDispatch = { beforeDispatch?.invoke() },
+                    canSubmit = { continuation.isActive },
+                    submit = { dispatchGesture(gesture, callback, main) },
+                )
+                evidenceId?.let {
+                    Log.i(TAG, "SINGLE_SHOT_DISPATCH id=$it accepted=$dispatched elapsedMs=${SystemClock.elapsedRealtime()}")
+                }
                 if (!dispatched && continuation.isActive) continuation.resume(false)
             }
             if (Looper.myLooper() == Looper.getMainLooper()) runner.run() else main.post(runner)
@@ -1637,6 +1842,11 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         private const val CARD_SCROLL_ATTEMPTS = 5
         private const val DUTY_NAV_ANCHOR_RETRY_MS = 500L
         private const val DUTY_NAV_MESSAGES_TAB_LOCATOR = "xianyu_messages_tab"
+        private val generationCounter = java.util.concurrent.atomic.AtomicLong()
+        private val gestureEvidenceCounter = java.util.concurrent.atomic.AtomicLong()
+
+        private fun nextGeneration(): Long = generationCounter.incrementAndGet()
+        private fun nextGestureEvidenceId(): Long = gestureEvidenceCounter.incrementAndGet()
 
         @Volatile
         var active: CloudCtlAccessibilityService? = null

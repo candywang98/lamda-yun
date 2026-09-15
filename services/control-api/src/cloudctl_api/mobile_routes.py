@@ -24,6 +24,7 @@ from .mobile_schemas import (
     MobileTaskCreate,
     MobileTaskEvent,
     MobileTaskFailure,
+    MobileTaskRelease,
 )
 from .mobile_service import MobileTaskService
 
@@ -233,6 +234,13 @@ async def heartbeat(
     return await mobile.heartbeat(
         current, task_id, body.lease_id, body.current_step, body.lease_seconds
     )
+
+
+@companion_router.post("/tasks/{task_id}/release")
+async def release(
+    task_id: str, body: MobileTaskRelease, current: Binding, mobile: Service
+) -> dict[str, Any]:
+    return await mobile.release(current, task_id, body.lease_id, body.reason)
 
 
 @companion_router.post("/tasks/{task_id}/events")

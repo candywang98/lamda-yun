@@ -28,6 +28,7 @@ class XianyuMaintenanceGateRoutingTest {
         var badgeAfter: Pair<String, String>? = null,
     ) : DestructiveClickGate {
         val confirms = mutableListOf<AutomationStep.TapLayout>()
+        val semanticConfirms = mutableListOf<String>()
 
         override suspend fun confirmOnce(task: AutomationTask, step: AutomationStep.TapLayout): Int? {
             confirms += step
@@ -35,6 +36,13 @@ class XianyuMaintenanceGateRoutingTest {
             ui.ensureReady(task.targetPackage)
             ui.tapScreenAt(task.targetPackage, point.first, point.second)
             badgeAfter?.let { (ref, description) -> ui.nodes[ref] = ui.node(description) }
+            return baseline
+        }
+
+        override suspend fun confirmOnce(task: AutomationTask, locatorRef: String): Int? {
+            semanticConfirms += locatorRef
+            ui.ensureReady(task.targetPackage)
+            ui.tapOnce(task.targetPackage, locatorRef)
             return baseline
         }
     }
@@ -98,6 +106,66 @@ class XianyuMaintenanceGateRoutingTest {
         // GATED 击点绝不双击：受控账本内单次 dispatchGesture。
         assertEquals(1, ui.coordinateTaps.size)
         assertEquals(745 to 1305, ui.coordinateTaps.single())
+    }
+
+    @Test
+    fun semanticDeleteConfirmRunsOnceThroughTheLedgerWithoutCoordinateTap() = runBlocking {
+        val ui = FakeUi().apply {
+            nodes["xianyu_delete_confirm"] = node()
+        }
+        val gate = RecordingGate(ui)
+        val journal = mutableListOf<String>()
+
+        executor(ui, gate).execute(
+            task(
+                AutomationStep.Tap("confirm-delete", 1_000, "xianyu_delete_confirm", null),
+                AutomationStep.Log("after-confirm", 1_000, LogLevel.INFO, "DELETE_EVIDENCE_CONTINUES"),
+            ),
+        ) { step, state -> journal += "${step.stepId}:$state" }
+
+        assertEquals(listOf("xianyu_delete_confirm"), gate.semanticConfirms)
+        assertEquals(listOf("xianyu_delete_confirm"), ui.singleShotTaps)
+        assertTrue(ui.coordinateTaps.isEmpty())
+        assertTrue(ui.locatorTaps.isEmpty())
+        assertEquals(
+            listOf("confirm-delete:STARTED"),
+            journal,
+        )
+        assertTrue(ui.logs.none { it.second == "DELETE_EVIDENCE_CONTINUES" })
+    }
+
+    @Test
+    fun semanticDeleteConfirmWithoutLedgerFailsBeforeAnyTap() = runBlocking {
+        val ui = FakeUi().apply {
+            nodes["xianyu_delete_confirm"] = node()
+        }
+
+        val failure = assertFailsWith<ExecutorFailure> {
+            executor(ui, null).execute(
+                task(AutomationStep.Tap("confirm-delete", 1_000, "xianyu_delete_confirm", null)),
+            ) { _, _ -> }
+        }
+
+        assertEquals("G3_NOT_ACCEPTED", failure.code)
+        assertTrue(ui.singleShotTaps.isEmpty())
+        assertTrue(ui.coordinateTaps.isEmpty())
+        assertTrue(ui.locatorTaps.isEmpty())
+    }
+
+    @Test
+    fun ordinaryLocatorTapDoesNotEnterTheDeleteLedger() = runBlocking {
+        val ui = FakeUi().apply {
+            nodes["xianyu_manage_cancel"] = node()
+        }
+        val gate = RecordingGate(ui)
+
+        executor(ui, gate).execute(
+            task(AutomationStep.Tap("cancel", 1_000, "xianyu_manage_cancel", null)),
+        ) { _, _ -> }
+
+        assertTrue(gate.semanticConfirms.isEmpty())
+        assertEquals(listOf("xianyu_manage_cancel"), ui.locatorTaps)
+        assertTrue(ui.singleShotTaps.isEmpty())
     }
 
     @Test
@@ -327,6 +395,8 @@ class XianyuMaintenanceGateRoutingTest {
     private class FakeUi : LocalAutomationUi {
         val nodes = mutableMapOf<String, LocalNodeState>()
         val coordinateTaps = mutableListOf<Pair<Int, Int>>()
+        val locatorTaps = mutableListOf<String>()
+        val singleShotTaps = mutableListOf<String>()
         val screenshotLabels = mutableListOf<String>()
         val logs = mutableListOf<Pair<LogLevel, String>>()
         val sleeps = mutableListOf<Long>()
@@ -351,7 +421,8 @@ class XianyuMaintenanceGateRoutingTest {
         override fun screenSize(targetPackage: String): Pair<Int, Int>? =
             if (sizeKnown) screenWidth to screenHeight else null
         override suspend fun tapScreenAt(targetPackage: String, x: Int, y: Int) { coordinateTaps += x to y }
-        override suspend fun tap(targetPackage: String, locatorRef: String) = error("unexpected locator tap")
+        override suspend fun tap(targetPackage: String, locatorRef: String) { locatorTaps += locatorRef }
+        override suspend fun tapOnce(targetPackage: String, locatorRef: String) { singleShotTaps += locatorRef }
         override suspend fun replaceText(targetPackage: String, locatorRef: String, value: String) =
             error("unexpected input")
         override suspend fun screenshot(taskId: String, label: String): ScreenshotEvidence {

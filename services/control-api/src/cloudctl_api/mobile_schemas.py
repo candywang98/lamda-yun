@@ -381,6 +381,11 @@ class MobileClaimRequest(StrictModel):
     lease_seconds: int = Field(default=60, alias="leaseSeconds", ge=10, le=300)
 
 
+class MobileTaskRelease(StrictModel):
+    lease_id: str = Field(alias="leaseId", min_length=1, max_length=36)
+    reason: Literal["ACCESSIBILITY_NOT_ENABLED", "ACCESSIBILITY_NOT_ACTIVE"]
+
+
 _NETWORK_ALIASES = {
     "WIFI": "WIFI",
     "WI-FI": "WIFI",

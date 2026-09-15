@@ -112,8 +112,8 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
         // Includes queued claims and unacknowledged terminal/reconciliation work. A task's
         // immutable payload remains the version source regardless of these catalog pointers.
         val busy = rawQuery(
-            "SELECT 1 FROM task_inbox WHERE state NOT IN (?,?,?,?) LIMIT 1",
-            arrayOf(STATE_TERMINAL_CONFIRMED, STATE_TERMINAL_REJECTED, "SUCCEEDED", "FAILED"),
+            "SELECT 1 FROM task_inbox WHERE state NOT IN (?,?,?,?,?) LIMIT 1",
+            arrayOf(STATE_TERMINAL_CONFIRMED, STATE_TERMINAL_REJECTED, STATE_RELEASED, "SUCCEEDED", "FAILED"),
         ).use { it.moveToFirst() } || rawQuery(
             "SELECT 1 FROM action_journal WHERE (status IN ('INTENT','UNKNOWN') OR action_key IN (SELECT action_key FROM controlled_action WHERE resolution_revision=0)) LIMIT 1",
             emptyArray(),
@@ -151,6 +151,18 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
                     markReconcilingLocked(taskId)
                     return@transaction false
                 }
+                if (existing.state == STATE_RELEASE_BLOCKED || existing.state == STATE_START_BLOCKED) {
+                    if (existing.leaseId == leaseId) return@transaction false
+                    // A replacement lease is a fresh server attempt after lease
+                    // expiry: accept it back into the queue exactly like a
+                    // released task so a blocked device can never wedge.
+                    val now = Instant.now().toString()
+                    execSQL(
+                        "UPDATE task_inbox SET lease_id=?,next_sequence=?,state=?,terminal_state=NULL,updated_at=? WHERE task_id=?",
+                        arrayOf(leaseId, lastSequence + 1, STATE_QUEUED, now, taskId),
+                    )
+                    return@transaction true
+                }
                 if (existing.leaseId == leaseId) {
                     false
                 } else {
@@ -160,6 +172,14 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
                             execSQL(
                                 "UPDATE task_inbox SET lease_id=?,next_sequence=?,updated_at=? WHERE task_id=?",
                                 arrayOf(leaseId, lastSequence + 1, now, taskId),
+                            )
+                            true
+                        }
+
+                        STATE_RELEASED -> {
+                            execSQL(
+                                "UPDATE task_inbox SET lease_id=?,next_sequence=?,state=?,terminal_state=NULL,updated_at=? WHERE task_id=?",
+                                arrayOf(leaseId, lastSequence + 1, STATE_QUEUED, now, taskId),
                             )
                             true
                         }
@@ -208,9 +228,17 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
         }
 
     fun claimNext(): PendingTask? = transaction {
+        retireStaleBlockedRowsLocked()
         val blocked = rawQuery(
-            "SELECT 1 FROM task_inbox WHERE state IN (?,?,?,?) LIMIT 1",
-            arrayOf(STATE_RUNNING, STATE_PAUSED, STATE_RESUME_CHECK, STATE_RECONCILING),
+            "SELECT 1 FROM task_inbox WHERE state IN (?,?,?,?,?,?) LIMIT 1",
+            arrayOf(
+                STATE_RUNNING,
+                STATE_PAUSED,
+                STATE_RESUME_CHECK,
+                STATE_RECONCILING,
+                STATE_RELEASE_BLOCKED,
+                STATE_START_BLOCKED,
+            ),
         ).use { it.moveToFirst() }
         if (blocked || hasUnresolvedAction()) return@transaction null
         val task = rawQuery(
@@ -228,6 +256,34 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
             insertJournalLocked(it.taskId, null, STATE_RUNNING, "TASK_CLAIMED_LOCAL", now)
         }
         task
+    }
+
+    /**
+     * B1 liveness exit: a blocked row's only unblock is a replacement lease
+     * redelivery, which stops forever once the server terminalizes the task
+     * (operator cancel, ACCOUNT_CHANGED). Retire blocked rows older than the
+     * redelivery horizon so one abandoned task can never wedge the device. A
+     * late redelivery still lands on the terminal replacement-lease path.
+     */
+    private fun SQLiteDatabase.retireStaleBlockedRowsLocked() {
+        val cutoff = Instant.now().minusMillis(BLOCKED_RETIRE_MILLIS).toString()
+        val stale = rawQuery(
+            "SELECT task_id FROM task_inbox WHERE state IN (?,?) AND updated_at < ?",
+            arrayOf(STATE_RELEASE_BLOCKED, STATE_START_BLOCKED, cutoff),
+        ).use { cursor ->
+            mutableListOf<String>().apply {
+                while (cursor.moveToNext()) add(cursor.getString(0))
+            }
+        }
+        if (stale.isEmpty()) return
+        val now = Instant.now().toString()
+        for (taskId in stale) {
+            execSQL(
+                "UPDATE task_inbox SET state=?,terminal_state=?,updated_at=? WHERE task_id=?",
+                arrayOf("FAILED", "FAILED", now, taskId),
+            )
+            insertJournalLocked(taskId, null, "FAILED", "BLOCKED_RETIRED_TIMEOUT", now)
+        }
     }
 
     fun record(taskId: String, stepId: String?, state: String, detailCode: String) {
@@ -343,11 +399,69 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
         arrayOf(STATE_PAUSED, STATE_RESUME_CHECK, STATE_RECONCILING),
     ).use { it.moveToFirst() } || readableDatabase.hasUnresolvedAction()
 
-    /** Single writer: any running/paused/reconciling task or unresolved action owns the device. */
+    /** Single writer: any running/paused/reconciling task or unresolved action owns the device.
+     *  Release/start-blocked rows own nothing locally: the claim loop must keep
+     *  polling so the server can redeliver with a replacement lease after expiry. */
     fun hasActiveTask(): Boolean = readableDatabase.rawQuery(
         "SELECT 1 FROM task_inbox WHERE state IN (?,?,?,?) LIMIT 1",
-        arrayOf(STATE_RUNNING, STATE_PAUSED, STATE_RESUME_CHECK, STATE_RECONCILING),
+        arrayOf(
+            STATE_RUNNING,
+            STATE_PAUSED,
+            STATE_RESUME_CHECK,
+            STATE_RECONCILING,
+        ),
     ).use { it.moveToFirst() } || readableDatabase.hasUnresolvedAction()
+
+    fun markReleaseBlocked(taskId: String, reason: String): Boolean = transaction {
+        if (isReconciling(taskId)) {
+            markReconcilingLocked(taskId)
+            return@transaction false
+        }
+        val current = row("SELECT state FROM task_inbox WHERE task_id=?", arrayOf(taskId))
+            ?: error("Unknown task")
+        if (current == STATE_RELEASE_BLOCKED) return@transaction false
+        require(current == STATE_RUNNING) { "Only a fresh local claim can be released" }
+        val now = Instant.now().toString()
+        execSQL(
+            "UPDATE task_inbox SET state=?,terminal_state=NULL,updated_at=? WHERE task_id=?",
+            arrayOf(STATE_RELEASE_BLOCKED, now, taskId),
+        )
+        insertJournalLocked(taskId, null, STATE_RELEASE_BLOCKED, reason, now)
+        true
+    }
+
+    fun settleReleased(taskId: String, reason: String) = transaction {
+        if (isReconciling(taskId)) {
+            markReconcilingLocked(taskId)
+            return@transaction
+        }
+        val current = row("SELECT state FROM task_inbox WHERE task_id=?", arrayOf(taskId))
+            ?: error("Unknown task")
+        require(current == STATE_RELEASE_BLOCKED) { "Task release is not pending" }
+        val now = Instant.now().toString()
+        execSQL(
+            "UPDATE task_inbox SET state=?,terminal_state=NULL,updated_at=? WHERE task_id=?",
+            arrayOf(STATE_RELEASED, now, taskId),
+        )
+        insertJournalLocked(taskId, null, STATE_RELEASED, reason, now)
+    }
+
+    fun markStartBlocked(taskId: String, reason: String) = transaction {
+        if (isReconciling(taskId)) {
+            markReconcilingLocked(taskId)
+            return@transaction
+        }
+        val current = row("SELECT state FROM task_inbox WHERE task_id=?", arrayOf(taskId))
+            ?: error("Unknown task")
+        if (current == STATE_START_BLOCKED) return@transaction
+        require(current == STATE_RUNNING) { "Only a fresh local claim can be start-blocked" }
+        val now = Instant.now().toString()
+        execSQL(
+            "UPDATE task_inbox SET state=?,terminal_state=NULL,updated_at=? WHERE task_id=?",
+            arrayOf(STATE_START_BLOCKED, now, taskId),
+        )
+        insertJournalLocked(taskId, null, STATE_START_BLOCKED, reason, now)
+    }
 
     fun finish(
         taskId: String,
@@ -361,6 +475,13 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
                 markReconcilingLocked(taskId)
                 return@transaction
             }
+            val current = row("SELECT state FROM task_inbox WHERE task_id=?", arrayOf(taskId))
+                ?: error("Unknown task")
+            if (
+                current == STATE_RELEASE_BLOCKED ||
+                current == STATE_RELEASED ||
+                current == STATE_START_BLOCKED
+            ) return@transaction
             val leaseId = row("SELECT lease_id FROM task_inbox WHERE task_id=?", arrayOf(taskId))
                 ?: error("Unknown task")
             val now = Instant.now().toString()
@@ -1005,6 +1126,12 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
         const val STATE_QUEUED = "QUEUED"
         const val STATE_RUNNING = "RUNNING"
         const val STATE_RECONCILING = "RECONCILING"
+        const val STATE_RELEASE_BLOCKED = "RELEASE_BLOCKED"
+        const val STATE_START_BLOCKED = "START_BLOCKED"
+        const val STATE_RELEASED = "RELEASED"
+
+        /** Blocked-row retirement horizon; far above the 60s lease + claim poll redelivery window. */
+        const val BLOCKED_RETIRE_MILLIS = 5 * 60 * 1000L
         const val STATE_PAUSED = "PAUSED_WAITING_USER"
         const val STATE_RESUME_CHECK = "RESUME_CHECK"
         const val STATE_TERMINAL_PENDING = "TERMINAL_PENDING_UPLOAD"

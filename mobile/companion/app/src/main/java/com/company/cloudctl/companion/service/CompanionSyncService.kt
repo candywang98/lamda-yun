@@ -80,6 +80,13 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import com.company.cloudctl.companion.network.PinnedControlledActionLedger
 
+internal fun hasMaintenanceDestructiveConfirm(task: AutomationTask): Boolean = task.steps.any { step ->
+    (step is AutomationStep.TapLayout &&
+        step.layoutAction in XianyuMaintenanceLayout.GATED_DESTRUCTIVE_CONFIRM_ACTIONS) ||
+        (step is AutomationStep.Tap &&
+            step.locatorRef == XianyuMaintenanceCommitGate.DELETE_CONFIRM_LOCATOR)
+}
+
 class CompanionSyncService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private lateinit var recipes: RecipeLifecycle
@@ -289,7 +296,15 @@ class CompanionSyncService : Service() {
                     } catch (error: Exception) {
                         android.util.Log.e("CompanionSync", "Recipe synchronization failed", error)
                     }
-                    if (!store.hasBlockingHead()) claimed = withContext(Dispatchers.IO) { client.claim() }
+                    // B2 churn gate: never claim while the accessibility runtime is
+                    // not stably ready — a claimed task would only be released
+                    // again. The instant capture leaves the mid-flight disconnect
+                    // window to acquireFreshClaimAccessibility's release path.
+                    if (!store.hasBlockingHead() &&
+                        accessibilityRuntimeReadiness().capture() is AccessibilityRuntimeReadiness.Ready<*>
+                    ) {
+                        claimed = withContext(Dispatchers.IO) { client.claim() }
+                    }
                 }
                 if (claimed != null) {
                     val acceptedDeviceId = try {
@@ -468,95 +483,113 @@ class CompanionSyncService : Service() {
                 return true
             }
         if (command != null) {
-            return runCommandV1(client, pending, command)
+            val service = acquireFreshClaimAccessibility(client, pending) ?: return true
+            return runCommandV1(client, pending, command, freshService = service)
         }
         val task = runCatching { AutomationTaskParser.parse(pending.payload) }
             .getOrElse {
                 failTask(pending.taskId, "TASK_CONTRACT_REJECTED", "任务指令校验未通过")
                 return true
             }
-        val stall = preflightStallReason()
+        val service = acquireFreshClaimAccessibility(client, pending) ?: return true
+        val stall = preflightStallReason(includeAccessibility = false)
         if (stall != null) {
             failTask(task.taskId, stall.first, stall.second, waitingUser = stall.first == "DEVICE_LOCKED")
             return true
         }
         val control = ExecutionControl()
-        val service = CloudCtlAccessibilityService.active
-        if (service == null) {
-            failTask(task.taskId, "ACCESSIBILITY_NOT_ENABLED", "无障碍服务未启用")
-            return true
-        }
         val commitGate = buildStepsPublishGate(service, task)
         val destructiveGate = buildMaintenanceDestructiveGate(service, task)
         val orderReporter = if (task.steps.any { it is AutomationStep.ReadOrders }) orderReporterFor(client) else null
         try {
-            sendInitialHeartbeat(client, task.taskId, pending.leaseId, control)
-            throwIfControlRequested(control)
-            coroutineScope {
-                val currentStep = AtomicInteger(-1)
-                val heartbeatJob = launch(Dispatchers.IO) {
-                    runTaskHeartbeats(client, task.taskId, pending.leaseId, control, currentStep)
+            // Frozen protocol (R20260916-P09-18): for a fresh claim the initial
+            // task heartbeat is the execution boundary. Without a confirmed
+            // heartbeat no UI, media, or local execution may start; the task is
+            // conservatively start-blocked until the server lease expires and a
+            // replacement lease redelivers it.
+            val start = FreshClaimExecutionBoundary.run(
+                heartbeat = { sendFreshClaimInitialHeartbeat(client, task.taskId, pending.leaseId, control) },
+                onHeartbeatFailure = { error ->
+                    store.markStartBlocked(task.taskId, heartbeatBlockCode(error))
+                },
+            ) {
+                throwIfControlRequested(control)
+                coroutineScope {
+                    val currentStep = AtomicInteger(-1)
+                    val heartbeatJob = launch(Dispatchers.IO) {
+                        runTaskHeartbeats(client, task.taskId, pending.leaseId, control, currentStep)
+                    }
+                    try {
+                        runtimeStatus.updateTask(task.taskId, AuthorizedTaskState.Running, "正在准备素材与目标应用", "TASK_PREFLIGHT")
+                        prepareMedia(task.taskId, pending.payload)
+                        throwIfControlRequested(control)
+                        android.util.Log.i(
+                            "CompanionSync",
+                            "preflight launch targetPackage=${task.targetPackage} " +
+                                "xianyu=com.taobao.idlefish",
+                        )
+                        service.launchTargetApp(task.targetPackage)
+                        throwIfControlRequested(control)
+                        runtimeStatus.updateTask(
+                            task.taskId,
+                            AuthorizedTaskState.Running,
+                            "正在启动本地执行器",
+                            "TASK_STARTED",
+                        )
+                        withTimeout(task.maxRunSeconds * 1_000L) {
+                            service.execute(
+                                task, control, startAfterIndex = -1, commitGate = commitGate,
+                                destructiveGate = destructiveGate, orderReporter = orderReporter,
+                            ) { step, state ->
+                                val stepIndex = task.steps.indexOf(step)
+                                currentStep.set(stepIndex)
+                                store.recordStepEvent(
+                                    taskId = task.taskId,
+                                    stepId = step.stepId,
+                                    state = state,
+                                    detailCode = "STEP_$state",
+                                    eventType = if (state == "STARTED") "STEP_STARTED" else "STEP_SUCCEEDED",
+                                    stepIndex = stepIndex,
+                                    payload = JSONObject().put("detailCode", "STEP_$state"),
+                                )
+                                runtimeStatus.updateTask(
+                                    task.taskId,
+                                    AuthorizedTaskState.Running,
+                                    "${step.stepId}: $state",
+                                    "STEP_$state",
+                                    step.stepId,
+                                )
+                            }
+                        }
+                        // im-live slice 2, gap 2: backfill the placeholder notification body
+                        // with the real conversation text; never blocks or fails the task.
+                        runCatching { enrichImReplyBody(task, service) }
+                            .onFailure { android.util.Log.w("CompanionSync", "IM body enrichment skipped", it) }
+                    } finally {
+                        heartbeatJob.cancelAndJoin()
+                    }
                 }
-                try {
-                    runtimeStatus.updateTask(task.taskId, AuthorizedTaskState.Running, "正在准备素材与目标应用", "TASK_PREFLIGHT")
-                    prepareMedia(task.taskId, pending.payload)
-                    throwIfControlRequested(control)
-                    android.util.Log.i(
-                        "CompanionSync",
-                        "preflight launch targetPackage=${task.targetPackage} " +
-                            "xianyu=com.taobao.idlefish",
-                    )
-                    service.launchTargetApp(task.targetPackage)
-                    throwIfControlRequested(control)
+                if (store.unresolvedControlledActionKeys().any { store.actionJournal(it)?.taskId == task.taskId }) {
+                    showReconciling(task.taskId)
+                } else {
+                    store.finish(task.taskId, true)
                     runtimeStatus.updateTask(
                         task.taskId,
-                        AuthorizedTaskState.Running,
-                        "正在启动本地执行器",
-                        "TASK_STARTED",
+                        AuthorizedTaskState.Succeeded,
+                        "本地任务已完成",
+                        "TASK_SUCCEEDED",
                     )
-                    withTimeout(task.maxRunSeconds * 1_000L) {
-                        service.execute(
-                            task, control, startAfterIndex = -1, commitGate = commitGate,
-                            destructiveGate = destructiveGate, orderReporter = orderReporter,
-                        ) { step, state ->
-                            val stepIndex = task.steps.indexOf(step)
-                            currentStep.set(stepIndex)
-                            store.recordStepEvent(
-                                taskId = task.taskId,
-                                stepId = step.stepId,
-                                state = state,
-                                detailCode = "STEP_$state",
-                                eventType = if (state == "STARTED") "STEP_STARTED" else "STEP_SUCCEEDED",
-                                stepIndex = stepIndex,
-                                payload = JSONObject().put("detailCode", "STEP_$state"),
-                            )
-                            runtimeStatus.updateTask(
-                                task.taskId,
-                                AuthorizedTaskState.Running,
-                                "${step.stepId}: $state",
-                                "STEP_$state",
-                                step.stepId,
-                            )
-                        }
-                    }
-                    // im-live slice 2, gap 2: backfill the placeholder notification body
-                    // with the real conversation text; never blocks or fails the task.
-                    runCatching { enrichImReplyBody(task, service) }
-                        .onFailure { android.util.Log.w("CompanionSync", "IM body enrichment skipped", it) }
-                } finally {
-                    heartbeatJob.cancelAndJoin()
                 }
             }
-            if (store.unresolvedControlledActionKeys().any { store.actionJournal(it)?.taskId == task.taskId }) {
-                showReconciling(task.taskId)
-            } else {
-                store.finish(task.taskId, true)
+            if (start is FreshClaimStart.Blocked) {
+                android.util.Log.w("CompanionSync", "fresh claim start blocked task=${task.taskId}")
                 runtimeStatus.updateTask(
                     task.taskId,
-                    AuthorizedTaskState.Succeeded,
-                    "本地任务已完成",
-                    "TASK_SUCCEEDED",
+                    AuthorizedTaskState.WaitingConfirmation,
+                    "初始心跳未确认，本地保持阻断，等待服务端租约回收",
+                    "TASK_START_BLOCKED",
                 )
+                return true
             }
         } catch (paused: TaskPausedException) {
             persistPaused(task.taskId, pending, paused)
@@ -608,11 +641,7 @@ class CompanionSyncService : Service() {
             failTask(task.taskId, stall.first, stall.second, waitingUser = stall.first == "DEVICE_LOCKED")
             return
         }
-        val service = CloudCtlAccessibilityService.active
-        if (service == null) {
-            failTask(task.taskId, "ACCESSIBILITY_NOT_ENABLED", "无障碍服务未启用")
-            return
-        }
+        val service = awaitAccessibilityService(task.taskId) ?: return
         val commitGate = buildStepsPublishGate(service, task)
         val destructiveGate = buildMaintenanceDestructiveGate(service, task)
         val orderReporter = if (task.steps.any { it is AutomationStep.ReadOrders }) orderReporterFor(client) else null
@@ -752,17 +781,16 @@ class CompanionSyncService : Service() {
         pending: PendingTask,
         command: CommandV1,
         resume: ResumeCommand? = null,
+        freshService: CloudCtlAccessibilityService? = null,
     ): Boolean {
-        val stall = preflightStallReason()
+        // Fresh commands already hold a verified accessibility runtime from the
+        // caller; only resume paths re-check it here.
+        val stall = preflightStallReason(includeAccessibility = freshService == null)
         if (stall != null) {
             failTask(command.taskId, stall.first, stall.second, waitingUser = stall.first == "DEVICE_LOCKED")
             return true
         }
-        val service = CloudCtlAccessibilityService.active
-        if (service == null) {
-            failTask(command.taskId, "ACCESSIBILITY_NOT_ENABLED", "无障碍服务未启用")
-            return true
-        }
+        val service = freshService ?: awaitAccessibilityService(command.taskId) ?: return true
         val control = ExecutionControl()
         val checkpoint = store.latestCheckpoint(command.taskId)
         var recipeProgress: RecipeResumeProgress? = null
@@ -810,7 +838,27 @@ class CompanionSyncService : Service() {
                     resumeFromStateId,
                 )
             }
-            sendInitialHeartbeat(client, command.taskId, pending.leaseId, control)
+            if (resume == null) {
+                // Fresh claims share the strict heartbeat boundary: no recipe
+                // execution may start until the server confirms the lease.
+                try {
+                    sendFreshClaimInitialHeartbeat(client, command.taskId, pending.leaseId, control)
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (failure: Exception) {
+                    store.markStartBlocked(command.taskId, heartbeatBlockCode(failure))
+                    android.util.Log.w("CompanionSync", "fresh command start blocked task=${command.taskId}")
+                    runtimeStatus.updateTask(
+                        command.taskId,
+                        AuthorizedTaskState.WaitingConfirmation,
+                        "初始心跳未确认，本地保持阻断，等待服务端租约回收",
+                        "TASK_START_BLOCKED",
+                    )
+                    return true
+                }
+            } else {
+                sendInitialHeartbeat(client, command.taskId, pending.leaseId, control)
+            }
             throwIfControlRequested(control)
             coroutineScope {
                 val currentStep = AtomicInteger(
@@ -986,10 +1034,7 @@ class CompanionSyncService : Service() {
         task: AutomationTask,
     ): DestructiveClickGate? {
         if (task.targetPackage != TargetLocatorRegistry.XIANYU_PACKAGE) return null
-        val confirms = task.steps.any {
-            it is AutomationStep.TapLayout &&
-                it.layoutAction in XianyuMaintenanceLayout.GATED_DESTRUCTIVE_CONFIRM_ACTIONS
-        }
+        val confirms = hasMaintenanceDestructiveConfirm(task)
         if (!confirms) return null
         val connection = loadConnection()?.first ?: return null
         return XianyuMaintenanceCommitGate(
@@ -1119,8 +1164,122 @@ class CompanionSyncService : Service() {
         runtimeStatus.updateTask(taskId, AuthorizedTaskState.Running, "任务素材已校验", "MEDIA_DOWNLOAD_SUCCEEDED")
     }
 
-    private fun preflightStallReason(): Pair<String, String>? {
-        if (!accessibilityEnabled()) return "ACCESSIBILITY_NOT_ENABLED" to "无障碍服务未启用"
+    private fun accessibilityRuntimeReadiness() = AccessibilityRuntimeReadinessWaiter(
+        timeoutMillis = ACCESSIBILITY_RUNTIME_WAIT_MILLIS,
+        pollIntervalMillis = ACCESSIBILITY_RUNTIME_POLL_MILLIS,
+        isEnabled = ::accessibilityEnabled,
+        activeService = { CloudCtlAccessibilityService.active },
+        sleep = { delay(it) },
+    )
+
+    private suspend fun awaitAccessibilityService(taskId: String): CloudCtlAccessibilityService? {
+        val readiness = accessibilityRuntimeReadiness().await()
+        return when (readiness) {
+            is AccessibilityRuntimeReadiness.Ready -> readiness.service
+            AccessibilityRuntimeReadiness.NotEnabled -> {
+                failTask(taskId, "ACCESSIBILITY_NOT_ENABLED", "无障碍服务未启用")
+                null
+            }
+            AccessibilityRuntimeReadiness.NotActive -> {
+                failTask(taskId, "ACCESSIBILITY_NOT_ACTIVE", "无障碍服务已启用但尚未激活")
+                null
+            }
+        }
+    }
+
+    /**
+     * Frozen protocol (R20260916-P09-18): a fresh local claim that cannot reach
+     * a stable accessibility runtime must release the server task back to the
+     * queue BEFORE any heartbeat, media, or UI work. Only a successful server
+     * release settles the local copy; a failed release leaves the task
+     * conservatively blocked — never re-executed, never locally requeued, and
+     * never uploaded as /fail.
+     */
+    private suspend fun acquireFreshClaimAccessibility(
+        client: CloudTaskClient,
+        pending: PendingTask,
+    ): CloudCtlAccessibilityService? {
+        val coordinator = FreshClaimExecutionCoordinator(
+            awaitAccessibility = { accessibilityRuntimeReadiness().await() },
+            markReleaseBlocked = { reason -> store.markReleaseBlocked(pending.taskId, reason) },
+            release = { reason ->
+                withContext(Dispatchers.IO) { client.release(pending.taskId, pending.leaseId, reason) }
+            },
+            settleReleased = { reason -> store.settleReleased(pending.taskId, reason) },
+        )
+        return when (val outcome = coordinator.acquire()) {
+            is FreshClaimAccessibility.Ready -> outcome.service
+            is FreshClaimAccessibility.Released -> {
+                android.util.Log.i(
+                    "CompanionSync",
+                    "fresh claim released task=${pending.taskId} reason=${outcome.reason}",
+                )
+                runtimeStatus.updateTask(
+                    pending.taskId,
+                    AuthorizedTaskState.WaitingConfirmation,
+                    "无障碍不可用，任务已安全释放回云端队列",
+                    "TASK_RELEASED",
+                )
+                null
+            }
+            is FreshClaimAccessibility.ReleaseBlocked -> {
+                android.util.Log.e(
+                    "CompanionSync",
+                    "fresh claim release blocked task=${pending.taskId} reason=${outcome.reason}",
+                    outcome.error,
+                )
+                runtimeStatus.updateTask(
+                    pending.taskId,
+                    AuthorizedTaskState.WaitingConfirmation,
+                    "无障碍不可用且释放失败，本地阻断等待服务端租约回收",
+                    "TASK_RELEASE_BLOCKED",
+                )
+                null
+            }
+        }
+    }
+
+    /** Strict initial heartbeat for fresh claims: retry transient failures, then fail closed. */
+    private suspend fun sendFreshClaimInitialHeartbeat(
+        client: CloudTaskClient,
+        taskId: String,
+        leaseId: String,
+        control: ExecutionControl,
+    ) {
+        var lastError: Exception? = null
+        var backoffMs = HEARTBEAT_RETRY_INITIAL_MILLIS
+        repeat(FRESH_HEARTBEAT_ATTEMPTS) { attempt ->
+            try {
+                val heartbeat = withContext(Dispatchers.IO) { client.heartbeat(taskId, leaseId, null) }
+                applyHeartbeatControl(control, heartbeat)
+                return
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: CloudHttpException) {
+                if (error.status == 409) {
+                    throw ExecutorFailure("LEASE_FENCED", "stale lease or control epoch rejected")
+                }
+                if (!error.retryable) throw error
+                lastError = error
+            } catch (error: java.io.IOException) {
+                lastError = error
+            }
+            if (attempt < FRESH_HEARTBEAT_ATTEMPTS - 1) {
+                delay(backoffMs)
+                backoffMs = (backoffMs * 2).coerceAtMost(HEARTBEAT_RETRY_MAXIMUM_MILLIS)
+            }
+        }
+        throw ExecutorFailure(
+            "HEARTBEAT_UNCONFIRMED",
+            "initial task heartbeat could not be confirmed: ${lastError?.message ?: "unknown"}",
+        )
+    }
+
+    private fun heartbeatBlockCode(error: Exception): String =
+        (error as? ExecutorFailure)?.code ?: "HEARTBEAT_UNCONFIRMED"
+
+    private fun preflightStallReason(includeAccessibility: Boolean = true): Pair<String, String>? {
+        if (includeAccessibility && !accessibilityEnabled()) return "ACCESSIBILITY_NOT_ENABLED" to "无障碍服务未启用"
         val keyguard = getSystemService(KeyguardManager::class.java)
         if (keyguard?.isKeyguardLocked == true) return "DEVICE_LOCKED" to "设备已锁屏，等待人工解锁"
         val stat = runCatching { StatFs(filesDir.absolutePath) }.getOrNull()
@@ -1340,6 +1499,12 @@ class CompanionSyncService : Service() {
         const val HEARTBEAT_RETRY_MAXIMUM_MILLIS = 10_000L
         const val IDLE_POLL_INTERVAL_MILLIS = 2_000L
         const val OUTBOX_POLL_INTERVAL_MILLIS = 1_000L
+        const val ACCESSIBILITY_RUNTIME_WAIT_MILLIS = 3_000L
+        const val ACCESSIBILITY_RUNTIME_POLL_MILLIS = 100L
+        // Two attempts keep the worst-case window (2 x 45s transport timeout +
+        // 1s backoff) inside the 60s task lease; attempt 3 would already race
+        // lease expiry into LEASE_FENCED.
+        const val FRESH_HEARTBEAT_ATTEMPTS = 2
 
         /** IM body enrichment: at most 3 backward swipes, stop at the first readable inbound. */
         const val ENRICH_SWIPE_ATTEMPTS = 3

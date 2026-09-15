@@ -13,6 +13,22 @@ val configuredUpdatePublicKey = providers
     .orElse(providers.environmentVariable("CLOUDCTL_APP_UPDATE_PUBLIC_KEY"))
 val debugUpdatePublicKey =
     "MCowBQYDK2VwAyEA11qYAYKxCrfVS/7TyWQHOg7hcvPapiMlrwIaaPcHURo="
+val sourceRevision = providers.exec {
+    workingDir(rootDir.parentFile.parentFile)
+    commandLine(
+        "sh",
+        "-c",
+        "revision=\$(git describe --always 2>/dev/null) || revision=unknown; " +
+            "if [ \"\$revision\" != unknown ] && " +
+            "[ -n \"\$(git status --porcelain --untracked-files=normal -- . " +
+            "':(exclude)mobile/companion/.gradle' 2>/dev/null)\" ]; then " +
+            "printf '%s-dirty' \"\$revision\"; else printf '%s' \"\$revision\"; fi",
+    )
+}.standardOutput.asText.map { raw ->
+    raw.trim().ifEmpty { "unknown" }.replace(Regex("[^A-Za-z0-9._-]"), "_")
+}
+val sourceRevisionLiteral = sourceRevision.map { "\"$it\"" }
+
 android {
     namespace = "com.company.cloudctl.companion"
     compileSdk = 35
@@ -30,6 +46,7 @@ android {
         debug {
             // This public RFC 8032 vector is only for deterministic local unit tests.
             buildConfigField("String", "APP_UPDATE_PUBLIC_KEY", "\"$debugUpdatePublicKey\"")
+            buildConfigField("String", "SOURCE_REVISION", sourceRevisionLiteral.get())
             buildConfigField(
                 "String",
                 "RECIPE_SIGNING_PUBLIC_KEYS",
@@ -38,6 +55,7 @@ android {
         }
         release {
             isMinifyEnabled = true
+            buildConfigField("String", "SOURCE_REVISION", sourceRevisionLiteral.get())
             buildConfigField(
                 "String",
                 "APP_UPDATE_PUBLIC_KEY",

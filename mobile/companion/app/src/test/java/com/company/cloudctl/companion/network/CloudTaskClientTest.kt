@@ -3,6 +3,7 @@ package com.company.cloudctl.companion.network
 import org.json.JSONObject
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class CloudTaskClientTest {
@@ -105,5 +106,20 @@ class CloudTaskClientTest {
           "maxRunSeconds":90,
           "steps":[]
         }"""
+    }
+
+    @Test
+    fun buildsStrictTaskReleaseRequest() {
+        val release = buildTaskReleaseRequest("task-1", "lease-1", "ACCESSIBILITY_NOT_ACTIVE")
+        assertEquals("/companion/v2/tasks/task-1/release", release.path)
+        assertEquals("lease-1", release.body.getString("leaseId"))
+        assertEquals("ACCESSIBILITY_NOT_ACTIVE", release.body.getString("reason"))
+    }
+
+    @Test
+    fun rejectsBlankIdsAndUnsupportedReleaseReasons() {
+        assertFailsWith<IllegalArgumentException> { buildTaskReleaseRequest("", "lease-1", "ACCESSIBILITY_NOT_ACTIVE") }
+        assertFailsWith<IllegalArgumentException> { buildTaskReleaseRequest("task-1", " ", "ACCESSIBILITY_NOT_ACTIVE") }
+        assertFailsWith<IllegalArgumentException> { buildTaskReleaseRequest("task-1", "lease-1", "DEVICE_LOCKED") }
     }
 }

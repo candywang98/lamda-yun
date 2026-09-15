@@ -9,6 +9,7 @@ import pytest
 from cloudctl_api import create_app
 from cloudctl_api.settings import Settings
 from fastapi import FastAPI
+from sqlalchemy import select
 
 TENANT = "00000000-0000-7000-8000-000000000111"
 OPERATOR = "00000000-0000-7000-8000-000000000222"
@@ -875,6 +876,291 @@ async def _enroll(client: httpx.AsyncClient, device_id: str, instance: str) -> d
         },
     )
     return {"Authorization": f"Bearer {token_resp.json()['bindingToken']}"}
+
+
+async def _claim_platform_probe(
+    client: httpx.AsyncClient, suffix: str
+) -> tuple[str, str, dict[str, str], dict[str, Any]]:
+    device_id = await create_direct_device(client, f"phone-release-{suffix}")
+    account_id = await create_account(client, f"xy-release-{suffix}")
+    binding = await bind(client, account_id, device_id)
+    created = await client.post(
+        "/api/v1/platform-tasks",
+        headers={**identity(), "Idempotency-Key": f"release-{suffix}"},
+        json={
+            "deviceId": device_id,
+            "accountId": account_id,
+            "expectedBindingVersion": binding["bindingVersion"],
+            **PROBE,
+        },
+    )
+    assert created.status_code == 201, created.text
+    task_id = created.json()["items"][0]["taskId"]
+    auth = await _enroll(client, device_id, f"instance-release-{suffix}")
+    claimed = await client.post(
+        "/companion/v2/tasks/claim", headers=auth, json={"leaseSeconds": 60}
+    )
+    assert claimed.status_code == 200, claimed.text
+    assert claimed.json()["taskId"] == task_id
+    return task_id, device_id, auth, claimed.json()
+
+
+@pytest.mark.asyncio
+async def test_companion_release_requeues_and_reclaim_mints_new_lease(
+    api: tuple[httpx.AsyncClient, FastAPI],
+) -> None:
+    from cloudctl_api.db import DeviceLeaseRow, MobileTaskEventRow, MobileTaskRow
+
+    client, app = api
+    task_id, device_id, auth, claimed = await _claim_platform_probe(client, "reclaim")
+    old_lease = claimed["leaseId"]
+    before = {
+        "attempt": claimed["attempt"],
+        "attemptId": claimed["attemptId"],
+        "deviceIdAtExecution": claimed["deviceIdAtExecution"],
+        "startedAt": claimed["startedAt"],
+    }
+    async with app.state.database.unit_of_work() as session:
+        task = await session.get(MobileTaskRow, task_id)
+        assert task is not None
+        session.add(
+            MobileTaskEventRow(
+                id=str(uuid.uuid4()),
+                tenant_id=task.tenant_id,
+                task_id=task.id,
+                sequence=1,
+                event_type="LOG",
+                step_index=None,
+                step_id=None,
+                attempt_id=task.attempt_id,
+                payload={"reason": "fixture-before-release"},
+                occurred_at=task.started_at,
+                received_at=task.started_at,
+            )
+        )
+        task.last_sequence = 1
+
+    released = await client.post(
+        f"/companion/v2/tasks/{task_id}/release",
+        headers=auth,
+        json={"leaseId": old_lease, "reason": "ACCESSIBILITY_NOT_ENABLED"},
+    )
+    assert released.status_code == 200, released.text
+    body = released.json()
+    assert body["status"] == "QUEUED"
+    assert body["businessState"] == "QUEUED"
+    assert body["leaseId"] is None
+    assert body["leaseExpiresAt"] is None
+    assert body["attempt"] == before["attempt"]
+    assert body["deviceIdAtExecution"] == before["deviceIdAtExecution"]
+    assert body["lastSequence"] == 1
+
+    async with app.state.database.unit_of_work() as session:
+        lease = await session.get(DeviceLeaseRow, device_id)
+        task = await session.get(MobileTaskRow, task_id)
+        events = list(
+            await session.scalars(
+                select(MobileTaskEventRow).where(MobileTaskEventRow.task_id == task_id)
+            )
+        )
+        assert lease is not None and lease.lease_id == old_lease
+        assert lease.canceled_at is not None
+        assert task is not None and task.attempt_id == before["attemptId"]
+        assert task.started_at is not None
+        assert task.started_at.isoformat() == before["startedAt"].removesuffix("Z")
+        assert len(events) == 1
+
+    reclaimed = await client.post(
+        "/companion/v2/tasks/claim", headers=auth, json={"leaseSeconds": 60}
+    )
+    assert reclaimed.status_code == 200, reclaimed.text
+    assert reclaimed.json()["taskId"] == task_id
+    assert reclaimed.json()["leaseId"] != old_lease
+    assert reclaimed.json()["attempt"] == before["attempt"] + 1
+    assert reclaimed.json()["attemptId"] == before["attemptId"]
+    assert reclaimed.json()["lastSequence"] == 1
+
+    stale = await client.post(
+        f"/companion/v2/tasks/{task_id}/release",
+        headers=auth,
+        json={"leaseId": old_lease, "reason": "ACCESSIBILITY_NOT_ACTIVE"},
+    )
+    assert stale.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_companion_release_rejects_wrong_lease_running_and_invalid_body(
+    api: tuple[httpx.AsyncClient, FastAPI],
+) -> None:
+    client, _ = api
+    task_id, _, auth, claimed = await _claim_platform_probe(client, "state")
+    lease_id = claimed["leaseId"]
+
+    wrong = await client.post(
+        f"/companion/v2/tasks/{task_id}/release",
+        headers=auth,
+        json={"leaseId": str(uuid.uuid4()), "reason": "ACCESSIBILITY_NOT_ACTIVE"},
+    )
+    assert wrong.status_code == 409
+    invalid_reason = await client.post(
+        f"/companion/v2/tasks/{task_id}/release",
+        headers=auth,
+        json={"leaseId": lease_id, "reason": "OTHER"},
+    )
+    assert invalid_reason.status_code == 422
+    extra = await client.post(
+        f"/companion/v2/tasks/{task_id}/release",
+        headers=auth,
+        json={
+            "leaseId": lease_id,
+            "reason": "ACCESSIBILITY_NOT_ACTIVE",
+            "unexpected": True,
+        },
+    )
+    assert extra.status_code == 422
+
+    running = await client.post(
+        f"/companion/v2/tasks/{task_id}/heartbeat",
+        headers=auth,
+        json={"leaseId": lease_id, "currentStep": 0, "leaseSeconds": 60},
+    )
+    assert running.status_code == 200, running.text
+    denied = await client.post(
+        f"/companion/v2/tasks/{task_id}/release",
+        headers=auth,
+        json={"leaseId": lease_id, "reason": "ACCESSIBILITY_NOT_ACTIVE"},
+    )
+    assert denied.status_code == 409
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("action_status", ["INTENT", "APPLIED", "UNKNOWN", "NOT_SUBMITTED"])
+async def test_companion_release_rejects_any_action_commit_row(
+    api: tuple[httpx.AsyncClient, FastAPI], action_status: str
+) -> None:
+    from cloudctl_api.db import MobileActionCommitRow, MobileTaskRow
+
+    client, app = api
+    task_id, _, auth, claimed = await _claim_platform_probe(
+        client, f"action-{action_status.lower()}"
+    )
+    async with app.state.database.unit_of_work() as session:
+        task = await session.get(MobileTaskRow, task_id)
+        assert task is not None
+        session.add(
+            MobileActionCommitRow(
+                action_key=action_status.lower().ljust(64, "0"),
+                tenant_id=task.tenant_id,
+                task_id=task.id,
+                device_id=task.device_id,
+                account_id=task.account_id,
+                binding_version=task.binding_version,
+                recipe_version_id="fixture-recipe",
+                recipe_sha256="a" * 64,
+                snapshot_sha256="b" * 64,
+                action_id="fixture-action",
+                parameter_hash="c" * 64,
+                lease_id=claimed["leaseId"],
+                status=action_status,
+                before_evidence="fixture-before",
+                reported_evidence=None,
+                resolution_revision=0,
+                resolution_evidence=None,
+                resolved_at=None,
+                created_at=task.started_at,
+                updated_at=task.started_at,
+            )
+        )
+
+    denied = await client.post(
+        f"/companion/v2/tasks/{task_id}/release",
+        headers=auth,
+        json={"leaseId": claimed["leaseId"], "reason": "ACCESSIBILITY_NOT_ENABLED"},
+    )
+    assert denied.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_companion_release_rejects_legacy_intent_and_mismatched_device_lease(
+    api: tuple[httpx.AsyncClient, FastAPI],
+) -> None:
+    from cloudctl_api.db import DeviceLeaseRow, MobileTaskRow
+
+    client, app = api
+    task_id, device_id, auth, claimed = await _claim_platform_probe(client, "legacy")
+    async with app.state.database.unit_of_work() as session:
+        task = await session.get(MobileTaskRow, task_id)
+        assert task is not None
+        task.command_payload = {**task.command_payload, "commitIntent": False}
+    legacy = await client.post(
+        f"/companion/v2/tasks/{task_id}/release",
+        headers=auth,
+        json={"leaseId": claimed["leaseId"], "reason": "ACCESSIBILITY_NOT_ENABLED"},
+    )
+    assert legacy.status_code == 409
+
+    async with app.state.database.unit_of_work() as session:
+        task = await session.get(MobileTaskRow, task_id)
+        lease = await session.get(DeviceLeaseRow, device_id)
+        assert task is not None and lease is not None
+        task.command_payload = {
+            key: value for key, value in task.command_payload.items() if key != "commitIntent"
+        }
+        lease.owner_workflow_id = "auto/not-this-task"
+    mismatched = await client.post(
+        f"/companion/v2/tasks/{task_id}/release",
+        headers=auth,
+        json={"leaseId": claimed["leaseId"], "reason": "ACCESSIBILITY_NOT_ACTIVE"},
+    )
+    assert mismatched.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_companion_release_requires_unexpired_lease_and_active_binding(
+    api: tuple[httpx.AsyncClient, FastAPI],
+) -> None:
+    from datetime import UTC, datetime, timedelta
+
+    from cloudctl_api.db import DeviceLeaseRow, DeviceRow, MobileTaskRow
+
+    client, app = api
+    task_id, device_id, auth, claimed = await _claim_platform_probe(client, "expired")
+    async with app.state.database.unit_of_work() as session:
+        task = await session.get(MobileTaskRow, task_id)
+        assert task is not None
+        task.lease_expires_at = datetime.now(UTC) - timedelta(seconds=1)
+    expired = await client.post(
+        f"/companion/v2/tasks/{task_id}/release",
+        headers=auth,
+        json={"leaseId": claimed["leaseId"], "reason": "ACCESSIBILITY_NOT_ACTIVE"},
+    )
+    assert expired.status_code == 409
+
+    async with app.state.database.unit_of_work() as session:
+        task = await session.get(MobileTaskRow, task_id)
+        lease = await session.get(DeviceLeaseRow, device_id)
+        assert task is not None and lease is not None
+        task.lease_expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        lease.canceled_at = datetime.now(UTC)
+    canceled = await client.post(
+        f"/companion/v2/tasks/{task_id}/release",
+        headers=auth,
+        json={"leaseId": claimed["leaseId"], "reason": "ACCESSIBILITY_NOT_ACTIVE"},
+    )
+    assert canceled.status_code == 409
+
+    async with app.state.database.unit_of_work() as session:
+        device = await session.get(DeviceRow, device_id)
+        lease = await session.get(DeviceLeaseRow, device_id)
+        assert device is not None and lease is not None
+        lease.canceled_at = None
+        device.active_binding_id = str(uuid.uuid4())
+    inactive = await client.post(
+        f"/companion/v2/tasks/{task_id}/release",
+        headers=auth,
+        json={"leaseId": claimed["leaseId"], "reason": "ACCESSIBILITY_NOT_ACTIVE"},
+    )
+    assert inactive.status_code in {401, 403}
 
 
 @pytest.mark.asyncio

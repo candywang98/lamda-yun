@@ -100,6 +100,7 @@ interface LocalAutomationUi {
 }
 
 private val GATED_PUBLISH_LOCATORS = setOf("xianyu_publish_button", "xhs_publish_button", "dy_publish_button")
+private const val GATED_XIANYU_DELETE_CONFIRM = "xianyu_delete_confirm"
 
 /** Container-resolution poll interval while the Flutter order list renders. */
 private const val ORDER_ROW_POLL_MS = 700L
@@ -146,12 +147,12 @@ class LocalAutomationExecutor(
             ensureWithinTaskDeadline(task, runDeadline)
             throwIfControlRequested(control, lastCompleted, lastCompletedIndex)
             journal(step, "STARTED")
-            var stopAfterCommit = false
+            var stepControl = StepControl.CONTINUE
             try {
                 val remaining = (runDeadline - elapsedMs()).coerceAtLeast(1L)
                     withTimeout(minOf(step.timeoutMs, remaining)) {
                     ui.ensureReady(task.targetPackage)
-                    stopAfterCommit = executeStep(
+                    stepControl = executeStep(
                         task,
                         step,
                         minOf(runDeadline, elapsedMs() + step.timeoutMs),
@@ -172,6 +173,7 @@ class LocalAutomationExecutor(
                 ui.log(LogLevel.ERROR, "STEP_EXECUTION_FAILED")
                 throw ExecutorFailure("STEP_EXECUTION_FAILED", "Step ${step.stepId} failed safely", failure)
             }
+            if (stepControl == StepControl.STOP_RECONCILING) return
             journal(step, "SUCCEEDED")
             lastCompleted = step
             lastCompletedIndex = index
@@ -180,7 +182,7 @@ class LocalAutomationExecutor(
             // timeout, so upload latency can never surface as STEP_TIMEOUT.
             reportPendingOrders(task)
             throwIfControlRequested(control, lastCompleted, lastCompletedIndex)
-            if (stopAfterCommit) return
+            if (stepControl == StepControl.STOP_AFTER_SUCCESS) return
         }
     }
 
@@ -191,7 +193,7 @@ class LocalAutomationExecutor(
         control: ExecutionControl?,
         lastCompleted: AutomationStep? = null,
         lastCompletedIndex: Int = -1,
-    ): Boolean {
+    ): StepControl {
         when (step) {
             is AutomationStep.Find -> waitFor(
                 task, step.locatorRef, NodeCondition.EXISTS, step.pollInterval(), runDeadline, control,
@@ -216,7 +218,15 @@ class LocalAutomationExecutor(
                 if (step.locatorRef in GATED_PUBLISH_LOCATORS && commitGate != null) {
                     // Irreversible submit: durable intent, one tap, then stop the run.
                     commitGate.publishOnce(task, step.locatorRef)
-                    return true
+                    return StepControl.STOP_AFTER_SUCCESS
+                }
+                if (step.locatorRef == GATED_XIANYU_DELETE_CONFIRM) {
+                    val gate = destructiveGate
+                        ?: throw ExecutorFailure("G3_NOT_ACCEPTED", "Destructive confirm requires the controlled ledger")
+                    // The durable ledger owns the post-strike outcome. Stop here even
+                    // when that outcome is UNKNOWN so later steps cannot imply success.
+                    gate.confirmOnce(task, step.locatorRef)
+                    return StepControl.STOP_RECONCILING
                 }
                 ui.tap(task.targetPackage, step.locatorRef)
                 step.postconditionLocatorRef?.let {
@@ -261,7 +271,13 @@ class LocalAutomationExecutor(
                 task, step, runDeadline, control, lastCompleted, lastCompletedIndex,
             )
         }
-        return false
+        return StepControl.CONTINUE
+    }
+
+    private enum class StepControl {
+        CONTINUE,
+        STOP_AFTER_SUCCESS,
+        STOP_RECONCILING,
     }
 
     /**

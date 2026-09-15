@@ -238,12 +238,12 @@ XIANYU_MAINTENANCE_SHAPES: dict[str, dict[str, Any]] = {
 # changes versus v1: navigate to the published list, open the card by its
 # title text (no cardIndex→y formula — card heights are uneven), enter the
 # detail-page manage menu, tap the delist/delete menu anchor. The destructive
-# second strike reuses the EXACT v1 gated confirm layout tap
-# (confirm_delist/confirm_delete), so the ledger intent/actionId identity and
-# the one-authorization-one-click-no-retry semantics are unchanged. Badge
-# assertions are NOT part of v2: the confirm runs on the detail page where
-# the published tabs are not in the tree, so verification is the confirm
-# dialog dismissal + screenshots + operator resolution (like v1 delete).
+# second strike keeps the frozen actionId while using the verified confirm
+# target for each flow: delist retains its layout strike, while delete uses
+# the semantic xianyu_delete_confirm locator. Badge assertions are NOT part of
+# v2: the confirm runs on the detail page where the published tabs are not in
+# the tree, so verification is the confirm dialog dismissal + screenshots +
+# operator resolution (like v1 delete).
 XIANYU_MAINTENANCE_V2_SHAPES: dict[str, dict[str, Any]] = {
     "xianyu.delist.steps.v2": {
         "package": XIANYU_PACKAGE,
@@ -253,8 +253,11 @@ XIANYU_MAINTENANCE_V2_SHAPES: dict[str, dict[str, Any]] = {
         "navigation": ("xianyu_profile_tab", "xianyu_my_published"),
         "card_tab": "onsale",
         "manage_taps": ("xianyu_detail_manage", "xianyu_manage_delist"),
-        "gated_layout": "confirm_delist",
-        "gated_tab": "onsale",
+        "gated_step": {
+            "kind": "layout",
+            "layoutAction": "confirm_delist",
+            "tab": "onsale",
+        },
         "log_code": "XIANYU_DELIST_DONE",
     },
     "xianyu.delete_delisted.steps.v2": {
@@ -268,8 +271,11 @@ XIANYU_MAINTENANCE_V2_SHAPES: dict[str, dict[str, Any]] = {
         ),
         "card_tab": "delisted",
         "manage_taps": ("xianyu_detail_manage", "xianyu_manage_delete"),
-        "gated_layout": "confirm_delete",
-        "gated_tab": "delisted",
+        "gated_step": {
+            "kind": "tap",
+            "stepId": "confirm-delete",
+            "locatorRef": "xianyu_delete_confirm",
+        },
         "log_code": "XIANYU_DELETE_DELISTED_DONE",
     },
 }
@@ -430,11 +436,7 @@ def _maintenance_v2_shape_error(shape: dict[str, Any], steps: list[dict[str, Any
         {"kind": "screenshot"},
         tap(shape["manage_taps"][1]),
         {"kind": "screenshot"},
-        {
-            "kind": "layout",
-            "layoutAction": shape["gated_layout"],
-            "tab": shape["gated_tab"],
-        },
+        shape["gated_step"],
         {"kind": "screenshot"},
         {"kind": "log", "messageCode": shape["log_code"]},
     ]
@@ -442,13 +444,15 @@ def _maintenance_v2_shape_error(shape: dict[str, Any], steps: list[dict[str, Any
         return (
             f"{command}: steps must be exactly navigation taps -> one ui.tapCardByTitle -> "
             "ui.tap(detail manage) -> screenshot -> ui.tap(menu action) -> screenshot -> "
-            "the gated confirm tapLayout -> screenshot -> closing run.log"
+            "the gated confirm step -> screenshot -> closing run.log"
         )
     for position, (step, rule) in enumerate(zip(steps, expected, strict=True)):
         action = step.get("action")
         if rule["kind"] == "tap":
             if action != "ui.tap" or step.get("locatorRef") != rule["locatorRef"]:
                 return f"{command}: step {position} must be ui.tap on {rule['locatorRef']}"
+            if "stepId" in rule and step.get("stepId") != rule["stepId"]:
+                return f"{command}: gated tap must keep stepId {rule['stepId']}"
         elif rule["kind"] == "card":
             if action != "ui.tapCardByTitle":
                 return f"{command}: step {position} must be the ui.tapCardByTitle step"

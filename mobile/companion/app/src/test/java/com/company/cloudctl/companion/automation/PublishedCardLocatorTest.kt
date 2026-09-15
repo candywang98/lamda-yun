@@ -153,6 +153,66 @@ class PublishedCardLocatorTest {
     }
 
     @Test
+    fun titleLeafResolvesToItsCardRatherThanTheFullListWrapper() {
+        val title = node(
+            text = "《如果历史是一群喵4》个人闲置",
+            left = 80, top = 1650, right = 760, bottom = 1710,
+        )
+        val targetCard = node(
+            left = 0, top = 1434, right = 1080, bottom = 2022,
+            children = listOf(
+                title,
+                node(text = "¥18.88", left = 80, top = 1900, right = 300, bottom = 1960),
+            ),
+        )
+        val otherCard = node(left = 0, top = 885, right = 1080, bottom = 1434)
+        val wrapper = node(top = 885, bottom = 2400, children = listOf(otherCard, targetCard))
+        val scrollable = node(top = 885, bottom = 2400, children = listOf(wrapper))
+
+        val outcome = PublishedCardLocator.locate(listOf(scrollable), tabBottom, "如果历史是一群喵4")
+        val card = outcome as PublishedCardLocator.Outcome.Card
+        assertEquals(targetCard.bounds, card.bounds)
+    }
+
+    @Test
+    fun rejectsAFullListWrapperWhenNoCardRectangleCanBeProved() {
+        val title = node(
+            text = "《如果历史是一群喵4》个人闲置",
+            left = 80, top = 1650, right = 760, bottom = 1710,
+        )
+        val wrapper = node(top = 885, bottom = 2400, children = listOf(title))
+        val scrollable = node(top = 885, bottom = 2400, children = listOf(wrapper))
+
+        val outcome = PublishedCardLocator.locate(listOf(scrollable), tabBottom, "如果历史是一群喵4")
+        assertTrue(outcome is PublishedCardLocator.Outcome.UnverifiedBounds)
+    }
+
+    @Test
+    fun rejectsBelowTabsWrapperInsideScrollableThatStartsAboveTabs() {
+        val title = node(
+            text = "《如果历史是一群喵4》个人闲置",
+            left = 80, top = 1650, right = 760, bottom = 1710,
+        )
+        val wrapper = node(top = 909, bottom = 2400, children = listOf(title))
+        val scrollable = node(top = 225, bottom = 2400, children = listOf(wrapper))
+
+        val outcome = PublishedCardLocator.locate(listOf(scrollable), tabBottom, "如果历史是一群喵4")
+        assertTrue(outcome is PublishedCardLocator.Outcome.UnverifiedBounds)
+    }
+
+    @Test
+    fun rejectsDegenerateMatchingBounds() {
+        val collapsed = node(
+            desc = "《如果历史是一群喵4》个人闲置",
+            left = 0, top = 1434, right = 1080, bottom = 1434,
+        )
+        val scrollable = node(top = 885, bottom = 2400, children = listOf(collapsed))
+
+        val outcome = PublishedCardLocator.locate(listOf(scrollable), tabBottom, "如果历史是一群喵4")
+        assertTrue(outcome is PublishedCardLocator.Outcome.UnverifiedBounds)
+    }
+
+    @Test
     fun aggregatedParentAndBlobBothMatchingCollapseToTheCard() {
         // 包裹层若聚合了子卡文本（同时含关键词），与卡片自身命中同属一张卡。
         val blob = node(desc = "《黄同学漫画二战史2》个人闲置", top = 885, bottom = 1434)

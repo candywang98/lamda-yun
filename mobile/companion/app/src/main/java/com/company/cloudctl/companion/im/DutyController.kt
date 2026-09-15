@@ -42,7 +42,7 @@ object DutyController {
         val config = ImMonitor.config
         if (!config.enabled || !config.dutyActive()) return
         if (ImMonitorConfig.PLATFORM_XIANYU !in config.platforms) return
-        if (store.hasActiveTask()) return // single writer: running and blocked tasks win over duty
+        if (store.hasActiveTask()) return // single writer: running/paused/reconciling tasks own the device; release/start-blocked rows do not
         val service = CloudCtlAccessibilityService.active ?: return
         if (!busy.compareAndSet(false, true)) return
         scope.launch {

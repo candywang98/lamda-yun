@@ -132,6 +132,53 @@ class XianyuMaintenanceCommitGate(
         return baseline
     }
 
+    override suspend fun confirmOnce(task: AutomationTask, locatorRef: String): Int? {
+        if (task.targetPackage != TargetLocatorRegistry.XIANYU_PACKAGE ||
+            locatorRef != DELETE_CONFIRM_LOCATOR
+        ) {
+            throw ExecutorFailure("G3_NOT_ACCEPTED", "Semantic maintenance confirm is not approved")
+        }
+        val payload = JSONObject(
+            requireNotNull(executor.persistedPayload(task.taskId)) { "Missing persisted steps task" },
+        )
+        require(payload.optString("commandType") == "xianyu.delete_delisted.steps.v2") {
+            "Semantic delete confirm is restricted to delete-delisted v2"
+        }
+        val identity = ControlledActionIdentity.fromMaintenanceStepsPayload(payload, ACTION_CONFIRM_DELETE)
+        if (executor.hasRecordedAction(identity.actionKey)) {
+            executor.reconcile(identity.actionKey)
+            return null
+        }
+        currentCoroutineContext().ensureActive()
+        ui.ensureReady(task.targetPackage)
+        val confirm = ui.inspect(task.targetPackage, locatorRef)
+            ?: throw ExecutorFailure("LOCATOR_NOT_FOUND", "Guarded delete confirmation is not present")
+        if (!confirm.visible || !confirm.enabled) {
+            throw ExecutorFailure("NODE_NOT_CLICKABLE", "Guarded delete confirmation is not safely clickable")
+        }
+        val before = evidence(task.taskId, identity.actionKey, "before")
+        ui.log(LogLevel.INFO, "GATED_DESTRUCTIVE_INTENT")
+        executor.executeStepsCommit(
+            taskId = task.taskId,
+            beforeEvidence = before,
+            timeoutMs = 40_000,
+            identity = identity,
+            effect = {
+                currentCoroutineContext().ensureActive()
+                ui.ensureReady(task.targetPackage)
+                // One semantic dispatchGesture only; no fallback and no retry.
+                ui.tapOnce(task.targetPackage, locatorRef)
+            },
+            postconditionEvidence = {
+                // The detail dialog has no trustworthy badge. Preserve UNKNOWN
+                // until the operator reconciles against the delisted list.
+                evidence(task.taskId, identity.actionKey, "after")
+                null
+            },
+        )
+        return null
+    }
+
     private suspend fun evidence(taskId: String, actionKey: String, stage: String): String {
         val screenshot = ui.screenshot(taskId, "$actionKey-$stage")
         require(screenshot.size > 0 && screenshot.path.isNotBlank() &&
@@ -144,6 +191,7 @@ class XianyuMaintenanceCommitGate(
         const val BADGE_DELISTED = "xianyu_pub_tab_delisted"
         const val ACTION_CONFIRM_DELIST = "confirm-delist"
         const val ACTION_CONFIRM_DELETE = "confirm-delete"
+        const val DELETE_CONFIRM_LOCATOR = "xianyu_delete_confirm"
         private const val BADGE_POLL_ATTEMPTS = 24
         private const val BADGE_POLL_INTERVAL_MS = 250L
     }

@@ -42,6 +42,9 @@ object PublishedCardLocator {
 
         /** Several distinct cards matched the fragment; tapping would be a guess. */
         data class Ambiguous(val count: Int, val matchedLines: List<String>) : Outcome
+
+        /** Text matched, but no structurally safe card rectangle could be proved. */
+        data class UnverifiedBounds(val matchedLines: List<String>) : Outcome
     }
 
     /**
@@ -62,14 +65,23 @@ object PublishedCardLocator {
         // or below the tab strip — never the scrollable itself. Nested
         // parent/child matches for one card collapse into the smallest bounds.
         val matches = mutableListOf<Pair<Bounds, String>>()
+        val unverified = mutableListOf<String>()
         for (scrollable in scrollables) {
             for (child in scrollable.children) {
-                collectMatches(child, emptyList(), cardAreaTop, titleContains, matches)
+                collectMatches(
+                    node = child,
+                    ancestors = emptyList(),
+                    scrollBounds = scrollable.bounds,
+                    cardAreaTop = cardAreaTop,
+                    titleContains = titleContains,
+                    out = matches,
+                    unverified = unverified,
+                )
             }
         }
         val distinct = collapseNested(matches)
         return when (distinct.size) {
-            0 -> Outcome.NotFound
+            0 -> if (unverified.isEmpty()) Outcome.NotFound else Outcome.UnverifiedBounds(unverified.distinct())
             1 -> Outcome.Card(distinct.single().first, distinct.single().second)
             else -> Outcome.Ambiguous(distinct.size, distinct.map { it.second })
         }
@@ -83,21 +95,62 @@ object PublishedCardLocator {
     private fun collectMatches(
         node: UiNode,
         ancestors: List<UiNode>,
+        scrollBounds: Bounds,
         cardAreaTop: Int,
         titleContains: String,
         out: MutableList<Pair<Bounds, String>>,
+        unverified: MutableList<String>,
     ) {
+        if (!node.visible) return
         val line = node.text?.takeIf { it.contains(titleContains) }
             ?: node.description?.takeIf { it.contains(titleContains) }
         if (line != null) {
-            val rect = (listOf(node) + ancestors)
-                .firstOrNull { it.visible && it.bounds.top >= cardAreaTop }
+            val chain = listOf(node) + ancestors
+            val rect = chain
+                .firstOrNull { isCardBounds(it, scrollBounds, cardAreaTop) }
                 ?.bounds
-            if (rect != null) out += rect to line
+            if (rect != null) {
+                out += rect to line
+            } else if (chain.any { it.visible && it.bounds.bottom > cardAreaTop }) {
+                unverified += line
+            }
         }
         for (child in node.children) {
-            collectMatches(child, listOf(node) + ancestors, cardAreaTop, titleContains, out)
+            collectMatches(
+                child,
+                listOf(node) + ancestors,
+                scrollBounds,
+                cardAreaTop,
+                titleContains,
+                out,
+                unverified,
+            )
         }
+    }
+
+    /**
+     * The title is only an anchor. A tap rectangle must be a substantial region
+     * inside the live list; full-list wrappers and tiny text leaves fail closed.
+     */
+    private fun isCardBounds(node: UiNode, scroll: Bounds, cardAreaTop: Int): Boolean {
+        if (!node.visible) return false
+        val bounds = node.bounds
+        val scrollWidth = scroll.right - scroll.left
+        val scrollHeight = scroll.bottom - scroll.top
+        val width = bounds.right - bounds.left
+        val height = bounds.bottom - bounds.top
+        if (scrollWidth <= 0 || scrollHeight <= 0 || width <= 0 || height <= 0) return false
+        if (bounds.top < cardAreaTop || !contains(scroll, bounds) || bounds == scroll) return false
+        if (bounds.top <= cardAreaTop && bounds.bottom >= scroll.bottom) return false
+
+        // Published product cards are horizontal content blocks. A candidate
+        // taller than its own width is a remaining-list wrapper, not one card.
+        if (height > width) return false
+
+        // Ratios keep the guard independent of screen resolution.
+        if (width * 5 < scrollWidth * 3 || height * 12 < scrollHeight) return false
+        if (height * 4 > scrollHeight * 3) return false
+        return true
     }
 
     /** Drop matches whose bounds fully contain another match (aggregated parents). */

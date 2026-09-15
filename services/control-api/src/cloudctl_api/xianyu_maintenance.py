@@ -195,7 +195,7 @@ def build_delete_delisted_steps_v2(title_contains: str) -> list[dict[str, Any]]:
         _screenshot("xianyu_delete_menu_v2"),
         _tap("tap-delete-item", "xianyu_manage_delete"),
         _screenshot("xianyu_delete_confirm_v2"),
-        _tap_layout("confirm-delete", "confirm_delete", "delisted", 0),
+        _tap("confirm-delete", "xianyu_delete_confirm"),
         _screenshot("xianyu_delete_result_v2"),
         _log("XIANYU_DELETE_DELISTED_DONE"),
     ]

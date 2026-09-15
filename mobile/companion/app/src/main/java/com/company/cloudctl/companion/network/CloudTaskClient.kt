@@ -72,6 +72,11 @@ class CloudTaskClient(private val connection: CloudConnection) {
         return parseTaskHeartbeat(response)
     }
 
+    fun release(taskId: String, leaseId: String, reason: String) {
+        val release = buildTaskReleaseRequest(taskId, leaseId, reason)
+        request(release.path, release.body)
+    }
+
     fun deviceHeartbeat(payload: JSONObject): JSONObject {
         return request("/companion/v2/devices/heartbeat", payload) ?: JSONObject()
     }
@@ -201,6 +206,20 @@ class CloudTaskClient(private val connection: CloudConnection) {
         if (status !in 200..299) throw CloudHttpException(status, response)
         return if (response.isBlank()) JSONObject() else JSONObject(response)
     }
+}
+
+internal data class TaskReleaseRequest(val path: String, val body: JSONObject)
+
+internal fun buildTaskReleaseRequest(taskId: String, leaseId: String, reason: String): TaskReleaseRequest {
+    require(taskId.isNotBlank()) { "taskId must not be blank" }
+    require(leaseId.isNotBlank()) { "leaseId must not be blank" }
+    require(reason in setOf("ACCESSIBILITY_NOT_ENABLED", "ACCESSIBILITY_NOT_ACTIVE")) {
+        "Unsupported task release reason"
+    }
+    return TaskReleaseRequest(
+        path = "/companion/v2/tasks/$taskId/release",
+        body = JSONObject().put("leaseId", leaseId).put("reason", reason),
+    )
 }
 
 internal fun buildClaimedTaskPayload(response: JSONObject): JSONObject {

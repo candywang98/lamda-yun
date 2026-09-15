@@ -19,6 +19,10 @@ fun interface CommitGate {
  * `ui.assertBadge` step can assert the expected delta, or null when a prior
  * recorded intent only reconciled (no fresh strike, no valid baseline).
  */
-fun interface DestructiveClickGate {
+interface DestructiveClickGate {
     suspend fun confirmOnce(task: AutomationTask, step: AutomationStep.TapLayout): Int?
+
+    suspend fun confirmOnce(task: AutomationTask, locatorRef: String): Int? {
+        throw ExecutorFailure("G3_NOT_ACCEPTED", "Semantic destructive confirm is not supported")
+    }
 }
