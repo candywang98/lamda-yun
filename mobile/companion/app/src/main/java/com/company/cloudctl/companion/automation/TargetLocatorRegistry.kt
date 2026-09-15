@@ -91,7 +91,17 @@ internal object TargetLocatorRegistry {
         // the 我发布的 entry reads 「我发布的」; the published-goods tabs carry an
         // optional leading badge line (「1\n在卖」/「在卖」, 「N\n草稿」, 「N\n已下架」).
         // Full-match regexes keep the 「闲鱼，…」 home tab and unrelated nodes out.
-        "xianyu_profile_tab" to ApprovedLocator.ContentDescriptionPrefix("我的"),
+        "xianyu_profile_tab" to ApprovedLocator.AnyOf(
+            listOf(
+                // On the 我的 page the bare prefix ambiguously matched
+                // 我的收藏/我的关注/我的交易/我发布的/我的空间 (device-verified
+                // 2026-09-15: the stray match opened 收藏的宝贝 mid-task). Only
+                // the bottom-bar tab forms qualify.
+                ApprovedLocator.ContentDescriptionPrefix("我的，未读消息数"),
+                ApprovedLocator.ContentDescription("我的，未选中状态"),
+                ApprovedLocator.ContentDescription("我的，选中状态"),
+            ),
+        ),
         "xianyu_my_published" to ApprovedLocator.ContentDescription("我发布的"),
         "xianyu_pub_tab_onsale" to ApprovedLocator.DescRegex(Regex("^(\\d{1,4}\\n)?在卖$")),
         "xianyu_pub_tab_draft" to ApprovedLocator.DescRegex(Regex("^(\\d{1,4}\\n)?草稿$")),
