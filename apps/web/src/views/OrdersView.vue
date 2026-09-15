@@ -4,11 +4,13 @@ import { controlApiConfigured, createControlApiClient } from '@/api/control'
 import { mapControlDevice } from '@/api/devices'
 import {
   ORDER_DIRECTION_OPTIONS,
+  fetchOrder,
   formatOrderAmount,
   formatOrderTime,
   listOrders,
   orderDirectionLabel,
   OrdersApiError,
+  type OrderDetail,
   type OrderRow,
 } from '@/api/orders'
 
@@ -26,7 +28,6 @@ const orders = ref<OrderRow[]>([])
 const total = ref(0)
 const loading = ref(false)
 const loadError = ref('')
-const expandedId = ref<string | null>(null)
 
 /** 列表请求参数（设备/方向/状态过滤 + 翻页偏移）。 */
 function listQuery(offset: number) {
@@ -101,13 +102,37 @@ async function loadDeviceOptions() {
   }
 }
 
-/* ---------------- 详情展开 ---------------- */
+/* ---------------- 详情展开（raw 仅在详情端点返回，展开时按需拉取） ---------------- */
 
-function toggleExpanded(id: string) {
-  expandedId.value = expandedId.value === id ? null : id
+const expandedId = ref<string | null>(null)
+const detail = ref<OrderDetail | null>(null)
+const detailLoading = ref(false)
+const detailError = ref('')
+
+async function toggleExpanded(id: string) {
+  if (expandedId.value === id) {
+    expandedId.value = null
+    return
+  }
+  expandedId.value = id
+  detail.value = null
+  detailError.value = ''
+  detailLoading.value = true
+  try {
+    const fetched = await fetchOrder(id)
+    // 展开行已切换时丢弃过期响应
+    if (expandedId.value !== id) return
+    detail.value = fetched
+  } catch (error) {
+    if (expandedId.value !== id) return
+    // fail-closed：详情拉取失败如实展示，不渲染占位 raw
+    detailError.value = error instanceof OrdersApiError ? error.message : '订单详情加载失败'
+  } finally {
+    if (expandedId.value === id) detailLoading.value = false
+  }
 }
 
-function rawJson(row: OrderRow): string {
+function rawJson(row: OrderDetail): string {
   return JSON.stringify(row.raw ?? {}, null, 2)
 }
 
@@ -184,31 +209,35 @@ onMounted(() => {
             :class="{ expanded: expandedId === row.id }"
             @click="toggleExpanded(row.id)"
           >
-            <td class="orders-key">{{ row.order_key }}</td>
-            <td class="orders-title">{{ row.item_title ?? '—' }}</td>
-            <td>{{ row.buyer_name ?? '—' }}</td>
-            <td class="orders-amount">{{ formatOrderAmount(row.amount_cents) }}</td>
+            <td class="orders-key">{{ row.orderKey }}</td>
+            <td class="orders-title">{{ row.itemTitle ?? '—' }}</td>
+            <td>{{ row.buyerName ?? '—' }}</td>
+            <td class="orders-amount">{{ formatOrderAmount(row.amountCents) }}</td>
             <td>
-              <span class="orders-status">{{ row.status_text ?? '—' }}</span>
+              <span class="orders-status">{{ row.statusText ?? '—' }}</span>
               <span class="orders-direction" :data-direction="row.direction">{{ orderDirectionLabel(row.direction) }}</span>
             </td>
-            <td>{{ formatOrderTime(row.occurred_at) }}</td>
+            <td>{{ formatOrderTime(row.occurredAt) }}</td>
           </tr>
           <tr v-if="expandedId === row.id" class="orders-detail">
             <td colspan="6">
-              <dl class="orders-fields">
-                <div><dt>订单号</dt><dd>{{ row.order_key }}</dd></div>
-                <div><dt>平台 / 方向</dt><dd>{{ row.platform }} / {{ orderDirectionLabel(row.direction) }}</dd></div>
-                <div><dt>商品标题</dt><dd>{{ row.item_title ?? '—' }}</dd></div>
-                <div><dt>对方昵称</dt><dd>{{ row.buyer_name ?? '—' }}</dd></div>
-                <div><dt>金额（分）</dt><dd>{{ row.amount_cents ?? '—' }}（{{ formatOrderAmount(row.amount_cents) }}）</dd></div>
-                <div><dt>页面状态</dt><dd>{{ row.status_text ?? '—' }}</dd></div>
-                <div><dt>页面时间</dt><dd>{{ row.occurred_at ?? '—' }}</dd></div>
-                <div><dt>上报设备</dt><dd>{{ row.device_id }}</dd></div>
-                <div><dt>入库 / 更新</dt><dd>{{ row.created_at }} / {{ row.updated_at }}</dd></div>
-              </dl>
-              <p class="yy-sub orders-raw-label">行原文快照（raw，最小化保存）：</p>
-              <pre class="orders-raw">{{ rawJson(row) }}</pre>
+              <p v-if="detailLoading" class="yy-sub">详情加载中…</p>
+              <p v-else-if="detailError" class="yy-error">{{ detailError }}</p>
+              <template v-else-if="detail">
+                <dl class="orders-fields">
+                  <div><dt>订单号</dt><dd>{{ detail.orderKey }}</dd></div>
+                  <div><dt>平台 / 方向</dt><dd>{{ detail.platform }} / {{ orderDirectionLabel(detail.direction) }}</dd></div>
+                  <div><dt>商品标题</dt><dd>{{ detail.itemTitle ?? '—' }}</dd></div>
+                  <div><dt>对方昵称</dt><dd>{{ detail.buyerName ?? '—' }}</dd></div>
+                  <div><dt>金额（分）</dt><dd>{{ detail.amountCents ?? '—' }}（{{ formatOrderAmount(detail.amountCents) }}）</dd></div>
+                  <div><dt>页面状态</dt><dd>{{ detail.statusText ?? '—' }}</dd></div>
+                  <div><dt>页面时间</dt><dd>{{ detail.occurredAt ?? '—' }}</dd></div>
+                  <div><dt>上报设备</dt><dd>{{ detail.deviceId }}</dd></div>
+                  <div><dt>入库 / 更新</dt><dd>{{ detail.createdAt }} / {{ detail.updatedAt }}</dd></div>
+                </dl>
+                <p class="yy-sub orders-raw-label">行原文快照（raw，最小化保存）：</p>
+                <pre class="orders-raw">{{ rawJson(detail) }}</pre>
+              </template>
             </td>
           </tr>
         </template>

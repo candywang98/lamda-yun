@@ -9,6 +9,7 @@ import {
   orderDirectionLabel,
   OrdersApiError,
   startXianyuOrderCollect,
+  type OrderDetail,
   type OrderRow,
 } from '@/api/orders'
 
@@ -33,25 +34,33 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-const respond = (body: unknown, status = 200) =>
-  fetcher.mockResolvedValueOnce(new Response(JSON.stringify(body), { status }))
+const respond = (body: unknown, status = 200, headers: Record<string, string> = {}) =>
+  fetcher.mockResolvedValueOnce(new Response(JSON.stringify(body), { status, headers }))
 
+/** W1 实测列表行视图（camelCase，无 raw）。 */
 function orderFixture(overrides: Partial<OrderRow> = {}): OrderRow {
   return {
     id: '018f1a2b-0000-7000-8000-000000000001',
-    tenant_id: 'tenant-1',
-    device_id: 'dev-alpha-0001',
+    deviceId: 'dev-alpha-0001',
     platform: 'xianyu',
     direction: 'SOLD',
-    order_key: 'XY202609141234',
-    item_title: '闲置 Kindle Paperwhite',
-    buyer_name: '买家小王',
-    amount_cents: 12345,
-    status_text: '待发货',
-    occurred_at: '2026-09-14T10:00:00.000Z',
+    orderKey: 'XY202609141234',
+    itemTitle: '闲置 Kindle Paperwhite',
+    buyerName: '买家小王',
+    amountCents: 12345,
+    statusText: '待发货',
+    occurredAt: '2026-09-14T10:00:00.000Z',
+    createdAt: '2026-09-14T10:01:00.000Z',
+    updatedAt: '2026-09-14T10:01:00.000Z',
+    ...overrides,
+  }
+}
+
+/** W1 实测详情视图：列表行 + raw。 */
+function orderDetailFixture(overrides: Partial<OrderDetail> = {}): OrderDetail {
+  return {
+    ...orderFixture(),
     raw: { title: '闲置 Kindle Paperwhite ¥123.45', desc: '九成新' },
-    created_at: '2026-09-14T10:01:00.000Z',
-    updated_at: '2026-09-14T10:01:00.000Z',
     ...overrides,
   }
 }
@@ -116,7 +125,7 @@ describe('orders list api wiring', () => {
     respond({ items: [orderFixture()] })
     const result = await listOrders()
     expect(result.total).toBe(1)
-    expect(result.items[0]?.order_key).toBe('XY202609141234')
+    expect(result.items[0]?.orderKey).toBe('XY202609141234')
   })
 
   it('fails closed with the error message when the backend is unreachable or errors', async () => {
@@ -137,17 +146,18 @@ describe('orders list api wiring', () => {
 })
 
 describe('order detail api wiring', () => {
-  it('fetches a single order by id', async () => {
-    const order = orderFixture()
-    respond(order)
-    const result = await fetchOrder(order.id)
-    expect(result.order_key).toBe('XY202609141234')
-    expect(fetcher.mock.calls[0][0]).toBe(`http://control.test/api/v1/orders/${order.id}`)
+  it('fetches a single order by id with the raw snapshot', async () => {
+    const detail = orderDetailFixture()
+    respond(detail)
+    const result = await fetchOrder(detail.id)
+    expect(result.orderKey).toBe('XY202609141234')
+    expect(result.raw).toEqual({ title: '闲置 Kindle Paperwhite ¥123.45', desc: '九成新' })
+    expect(fetcher.mock.calls[0][0]).toBe(`http://control.test/api/v1/orders/${detail.id}`)
     expect((fetcher.mock.calls[0][1] as RequestInit).method).toBe('GET')
   })
 
   it('maps 404 to the not-found semantics', async () => {
-    respond({ detail: 'Not Found' }, 404)
+    respond({ detail: 'order was not found' }, 404)
     const error = await fetchOrder('018f1a2b-0000-7000-8000-00000000dead').catch((cause: unknown) => cause)
     expect(error).toBeInstanceOf(OrdersApiError)
     expect((error as OrdersApiError).status).toBe(404)
@@ -163,14 +173,30 @@ describe('order detail api wiring', () => {
   })
 })
 
-describe('xianyu order collect api wiring (contract §6)', () => {
+describe('xianyu order collect api wiring (contract §6, W1 afca8c2 wire format)', () => {
   it('posts the collect intent with an Idempotency-Key header and snake_case body', async () => {
-    respond({ run_id: 'run-0001' })
+    respond(
+      {
+        runId: '018f-run-0001',
+        deviceId: 'dev-alpha-0001',
+        direction: 'SOLD',
+        maxRows: 10,
+        commandType: 'xianyu.collect_orders.steps.v1',
+        targetCount: 1,
+        taskIds: ['task-0001'],
+        tasks: [{ taskId: 'task-0001', state: 'QUEUED', createdAt: '2026-09-15T10:00:00.000Z' }],
+      },
+      201,
+      { 'Idempotency-Replayed': 'false' },
+    )
     const result = await startXianyuOrderCollect(
       { deviceId: 'dev-alpha-0001', direction: 'SOLD', maxRows: 10 },
       'idem-key-1',
     )
-    expect(result.run_id).toBe('run-0001')
+    expect(result.runId).toBe('018f-run-0001')
+    expect(result.taskIds).toEqual(['task-0001'])
+    expect(result.tasks[0]?.state).toBe('QUEUED')
+    expect(result.idempotencyReplayed).toBe(false)
     const [url, init] = fetcher.mock.calls[0] as [string, RequestInit]
     expect(url).toBe('http://control.test/api/v1/xianyu/orders:collect')
     expect(init.method).toBe('POST')
@@ -178,12 +204,56 @@ describe('xianyu order collect api wiring (contract §6)', () => {
     expect(JSON.parse(String(init.body))).toEqual({ device_id: 'dev-alpha-0001', direction: 'SOLD', max_rows: 10 })
   })
 
-  it('reads the aggregated run state by run_id', async () => {
-    respond({ run_id: 'run-0001', status: 'SUCCEEDED', steps: [] })
-    const run = await fetchXianyuOrderRun('run-0001')
-    expect(run.run_id).toBe('run-0001')
-    expect(run.status).toBe('SUCCEEDED')
-    expect(fetcher.mock.calls[0][0]).toBe('http://control.test/api/v1/xianyu/orders/runs/run-0001')
+  it('reports idempotent replays via the Idempotency-Replayed header', async () => {
+    respond(
+      {
+        runId: '018f-run-0001',
+        deviceId: 'dev-alpha-0001',
+        direction: 'SOLD',
+        maxRows: 10,
+        commandType: 'xianyu.collect_orders.steps.v1',
+        targetCount: 1,
+        taskIds: ['task-0001'],
+        tasks: [{ taskId: 'task-0001', state: 'RUNNING', createdAt: '2026-09-15T10:00:00.000Z' }],
+      },
+      200,
+      { 'Idempotency-Replayed': 'true' },
+    )
+    const result = await startXianyuOrderCollect(
+      { deviceId: 'dev-alpha-0001', direction: 'SOLD', maxRows: 10 },
+      'idem-key-1',
+    )
+    expect(result.idempotencyReplayed).toBe(true)
+    expect(result.runId).toBe('018f-run-0001')
+  })
+
+  it('reads the aggregated run state by run_id (camelCase view with tasks)', async () => {
+    respond({
+      runId: '018f-run-0001',
+      deviceId: 'dev-alpha-0001',
+      direction: 'SOLD',
+      maxRows: 10,
+      commandType: 'xianyu.collect_orders.steps.v1',
+      taskCount: 1,
+      summary: { SUCCEEDED: 1 },
+      allTerminal: true,
+      tasks: [{
+        taskId: 'task-0001',
+        state: 'SUCCEEDED',
+        runnerStatus: 'SUCCEEDED',
+        errorCode: null,
+        stallReason: null,
+        createdAt: '2026-09-15T10:00:00.000Z',
+        completedAt: '2026-09-15T10:02:00.000Z',
+      }],
+    })
+    const run = await fetchXianyuOrderRun('018f-run-0001')
+    expect(run.runId).toBe('018f-run-0001')
+    expect(run.taskCount).toBe(1)
+    expect(run.allTerminal).toBe(true)
+    expect(run.tasks[0]?.state).toBe('SUCCEEDED')
+    expect(run.tasks[0]?.runnerStatus).toBe('SUCCEEDED')
+    expect(fetcher.mock.calls[0][0]).toBe('http://control.test/api/v1/xianyu/orders/runs/018f-run-0001')
     expect((fetcher.mock.calls[0][1] as RequestInit).method).toBe('GET')
   })
 })
