@@ -53,15 +53,21 @@ object PublishedCardLocator {
      *   node's own text or content description inside a card.
      */
     fun locate(scrollables: List<UiNode>, cardAreaTop: Int, titleContains: String): Outcome {
+        // Device-verified 2026-09-16 (incident: wrong-card delist): the live tree
+        // nests ALL cards under ONE full-list wrapper child of the scrollable
+        // (uiautomator flattens them into siblings, the accessibility tree does
+        // not), and the card text blob itself carries the card rectangle. Match
+        // every own-text node subtree-wide, then resolve the tap rectangle as
+        // the matched node's own bounds or its nearest ancestor that starts at
+        // or below the tab strip — never the scrollable itself. Nested
+        // parent/child matches for one card collapse into the smallest bounds.
         val matches = mutableListOf<Pair<Bounds, String>>()
         for (scrollable in scrollables) {
             for (child in scrollable.children) {
-                val line = firstMatchingLine(child, titleContains) ?: continue
-                if (!child.visible || child.bounds.top < cardAreaTop) continue
-                matches += child.bounds to line
+                collectMatches(child, emptyList(), cardAreaTop, titleContains, matches)
             }
         }
-        val distinct = matches.distinctBy { (bounds, _) -> bounds }
+        val distinct = collapseNested(matches)
         return when (distinct.size) {
             0 -> Outcome.NotFound
             1 -> Outcome.Card(distinct.single().first, distinct.single().second)
@@ -69,13 +75,40 @@ object PublishedCardLocator {
         }
     }
 
-    /** First own text/desc line in the subtree that contains the fragment, or null. */
-    private fun firstMatchingLine(node: UiNode, titleContains: String): String? {
-        node.text?.let { if (it.contains(titleContains)) return it }
-        node.description?.let { if (it.contains(titleContains)) return it }
-        for (child in node.children) {
-            firstMatchingLine(child, titleContains)?.let { return it }
+    /**
+     * Record one match per own-text/desc hit. [ancestors] excludes the
+     * scrollable root, so a match whose whole chain sits above the tab strip
+     * (promo block) is rejected instead of climbing onto the container.
+     */
+    private fun collectMatches(
+        node: UiNode,
+        ancestors: List<UiNode>,
+        cardAreaTop: Int,
+        titleContains: String,
+        out: MutableList<Pair<Bounds, String>>,
+    ) {
+        val line = node.text?.takeIf { it.contains(titleContains) }
+            ?: node.description?.takeIf { it.contains(titleContains) }
+        if (line != null) {
+            val rect = (listOf(node) + ancestors)
+                .firstOrNull { it.visible && it.bounds.top >= cardAreaTop }
+                ?.bounds
+            if (rect != null) out += rect to line
         }
-        return null
+        for (child in node.children) {
+            collectMatches(child, listOf(node) + ancestors, cardAreaTop, titleContains, out)
+        }
     }
+
+    /** Drop matches whose bounds fully contain another match (aggregated parents). */
+    private fun collapseNested(matches: List<Pair<Bounds, String>>): List<Pair<Bounds, String>> {
+        val distinct = matches.distinctBy { (bounds, _) -> bounds }
+        return distinct.filterNot { (outer, _) ->
+            distinct.any { (inner, _) -> inner !== outer && contains(outer, inner) }
+        }
+    }
+
+    private fun contains(outer: Bounds, inner: Bounds): Boolean =
+        outer.left <= inner.left && outer.top <= inner.top &&
+            outer.right >= inner.right && outer.bottom >= inner.bottom
 }

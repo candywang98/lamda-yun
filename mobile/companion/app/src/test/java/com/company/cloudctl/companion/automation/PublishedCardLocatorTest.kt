@@ -132,6 +132,36 @@ class PublishedCardLocatorTest {
         assertEquals(PublishedCardLocator.Outcome.NotFound, promoOnly)
     }
 
+    // 2026-09-16 事故回归（错删爆笑漫画成语）：真机活树把全部卡片嵌在滚动容器的
+    // 单个全列表包裹子节点下（uiautomator 展平为兄弟，活树不是），卡片文本节点
+    // 自带卡片矩形。旧实现返回包裹节点中心 (540,1642) 落在上一张卡上。
+    @Test
+    fun liveNestedWrapperLayoutTapsTheMatchedCardNotTheWrapperCenter() {
+        val blob1 = node(desc = "托管\n降价\n编辑\n诊断\n《小升初新思维作文》个人闲置\n¥18.88", top = 885, bottom = 1434)
+        val blob2 = node(desc = "托管\n降价\n编辑\n诊断\n《爆笑漫画成语》个人闲置\n¥18.88", top = 1434, bottom = 2022)
+        val blob3 = node(desc = "托管\n降价\n编辑\n诊断\n《海底两万里》个人闲置\n¥8.88", top = 2022, bottom = 2400)
+        val wrapper = node(top = 885, bottom = 2400, children = listOf(blob1, blob2, blob3))
+        val scrollable = node(top = 885, bottom = 2400, children = listOf(wrapper))
+
+        val outcome = PublishedCardLocator.locate(listOf(scrollable), tabBottom, "海底两万里")
+        val card = outcome as PublishedCardLocator.Outcome.Card
+
+        // 必须命中第三张卡自身的矩形，绝不是包裹节点中心。
+        assertEquals(2022, card.bounds.top)
+        assertEquals(2400, card.bounds.bottom)
+        assertEquals(2211f, card.bounds.centerY)
+    }
+
+    @Test
+    fun aggregatedParentAndBlobBothMatchingCollapseToTheCard() {
+        // 包裹层若聚合了子卡文本（同时含关键词），与卡片自身命中同属一张卡。
+        val blob = node(desc = "《黄同学漫画二战史2》个人闲置", top = 885, bottom = 1434)
+        val aggregate = node(desc = "黄同学漫画二战史2 推荐合集", top = 885, bottom = 1434, children = listOf(blob))
+        val scrollable = node(top = 885, bottom = 2400, children = listOf(aggregate))
+        val outcome = PublishedCardLocator.locate(listOf(scrollable), tabBottom, "黄同学漫画二战史")
+        assertTrue(outcome is PublishedCardLocator.Outcome.Card)
+    }
+
     @Test
     fun delistedCardsMatchThroughTheirOwnTextShape() {
         // 已下架卡片：下架原因 + 删除/重新上架 + 标题 + 浏览N + ¥价格。
