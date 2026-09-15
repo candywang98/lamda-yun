@@ -363,7 +363,11 @@ def validate_maintenance_steps(package: str, steps: list[dict[str, Any]]) -> str
 # ui.readOrders, capture screenshot evidence, close with run.log. Read-only:
 # no ledger-gated click, so the shape itself is the whole gate.
 ORDERS_COMMAND_TYPE = "xianyu.collect_orders.steps.v1"
-ORDERS_STEP_ACTIONS = frozenset({"ui.readOrders"})
+# Multi-screen shape (order-sync-slice2/20260915.1 §1): the same navigation,
+# then per screen one ui.readOrders, each extra screen preceded by one
+# ui.swipeUp inside the list container, still closing with screenshot + log.
+ORDERS_COMMAND_TYPE_V2 = "xianyu.collect_orders.steps.v2"
+ORDERS_STEP_ACTIONS = frozenset({"ui.readOrders", "ui.swipeUp"})
 ORDERS_READ_LOCATOR = "xianyu_orders_container"
 ORDERS_ENTRY_LOCATORS = {
     "SOLD": "xianyu_order_list_sold",
@@ -371,9 +375,12 @@ ORDERS_ENTRY_LOCATORS = {
 }
 ORDERS_PROFILE_NAV = "xianyu_profile_tab"
 ORDERS_LOG_CODE = "XIANYU_COLLECT_ORDERS_DONE"
+ORDERS_MAX_SCREENS = 3
 # Steps tasks validated against a frozen step shape carry no recipe pin; the
 # claim path must not try to resolve a builtin recipe package for them.
-UNPINNED_STEPS_COMMANDS = MAINTENANCE_COMMAND_TYPES | frozenset({ORDERS_COMMAND_TYPE})
+UNPINNED_STEPS_COMMANDS = MAINTENANCE_COMMAND_TYPES | frozenset(
+    {ORDERS_COMMAND_TYPE, ORDERS_COMMAND_TYPE_V2}
+)
 
 
 def uses_orders_step_actions(steps: list[dict[str, Any]]) -> bool:
@@ -419,17 +426,80 @@ def _orders_shape_error(steps: list[dict[str, Any]]) -> str | None:
     return None
 
 
+def _orders_shape_error_v2(steps: list[dict[str, Any]]) -> str | None:
+    """Return the first multi-screen (v2) shape violation, or None on exact match."""
+
+    command = ORDERS_COMMAND_TYPE_V2
+    reads = [step for step in steps if step.get("action") == "ui.readOrders"]
+    swipes = [step for step in steps if step.get("action") == "ui.swipeUp"]
+    screens = len(reads)
+    if not 2 <= screens <= ORDERS_MAX_SCREENS:
+        return (
+            f"{command}: v2 requires 2..{ORDERS_MAX_SCREENS} ui.readOrders screens "
+            "(screens=1 must use the v1 shape)"
+        )
+    if len(swipes) != screens - 1:
+        return (
+            f"{command}: each extra screen needs exactly one ui.swipeUp "
+            "before its ui.readOrders"
+        )
+    direction = reads[0].get("direction")
+    if direction not in ORDERS_ENTRY_LOCATORS:
+        return f"{command}: ui.readOrders direction must be SOLD or BOUGHT"
+    max_rows = reads[0].get("maxRows")
+    if isinstance(max_rows, bool) or not isinstance(max_rows, int) or not 1 <= max_rows <= 10:
+        return f"{command}: ui.readOrders maxRows must be an integer in 1..10"
+    for read in reads[1:]:
+        if read.get("direction") != direction:
+            return f"{command}: every ui.readOrders step must read the same direction"
+        if read.get("maxRows") != max_rows:
+            return f"{command}: every ui.readOrders step must use the same maxRows"
+    expected = [
+        ("ui.tap", ORDERS_PROFILE_NAV),
+        ("ui.tap", ORDERS_ENTRY_LOCATORS[direction]),
+        ("ui.readOrders", ORDERS_READ_LOCATOR),
+    ]
+    for _screen in range(2, screens + 1):
+        expected.append(("ui.swipeUp", ORDERS_READ_LOCATOR))
+        expected.append(("ui.readOrders", ORDERS_READ_LOCATOR))
+    expected.append(("ui.screenshot", None))
+    expected.append(("run.log", None))
+    if len(steps) != len(expected):
+        return (
+            f"{command}: steps must be exactly navigation taps -> per-screen "
+            "ui.readOrders (extra screens preceded by one ui.swipeUp on the list "
+            "container) -> one ui.screenshot -> closing run.log"
+        )
+    for step, (action, locator) in zip(steps, expected, strict=True):
+        if step.get("action") != action:
+            return f"{command}: step {step.get('stepId')} must use action {action}"
+        if locator is not None and step.get("locatorRef") != locator:
+            return f"{command}: step {step.get('stepId')} must target {locator}"
+    log = steps[-1]
+    if log.get("messageCode") != ORDERS_LOG_CODE:
+        return f"{command}: closing run.log {ORDERS_LOG_CODE} is required"
+    return None
+
+
 def validate_orders_steps(package: str, steps: list[dict[str, Any]]) -> str:
-    """Creation gate: steps using ui.readOrders must match the frozen shape."""
+    """Creation gate: steps using ui.readOrders/ui.swipeUp must match a frozen shape."""
 
     if not uses_orders_step_actions(steps):
         raise ValidationError("order collection step actions are required for this validation")
     if package != XIANYU_PACKAGE:
         raise ValidationError("order collection is only defined for the xianyu package")
-    error = _orders_shape_error(steps)
-    if error is not None:
-        raise ValidationError(error)
-    return ORDERS_COMMAND_TYPE
+    for command, checker in (
+        (ORDERS_COMMAND_TYPE, _orders_shape_error),
+        (ORDERS_COMMAND_TYPE_V2, _orders_shape_error_v2),
+    ):
+        error = checker(steps)
+        if error is None:
+            return command
+    raise ValidationError(
+        "xianyu order steps must match exactly one frozen command shape: "
+        "v1 (screens=1, one ui.readOrders) or v2 (2..3 readOrders screens, "
+        "each extra screen preceded by one ui.swipeUp on the list container)"
+    )
 
 def action_view(row: MobileActionCommitRow) -> dict[str, Any]:
     names = (

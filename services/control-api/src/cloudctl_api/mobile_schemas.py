@@ -197,6 +197,21 @@ class ReadOrdersStep(LocatorStep):
     max_rows: int = Field(alias="maxRows", ge=1, le=10)
 
 
+class SwipeUpStep(LocatorStep):
+    """Scroll the orders list container up by one screen (order-sync-slice2 §1).
+
+    Named after the executor's internal swipeUp primitive (the waitFor price
+    polling already scrolls that way). The task-level action itself is new in
+    slice 2: the current Companion APK safely rejects it as an unknown action
+    until the W4-side v2 executor lands, and the backend accepts it only
+    inside the frozen xianyu.collect_orders.steps.v2 shape. locatorRef points
+    at the list container so the swipe stays inside its bounds (never a
+    full-screen swipe).
+    """
+
+    action: Literal["ui.swipeUp"]
+
+
 class AssertStep(LocatorStep):
     action: Literal["ui.assert"]
     predicate: Literal["EXISTS", "NOT_EXISTS", "ENABLED"]
@@ -227,6 +242,7 @@ MobileStep = Annotated[
     | TapLayoutStep
     | AssertBadgeStep
     | ReadOrdersStep
+    | SwipeUpStep
     | AssertStep
     | LogStep,
     Field(discriminator="action"),

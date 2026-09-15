@@ -2750,6 +2750,7 @@
                   "ui.input": "#/components/schemas/InputStep",
                   "ui.readOrders": "#/components/schemas/ReadOrdersStep",
                   "ui.screenshot": "#/components/schemas/ScreenshotStep",
+                  "ui.swipeUp": "#/components/schemas/SwipeUpStep",
                   "ui.tap": "#/components/schemas/TapStep",
                   "ui.tapLayout": "#/components/schemas/TapLayoutStep",
                   "ui.tapText": "#/components/schemas/TapTextStep",
@@ -2784,6 +2785,9 @@
                 },
                 {
                   "$ref": "#/components/schemas/ReadOrdersStep"
+                },
+                {
+                  "$ref": "#/components/schemas/SwipeUpStep"
                 },
                 {
                   "$ref": "#/components/schemas/AssertStep"
@@ -5498,6 +5502,43 @@
         "title": "SourceRecordPreview",
         "type": "object"
       },
+      "SwipeUpStep": {
+        "additionalProperties": false,
+        "description": "Scroll the orders list container up by one screen (order-sync-slice2 §1).\n\nNamed after the executor's internal swipeUp primitive (the waitFor price\npolling already scrolls that way). The task-level action itself is new in\nslice 2: the current Companion APK safely rejects it as an unknown action\nuntil the W4-side v2 executor lands, and the backend accepts it only\ninside the frozen xianyu.collect_orders.steps.v2 shape. locatorRef points\nat the list container so the swipe stays inside its bounds (never a\nfull-screen swipe).",
+        "properties": {
+          "action": {
+            "const": "ui.swipeUp",
+            "title": "Action",
+            "type": "string"
+          },
+          "locatorRef": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Locatorref",
+            "type": "string"
+          },
+          "stepId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Stepid",
+            "type": "string"
+          },
+          "timeoutMs": {
+            "default": 10000,
+            "maximum": 60000.0,
+            "minimum": 100.0,
+            "title": "Timeoutms",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "stepId",
+          "locatorRef",
+          "action"
+        ],
+        "title": "SwipeUpStep",
+        "type": "object"
+      },
       "SyncErrorResponse": {
         "description": "Row-level synchronization error.",
         "properties": {
@@ -6326,6 +6367,13 @@
             "maximum": 10.0,
             "minimum": 1.0,
             "title": "Maxrows",
+            "type": "integer"
+          },
+          "screens": {
+            "default": 1,
+            "maximum": 3.0,
+            "minimum": 1.0,
+            "title": "Screens",
             "type": "integer"
           }
         },
