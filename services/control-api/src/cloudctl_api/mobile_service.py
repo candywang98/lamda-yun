@@ -593,13 +593,20 @@ class MobileTaskService:
         document = body.model_dump(mode="json", by_alias=True, exclude_none=True)
         # Xianyu maintenance steps (ui.tapLayout/ui.assertBadge) are accepted only
         # when they match exactly one frozen maintenance command shape.
-        from .mobile_actions import uses_maintenance_step_actions, validate_maintenance_steps
+        from .mobile_actions import (
+            uses_maintenance_step_actions,
+            uses_orders_step_actions,
+            validate_maintenance_steps,
+            validate_orders_steps,
+        )
 
-        maintenance_command = None
+        command_type: str | None = None
         if uses_maintenance_step_actions(document["steps"]):
-            maintenance_command = validate_maintenance_steps(
-                body.target_package, document["steps"]
-            )
+            command_type = validate_maintenance_steps(body.target_package, document["steps"])
+        elif uses_orders_step_actions(document["steps"]):
+            # Order collection steps (ui.readOrders) are accepted only in the
+            # frozen read-only collect shape (order-sync/20260915.1 §5).
+            command_type = validate_orders_steps(body.target_package, document["steps"])
         digest = hashlib.sha256(_canonical(document).encode()).hexdigest()
         now = _now()
         try:
@@ -665,7 +672,7 @@ class MobileTaskService:
                     account_id=frozen_account_id,
                     binding_version=frozen_binding_version,
                     device_id_at_execution=None,
-                    command_type=maintenance_command,
+                    command_type=command_type,
                     command_payload={},
                     business_state="QUEUED",
                     control_mode="AUTO",
@@ -858,11 +865,13 @@ class MobileTaskService:
             if row.recipe_pin is None and row.command_type:
                 from .builtin_recipes import builtin_recipe_ref
 
-                from .mobile_actions import MAINTENANCE_COMMAND_TYPES
+                from .mobile_actions import UNPINNED_STEPS_COMMANDS
 
-                if row.command_type in MAINTENANCE_COMMAND_TYPES:
-                    # Maintenance steps are gated by the controlled action ledger,
-                    # not by a recipe pin; claim must not resolve a builtin recipe.
+                if row.command_type in UNPINNED_STEPS_COMMANDS:
+                    # Frozen-shape steps tasks (maintenance, order collection) are
+                    # gated by their validated step shape / the controlled action
+                    # ledger, not by a recipe pin; claim must not resolve a
+                    # builtin recipe.
                     row.recipe_pin = None
                 else:
                     published = await self._published_recipe_ref(

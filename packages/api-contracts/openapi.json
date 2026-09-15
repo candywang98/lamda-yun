@@ -2748,6 +2748,7 @@
                   "ui.assertBadge": "#/components/schemas/AssertBadgeStep",
                   "ui.find": "#/components/schemas/FindStep",
                   "ui.input": "#/components/schemas/InputStep",
+                  "ui.readOrders": "#/components/schemas/ReadOrdersStep",
                   "ui.screenshot": "#/components/schemas/ScreenshotStep",
                   "ui.tap": "#/components/schemas/TapStep",
                   "ui.tapLayout": "#/components/schemas/TapLayoutStep",
@@ -2780,6 +2781,9 @@
                 },
                 {
                   "$ref": "#/components/schemas/AssertBadgeStep"
+                },
+                {
+                  "$ref": "#/components/schemas/ReadOrdersStep"
                 },
                 {
                   "$ref": "#/components/schemas/AssertStep"
@@ -4039,6 +4043,135 @@
         "title": "OperationTaskView",
         "type": "object"
       },
+      "OrderBatchIn": {
+        "additionalProperties": false,
+        "properties": {
+          "collected_at": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Collected At"
+          },
+          "orders": {
+            "items": {
+              "$ref": "#/components/schemas/OrderIn"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Orders",
+            "type": "array"
+          }
+        },
+        "required": [
+          "orders"
+        ],
+        "title": "OrderBatchIn",
+        "type": "object"
+      },
+      "OrderIn": {
+        "additionalProperties": false,
+        "description": "One collected order row; keys follow the frozen contract body (§3).",
+        "properties": {
+          "amount_cents": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount Cents"
+          },
+          "buyer_name": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Buyer Name"
+          },
+          "direction": {
+            "enum": [
+              "SOLD",
+              "BOUGHT"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "item_title": {
+            "anyOf": [
+              {
+                "maxLength": 1024,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Item Title"
+          },
+          "occurred_at": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Occurred At"
+          },
+          "order_key": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Order Key",
+            "type": "string"
+          },
+          "raw": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw"
+          },
+          "status_text": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status Text"
+          }
+        },
+        "required": [
+          "direction",
+          "order_key"
+        ],
+        "title": "OrderIn",
+        "type": "object"
+      },
       "OutcomeRequest": {
         "additionalProperties": false,
         "properties": {
@@ -4874,6 +5007,59 @@
           "automationPackageVersionId"
         ],
         "title": "PublishPlanCreate",
+        "type": "object"
+      },
+      "ReadOrdersStep": {
+        "additionalProperties": false,
+        "description": "Read order rows from the current xianyu order list screen.\n\nContract order-sync/20260915.1 §5: exactly one per task, direction SOLD or\nBOUGHT, maxRows 1..10, locatorRef points at the list container locator\n(xianyu_orders_container; the registry entry is unverified/fail-closed on\nthe device until the real-device survey flips it).",
+        "properties": {
+          "action": {
+            "const": "ui.readOrders",
+            "title": "Action",
+            "type": "string"
+          },
+          "direction": {
+            "enum": [
+              "SOLD",
+              "BOUGHT"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "locatorRef": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Locatorref",
+            "type": "string"
+          },
+          "maxRows": {
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Maxrows",
+            "type": "integer"
+          },
+          "stepId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Stepid",
+            "type": "string"
+          },
+          "timeoutMs": {
+            "default": 10000,
+            "maximum": 60000.0,
+            "minimum": 100.0,
+            "title": "Timeoutms",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "stepId",
+          "locatorRef",
+          "action",
+          "direction",
+          "maxRows"
+        ],
+        "title": "ReadOrdersStep",
         "type": "object"
       },
       "RecipePublishRequest": {
@@ -6117,6 +6303,38 @@
           "action"
         ],
         "title": "XianyuMaintenanceRunRequest",
+        "type": "object"
+      },
+      "XianyuOrdersCollectRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "deviceId": {
+            "maxLength": 36,
+            "minLength": 1,
+            "title": "Deviceid",
+            "type": "string"
+          },
+          "direction": {
+            "enum": [
+              "SOLD",
+              "BOUGHT"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "maxRows": {
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Maxrows",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "deviceId",
+          "direction",
+          "maxRows"
+        ],
+        "title": "XianyuOrdersCollectRequest",
         "type": "object"
       }
     }
@@ -9929,6 +10147,162 @@
         ]
       }
     },
+    "/api/v1/orders": {
+      "get": {
+        "operationId": "list_orders_api_v1_orders_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "device_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 36,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Device Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "direction",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "SOLD",
+                    "BOUGHT"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Direction"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status_text",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status Text"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Orders Api V1 Orders Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Orders",
+        "tags": [
+          "orders-operator"
+        ]
+      }
+    },
+    "/api/v1/orders/{order_id}": {
+      "get": {
+        "operationId": "get_order_api_v1_orders__order_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "title": "Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Order Api V1 Orders  Order Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Order",
+        "tags": [
+          "orders-operator"
+        ]
+      }
+    },
     "/api/v1/platform-tasks": {
       "get": {
         "operationId": "list_platform_tasks_api_v1_platform_tasks_get",
@@ -12805,6 +13179,111 @@
         ]
       }
     },
+    "/api/v1/xianyu/orders/runs/{run_id}": {
+      "get": {
+        "operationId": "get_collection_run_api_v1_xianyu_orders_runs__run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Collection Run Api V1 Xianyu Orders Runs  Run Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Collection Run",
+        "tags": [
+          "xianyu-orders"
+        ]
+      }
+    },
+    "/api/v1/xianyu/orders:collect": {
+      "post": {
+        "operationId": "collect_orders_api_v1_xianyu_orders_collect_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/XianyuOrdersCollectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Collect Orders Api V1 Xianyu Orders Collect Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Collect Orders",
+        "tags": [
+          "xianyu-orders"
+        ]
+      }
+    },
     "/companion/v2/accounts/status": {
       "get": {
         "operationId": "account_status_companion_v2_accounts_status_get",
@@ -13122,6 +13601,51 @@
         "summary": "Download Media",
         "tags": [
           "mobile-companion"
+        ]
+      }
+    },
+    "/companion/v2/orders/batch": {
+      "post": {
+        "operationId": "push_orders_companion_v2_orders_batch_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderBatchIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "integer"
+                  },
+                  "title": "Response Push Orders Companion V2 Orders Batch Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Push Orders",
+        "tags": [
+          "orders-companion"
         ]
       }
     },

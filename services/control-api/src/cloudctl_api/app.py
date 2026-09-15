@@ -30,6 +30,9 @@ from .mobile_routes import operator_router as mobile_operator_router
 from .mobile_service import MobileTaskService
 from .operation_routes import router as operation_router
 from .operation_service import OperationService
+from .orders_routes import companion_router as orders_companion_router
+from .orders_routes import operator_router as orders_operator_router
+from .orders_service import OrderService
 from .platform_task_routes import router as platform_task_router
 from .platform_tasks import PlatformTaskService
 from .routes import router
@@ -43,6 +46,8 @@ from .wechat_routes import router as wechat_router
 from .wechat_service import WeChatPublisherService
 from .xianyu_maintenance import XianyuMaintenanceService
 from .xianyu_maintenance_routes import router as xianyu_maintenance_router
+from .xianyu_orders import XianyuOrdersService
+from .xianyu_orders_routes import router as xianyu_orders_router
 
 
 def _problem(
@@ -113,6 +118,10 @@ def create_app(
     app.state.object_store = resolved_object_store
     app.state.mobile_task_service = MobileTaskService(database, resolved_object_store)
     app.state.xianyu_maintenance_service = XianyuMaintenanceService(
+        database, app.state.mobile_task_service
+    )
+    app.state.orders_service = OrderService(database)
+    app.state.xianyu_orders_service = XianyuOrdersService(
         database, app.state.mobile_task_service
     )
     app.state.platform_task_service = PlatformTaskService(database, app.state.mobile_task_service)
@@ -216,6 +225,9 @@ def create_app(
     app.include_router(source_router)
     app.include_router(wechat_router)
     app.include_router(xianyu_maintenance_router)
+    app.include_router(xianyu_orders_router)
+    app.include_router(orders_operator_router)
+    app.include_router(orders_companion_router)
     app.include_router(debug_router)
     app.include_router(mobile_operator_router)
     app.include_router(platform_task_router)
