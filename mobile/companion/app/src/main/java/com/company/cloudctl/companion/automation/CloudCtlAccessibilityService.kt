@@ -849,36 +849,29 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
                 val screenBottom = resources.displayMetrics.heightPixels
                 var card = outcome.bounds
                 var scrolls = 0
-                while (card.bottom > screenBottom && scrolls < CARD_SCROLL_ATTEMPTS) {
-                    // A modest single stroke (~700px): the full swipeUp() jumps
-                    // ~2800px and overshoots the card off the viewport top.
-                    dispatchStroke(540f, 1_800f, 540f, 1_100f, 400L)
-                    scrolls++
-                    delay(NAV_SETTLE_MS)
-                    // Node handles go stale across a scroll; re-harvest the tree.
+                suspend fun relocateCard(): PublishedCardLocator.Outcome {
                     scrollables.clear()
                     allRoots().filter { it.packageName?.toString() == targetPackage }.forEach(::harvest)
-                    if (scrollables.isEmpty()) break
-                    val relocated = PublishedCardLocator.locate(
+                    if (scrollables.isEmpty()) return PublishedCardLocator.Outcome.NotFound
+                    return PublishedCardLocator.locate(
                         scrollables.map { snapshotCardTree(it) }, tabBounds.bottom, titleContains,
                     )
-                    if (relocated !is PublishedCardLocator.Outcome.Card) {
-                        // Overscrolled past the card — one reverse stroke brings
-                        // it back from above the viewport.
-                        if (relocated is PublishedCardLocator.Outcome.NotFound) {
-                            dispatchStroke(540f, 1_100f, 540f, 1_800f, 400L)
-                            delay(NAV_SETTLE_MS)
-                            scrollables.clear()
-                            allRoots().filter { it.packageName?.toString() == targetPackage }.forEach(::harvest)
-                            val back = PublishedCardLocator.locate(
-                                scrollables.map { snapshotCardTree(it) }, tabBounds.bottom, titleContains,
-                            )
-                            if (back is PublishedCardLocator.Outcome.Card) card = back.bounds
-                        }
+                }
+                while (card.bottom > screenBottom && scrolls < CARD_SCROLL_ATTEMPTS) {
+                    // Gestural strokes are not reliably honoured by this Flutter
+                    // list; the semantic scroll action is. Overscroll returns
+                    // false and leaves the list at its edge.
+                    val scrolled = scrollables.firstOrNull()
+                        ?.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD) == true
+                    scrolls++
+                    delay(NAV_SETTLE_MS)
+                    val relocated = relocateCard()
+                    if (relocated is PublishedCardLocator.Outcome.Card) {
+                        card = relocated.bounds
+                        if (card.bottom <= screenBottom) break
+                    } else if (!scrolled) {
                         break
                     }
-                    card = relocated.bounds
-                    if (card.bottom <= screenBottom) break
                 }
                 if (card.bottom > screenBottom) {
                     throw ExecutorFailure(
