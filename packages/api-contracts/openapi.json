@@ -1899,18 +1899,13 @@
             ],
             "title": "Cardlimit"
           },
-          "titleContains": {
-            "anyOf": [
-              {
-                "maxLength": 128,
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Titlecontains"
+          "titles": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Titles",
+            "type": "array"
           }
         },
         "title": "MaintenanceTargets",
@@ -2752,6 +2747,7 @@
                   "ui.screenshot": "#/components/schemas/ScreenshotStep",
                   "ui.swipeUp": "#/components/schemas/SwipeUpStep",
                   "ui.tap": "#/components/schemas/TapStep",
+                  "ui.tapCardByTitle": "#/components/schemas/TapCardByTitleStep",
                   "ui.tapLayout": "#/components/schemas/TapLayoutStep",
                   "ui.tapText": "#/components/schemas/TapTextStep",
                   "ui.wait": "#/components/schemas/WaitStep"
@@ -2788,6 +2784,9 @@
                 },
                 {
                   "$ref": "#/components/schemas/SwipeUpStep"
+                },
+                {
+                  "$ref": "#/components/schemas/TapCardByTitleStep"
                 },
                 {
                   "$ref": "#/components/schemas/AssertStep"
@@ -5771,6 +5770,52 @@
         "title": "SyncRunResponse",
         "type": "object"
       },
+      "TapCardByTitleStep": {
+        "additionalProperties": false,
+        "description": "Open a published-list card by its title text (maintenance v2 title path).\n\nContract xianyu-anchors-20260915 §1/§2: the companion searches the visible\ncards below the live tab strip on the requested list, taps the unique\nmatching card's bounds center and enters the detail page. Zero or several\nmatches fail the step with zero side effects; the draft tab has no\nsurveyed cards, so only onsale/delisted are addressable.",
+        "properties": {
+          "action": {
+            "const": "ui.tapCardByTitle",
+            "title": "Action",
+            "type": "string"
+          },
+          "stepId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Stepid",
+            "type": "string"
+          },
+          "tab": {
+            "enum": [
+              "onsale",
+              "delisted"
+            ],
+            "title": "Tab",
+            "type": "string"
+          },
+          "timeoutMs": {
+            "default": 10000,
+            "maximum": 60000.0,
+            "minimum": 100.0,
+            "title": "Timeoutms",
+            "type": "integer"
+          },
+          "titleContains": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Titlecontains",
+            "type": "string"
+          }
+        },
+        "required": [
+          "stepId",
+          "action",
+          "titleContains",
+          "tab"
+        ],
+        "title": "TapCardByTitleStep",
+        "type": "object"
+      },
       "TapLayoutStep": {
         "additionalProperties": false,
         "description": "Coordinate-derived xianyu region tap guarded by the frozen 20260915 anchors.",
@@ -6333,6 +6378,15 @@
             "maxLength": 36,
             "minLength": 1,
             "title": "Deviceid",
+            "type": "string"
+          },
+          "path": {
+            "default": "v1",
+            "enum": [
+              "v1",
+              "v2"
+            ],
+            "title": "Path",
             "type": "string"
           },
           "targets": {

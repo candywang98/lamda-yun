@@ -797,6 +797,91 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         for (index in 0 until node.childCount) node.getChild(index)?.let { collectNodeLines(it, out) }
     }
 
+    /**
+     * W4 maintenance v2 (contract xianyu-anchors-20260915 §1/§2): open the
+     * published-list card whose text contains [titleContains] with one
+     * gesture on the card bounds center. The card area starts at the LIVE
+     * tab-strip bottom edge (contract §0: never a hardcoded y), so the
+     * today-data card and the promo slot above the tabs can never match; the
+     * cards are the direct children of the outermost scrollable list. Zero or
+     * several matches fail before any gesture (zero side effects).
+     */
+    override suspend fun tapCardByTitle(
+        targetPackage: String,
+        tab: XianyuMaintenanceLayout.Tab,
+        titleContains: String,
+    ) {
+        if (targetPackage != TargetLocatorRegistry.XIANYU_PACKAGE) {
+            throw ExecutorFailure("TARGET_PACKAGE_REJECTED", "Card title taps are approved for xianyu only")
+        }
+        ensureReady(targetPackage)
+        val tabRef = XianyuMaintenanceLayout.publishedTabLocator(tab)
+            ?: throw ExecutorFailure("LIST_TAB_NOT_SUPPORTED", "Card title search is not defined for tab $tab")
+        val tabNode = resolveUniqueNode(targetPackage, tabRef)
+        if (tabNode == null || !tabNode.isVisibleToUser) {
+            throw ExecutorFailure("LIST_TAB_NOT_FOUND", "Published tab '$tabRef' is not visible on this page")
+        }
+        val tabBounds = Rect()
+        tabNode.getBoundsInScreen(tabBounds)
+        val scrollables = mutableListOf<AccessibilityNodeInfo>()
+        fun harvest(root: AccessibilityNodeInfo) {
+            for (index in 0 until root.childCount) {
+                val child = root.getChild(index) ?: continue
+                if (child.isVisibleToUser && child.isScrollable) {
+                    scrollables += child
+                } else {
+                    harvest(child)
+                }
+            }
+        }
+        allRoots().filter { it.packageName?.toString() == targetPackage }.forEach(::harvest)
+        if (scrollables.isEmpty()) {
+            throw ExecutorFailure("SCROLL_CONTAINER_MISSING", "No visible scrollable list on this page")
+        }
+        val snapshots = scrollables.map { snapshotCardTree(it) }
+        when (val outcome = PublishedCardLocator.locate(snapshots, tabBounds.bottom, titleContains)) {
+            is PublishedCardLocator.Outcome.Card -> {
+                val card = outcome.bounds
+                Log.i(
+                    TAG,
+                    "CARD_TITLE_TAP title=$titleContains tab=$tab card=${card.left},${card.top},${card.right},${card.bottom}",
+                )
+                // One dispatchGesture only; a rejected/cancelled gesture is
+                // ambiguous and fails closed (no fallback click, no retry).
+                if (!tapScreen(card.centerX, card.centerY)) {
+                    throw ExecutorFailure("CLICK_UNCONFIRMED", "Card title gesture was not confirmed")
+                }
+            }
+            is PublishedCardLocator.Outcome.NotFound ->
+                throw ExecutorFailure(
+                    "CARD_TITLE_NOT_FOUND",
+                    "No visible card under the '$tabRef' strip contains '$titleContains'",
+                )
+            is PublishedCardLocator.Outcome.Ambiguous ->
+                throw ExecutorFailure(
+                    "CARD_TITLE_AMBIGUOUS",
+                    "'$titleContains' matched ${outcome.count} cards; refusing to guess",
+                )
+        }
+    }
+
+    /** Snapshots one accessibility subtree into the pure-JVM card-search model. */
+    private fun snapshotCardTree(node: AccessibilityNodeInfo): PublishedCardLocator.UiNode {
+        val bounds = Rect()
+        node.getBoundsInScreen(bounds)
+        val children = mutableListOf<PublishedCardLocator.UiNode>()
+        for (index in 0 until node.childCount) {
+            node.getChild(index)?.let { children += snapshotCardTree(it) }
+        }
+        return PublishedCardLocator.UiNode(
+            text = node.text?.toString(),
+            description = node.contentDescription?.toString(),
+            visible = node.isVisibleToUser,
+            bounds = PublishedCardLocator.Bounds(bounds.left, bounds.top, bounds.right, bounds.bottom),
+            children = children,
+        )
+    }
+
     private fun findLabelAnywhere(label: String): AccessibilityNodeInfo? {
         for (root in allRoots()) {
             val match = findContentDescription(root) { it == label }.firstOrNull { it.isVisibleToUser }

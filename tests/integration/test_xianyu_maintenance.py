@@ -587,3 +587,262 @@ async def test_run_requires_known_device_and_idempotency_key(api):
         json={"deviceId": device, "action": "polish", "targets": {}},
     )
     assert response.status_code == 422, response.text
+
+
+# --------------------------------------------------------------------------
+# W4 maintenance v2: title-located card -> detail page -> manage menu path
+# (contract xianyu-anchors-20260915 §1/§2; GATED confirm semantics unchanged)
+# --------------------------------------------------------------------------
+
+
+def _card(step_id: str, tab: str, title: str) -> dict[str, Any]:
+    return {
+        "stepId": step_id,
+        "action": "ui.tapCardByTitle",
+        "titleContains": title,
+        "tab": tab,
+        "timeoutMs": 10_000,
+    }
+
+
+def delist_v2_steps(title: str = "黄同学漫画二战史") -> list[dict[str, Any]]:
+    return [
+        _tap("open-profile", "xianyu_profile_tab"),
+        _tap("open-my-published", "xianyu_my_published"),
+        _card("open-card-by-title", "onsale", title),
+        _tap("open-manage-menu", "xianyu_detail_manage"),
+        _shot("xianyu_delist_menu_v2"),
+        _tap("tap-delist-item", "xianyu_manage_delist"),
+        _shot("xianyu_delist_confirm_v2"),
+        _layout("confirm-delist", "confirm_delist"),
+        _shot("xianyu_delist_result_v2"),
+        _log("XIANYU_DELIST_DONE"),
+    ]
+
+
+def delete_v2_steps(title: str = "黄同学漫画二战史") -> list[dict[str, Any]]:
+    return [
+        _tap("open-profile", "xianyu_profile_tab"),
+        _tap("open-my-published", "xianyu_my_published"),
+        _tap("open-delisted-tab", "xianyu_pub_tab_delisted"),
+        _card("open-card-by-title", "delisted", title),
+        _tap("open-manage-menu", "xianyu_detail_manage"),
+        _shot("xianyu_delete_menu_v2"),
+        _tap("tap-delete-item", "xianyu_manage_delete"),
+        _shot("xianyu_delete_confirm_v2"),
+        _layout("confirm-delete", "confirm_delete"),
+        _shot("xianyu_delete_result_v2"),
+        _log("XIANYU_DELETE_DELISTED_DONE"),
+    ]
+
+
+@pytest.mark.parametrize(
+    "build,command",
+    [
+        (delist_v2_steps, "xianyu.delist.steps.v2"),
+        (delete_v2_steps, "xianyu.delete_delisted.steps.v2"),
+    ],
+)
+async def test_valid_v2_shapes_are_accepted(api, build, command):
+    client, _ = api
+    device = await create_direct_device(client, f"v2-shape-{command.split('.')[1][:8]}")
+    steps = build()
+    response = await _create_steps_task(client, device, steps, f"v2-shape-{device[:12]}")
+    assert response.status_code == 201, response.text
+    assert validate_maintenance_steps(XIANYU, steps) == command
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "missing_gated_confirm",
+        "missing_manage_menu_tap",
+        "wrong_card_tab",
+        "two_card_steps",
+        "missing_evidence_screenshot",
+        "wrong_menu_action",
+        "missing_run_log",
+        "empty_title",
+    ],
+)
+async def test_v2_shape_violations_are_rejected(api, mutation):
+    client, _ = api
+    steps = delete_v2_steps() if mutation == "missing_gated_confirm" else delist_v2_steps()
+    if mutation == "missing_gated_confirm":
+        steps = _drop(steps, step_id="confirm-delete")
+    elif mutation == "missing_manage_menu_tap":
+        steps = _drop(steps, step_id="open-manage-menu")
+    elif mutation == "wrong_card_tab":
+        steps = [
+            dict(step, tab="delisted") if step["action"] == "ui.tapCardByTitle" else step
+            for step in steps
+        ]
+    elif mutation == "two_card_steps":
+        card = next(step for step in steps if step["action"] == "ui.tapCardByTitle")
+        steps = [dict(card, stepId="open-card-by-title-again"), *steps]
+    elif mutation == "missing_evidence_screenshot":
+        steps = _drop(steps, step_id="capture-xianyu_delist_confirm_v2")
+    elif mutation == "wrong_menu_action":
+        steps = [
+            dict(step, locatorRef="xianyu_manage_delete")
+            if step.get("locatorRef") == "xianyu_manage_delist"
+            else step
+            for step in steps
+        ]
+    elif mutation == "missing_run_log":
+        steps = _drop(steps, step_id="mark-done")
+    else:  # empty_title
+        steps = [
+            dict(step, titleContains="") if step["action"] == "ui.tapCardByTitle" else step
+            for step in steps
+        ]
+    device = await create_direct_device(client, f"v2-bad-{mutation}")
+    response = await _create_steps_task(client, device, steps, f"v2-bad-{mutation}-{device[:8]}")
+    assert response.status_code == 422, response.text
+
+
+async def test_v2_run_loops_two_titles_through_the_existing_batch_entry(api):
+    client, app = api
+    device = await create_direct_device(client, "v2-batch")
+    first = await client.post(
+        "/api/v1/xianyu/maintenance:run",
+        headers={**identity(), "Idempotency-Key": "v2-batch-key"},
+        json={
+            "deviceId": device,
+            "action": "delist",
+            "path": "v2",
+            "targets": {"titles": ["黄同学漫画二战史2", "二战史1"]},
+        },
+    )
+    assert first.status_code == 201, first.text
+    body = first.json()
+    assert body["commandType"] == "xianyu.delist.steps.v2"
+    assert body["targetCount"] == 2
+    assert [task["title"] for task in body["tasks"]] == ["黄同学漫画二战史2", "二战史1"]
+    assert all(task["cardIndex"] is None for task in body["tasks"])
+
+    run_id = body["runId"]
+    async with app.state.database.unit_of_work() as session:
+        rows = list(
+            await session.scalars(
+                select(MobileTaskRow).where(MobileTaskRow.batch_id == run_id)
+            )
+        )
+        assert len(rows) == 2
+        for row in rows:
+            header, *steps = row.steps
+            # 哈希不变量：steps[0] 头部不得含 action 键（账本身份只覆盖真实步骤）。
+            assert "action" not in header
+            assert header["maintenance"]["runId"] == run_id
+            assert header["maintenance"]["title"] in ("黄同学漫画二战史2", "二战史1")
+            cards = [step for step in steps if step.get("action") == "ui.tapCardByTitle"]
+            assert len(cards) == 1
+            assert cards[0]["tab"] == "onsale"
+            assert cards[0]["titleContains"] == header["maintenance"]["title"]
+            gated = [step for step in steps if step.get("layoutAction") == "confirm_delist"]
+            assert len(gated) == 1
+
+    replay = await client.post(
+        "/api/v1/xianyu/maintenance:run",
+        headers={**identity(), "Idempotency-Key": "v2-batch-key"},
+        json={
+            "deviceId": device,
+            "action": "delist",
+            "path": "v2",
+            "targets": {"titles": ["黄同学漫画二战史2", "二战史1"]},
+        },
+    )
+    assert replay.status_code == 200
+    assert replay.json()["taskIds"] == body["taskIds"]
+
+    summary = await client.get(
+        f"/api/v1/xianyu/maintenance/runs/{run_id}", headers=identity()
+    )
+    assert summary.status_code == 200, summary.text
+    payload = summary.json()
+    assert payload["taskCount"] == 2
+    assert {task["title"] for task in payload["tasks"]} == {"黄同学漫画二战史2", "二战史1"}
+
+    # 伴生端按标题逐件领取：claim 拿到第一个任务并看到 v2 commandType。
+    auth = await _enroll(client, device, "v2-batch-instance")
+    claimed = await client.post(
+        "/companion/v2/tasks/claim", headers=auth, json={"leaseSeconds": 60}
+    )
+    assert claimed.status_code == 200, claimed.text
+    assert claimed.json()["commandType"] == "xianyu.delist.steps.v2"
+    cards = [step for step in claimed.json()["steps"] if step.get("action") == "ui.tapCardByTitle"]
+    assert len(cards) == 1
+    gated = [step for step in claimed.json()["steps"] if step.get("layoutAction") == "confirm_delist"]
+    assert len(gated) == 1
+
+
+async def test_v2_gated_identity_aligns_with_v1_frozen_action_ids(api):
+    client, app = api
+    device = await create_direct_device(client, "v2-identity")
+    task_id, auth, body = await _start_task(
+        client, app, device, delist_v2_steps("二战史9"), "v2-identity-key", "v2-instance"
+    )
+    # 账本 actionId 与 v1 冻结值一致：受控确认身份不因换路径而漂移。
+    assert body["actionId"] == "confirm-delist"
+    intent = f"/companion/v2/tasks/{task_id}/actions/intent"
+    first = await client.post(intent, headers=auth, json=body)
+    assert first.status_code == 201, first.text
+    assert first.json()["decision"] == "AUTHORIZED"
+    replay = await client.post(intent, headers=auth, json=body)
+    assert replay.status_code == 200
+    assert replay.json()["decision"] == "RECONCILE_REQUIRED"
+    # 单设备单活跃 runner：结算首件后再启动第二件（与 v1 跨任务用例同构）。
+    outcome = dict(
+        leaseId=body["leaseId"],
+        parameterHash=body["parameterHash"],
+        status="APPLIED",
+        evidence="sha256:" + "d" * 64,
+    )
+    reported = await client.post(
+        f"/companion/v2/tasks/{task_id}/actions/{body['actionKey']}/outcome",
+        headers=auth,
+        json=outcome,
+    )
+    assert reported.status_code == 200, reported.text
+    resolved = await client.post(
+        f"/api/v1/platform-tasks/{task_id}:reconcile",
+        headers=identity(),
+        json={
+            "decision": "CONFIRMED_APPLIED",
+            "evidence": "operator verified the delist evidence",
+            "platformItemId": "xianyu-v2-delist-0",
+        },
+    )
+    assert resolved.status_code == 200, resolved.text
+
+    task2, auth2, body2 = await _start_task(
+        client, app, device, delete_v2_steps("二战史9"), "v2-identity-key-2", "v2-instance"
+    )
+    assert body2["actionId"] == "confirm-delete"
+    # 两件目标的受控身份互相独立（task 维度）。
+    assert body["actionKey"] != body2["actionKey"]
+
+
+V2_INVALID_PAYLOADS = [
+    {"action": "delist", "path": "v2", "targets": {}},
+    {"action": "delete", "path": "v2", "targets": {"titles": []}},
+    {"action": "delete", "path": "v2", "targets": {"titles": ["a"], "cardIndices": [0]}},
+    {"action": "delete", "path": "v2", "targets": {"titles": ["a"], "all": True, "cardLimit": 1}},
+    {"action": "polish", "path": "v2", "targets": {"titles": ["a"]}},
+    {"action": "delist", "targets": {"titles": ["a"]}},
+    {"action": "delist", "path": "v2", "targets": {"titles": ["a", "a"]}},
+    {"action": "delist", "path": "v2", "targets": {"titles": ["标" * 65]}},
+]
+
+
+@pytest.mark.parametrize("payload_index", range(len(V2_INVALID_PAYLOADS)))
+async def test_v2_target_rules_are_enforced(api, payload_index):
+    payload = V2_INVALID_PAYLOADS[payload_index]
+    client, _ = api
+    device = await create_direct_device(client, "v2-rules")
+    response = await client.post(
+        "/api/v1/xianyu/maintenance:run",
+        headers={**identity(), "Idempotency-Key": f"v2-rules-{payload_index}"},
+        json={"deviceId": device, **payload},
+    )
+    assert response.status_code == 422, response.text

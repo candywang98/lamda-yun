@@ -175,16 +175,75 @@ class TargetLocatorRegistryTest {
 
     @Test
     fun slice2OrderDetailLocatorStaysFailClosedUntilSurveyed() {
-        val refs = setOf("xianyu_order_detail_container")
-        assertEquals(refs, TargetLocatorRegistry.UNVERIFIED_XIANYU_LOCATOR_REFS)
+        val ref = "xianyu_order_detail_container"
+        assertTrue(TargetLocatorRegistry.isUnverifiedLocator(TargetLocatorRegistry.XIANYU_PACKAGE, ref))
+        assertEquals(null, TargetLocatorRegistry.resolveVerified(TargetLocatorRegistry.XIANYU_PACKAGE, ref), ref)
+        // 既未验证也绝不混入已验证注册表（resolve() 不认它）。
+        assertFailsWith<IllegalArgumentException> {
+            TargetLocatorRegistry.resolve(TargetLocatorRegistry.XIANYU_PACKAGE, ref)
+        }
+    }
+
+    // W4 维护动作 v2（契约 xianyu-anchors-20260915 §2）：详情页管理按钮 + 管理菜单
+    // 文本锚点。定义已预挂在 pending 表，真机验收（总控）前 §7 集合成员保持
+    // fail-closed：resolveVerified() 返回 null → ui.tap 以 LOCATOR_UNVERIFIED 安全
+    // 终止，零副作用；翻转 = 仅从集合移除 ref。
+    @Test
+    fun w4ManageLocatorsStayFailClosedUntilDeviceAcceptance() {
+        val refs = setOf(
+            "xianyu_detail_manage",
+            "xianyu_manage_delist",
+            "xianyu_manage_delete",
+            "xianyu_manage_cancel",
+        )
+        // slice-2 详情容器仍在集合里（预注册语义不变）。
+        assertEquals(
+            refs + "xianyu_order_detail_container",
+            TargetLocatorRegistry.UNVERIFIED_XIANYU_LOCATOR_REFS,
+        )
         refs.forEach { ref ->
             assertTrue(TargetLocatorRegistry.isUnverifiedLocator(TargetLocatorRegistry.XIANYU_PACKAGE, ref), ref)
+            // §7 gate：ui.tap / readOrders 等所有消费方拿到 null → LOCATOR_UNVERIFIED。
             assertEquals(null, TargetLocatorRegistry.resolveVerified(TargetLocatorRegistry.XIANYU_PACKAGE, ref), ref)
-            // 既未验证也绝不混入已验证注册表（resolve() 不认它）。
-            assertFailsWith<IllegalArgumentException> {
-                TargetLocatorRegistry.resolve(TargetLocatorRegistry.XIANYU_PACKAGE, ref)
+        }
+    }
+
+    @Test
+    fun w4ManageLocatorDefinitionsMatchTheFrozenAnchorContract() {
+        // 契约 §2 冻结定义：管理按钮 content-desc=='管理按钮'；菜单项全文本标签。
+        assertEquals(
+            ApprovedLocator.ContentDescription("管理按钮"),
+            TargetLocatorRegistry.resolve(TargetLocatorRegistry.XIANYU_PACKAGE, "xianyu_detail_manage"),
+        )
+        assertEquals(
+            ApprovedLocator.Text("下架"),
+            TargetLocatorRegistry.resolve(TargetLocatorRegistry.XIANYU_PACKAGE, "xianyu_manage_delist"),
+        )
+        assertEquals(
+            ApprovedLocator.Text("删除"),
+            TargetLocatorRegistry.resolve(TargetLocatorRegistry.XIANYU_PACKAGE, "xianyu_manage_delete"),
+        )
+        assertEquals(
+            ApprovedLocator.Text("取消"),
+            TargetLocatorRegistry.resolve(TargetLocatorRegistry.XIANYU_PACKAGE, "xianyu_manage_cancel"),
+        )
+        // 文本锚点是精确匹配：「一键擦亮」「推广宝贝」（G3 禁区）与带前缀的
+        // 「重新上架」都不得命中下架/删除/取消锚点。
+        val delist = TargetLocatorRegistry.resolve(TargetLocatorRegistry.XIANYU_PACKAGE, "xianyu_manage_delist")
+        val delete = TargetLocatorRegistry.resolve(TargetLocatorRegistry.XIANYU_PACKAGE, "xianyu_manage_delete")
+        val cancel = TargetLocatorRegistry.resolve(TargetLocatorRegistry.XIANYU_PACKAGE, "xianyu_manage_cancel")
+        mapOf(
+            delist to listOf("推广宝贝", "超级擦亮", "批量下架", "下架原因"),
+            delete to listOf("删除成功", "不保存"),
+            cancel to listOf("取消关注", "批量取消"),
+        ).forEach { (locator, nonMatches) ->
+            nonMatches.forEach { text ->
+                assertFalse(TargetLocatorRegistry.acceptsDescription(locator, text), text)
             }
         }
+        assertTrue(TargetLocatorRegistry.acceptsDescription(delist, "下架"))
+        assertTrue(TargetLocatorRegistry.acceptsDescription(delete, "删除"))
+        assertTrue(TargetLocatorRegistry.acceptsDescription(cancel, "取消"))
     }
 
     @Test

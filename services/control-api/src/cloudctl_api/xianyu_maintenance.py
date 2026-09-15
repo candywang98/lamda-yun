@@ -30,7 +30,7 @@ from cloudctl_domain import (
     ValidationError,
     require_permissions,
 )
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from sqlalchemy import select
 
 from .db import Database, DeviceRow, MobileTaskRow
@@ -48,11 +48,17 @@ MAX_RUN_TASKS = 50
 TERMINAL_BUSINESS = frozenset({"SUCCEEDED", "FAILED", "CANCELLED", "EXPIRED"})
 # Deterministic v5 namespace so a replayed run key resolves to the same run id.
 RUN_ID_NAMESPACE = uuid.UUID("8f1d0b6e-4c2a-5d97-b3f0-6a21c9d4e770")
-ACTION_COMMANDS: dict[str, str] = {
-    "polish": "xianyu.polish.steps.v1",
-    "delist": "xianyu.delist.steps.v1",
-    "delete": "xianyu.delete_delisted.steps.v1",
+ACTION_COMMANDS: dict[tuple[str, str], str] = {
+    ("polish", "v1"): "xianyu.polish.steps.v1",
+    ("delist", "v1"): "xianyu.delist.steps.v1",
+    ("delete", "v1"): "xianyu.delete_delisted.steps.v1",
+    # W4 title-located detail-page path (contract xianyu-anchors-20260915 §2).
+    ("delist", "v2"): "xianyu.delist.steps.v2",
+    ("delete", "v2"): "xianyu.delete_delisted.steps.v2",
 }
+# Longest title fragment the companion parser accepts (AutomationTask.kt
+# ui.tapCardByTitle) — the API layer mirrors the device bound.
+MAX_TITLE_CONTAINS = 64
 
 
 def _tap(step_id: str, locator_ref: str) -> dict[str, Any]:
@@ -74,6 +80,18 @@ def _tap_layout(step_id: str, layout_action: str, tab: str, card_index: int) -> 
         "layoutAction": layout_action,
         "tab": tab,
         "cardIndex": card_index,
+        "timeoutMs": LAYOUT_TAP_TIMEOUT_MS,
+    }
+
+def _tap_card_by_title(step_id: str, tab: str, title_contains: str) -> dict[str, Any]:
+    # W4 v2 title location (AutomationTask.kt ui.tapCardByTitle): the card is
+    # found on-device by its title text below the live tab strip; no
+    # cardIndex→y coordinate is ever carried in the payload.
+    return {
+        "stepId": step_id,
+        "action": "ui.tapCardByTitle",
+        "titleContains": title_contains,
+        "tab": tab,
         "timeoutMs": LAYOUT_TAP_TIMEOUT_MS,
     }
 
@@ -147,7 +165,57 @@ def build_delete_delisted_steps(card_index: int) -> list[dict[str, Any]]:
     ]
 
 
-def build_maintenance_steps(action: str, card_index: int | None) -> list[dict[str, Any]]:
+def build_delist_steps_v2(title_contains: str) -> list[dict[str, Any]]:
+    # W4 title-located path (contract xianyu-anchors-20260915 §2): list ->
+    # card by title -> detail manage menu -> 下架 anchor -> the SAME gated
+    # confirm_delist layout strike as v1 (ledger identity and exactly-once
+    # semantics unchanged). The gated stepId stays "confirm-delist" so the
+    # P09 actionId aligns with the v1 frozen value.
+    return [
+        _tap("open-profile", "xianyu_profile_tab"),
+        _tap("open-my-published", "xianyu_my_published"),
+        _tap_card_by_title("open-card-by-title", "onsale", title_contains),
+        _tap("open-manage-menu", "xianyu_detail_manage"),
+        _screenshot("xianyu_delist_menu_v2"),
+        _tap("tap-delist-item", "xianyu_manage_delist"),
+        _screenshot("xianyu_delist_confirm_v2"),
+        _tap_layout("confirm-delist", "confirm_delist", "onsale", 0),
+        _screenshot("xianyu_delist_result_v2"),
+        _log("XIANYU_DELIST_DONE"),
+    ]
+
+
+def build_delete_delisted_steps_v2(title_contains: str) -> list[dict[str, Any]]:
+    return [
+        _tap("open-profile", "xianyu_profile_tab"),
+        _tap("open-my-published", "xianyu_my_published"),
+        _tap("open-delisted-tab", "xianyu_pub_tab_delisted"),
+        _tap_card_by_title("open-card-by-title", "delisted", title_contains),
+        _tap("open-manage-menu", "xianyu_detail_manage"),
+        _screenshot("xianyu_delete_menu_v2"),
+        _tap("tap-delete-item", "xianyu_manage_delete"),
+        _screenshot("xianyu_delete_confirm_v2"),
+        _tap_layout("confirm-delete", "confirm_delete", "delisted", 0),
+        _screenshot("xianyu_delete_result_v2"),
+        _log("XIANYU_DELETE_DELISTED_DONE"),
+    ]
+
+
+def build_maintenance_steps(
+    action: str,
+    card_index: int | None,
+    *,
+    path: str = "v1",
+    title_contains: str | None = None,
+) -> list[dict[str, Any]]:
+    if path == "v2":
+        if title_contains is None:
+            raise ValidationError("the v2 title path requires titleContains")
+        if action == "delist":
+            return build_delist_steps_v2(title_contains)
+        if action == "delete":
+            return build_delete_delisted_steps_v2(title_contains)
+        raise ValidationError(f"unknown maintenance action for the v2 path: {action}")
     if action == "polish":
         return build_polish_steps()
     if action == "delist":
@@ -167,9 +235,25 @@ class MaintenanceTargets(BaseModel):
     card_limit: int | None = Field(
         default=None, alias="cardLimit", ge=1, le=MAX_RUN_TASKS
     )
-    title_contains: str | None = Field(
-        default=None, alias="titleContains", min_length=1, max_length=128
+    # v2 title-located path: one controlled task per title fragment, tapped
+    # on-device by matching the published card text (contract §1). The tab is
+    # derived from the action (delist -> onsale, delete -> delisted), never a
+    # free parameter.
+    titles: list[str] = Field(
+        default_factory=list,
+        max_length=MAX_RUN_TASKS,
     )
+
+    @field_validator("titles")
+    @classmethod
+    def bounded_titles(cls, value: list[str]) -> list[str]:
+        if any(not title or len(title) > MAX_TITLE_CONTAINS for title in value):
+            raise ValueError(
+                f"titles entries must contain 1 to {MAX_TITLE_CONTAINS} characters"
+            )
+        if len(set(value)) != len(value):
+            raise ValueError("titles must be unique")
+        return value
 
 
 class XianyuMaintenanceRunRequest(BaseModel):
@@ -177,16 +261,27 @@ class XianyuMaintenanceRunRequest(BaseModel):
 
     device_id: str = Field(alias="deviceId", min_length=1, max_length=36)
     action: Literal["polish", "delist", "delete"]
+    # v1 = frozen cardIndex coordinate path (device-accepted 2026-09-15);
+    # v2 = title-located detail-page path (pending device acceptance).
+    path: Literal["v1", "v2"] = Field(default="v1")
     account_id: str | None = Field(default=None, alias="accountId", min_length=1, max_length=36)
     targets: MaintenanceTargets = Field(default_factory=MaintenanceTargets)
 
     @model_validator(mode="after")
     def validate_targets(self) -> XianyuMaintenanceRunRequest:
         targets = self.targets
-        if targets.title_contains is not None:
-            raise ValueError(
-                "titleContains filtering is not implemented yet; enumerate cardIndices"
-            )
+        if self.path == "v2":
+            if self.action == "polish":
+                raise ValueError("polish takes no v2 path: it is a single one-tap task")
+            if targets.all or targets.card_indices or targets.card_limit is not None:
+                raise ValueError(
+                    "the v2 title path is targeted by titles only; card coordinates do not apply"
+                )
+            if not targets.titles:
+                raise ValueError("the v2 title path requires targets.titles")
+            return self
+        if targets.titles:
+            raise ValueError("targets.titles only apply to the v2 title path")
         if any(not 0 <= index <= MAX_CARD_INDEX for index in targets.card_indices):
             raise ValueError(f"cardIndices must be within 0..{MAX_CARD_INDEX}")
         if self.action == "delist":
@@ -241,8 +336,13 @@ class XianyuMaintenanceService:
         created_any = False
         tasks: list[dict[str, Any]] = []
         for sequence, target in enumerate(self._expand_targets(body), start=1):
-            label, card_index = target
-            steps = build_maintenance_steps(body.action, card_index)
+            label, card_index, title = target
+            steps = build_maintenance_steps(
+                body.action,
+                card_index,
+                path=body.path,
+                title_contains=title,
+            )
             command = validate_maintenance_steps(XIANYU_PACKAGE, steps)
             task_key = f"maintenance-{body.action}-{body.device_id}-{label}-{sequence}-{run_suffix}"
             payload: dict[str, Any] = {
@@ -268,6 +368,7 @@ class XianyuMaintenanceService:
                     action=body.action,
                     command_type=command,
                     card_index=card_index,
+                    title=title,
                     sequence=sequence,
                 )
             tasks.append(
@@ -277,6 +378,7 @@ class XianyuMaintenanceService:
                     "action": body.action,
                     "commandType": command,
                     "cardIndex": card_index,
+                    "title": title,
                     "sequence": sequence,
                     "state": view.get("businessState") or view.get("status"),
                     "createdAt": view.get("createdAt"),
@@ -287,7 +389,8 @@ class XianyuMaintenanceService:
                 "runId": run_id,
                 "deviceId": body.device_id,
                 "action": body.action,
-                "commandType": ACTION_COMMANDS[body.action],
+                "path": body.path,
+                "commandType": ACTION_COMMANDS[(body.action, body.path)],
                 "targetCount": len(tasks),
                 "taskIds": [task["taskId"] for task in tasks],
                 "tasks": tasks,
@@ -326,6 +429,7 @@ class XianyuMaintenanceService:
                     "action": meta.get("action"),
                     "commandType": meta.get("commandType"),
                     "cardIndex": meta.get("cardIndex"),
+                    "title": meta.get("title"),
                     "sequence": meta.get("sequence"),
                     "state": state,
                     "runnerStatus": row.status,
@@ -349,12 +453,23 @@ class XianyuMaintenanceService:
         }
 
     @staticmethod
-    def _expand_targets(body: XianyuMaintenanceRunRequest) -> list[tuple[str, int | None]]:
+    def _expand_targets(
+        body: XianyuMaintenanceRunRequest,
+    ) -> list[tuple[str, int | None, str | None]]:
+        if body.path == "v2":
+            # One controlled task per title fragment; the batch loop is the
+            # operator-visible sweep (契约 §2: 列表 → 详情 → 动作 → 下一项).
+            return [
+                (title.replace(" ", "-")[:40] or f"title-{index}", None, title)
+                for index, title in enumerate(body.targets.titles, start=1)
+            ]
         if body.action == "polish":
-            return [("all", None)]
+            return [("all", None, None)]
         if body.targets.all:
-            return [(str(index), index) for index in range(body.targets.card_limit or 0)]
-        return [(str(index), index) for index in sorted(set(body.targets.card_indices))]
+            return [(str(index), index, None) for index in range(body.targets.card_limit or 0)]
+        return [
+            (str(index), index, None) for index in sorted(set(body.targets.card_indices))
+        ]
 
     async def _stamp_run_fields(
         self,
@@ -364,6 +479,7 @@ class XianyuMaintenanceService:
         action: str,
         command_type: str,
         card_index: int | None,
+        title: str | None,
         sequence: int,
     ) -> None:
         """Group the task under its run without touching the hashed steps body.
@@ -381,11 +497,16 @@ class XianyuMaintenanceService:
                 raise ConflictError("task already belongs to another maintenance run")
             row.batch_id = run_id
             header = dict((row.steps or [{}])[0] or {})
-            header["maintenance"] = {
+            maintenance: dict[str, Any] = {
                 "runId": run_id,
                 "action": action,
                 "commandType": command_type,
                 "cardIndex": card_index,
                 "sequence": sequence,
             }
+            if title is not None:
+                # v2 identity of the target (the free title fragment), stored
+                # outside the hashed steps exactly like cardIndex.
+                maintenance["title"] = title
+            header["maintenance"] = maintenance
             row.steps = [header, *list(row.steps or [])[1:]]

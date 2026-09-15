@@ -99,6 +99,22 @@ sealed interface AutomationStep {
         val maxRows: Int,
         val locatorRef: String,
     ) : AutomationStep
+
+    /**
+     * W4 maintenance v2 (contract xianyu-anchors-20260915 §1/§2): locate the
+     * published-list card whose text contains [titleContains] on the [tab]
+     * list and tap its bounds center to enter the detail page. The card is
+     * the ancestor block holding the title text; zero or several matching
+     * cards fail the step with CARD_TITLE_NOT_FOUND / CARD_TITLE_AMBIGUOUS
+     * before any gesture (zero side effects). Card heights are uneven, so no
+     * cardIndex→y formula is ever used here.
+     */
+    data class TapCardByTitle(
+        override val stepId: String,
+        override val timeoutMs: Long,
+        val tab: XianyuMaintenanceLayout.Tab,
+        val titleContains: String,
+    ) : AutomationStep
 }
 
 enum class NodeCondition { EXISTS, NOT_EXISTS, ENABLED }
@@ -251,6 +267,17 @@ object AutomationTaskParser {
                     value.getInt("maxRows").also { require(it in 1..10) { "readOrders maxRows is invalid" } },
                     locator(value, keys),
                 )
+            }
+            "ui.tapCardByTitle" -> {
+                val keys = common + setOf("titleContains", "tab")
+                requireKeys(value, keys)
+                val title = value.getString("titleContains")
+                require(title.length in 1..64 && '\u0000' !in title) { "tapCardByTitle titleContains is invalid" }
+                val tab = tabOf(value.getString("tab"))
+                // 草稿 tab 无已标定卡片（契约 §1：本轮实测为空），标题定位不开放。
+                require(tab == XianyuMaintenanceLayout.Tab.ONSALE ||
+                    tab == XianyuMaintenanceLayout.Tab.DELISTED) { "tapCardByTitle tab must be onsale or delisted" }
+                AutomationStep.TapCardByTitle(stepId, timeout, tab, title)
             }
             "run.log" -> {
                 val keys = common + setOf("level", "messageCode")

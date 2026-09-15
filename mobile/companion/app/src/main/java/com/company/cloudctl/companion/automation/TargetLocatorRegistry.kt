@@ -158,6 +158,9 @@ internal object TargetLocatorRegistry {
         }
         locators[locatorRef]?.let { return it }
         if (targetPackage == XIANYU_PACKAGE) {
+            // W4 pre-registered definitions (see pendingXianyuLocators): resolvable
+            // so the acceptance flip only edits the unverified set, still gated.
+            pendingXianyuLocators[locatorRef]?.let { return it }
             val match = Regex("^xianyu_gallery_select_([0-9]|[1-4][0-9])$").matchEntire(locatorRef)
             if (match != null) return ApprovedLocator.IndexedContentDescription("选择", match.groupValues[1].toInt())
         }
@@ -179,15 +182,33 @@ internal object TargetLocatorRegistry {
         throw IllegalArgumentException("Unknown Companion locator")
     }
 
+    // W4 maintenance v2 (contract xianyu-anchors-20260915 §2): detail-page
+    // manage button + manage-menu text anchors, pre-registered pending the
+    // on-device acceptance sweep. Their definitions live in
+    // pendingXianyuLocators so the controller flip is a set edit only; until
+    // then resolveVerified() returns null and every ui.tap navigation onto
+    // them terminates with LOCATOR_UNVERIFIED, zero side effects.
+    private val pendingXianyuLocators = mapOf(
+        "xianyu_detail_manage" to ApprovedLocator.ContentDescription("管理按钮"),
+        "xianyu_manage_delist" to ApprovedLocator.Text("下架"),
+        "xianyu_manage_delete" to ApprovedLocator.Text("删除"),
+        "xianyu_manage_cancel" to ApprovedLocator.Text("取消"),
+    )
+
     // §7 fail-closed registry (contract order-sync/20260915.1 §7): refs listed
     // here are registered ahead of their on-device survey and stay unverified —
     // resolveVerified() returns null and every consumer (ui.tap navigation,
     // ui.readOrders container) terminates the step with LOCATOR_UNVERIFIED,
     // zero side effects. The slice-1 order locators were verified and flipped
     // into xianyuLocators on 2026-09-15 (OnePlus 9R, controller acceptance);
-    // the slice-2 order-detail container is pre-registered here until surveyed.
+    // the slice-2 order-detail container is pre-registered here until surveyed,
+    // and the W4 detail-page manage refs stay here until the 总控 acceptance.
     val UNVERIFIED_XIANYU_LOCATOR_REFS: Set<String> = setOf(
         "xianyu_order_detail_container",
+        "xianyu_detail_manage",
+        "xianyu_manage_delist",
+        "xianyu_manage_delete",
+        "xianyu_manage_cancel",
     )
 
     /** True when [locatorRef] is registered for [targetPackage] but still unverified (§7). */

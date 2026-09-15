@@ -75,6 +75,19 @@ object XianyuMaintenanceLayout {
     }
 
     /**
+     * W4 title-located card path (contract xianyu-anchors-20260915 §1/§2): the
+     * published-list tab a tapCardByTitle search runs on. The same locator ref
+     * also carries the tab badge signal (「N\n在卖」) used as the gated-confirm
+     * baseline. ONSALE/DELISTED only — the draft tab has no surveyed cards
+     * (「你还没有草稿」, coordinates unfrozen).
+     */
+    fun publishedTabLocator(tab: Tab): String? = when (tab) {
+        Tab.ONSALE -> "xianyu_pub_tab_onsale"
+        Tab.DELISTED -> "xianyu_pub_tab_delisted"
+        Tab.DRAFT -> null
+    }
+
+    /**
      * @return the guarded tap point, or null when the screen size is not the
      *   frozen 1080x2400, the tab/action pairing is unverified, or the card
      *   index steps past the bottom of the screen.
