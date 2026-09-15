@@ -89,6 +89,9 @@ interface LocalAutomationUi {
 
 private val GATED_PUBLISH_LOCATORS = setOf("xianyu_publish_button", "xhs_publish_button", "dy_publish_button")
 
+/** Container-resolution poll interval while the Flutter order list renders. */
+private const val ORDER_ROW_POLL_MS = 700L
+
 private class PendingOrderReport(
     val direction: OrderDirection,
     val collected: List<OrderRowSnapshot>,
@@ -241,7 +244,7 @@ class LocalAutomationExecutor(
                 task, step, runDeadline, control, lastCompleted, lastCompletedIndex,
             )
             is AutomationStep.AssertBadge -> awaitBadgeAssertion(task, step, runDeadline)
-            is AutomationStep.ReadOrders -> executeReadOrders(task, step)
+            is AutomationStep.ReadOrders -> executeReadOrders(task, step, runDeadline)
         }
         return false
     }
@@ -254,7 +257,7 @@ class LocalAutomationExecutor(
      * locator aborts with LOCATOR_UNVERIFIED before anything is read, leaving
      * zero side effects.
      */
-    private suspend fun executeReadOrders(task: AutomationTask, step: AutomationStep.ReadOrders) {
+    private suspend fun executeReadOrders(task: AutomationTask, step: AutomationStep.ReadOrders, runDeadline: Long) {
         if (task.targetPackage != TargetLocatorRegistry.XIANYU_PACKAGE) {
             throw ExecutorFailure("TARGET_PACKAGE_REJECTED", "readOrders is approved for xianyu only")
         }
@@ -265,9 +268,26 @@ class LocalAutomationExecutor(
                 "Order container locator '${step.locatorRef}' is not device-verified; failing closed",
             )
         }
+        // The Flutter order list keeps rendering after the navigation tap lands;
+        // poll the container resolution inside the step window with the same
+        // semantics as waitFor() above, then fail with LOCATOR_NOT_FOUND. The
+        // caller passes runDeadline = min(task deadline, elapsed+step.timeoutMs),
+        // which IS this step's retry window. An empty read (container resolved,
+        // zero rows) is NOT retried — it is a successful 0-row collection per
+        // contract §5.
+        var rows: List<List<String>>? = null
+        while (rows == null) {
+            rows = try {
+                ui.readOrderRows(task.targetPackage, step.locatorRef, step.maxRows)
+            } catch (failure: ExecutorFailure) {
+                if (failure.code != "LOCATOR_NOT_FOUND" || elapsedMs() >= runDeadline) throw failure
+                sleep(ORDER_ROW_POLL_MS)
+                null
+            }
+        }
         val collected = mutableListOf<OrderRowSnapshot>()
         val skipped = mutableListOf<SkippedOrderRow>()
-        ui.readOrderRows(task.targetPackage, step.locatorRef, step.maxRows).forEachIndexed { index, lines ->
+        rows.forEachIndexed { index, lines ->
             when (val outcome = OrderRowParser.parse(step.direction, lines)) {
                 is OrderRowParseOutcome.Parsed -> collected += outcome.toSnapshot(step.direction, lines)
                 is OrderRowParseOutcome.Skipped -> skipped += SkippedOrderRow(index, outcome.reason)

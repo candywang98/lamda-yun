@@ -143,6 +143,58 @@ class ReadOrdersExecutorTest {
         assertTrue(ui.logs.none { it.second == "LOCATOR_UNVERIFIED" })
     }
 
+    // 真机验收 2026-09-15 实证：导航 tap 落点后 Flutter 订单列表仍在渲染，
+    // 首次容器解析会 LOCATOR_NOT_FOUND——必须在步超时窗口内轮询重试。
+    @Test
+    fun retriesContainerResolutionWhileListRenders() = runBlocking {
+        val ui = ReadOrdersFakeUi().apply {
+            notFoundAttempts = 2
+            orderRows = listOf(keyedRow)
+        }
+        val reporter = RecordingReporter()
+        val journal = mutableListOf<String>()
+
+        executor(ui, reporter).execute(
+            task(AutomationStep.ReadOrders("read-orders", 60_000, OrderDirection.SOLD, 5, "orders")),
+        ) { step, state -> journal += "${step.stepId}:$state" }
+
+        assertEquals(3, ui.readCalls.size)
+        assertEquals(listOf("read-orders:STARTED", "read-orders:SUCCEEDED"), journal)
+        val (_, _, rows) = reporter.calls.single()
+        assertEquals(1, rows.first.size)
+        assertEquals("SOLD|RUSHANG|《黄同学漫画二战史2》个人闲置|1080", rows.first.single().orderKey)
+    }
+
+    @Test
+    fun failsWithLocatorNotFoundWhenContainerNeverAppears() = runBlocking {
+        val ui = ReadOrdersFakeUi().apply { notFoundAttempts = Int.MAX_VALUE }
+        var tick = 0L
+        val executor = LocalAutomationExecutor(
+            ui = ui,
+            now = { fixedNow },
+            elapsedMs = { tick += 600; tick },
+            sleep = { delay(1) },
+        )
+        // 任务级死线留 30s 余量：本用例断言的是步级窗口耗尽的 LOCATOR_NOT_FOUND，
+        // 不是 ensureWithinTaskDeadline 的 TASK_TIMEOUT。
+        val slackTask = AutomationTask(
+            taskId = "task-1",
+            deviceId = "device-1",
+            targetPackage = TargetLocatorRegistry.XIANYU_PACKAGE,
+            issuedAt = fixedNow.minusSeconds(30),
+            expiresAt = fixedNow.plusSeconds(600),
+            maxRunSeconds = 60,
+            steps = listOf(AutomationStep.ReadOrders("read-orders", 1_000, OrderDirection.SOLD, 5, "orders")),
+        )
+
+        val failure = assertFailsWith<ExecutorFailure> {
+            executor.execute(slackTask) { _, _ -> }
+        }
+
+        assertEquals("LOCATOR_NOT_FOUND", failure.code)
+        assertEquals(2, ui.readCalls.size)
+    }
+
     private fun executor(ui: ReadOrdersFakeUi, reporter: OrderReporter? = null) = LocalAutomationExecutor(
         ui = ui,
         now = { fixedNow },
@@ -179,6 +231,7 @@ class ReadOrdersExecutorTest {
 
     private class ReadOrdersFakeUi : LocalAutomationUi {
         var orderRows: List<List<String>> = emptyList()
+        var notFoundAttempts = 0
         var allowedPackage = TargetLocatorRegistry.XIANYU_PACKAGE
         val readCalls = mutableListOf<Triple<String, String, Int>>()
         val logs = mutableListOf<Pair<LogLevel, String>>()
@@ -191,6 +244,10 @@ class ReadOrdersExecutorTest {
 
         override fun readOrderRows(targetPackage: String, locatorRef: String, maxRows: Int): List<List<String>> {
             readCalls += Triple(targetPackage, locatorRef, maxRows)
+            if (notFoundAttempts > 0) {
+                notFoundAttempts -= 1
+                throw ExecutorFailure("LOCATOR_NOT_FOUND", "container has not rendered yet")
+            }
             return orderRows.take(maxRows)
         }
 
