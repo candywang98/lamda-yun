@@ -40,9 +40,11 @@ class ReadOrdersExecutorTest {
         val reporter = RecordingReporter()
         val journal = mutableListOf<String>()
 
+        // slice-1 容器已真机翻转 verified；fail-closed 路径由 §7 预注册的
+        // slice-2 详情容器（未勘测）继续承载。
         val failure = assertFailsWith<ExecutorFailure> {
             executor(ui, reporter).execute(
-                task(AutomationStep.ReadOrders("read-orders", 1_000, OrderDirection.SOLD, 5, "xianyu_orders_container")),
+                task(AutomationStep.ReadOrders("read-orders", 1_000, OrderDirection.SOLD, 5, "xianyu_order_detail_container")),
             ) { step, state -> journal += "${step.stepId}:$state" }
         }
 

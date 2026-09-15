@@ -106,6 +106,16 @@ internal object TargetLocatorRegistry {
         "xianyu_pub_tab_onsale" to ApprovedLocator.DescRegex(Regex("^(\\d{1,4}\\n)?在卖$")),
         "xianyu_pub_tab_draft" to ApprovedLocator.DescRegex(Regex("^(\\d{1,4}\\n)?草稿$")),
         "xianyu_pub_tab_delisted" to ApprovedLocator.DescRegex(Regex("^(\\d{1,4}\\n)?已下架$")),
+        // Order-sync slice 1, device-verified on OnePlus 9R (b0644fb5) 2026-09-15
+        // (controller survey recon-20260915-2 dumps 03/08/09 + anchor contract
+        // xianyu-anchors-20260915 §3): the 我的-page entries are plain TextViews
+        // (text field, content-desc empty); the orders container is the shared
+        // parent of the 「订单信息」-prefixed rows (rows are not clickable).
+        "xianyu_order_list_sold" to ApprovedLocator.Text("我卖出的"),
+        "xianyu_order_list_bought" to ApprovedLocator.Text("我买到的"),
+        "xianyu_orders_container" to ApprovedLocator.IndexedContentDescriptionPrefixParent(
+            OrderRowParser.ROW_MARKER_PREFIX, 0,
+        ),
     )
 
     private val xhsLocators = mapOf(
@@ -169,26 +179,15 @@ internal object TargetLocatorRegistry {
         throw IllegalArgumentException("Unknown Companion locator")
     }
 
-    // Order-sync slice 1 (contract order-sync/20260915.1 §7 + anchor specs from
-    // the controller's on-device survey, addendum order-sync/20260915.2, dumps
-    // recon-20260915-2): order-list locator refs that are registered but NOT
-    // verified for automation on a real device. They fail closed —
+    // §7 fail-closed registry (contract order-sync/20260915.1 §7): refs listed
+    // here are registered ahead of their on-device survey and stay unverified —
     // resolveVerified() returns null and every consumer (ui.tap navigation,
-    // ui.readOrders container) must terminate the step with LOCATOR_UNVERIFIED,
-    // zero side effects. Surveyed anchors (flip = move into xianyuLocators and
-    // drop from this set, one reviewable diff; NO coordinates prefilled):
-    //   - xianyu_order_list_sold:   我的页 text/content-desc EXACTLY 「我卖出的」
-    //                               (surveyed bounds [467,957][611,1005], center 539,981)
-    //   - xianyu_order_list_bought: 我的页 text/content-desc EXACTLY 「我买到的」
-    //                               (surveyed bounds [673,957][817,1005], center 745,981)
-    //   - xianyu_orders_container:  the order list page's scrollable container —
-    //                               the actual parent of the row nodes whose
-    //                               content-desc starts with 「订单信息」 (rows are
-    //                               NOT clickable; price Buttons inside them are)
+    // ui.readOrders container) terminates the step with LOCATOR_UNVERIFIED,
+    // zero side effects. The slice-1 order locators were verified and flipped
+    // into xianyuLocators on 2026-09-15 (OnePlus 9R, controller acceptance);
+    // the slice-2 order-detail container is pre-registered here until surveyed.
     val UNVERIFIED_XIANYU_LOCATOR_REFS: Set<String> = setOf(
-        "xianyu_order_list_sold",
-        "xianyu_order_list_bought",
-        "xianyu_orders_container",
+        "xianyu_order_detail_container",
     )
 
     /** True when [locatorRef] is registered for [targetPackage] but still unverified (§7). */

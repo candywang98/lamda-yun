@@ -5,6 +5,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 class TargetLocatorRegistryTest {
@@ -143,16 +144,38 @@ class TargetLocatorRegistryTest {
         assertFalse(TargetLocatorRegistry.isXianyuMessagesTabDescription("卖闲置"))
     }
 
-    // order-sync/20260915.1 §7：三个订单定位器未真机验证，一律 fail-closed，
-    // resolveVerified() 必须返回 null（→ 步失败 LOCATOR_UNVERIFIED）。
-
+    // order-sync slice 1：三个订单定位器已于 2026-09-15 真机验收翻转 verified
+    // （总控 recon-20260915-2 + xianyu-anchors-20260915 §3）；§7 fail-closed 机制
+    // 由预注册的 slice-2 详情容器定位器继续承载。
     @Test
-    fun orderSyncLocatorsStayFailClosedUntilDeviceVerified() {
-        val refs = setOf(
+    fun orderSyncSlice1LocatorsAreDeviceVerified() {
+        val verified = setOf(
             "xianyu_order_list_sold",
             "xianyu_order_list_bought",
             "xianyu_orders_container",
         )
+        verified.forEach { ref ->
+            assertFalse(TargetLocatorRegistry.isUnverifiedLocator(TargetLocatorRegistry.XIANYU_PACKAGE, ref), ref)
+            assertNotNull(TargetLocatorRegistry.resolveVerified(TargetLocatorRegistry.XIANYU_PACKAGE, ref), ref)
+        }
+        // 入口是 text 字段的 TextView（非 content-desc），容器是「订单信息」行的父节点。
+        assertEquals(
+            ApprovedLocator.Text("我卖出的"),
+            TargetLocatorRegistry.resolve(TargetLocatorRegistry.XIANYU_PACKAGE, "xianyu_order_list_sold"),
+        )
+        assertEquals(
+            ApprovedLocator.Text("我买到的"),
+            TargetLocatorRegistry.resolve(TargetLocatorRegistry.XIANYU_PACKAGE, "xianyu_order_list_bought"),
+        )
+        assertEquals(
+            ApprovedLocator.IndexedContentDescriptionPrefixParent(OrderRowParser.ROW_MARKER_PREFIX, 0),
+            TargetLocatorRegistry.resolve(TargetLocatorRegistry.XIANYU_PACKAGE, "xianyu_orders_container"),
+        )
+    }
+
+    @Test
+    fun slice2OrderDetailLocatorStaysFailClosedUntilSurveyed() {
+        val refs = setOf("xianyu_order_detail_container")
         assertEquals(refs, TargetLocatorRegistry.UNVERIFIED_XIANYU_LOCATOR_REFS)
         refs.forEach { ref ->
             assertTrue(TargetLocatorRegistry.isUnverifiedLocator(TargetLocatorRegistry.XIANYU_PACKAGE, ref), ref)
