@@ -4,9 +4,10 @@ import { coreRoutes, operationRoutes } from '@/router'
 
 describe('core route contract', () => {
   it('keeps legacy CloudCtl paths only as redirects into the operations workspace', () => {
-    expect(coreRoutes).toHaveLength(22)
-    expect(new Set(coreRoutes.map((route) => route.path)).size).toBe(22)
+    expect(coreRoutes).toHaveLength(23)
+    expect(new Set(coreRoutes.map((route) => route.path)).size).toBe(23)
     expect(coreRoutes.find((route) => route.name === 'im-inbox')?.component).toBeTruthy()
+    expect(coreRoutes.find((route) => route.name === 'orders')?.component).toBeTruthy()
     expect(coreRoutes.find((route) => route.name === 'mobile-automation')?.redirect).toBe('/operations/system-home/system-home-02')
     expect(coreRoutes.find((route) => route.name === 'devices')?.redirect).toBe('/operations/system-home/system-home-02')
     expect(coreRoutes.find((route) => route.name === 'device-detail')?.component).toBeTruthy()
@@ -17,6 +18,14 @@ describe('core route contract', () => {
     await testRouter.push('/recipes')
     expect(testRouter.currentRoute.value.name).toBe('recipe-versions')
     expect(coreRoutes.find((route) => route.name === 'recipe-versions')?.component).toBeTruthy()
+  })
+
+  it('exposes the orders page at /orders (order-sync/20260915.1)', async () => {
+    const testRouter = createRouter({ history: createMemoryHistory(), routes: coreRoutes })
+    await testRouter.push('/orders')
+    await testRouter.isReady()
+    expect(testRouter.currentRoute.value.name).toBe('orders')
+    expect(coreRoutes.find((route) => route.name === 'orders')?.component).toBeTruthy()
   })
 
   it('gives each page a visible title and navigation section', () => {
