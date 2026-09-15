@@ -171,11 +171,14 @@ export async function fetchOrder(id: string): Promise<OrderDetail> {
  * 契约 §6：POST /api/v1/xianyu/orders:collect（Idempotency-Key 头，模式同 maintenance:run）。
  * 请求体后端 populate_by_name 双兼容，按契约保持 snake_case；响应 201（新建）/200（重放）
  * 并带 Idempotency-Replayed 响应头。
+ * slice2（order-sync-slice2/20260915 §2）：新增可选 `screens`（1..3，缺省不发该字段 = 后端默认 1，
+ * 即 v1 入参兼容）；`maxRows` 语义为每屏上限（1..10）。
  */
 export interface XianyuOrderCollectInput {
   deviceId: string
   direction: OrderDirection
   maxRows: number
+  screens?: number
 }
 
 export interface XianyuOrderCollectTask {
@@ -204,7 +207,13 @@ export async function startXianyuOrderCollect(
   idempotencyKey: string,
 ): Promise<XianyuOrderCollectResult> {
   const outcome = await performRequest('/api/v1/xianyu/orders:collect', {
-    body: { device_id: input.deviceId, direction: input.direction, max_rows: input.maxRows },
+    body: {
+      device_id: input.deviceId,
+      direction: input.direction,
+      max_rows: input.maxRows,
+      // screens=1（后端默认）不发该字段，保持 slice1 v1 入参兼容。
+      ...(input.screens !== undefined ? { screens: input.screens } : {}),
+    },
     idempotencyKey,
   })
   const replayed = outcome.headers.get('Idempotency-Replayed')
@@ -244,4 +253,22 @@ export interface XianyuOrderRunView {
 
 export async function fetchXianyuOrderRun(runId: string): Promise<XianyuOrderRunView> {
   return request<XianyuOrderRunView>(`/api/v1/xianyu/orders/runs/${encodeURIComponent(runId)}`)
+}
+
+/**
+ * run 终态判断辅助（slice2 §4）。
+ * 词汇以后端 `xianyu_orders.py` 的 `TERMINAL_BUSINESS` 冻结集合为准（已核实源码）：
+ * SUCCEEDED / FAILED / CANCELLED / EXPIRED；QUEUED、RUNNING 等为非终态，空值视为未终态（继续轮询）。
+ */
+export const XIANYU_ORDER_TERMINAL_STATES: readonly string[] = ['SUCCEEDED', 'FAILED', 'CANCELLED', 'EXPIRED']
+
+/** 单任务 state 是否终态。 */
+export function isXianyuOrderTaskTerminal(state: string | null | undefined): boolean {
+  return typeof state === 'string' && XIANYU_ORDER_TERMINAL_STATES.includes(state)
+}
+
+/** run 是否终态：以后端 allTerminal 为权威；缺失时按 tasks 逐个用同一词汇兜底。 */
+export function isXianyuOrderRunTerminal(run: { allTerminal?: boolean; tasks: XianyuOrderRunTask[] }): boolean {
+  if (typeof run.allTerminal === 'boolean') return run.allTerminal
+  return run.tasks.length > 0 && run.tasks.every((task) => isXianyuOrderTaskTerminal(task.state))
 }
