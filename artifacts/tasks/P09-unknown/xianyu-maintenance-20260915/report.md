@@ -8,7 +8,7 @@
 |---|---|---|
 | **擦亮** `xianyu.polish.steps.v1` | ✅ **SUCCEEDED** | 任务 `0e1fb98b`：导航（我的→我发布的）→ `LAYOUT_GUARD_PASSED` → 一键擦亮单击 → 截图 → 5 步全绿 |
 | **下架** `xianyu.delist.steps.v1` | ✅ **完整 GATED 闭环 SUCCEEDED** | 任务 `63516d24`：intent **201** → 恰好一次确认单击 → **真实下架（在卖 1→0）** → 账本 `confirm-delist APPLIED` → 操作员核验（platformItemId `xianyu-listing-notion-voucher-299-20260915`）→ `CONFIRMED_APPLIED` → SUCCEEDED |
-| **删除** `xianyu.delete_delisted.steps.v1` | 🟡 **门禁机制全通；坐标定位在动态布局下不可靠** | 三次尝试（`4d226249`/`6d22dd62` 等）均安全停在 UNKNOWN/误入编辑器后操作员 `CONFIRMED_NOT_SUBMITTED` 解除；**零误删** |
+| **删除** `xianyu.delete_delisted.steps.v1` | ✅ **完整 GATED 闭环 SUCCEEDED**（终版，`c82e77b` 坐标重校后） | 任务 `37a665b0`：首卡删除单击命中 → 确认弹窗 → GATED 确认单击 → **真实删除（¥299/13 浏览卡从列表消失，现首卡=¥199/16 浏览）** → 账本 `confirm-delete` → 机器核验 UNKNOWN（弹窗消失信号时序未捕获，**不猜**）→ 操作员核验卡片消失 → `CONFIRMED_APPLIED`（platformItemId+证据）→ SUCCEEDED。此前两次失败尝试（`4d226249`/`6d22dd62`）均安全停 + `CONFIRMED_NOT_SUBMITTED`，零误删 |
 
 ## 二、GATED 门禁语义的真机实证（本轮核心资产）
 
@@ -31,7 +31,7 @@
 
 ## 四、待办（按优先级）
 
-1. **🔴 删除的稳健定位方案**：已下架列表布局动态（顶部横幅有无改变首卡 y 达 532px；本轮第二次漂移误入转卖编辑器）。固定坐标不可靠——候选方案：a) 商品详情页「管理」入口路径（详情页语义锚点丰富）；b) 列表锚点相对定位（tabs bounds+固定偏移，需实证偏移稳定性）；c) 平台侧按 platformItemId 定位（需要商品身份→列表位置映射，依赖 2）。
+1. **🟡 删除定位的稳健性**：终版验收通过，但布局漂移风险仍在（顶部横幅有无可移动首卡 y 达 532px）。缓解现状=失败安全（UNKNOWN 停+操作员核验）；长期方案：a) 商品详情页「管理」入口（详情页语义锚点丰富，勘得「管理」按钮在售详情页 (936,2245)）；b) tabs 语义 bounds 相对偏移；c) platformItemId 映射（依赖 2）。
 2. **商品身份映射**：维护动作目前按 cardIndex 定位；按标题/platformItemId 定位需要列表标题读回（当前卡片无语义暴露）——与 titleContains 编排过滤同源，合并解决。
 3. **批量下架**：编排 API 已支持循环；卡 0 之外需要更多行的坐标证据（同漂移问题，随 1 一起解决）。
 4. **草稿 tab 坐标**：草稿卡删除/编辑按钮坐标未在当前布局下复验。
