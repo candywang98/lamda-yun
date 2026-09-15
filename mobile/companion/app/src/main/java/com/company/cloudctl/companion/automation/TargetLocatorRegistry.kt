@@ -199,16 +199,12 @@ internal object TargetLocatorRegistry {
     // here are registered ahead of their on-device survey and stay unverified —
     // resolveVerified() returns null and every consumer (ui.tap navigation,
     // ui.readOrders container) terminates the step with LOCATOR_UNVERIFIED,
-    // zero side effects. The slice-1 order locators were verified and flipped
-    // into xianyuLocators on 2026-09-15 (OnePlus 9R, controller acceptance);
-    // the slice-2 order-detail container is pre-registered here until surveyed,
-    // and the W4 detail-page manage refs stay here until the 总控 acceptance.
+    // zero side effects. The slice-1 order locators were flipped 2026-09-15
+    // (OnePlus 9R, controller acceptance); the W4 detail-page manage refs were
+    // flipped after the controller's no-intent dry run on 2026-09-15; the
+    // slice-2 order-detail container is pre-registered here until surveyed.
     val UNVERIFIED_XIANYU_LOCATOR_REFS: Set<String> = setOf(
         "xianyu_order_detail_container",
-        "xianyu_detail_manage",
-        "xianyu_manage_delist",
-        "xianyu_manage_delete",
-        "xianyu_manage_cancel",
     )
 
     /** True when [locatorRef] is registered for [targetPackage] but still unverified (§7). */

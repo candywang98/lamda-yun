@@ -188,23 +188,24 @@ class TargetLocatorRegistryTest {
     // 文本锚点。定义已预挂在 pending 表，真机验收（总控）前 §7 集合成员保持
     // fail-closed：resolveVerified() 返回 null → ui.tap 以 LOCATOR_UNVERIFIED 安全
     // 终止，零副作用；翻转 = 仅从集合移除 ref。
+    // 2026-09-15 总控完成无意图安全干跑后翻转：四个 ref 已 verified，集合仅剩
+    // slice-2 详情容器。
     @Test
-    fun w4ManageLocatorsStayFailClosedUntilDeviceAcceptance() {
+    fun w4ManageLocatorsFlippedAfterDeviceDryRun() {
         val refs = setOf(
             "xianyu_detail_manage",
             "xianyu_manage_delist",
             "xianyu_manage_delete",
             "xianyu_manage_cancel",
         )
-        // slice-2 详情容器仍在集合里（预注册语义不变）。
         assertEquals(
-            refs + "xianyu_order_detail_container",
+            setOf("xianyu_order_detail_container"),
             TargetLocatorRegistry.UNVERIFIED_XIANYU_LOCATOR_REFS,
         )
         refs.forEach { ref ->
-            assertTrue(TargetLocatorRegistry.isUnverifiedLocator(TargetLocatorRegistry.XIANYU_PACKAGE, ref), ref)
-            // §7 gate：ui.tap / readOrders 等所有消费方拿到 null → LOCATOR_UNVERIFIED。
-            assertEquals(null, TargetLocatorRegistry.resolveVerified(TargetLocatorRegistry.XIANYU_PACKAGE, ref), ref)
+            assertFalse(TargetLocatorRegistry.isUnverifiedLocator(TargetLocatorRegistry.XIANYU_PACKAGE, ref), ref)
+            // 翻转后消费方拿到冻结定义。
+            assertNotNull(TargetLocatorRegistry.resolveVerified(TargetLocatorRegistry.XIANYU_PACKAGE, ref), ref)
         }
     }
 
