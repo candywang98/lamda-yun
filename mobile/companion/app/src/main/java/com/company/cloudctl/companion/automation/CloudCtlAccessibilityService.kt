@@ -846,7 +846,12 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
                 // the screen bottom with its full logical bounds extending
                 // past the viewport — a center tap there never opens the
                 // detail page. Scroll the card fully into view first.
-                val screenBottom = resources.displayMetrics.heightPixels
+                // Real screen bounds include the system bars; the service-context
+                // displayMetrics do not (device-verified: 2249 vs 2400).
+                val realBounds = getSystemService(android.view.WindowManager::class.java)
+                    ?.maximumWindowMetrics?.bounds
+                val screenBottom = realBounds?.height() ?: resources.displayMetrics.heightPixels
+                val screenWidth = realBounds?.width() ?: resources.displayMetrics.widthPixels
                 var card = outcome.bounds
                 var scrolls = 0
                 suspend fun relocateCard(): PublishedCardLocator.Outcome {
@@ -882,10 +887,13 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
                 // A card peeking from the list bottom has its full-bounds centre
                 // inside the OS bottom-gesture dead zone (device-verified
                 // 2026-09-16: a tap 26px above the screen edge never reached
-                // the app). Clamp the tap into the card's safely tappable band.
-                val metrics = resources.displayMetrics
-                val tapX = card.centerX.coerceIn(80f, metrics.widthPixels - 80f)
-                val tapY = card.centerY.coerceIn(card.top + 60f, screenBottom - 120f)
+                // the app). Clamp the tap into the card's safely tappable band;
+                // a card too low for its own safe band taps at the band floor,
+                // which still lands inside a ~460px card.
+                val tapX = card.centerX.coerceIn(80f, screenWidth - 80f)
+                val safeLow = card.top + 60f
+                val safeHigh = screenBottom - 120f
+                val tapY = if (safeHigh > safeLow) card.centerY.coerceIn(safeLow, safeHigh) else safeHigh
                 Log.i(
                     TAG,
                     "CARD_TITLE_TAP title=$titleContains tab=$tab card=${card.left},${card.top},${card.right},${card.bottom} scrolls=$scrolls tap=$tapX,$tapY",
