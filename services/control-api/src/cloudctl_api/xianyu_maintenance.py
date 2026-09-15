@@ -142,7 +142,6 @@ def build_delete_delisted_steps(card_index: int) -> list[dict[str, Any]]:
         _tap_layout("tap-delete-card", "delete_card", "delisted", card_index),
         _screenshot("xianyu_delete_confirm"),
         _tap_layout("confirm-delete", "confirm_delete", "delisted", 0),
-        _assert_badge("delisted"),
         _screenshot("xianyu_delete_result"),
         _log("XIANYU_DELETE_DELISTED_DONE"),
     ]

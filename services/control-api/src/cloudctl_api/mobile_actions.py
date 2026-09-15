@@ -218,7 +218,11 @@ XIANYU_MAINTENANCE_SHAPES: dict[str, dict[str, Any]] = {
             "confirm_delete": {"count": 1, "tab": "delisted", "max_card": 0},
         },
         "gated_layout": "confirm_delete",
-        "badge": {"locator": "xianyu_pub_tab_delisted", "delta": -1},
+        # Device-verified 2026-09-15: the delisted tab never carries a numeric
+        # badge, so a delta assertion cannot verify a delete. Verification is
+        # the confirm-dialog dismissal signal plus screenshots + operator
+        # resolution; badge steps are rejected for this shape.
+        "badge": None,
         "screenshot_rules": (
             ("between", "delete_card", "confirm_delete"),
             ("after_badge", None),
@@ -319,10 +323,15 @@ def _maintenance_shape_error(shape: dict[str, Any], steps: list[dict[str, Any]])
             low = _layout_index(steps, rule[1])
             if not any(shot > low for shot in shots):
                 return f"{command}: a screenshot is required after {rule[1]}"
-        else:  # after_badge
-            badge_index = _step_index(steps, lambda step: step.get("action") == "ui.assertBadge")
-            if not any(shot > badge_index for shot in shots):
-                return f"{command}: a screenshot is required after the badge assertion"
+        else:  # after_badge (or after the gated confirm for badge-less shapes)
+            badge_steps = [
+                position
+                for position, step in enumerate(steps)
+                if step.get("action") == "ui.assertBadge"
+            ]
+            anchor = badge_steps[0] if badge_steps else _layout_index(steps, shape["gated_layout"])
+            if not any(shot > anchor for shot in shots):
+                return f"{command}: a screenshot is required after the verification anchor"
     if not any(
         step.get("action") == "run.log" and step.get("messageCode") == shape["log_code"]
         for step in steps

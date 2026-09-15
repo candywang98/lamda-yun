@@ -76,7 +76,10 @@ class XianyuMaintenanceCommitGate(
         val baseline = MaintenanceBadgeSnapshots.take(task.taskId, badgeRef)
             ?: XianyuMaintenanceLayout.parseBadge(ui.inspect(task.targetPackage, badgeRef)?.description)
             ?: throw ExecutorFailure("BADGE_UNREADABLE", "Verification badge '$badgeRef' is unreadable; confirm blocked")
-        if (baseline <= 0) {
+        // Device-verified: the delisted tab never carries a numeric badge, so the
+        // precondition only guards badge-delta verifications (delist). Delete
+        // verifies through the dialog-dismissal signal instead.
+        if (step.layoutAction == XianyuMaintenanceLayout.LayoutAction.CONFIRM_DELIST && baseline <= 0) {
             throw ExecutorFailure("BADGE_PRECONDITION_INVALID", "Badge '$badgeRef' has nothing to remove")
         }
         val before = evidence(task.taskId, identity.actionKey, "before")

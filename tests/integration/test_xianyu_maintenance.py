@@ -114,7 +114,6 @@ def delete_steps(card_index: int = 0) -> list[dict[str, Any]]:
         _layout("tap-delete-card", "delete_card", card_index),
         _shot("xianyu_delete_confirm"),
         _layout("confirm-delete", "confirm_delete"),
-        _badge("delisted"),
         _shot("xianyu_delete_result"),
         _log("XIANYU_DELETE_DELISTED_DONE"),
     ]
