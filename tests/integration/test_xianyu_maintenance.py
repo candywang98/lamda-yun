@@ -514,6 +514,9 @@ async def test_run_batch_is_idempotent_and_queryable(api):
     ]
     assert len(gated) == 1
     assert claimed.json()["targetPackage"] == XIANYU
+    # The companion gates the destructive confirm on the claimed payload carrying
+    # the maintenance commandType (identity construction rejects a null).
+    assert claimed.json()["commandType"] == "xianyu.delete_delisted.steps.v1"
 
     missing = await client.get(
         "/api/v1/xianyu/maintenance/runs/00000000-0000-0000-0000-000000000000",

@@ -226,6 +226,7 @@ XIANYU_MAINTENANCE_SHAPES: dict[str, dict[str, Any]] = {
         "log_code": "XIANYU_DELETE_DELISTED_DONE",
     },
 }
+MAINTENANCE_COMMAND_TYPES = frozenset(XIANYU_MAINTENANCE_SHAPES)
 MAINTENANCE_STEP_ACTIONS = frozenset({"ui.tapLayout", "ui.assertBadge"})
 
 
@@ -437,7 +438,11 @@ class MobileActionService:
             raise ConflictError("current device lease does not authorize this action")
 
     async def _identity(self, session: Any, task: MobileTaskRow, action_id: str) -> dict[str, Any]:
-        if task.command_type is None and task.target_package in STEPS_SHAPES:
+        # Maintenance steps tasks carry their frozen commandType on the row; the
+        # companion identity path applies to them exactly like legacy steps tasks.
+        if task.command_type in MAINTENANCE_COMMAND_TYPES or (
+            task.command_type is None and task.target_package in STEPS_SHAPES
+        ):
             frozen = steps_action_identity(task)
             if action_id != frozen["action_id"]:
                 raise ConflictError("G3_NOT_ACCEPTED")
