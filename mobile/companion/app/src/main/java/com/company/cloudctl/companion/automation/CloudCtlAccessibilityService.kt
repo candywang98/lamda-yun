@@ -601,6 +601,18 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         return FlutterTextCommit.accepted(visibleHaystack(), expected)
     }
 
+    /**
+     * Wrong-card defense 1 feed: the target's currently VISIBLE text/desc
+     * lines through the same UiNode snapshot model as the card search, so the
+     * executor can verify the opened detail page carries the target title.
+     * Invisible branches are pruned inside the pure extractor — a covered list
+     * page attached behind the detail page must never leak its card titles.
+     */
+    override fun visibleTextLines(targetPackage: String): List<String> =
+        allRoots()
+            .filter { it.packageName?.toString() == targetPackage }
+            .flatMap { PublishedCardLocator.visibleLines(snapshotCardTree(it)) }
+
     override suspend fun replaceText(targetPackage: String, locatorRef: String, value: String) {
         if (locatorRef == "xianyu_chat_input") {
             commitChatInput(targetPackage, locatorRef, value)
@@ -962,6 +974,36 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
                         break
                     }
                 }
+                // Wrong-card defense 2 (incident 2026-09-16: scrolls=2 left the
+                // matched bounds stale and the tap opened another product):
+                // immediately before the single tap, re-locate the card from a
+                // FRESH tree snapshot and require two agreeing readings within
+                // the drift tolerance. Drift forces a re-match (bounded); a
+                // still-unstable rectangle never taps (CARD_BOUNDS_UNSTABLE).
+                val arbiter = PublishedCardLocator.BoundsFreshnessArbiter(card)
+                while (true) {
+                    delay(CARD_BOUNDS_REQUERY_SETTLE_MS)
+                    val requery = relocateCard()
+                    if (requery !is PublishedCardLocator.Outcome.Card) {
+                        throw cardOutcomeFailure(tabRef, titleContains, requery)
+                    }
+                    when (val decision = arbiter.requery(requery.bounds)) {
+                        is PublishedCardLocator.FreshnessDecision.Stable -> {
+                            card = decision.bounds
+                            break
+                        }
+                        is PublishedCardLocator.FreshnessDecision.Rematch -> Log.w(
+                            TAG,
+                            "CARD_BOUNDS_DRIFT tolerance=${PublishedCardLocator.BOUNDS_FRESHNESS_TOLERANCE_PX}px; " +
+                                "re-matching '${titleContains}' before tap",
+                        )
+                        is PublishedCardLocator.FreshnessDecision.Unstable -> throw ExecutorFailure(
+                            "CARD_BOUNDS_UNSTABLE",
+                            "Card '${titleContains}' bounds kept drifting across " +
+                                "${PublishedCardLocator.BOUNDS_FRESHNESS_REMATCH_ROUNDS + 1} live readings; refusing to tap",
+                        )
+                    }
+                }
                 if (card.bottom > screenBottom) {
                     Log.w(
                         TAG,
@@ -994,22 +1036,31 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
                     throw ExecutorFailure("CLICK_UNCONFIRMED", "Card title gesture was not confirmed")
                 }
             }
-            is PublishedCardLocator.Outcome.NotFound ->
-                throw ExecutorFailure(
-                    "CARD_TITLE_NOT_FOUND",
-                    "No visible card under the '$tabRef' strip contains '$titleContains'",
-                )
-            is PublishedCardLocator.Outcome.Ambiguous ->
-                throw ExecutorFailure(
-                    "CARD_TITLE_AMBIGUOUS",
-                    "'$titleContains' matched ${outcome.count} cards; refusing to guess",
-                )
-            is PublishedCardLocator.Outcome.UnverifiedBounds ->
-                throw ExecutorFailure(
-                    "CARD_BOUNDS_UNVERIFIED",
-                    "'$titleContains' matched text but no safe card rectangle was proved",
-                )
+            is PublishedCardLocator.Outcome.NotFound -> throw cardOutcomeFailure(tabRef, titleContains, outcome)
+            is PublishedCardLocator.Outcome.Ambiguous -> throw cardOutcomeFailure(tabRef, titleContains, outcome)
+            is PublishedCardLocator.Outcome.UnverifiedBounds -> throw cardOutcomeFailure(tabRef, titleContains, outcome)
         }
+    }
+
+    /** Fail-closed mapping of a non-Card search outcome (initial match and re-query). */
+    private fun cardOutcomeFailure(
+        tabRef: String,
+        titleContains: String,
+        outcome: PublishedCardLocator.Outcome,
+    ): ExecutorFailure = when (outcome) {
+        is PublishedCardLocator.Outcome.NotFound -> ExecutorFailure(
+            "CARD_TITLE_NOT_FOUND",
+            "No visible card under the '$tabRef' strip contains '$titleContains'",
+        )
+        is PublishedCardLocator.Outcome.Ambiguous -> ExecutorFailure(
+            "CARD_TITLE_AMBIGUOUS",
+            "'$titleContains' matched ${outcome.count} cards; refusing to guess",
+        )
+        is PublishedCardLocator.Outcome.UnverifiedBounds -> ExecutorFailure(
+            "CARD_BOUNDS_UNVERIFIED",
+            "'$titleContains' matched text but no safe card rectangle was proved",
+        )
+        is PublishedCardLocator.Outcome.Card -> throw IllegalArgumentException("Card outcome is not a failure")
     }
 
     /** Snapshots one accessibility subtree into the pure-JVM card-search model. */
@@ -1840,6 +1891,8 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         private const val DUTY_NAV_ANCHOR_ATTEMPTS = 3
         /** Max list scrolls to bring a title-matched card fully into the viewport. */
         private const val CARD_SCROLL_ATTEMPTS = 5
+        /** Settle before each pre-tap bounds re-query (wrong-card defense 2). */
+        private const val CARD_BOUNDS_REQUERY_SETTLE_MS = 150L
         private const val DUTY_NAV_ANCHOR_RETRY_MS = 500L
         private const val DUTY_NAV_MESSAGES_TAB_LOCATOR = "xianyu_messages_tab"
         private val generationCounter = java.util.concurrent.atomic.AtomicLong()
