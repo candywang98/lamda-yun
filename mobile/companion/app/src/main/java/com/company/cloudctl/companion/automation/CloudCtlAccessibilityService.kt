@@ -850,8 +850,11 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
                 var card = outcome.bounds
                 var scrolls = 0
                 while (card.bottom > screenBottom && scrolls < CARD_SCROLL_ATTEMPTS) {
-                    swipeUp()
+                    // A modest single stroke (~700px): the full swipeUp() jumps
+                    // ~2800px and overshoots the card off the viewport top.
+                    dispatchStroke(540f, 1_800f, 540f, 1_100f, 400L)
                     scrolls++
+                    delay(NAV_SETTLE_MS)
                     // Node handles go stale across a scroll; re-harvest the tree.
                     scrollables.clear()
                     allRoots().filter { it.packageName?.toString() == targetPackage }.forEach(::harvest)
@@ -859,7 +862,21 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
                     val relocated = PublishedCardLocator.locate(
                         scrollables.map { snapshotCardTree(it) }, tabBounds.bottom, titleContains,
                     )
-                    if (relocated !is PublishedCardLocator.Outcome.Card) break
+                    if (relocated !is PublishedCardLocator.Outcome.Card) {
+                        // Overscrolled past the card — one reverse stroke brings
+                        // it back from above the viewport.
+                        if (relocated is PublishedCardLocator.Outcome.NotFound) {
+                            dispatchStroke(540f, 1_100f, 540f, 1_800f, 400L)
+                            delay(NAV_SETTLE_MS)
+                            scrollables.clear()
+                            allRoots().filter { it.packageName?.toString() == targetPackage }.forEach(::harvest)
+                            val back = PublishedCardLocator.locate(
+                                scrollables.map { snapshotCardTree(it) }, tabBounds.bottom, titleContains,
+                            )
+                            if (back is PublishedCardLocator.Outcome.Card) card = back.bounds
+                        }
+                        break
+                    }
                     card = relocated.bounds
                     if (card.bottom <= screenBottom) break
                 }
