@@ -94,6 +94,34 @@ class AutomationStoreTest {
     }
 
     @Test
+    fun `steps-shaped command types complete without a resultType field`() {
+        // W1 对接事实①（order-sync/20260915.1 §5）：RESULT_TYPES 无 steps 型注册，
+        // complete 带 resultType 会被服务端 422 拒收 —— 字段必须整个省略。
+        val payload = JSONObject()
+            .put("protocolVersion", "cloudctl.mobile/v1")
+            .put("taskId", "task-orders")
+            .put("deviceId", "device-1")
+            .put("targetPackage", "com.taobao.idlefish")
+            .put("commandType", "xianyu.collect_orders.steps.v1")
+            .put("issuedAt", "2026-09-15T08:00:00Z")
+            .put("expiresAt", "2026-09-15T08:10:00Z")
+            .put("maxRunSeconds", 90)
+            .put("steps", org.json.JSONArray())
+            .toString()
+        store.enqueueTask("task-orders", payload, "lease-1", 0)
+        store.claimNext()
+        store.finish("task-orders", true)
+        val result = JSONObject(store.pendingEvents().single().payload).getJSONObject("result")
+        assertEquals("ok", result.getString("outcome"))
+        assertFalse(result.has("resultType"))
+        // 派生函数同样返回 null（maintenance steps 型一致）。
+        assertNull(AutomationStore.resultTypeForClaimPayload(payload))
+        assertNull(
+            AutomationStore.resultTypeForClaimPayload(payload.replace("xianyu.collect_orders.steps.v1", "xianyu.delist.steps.v1")),
+        )
+    }
+
+    @Test
     fun `reclaim after terminal rejection requeues complete for the new lease`() {
         val first = JSONObject()
             .put("taskId", "task-1")

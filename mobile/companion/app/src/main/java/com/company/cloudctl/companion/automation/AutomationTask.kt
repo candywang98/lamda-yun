@@ -83,10 +83,29 @@ sealed interface AutomationStep {
         val expectedDelta: Int?,
         val expectedValue: Int?,
     ) : AutomationStep
+
+    /**
+     * Order-sync slice 1 (contract order-sync/20260915.1 §5): reads up to
+     * [maxRows] current-screen order rows inside the list container resolved
+     * from [locatorRef]. Rows without a parseable order key are skipped
+     * (NO_KEY) and never fail the task; short reads and empty lists succeed.
+     * The container locator fails closed with LOCATOR_UNVERIFIED while §7
+     * keeps it unverified (see TargetLocatorRegistry).
+     */
+    data class ReadOrders(
+        override val stepId: String,
+        override val timeoutMs: Long,
+        val direction: OrderDirection,
+        val maxRows: Int,
+        val locatorRef: String,
+    ) : AutomationStep
 }
 
 enum class NodeCondition { EXISTS, NOT_EXISTS, ENABLED }
 enum class LogLevel { DEBUG, INFO, WARN, ERROR }
+
+/** Order-sync slice 1 (contract order-sync/20260915.1 §5): collection direction. */
+enum class OrderDirection { SOLD, BOUGHT }
 
 object AutomationTaskParser {
     private val idPattern = Regex("^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
@@ -221,6 +240,17 @@ object AutomationTaskParser {
                 val expected = optionalInt(value, "expectedValue")?.also { require(it in 0..9999) { "expectedValue is invalid" } }
                 require((delta != null) != (expected != null)) { "assertBadge takes exactly one expected measure" }
                 AutomationStep.AssertBadge(stepId, timeout, badgeRef, delta, expected)
+            }
+            "ui.readOrders" -> {
+                val keys = common + setOf("direction", "maxRows", "locatorRef")
+                requireKeys(value, keys)
+                AutomationStep.ReadOrders(
+                    stepId,
+                    timeout,
+                    enumValue<OrderDirection>(value.getString("direction")),
+                    value.getInt("maxRows").also { require(it in 1..10) { "readOrders maxRows is invalid" } },
+                    locator(value, keys),
+                )
             }
             "run.log" -> {
                 val keys = common + setOf("level", "messageCode")

@@ -26,6 +26,7 @@ import com.company.cloudctl.companion.automation.CloudCtlAccessibilityService
 import com.company.cloudctl.companion.automation.CommandV1
 import com.company.cloudctl.companion.automation.ExecutionControl
 import com.company.cloudctl.companion.automation.ExecutorFailure
+import com.company.cloudctl.companion.automation.OrderReporter
 import com.company.cloudctl.companion.automation.RecipeEngine
 import com.company.cloudctl.companion.automation.RecipePackage
 import com.company.cloudctl.companion.automation.ResumeValidator
@@ -46,6 +47,8 @@ import com.company.cloudctl.companion.network.ClaimedTask
 import com.company.cloudctl.companion.network.CloudHttpException
 import com.company.cloudctl.companion.network.CloudTaskClient
 import com.company.cloudctl.companion.network.TaskHeartbeat
+import com.company.cloudctl.companion.network.buildOrdersBatchPayload
+import com.company.cloudctl.companion.network.parseOrdersBatchResponse
 import com.company.cloudctl.companion.network.PreviewGrant
 import com.company.cloudctl.companion.network.ResumeCommand
 import com.company.cloudctl.companion.network.DeliveryFailureAction
@@ -485,6 +488,7 @@ class CompanionSyncService : Service() {
         }
         val commitGate = buildStepsPublishGate(service, task)
         val destructiveGate = buildMaintenanceDestructiveGate(service, task)
+        val orderReporter = if (task.steps.any { it is AutomationStep.ReadOrders }) orderReporterFor(client) else null
         try {
             sendInitialHeartbeat(client, task.taskId, pending.leaseId, control)
             throwIfControlRequested(control)
@@ -511,7 +515,10 @@ class CompanionSyncService : Service() {
                         "TASK_STARTED",
                     )
                     withTimeout(task.maxRunSeconds * 1_000L) {
-                        service.execute(task, control, startAfterIndex = -1, commitGate = commitGate, destructiveGate = destructiveGate) { step, state ->
+                        service.execute(
+                            task, control, startAfterIndex = -1, commitGate = commitGate,
+                            destructiveGate = destructiveGate, orderReporter = orderReporter,
+                        ) { step, state ->
                             val stepIndex = task.steps.indexOf(step)
                             currentStep.set(stepIndex)
                             store.recordStepEvent(
@@ -608,6 +615,7 @@ class CompanionSyncService : Service() {
         }
         val commitGate = buildStepsPublishGate(service, task)
         val destructiveGate = buildMaintenanceDestructiveGate(service, task)
+        val orderReporter = if (task.steps.any { it is AutomationStep.ReadOrders }) orderReporterFor(client) else null
         val checkpoint = store.latestCheckpoint(task.taskId)
         if (checkpoint == null) {
             persistPaused(task.taskId, pending, TaskPausedException(null, -1, "resume checkpoint missing"))
@@ -639,7 +647,10 @@ class CompanionSyncService : Service() {
                         "RESUME_CHECK",
                     )
                     withTimeout(task.maxRunSeconds * 1_000L) {
-                        service.execute(task, control, startAfterIndex, commitGate = commitGate, destructiveGate = destructiveGate) { step, state ->
+                        service.execute(
+                            task, control, startAfterIndex, commitGate = commitGate,
+                            destructiveGate = destructiveGate, orderReporter = orderReporter,
+                        ) { step, state ->
                             val stepIndex = task.steps.indexOf(step)
                             currentStep.set(stepIndex)
                             store.recordStepEvent(
@@ -985,6 +996,47 @@ class CompanionSyncService : Service() {
             ControlledActionExecutor(store, PinnedControlledActionLedger(connection)),
             service,
         )
+    }
+
+    /**
+     * order-sync/20260915.1 §5: the moment a readOrders step succeeds, its
+     * collected rows go straight to the §3 batch endpoint (maxRows ≤ 10 fits
+     * the 1..20 batch limit in one shot). Best-effort by design: the task
+     * result itself keeps flowing through the ordinary completion events, an
+     * upload failure only logs (slice 1 has no orders outbox; re-collection
+     * is idempotent server-side). An empty read reports 0 rows here — the
+     * batch endpoint requires 1..20 rows, so nothing is POSTed for it.
+     */
+    private fun orderReporterFor(client: CloudTaskClient): OrderReporter = OrderReporter { taskId, direction, collected, skipped ->
+        if (collected.isEmpty()) {
+            android.util.Log.i(
+                "CompanionSync",
+                "orders batch task=$taskId direction=$direction rows=0 skipped=${skipped.size} (nothing uploaded)",
+            )
+            return@OrderReporter
+        }
+        try {
+            val payload = buildOrdersBatchPayload(collected, java.time.Instant.now())
+            val response = withContext(Dispatchers.IO) { client.sendOrders(payload) }
+            val result = parseOrdersBatchResponse(response)
+            android.util.Log.i(
+                "CompanionSync",
+                "orders batch task=$taskId direction=$direction accepted=${result.accepted} " +
+                    "duplicates=${result.duplicates} skipped=${skipped.size}",
+            )
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (rejected: CloudHttpException) {
+            // §3: 422 carries per-row rejection detail — keep it in the log for
+            // diagnosis instead of the bare status line.
+            android.util.Log.w(
+                "CompanionSync",
+                "orders batch upload rejected task=$taskId status=${rejected.status} " +
+                    "body=${rejected.responseBody.take(500)}",
+            )
+        } catch (error: Exception) {
+            android.util.Log.w("CompanionSync", "orders batch upload deferred task=$taskId: ${error.message}")
+        }
     }
 
     private fun showReconciling(taskId: String) {

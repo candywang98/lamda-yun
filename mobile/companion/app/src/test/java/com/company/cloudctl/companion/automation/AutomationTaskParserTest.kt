@@ -231,4 +231,60 @@ class AutomationTaskParserTest {
       {"stepId":"verify-onsale","action":"ui.assertBadge","timeoutMs":8000,"locatorRef":"xianyu_pub_tab_onsale","expectedDelta":-1},
       {"stepId":"verify-delisted","action":"ui.assertBadge","timeoutMs":8000,"locatorRef":"xianyu_pub_tab_delisted","expectedValue":0}]}
     """.trimIndent()
+
+    // order-sync/20260915.1 §5 + W1 冻结五步形状：ui.tap(profile) → ui.tap(方向入口)
+    // → ui.readOrders → ui.screenshot → run.log（导航用 ui.tap+定位器，非 tapText）。
+    @Test
+    fun parsesReadOrdersStepAndRejectsInvalidParameters() {
+        val task = AutomationTaskParser.parse(collectOrdersJson())
+        assertEquals(TargetLocatorRegistry.XIANYU_PACKAGE, task.targetPackage)
+        assertEquals(5, task.steps.size)
+
+        // 导航两步走既有 ui.tap + 定位器名（fail-closed 见 TargetLocatorRegistry §7）。
+        assertEquals("xianyu_profile_tab", (task.steps[0] as AutomationStep.Tap).locatorRef)
+        assertEquals("xianyu_order_list_sold", (task.steps[1] as AutomationStep.Tap).locatorRef)
+
+        val read = task.steps[2] as AutomationStep.ReadOrders
+        assertEquals(OrderDirection.SOLD, read.direction)
+        assertEquals(5, read.maxRows)
+        assertEquals("xianyu_orders_container", read.locatorRef)
+        assertEquals("read-orders", read.stepId)
+
+        val bought = AutomationTaskParser.parse(collectOrdersJson().replace("\"SOLD\"", "\"BOUGHT\"").replace("xianyu_order_list_sold", "xianyu_order_list_bought"))
+        assertEquals(OrderDirection.BOUGHT, (bought.steps[2] as AutomationStep.ReadOrders).direction)
+        assertEquals("xianyu_order_list_bought", (bought.steps[1] as AutomationStep.Tap).locatorRef)
+
+        // direction 非 SOLD/BOUGHT → 拒绝。
+        assertFailsWith<IllegalStateException> {
+            AutomationTaskParser.parse(collectOrdersJson().replace("\"SOLD\"", "\"sold\""))
+        }
+        // maxRows 0 / 11 → 拒绝。
+        assertFailsWith<IllegalArgumentException> {
+            AutomationTaskParser.parse(collectOrdersJson().replace("\"maxRows\":5", "\"maxRows\":0"))
+        }
+        assertFailsWith<IllegalArgumentException> {
+            AutomationTaskParser.parse(collectOrdersJson().replace("\"maxRows\":5", "\"maxRows\":11"))
+        }
+        // 缺 direction、未知字段、非法 locatorRef → 拒绝。
+        assertFailsWith<IllegalArgumentException> {
+            AutomationTaskParser.parse(collectOrdersJson().replace("\"direction\":\"SOLD\",", ""))
+        }
+        assertFailsWith<IllegalArgumentException> {
+            AutomationTaskParser.parse(collectOrdersJson().replace("\"maxRows\":5", "\"maxRows\":5,\"x\":1"))
+        }
+        assertFailsWith<IllegalArgumentException> {
+            AutomationTaskParser.parse(collectOrdersJson().replace("xianyu_orders_container", "xianyu/orders"))
+        }
+    }
+
+    private fun collectOrdersJson() = """
+      {"protocolVersion":"cloudctl.mobile/v1","taskId":"task-xianyu-orders-001","deviceId":"device-1",
+      "targetPackage":"com.taobao.idlefish","issuedAt":"2026-09-15T08:00:00Z",
+      "expiresAt":"2026-09-15T08:10:00Z","maxRunSeconds":90,"commandType":"xianyu.collect_orders.steps.v1","steps":[
+      {"stepId":"open-profile","action":"ui.tap","timeoutMs":8000,"locatorRef":"xianyu_profile_tab"},
+      {"stepId":"open-sold-list","action":"ui.tap","timeoutMs":8000,"locatorRef":"xianyu_order_list_sold"},
+      {"stepId":"read-orders","action":"ui.readOrders","timeoutMs":15000,"direction":"SOLD","maxRows":5,"locatorRef":"xianyu_orders_container"},
+      {"stepId":"capture-orders","action":"ui.screenshot","timeoutMs":8000,"label":"xianyu_orders_screen"},
+      {"stepId":"mark-done","action":"run.log","timeoutMs":1000,"level":"INFO","messageCode":"XIANYU_ORDERS_COLLECTED"}]}
+    """.trimIndent()
 }

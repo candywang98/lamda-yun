@@ -169,6 +169,43 @@ internal object TargetLocatorRegistry {
         throw IllegalArgumentException("Unknown Companion locator")
     }
 
+    // Order-sync slice 1 (contract order-sync/20260915.1 §7 + anchor specs from
+    // the controller's on-device survey, addendum order-sync/20260915.2, dumps
+    // recon-20260915-2): order-list locator refs that are registered but NOT
+    // verified for automation on a real device. They fail closed —
+    // resolveVerified() returns null and every consumer (ui.tap navigation,
+    // ui.readOrders container) must terminate the step with LOCATOR_UNVERIFIED,
+    // zero side effects. Surveyed anchors (flip = move into xianyuLocators and
+    // drop from this set, one reviewable diff; NO coordinates prefilled):
+    //   - xianyu_order_list_sold:   我的页 text/content-desc EXACTLY 「我卖出的」
+    //                               (surveyed bounds [467,957][611,1005], center 539,981)
+    //   - xianyu_order_list_bought: 我的页 text/content-desc EXACTLY 「我买到的」
+    //                               (surveyed bounds [673,957][817,1005], center 745,981)
+    //   - xianyu_orders_container:  the order list page's scrollable container —
+    //                               the actual parent of the row nodes whose
+    //                               content-desc starts with 「订单信息」 (rows are
+    //                               NOT clickable; price Buttons inside them are)
+    val UNVERIFIED_XIANYU_LOCATOR_REFS: Set<String> = setOf(
+        "xianyu_order_list_sold",
+        "xianyu_order_list_bought",
+        "xianyu_orders_container",
+    )
+
+    /** True when [locatorRef] is registered for [targetPackage] but still unverified (§7). */
+    fun isUnverifiedLocator(targetPackage: String, locatorRef: String): Boolean =
+        targetPackage == XIANYU_PACKAGE && locatorRef in UNVERIFIED_XIANYU_LOCATOR_REFS
+
+    /**
+     * Verified-only resolution gate (fail-closed, §7): null means the ref is
+     * registered but not device-verified — callers must fail the step with
+     * LOCATOR_UNVERIFIED and terminate the task safely. Anything else defers
+     * to [resolve], which still rejects unknown refs.
+     */
+    fun resolveVerified(targetPackage: String, locatorRef: String): ApprovedLocator? {
+        if (isUnverifiedLocator(targetPackage, locatorRef)) return null
+        return resolve(targetPackage, locatorRef)
+    }
+
     /**
      * True when a node content description / text string is one of the verified
      * xianyu 消息 tab forms (used both by the xianyu_messages_tab locator and by
