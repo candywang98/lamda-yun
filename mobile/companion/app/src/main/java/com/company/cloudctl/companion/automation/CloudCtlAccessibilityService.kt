@@ -874,18 +874,25 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
                     }
                 }
                 if (card.bottom > screenBottom) {
-                    throw ExecutorFailure(
-                        "CARD_NOT_FULLY_VISIBLE",
-                        "Card for '$titleContains' cannot be scrolled fully into view (bottom=${card.bottom}, screen=$screenBottom)",
+                    Log.w(
+                        TAG,
+                        "CARD_PARTIALLY_VISIBLE bottom=${card.bottom} screen=$screenBottom; clamping tap into the safe band",
                     )
                 }
+                // A card peeking from the list bottom has its full-bounds centre
+                // inside the OS bottom-gesture dead zone (device-verified
+                // 2026-09-16: a tap 26px above the screen edge never reached
+                // the app). Clamp the tap into the card's safely tappable band.
+                val metrics = resources.displayMetrics
+                val tapX = card.centerX.coerceIn(80f, metrics.widthPixels - 80f)
+                val tapY = card.centerY.coerceIn(card.top + 60f, screenBottom - 120f)
                 Log.i(
                     TAG,
-                    "CARD_TITLE_TAP title=$titleContains tab=$tab card=${card.left},${card.top},${card.right},${card.bottom} scrolls=$scrolls",
+                    "CARD_TITLE_TAP title=$titleContains tab=$tab card=${card.left},${card.top},${card.right},${card.bottom} scrolls=$scrolls tap=$tapX,$tapY",
                 )
                 // One dispatchGesture only; a rejected/cancelled gesture is
                 // ambiguous and fails closed (no fallback click, no retry).
-                if (!tapScreen(card.centerX, card.centerY)) {
+                if (!tapScreen(tapX, tapY)) {
                     throw ExecutorFailure("CLICK_UNCONFIRMED", "Card title gesture was not confirmed")
                 }
             }
