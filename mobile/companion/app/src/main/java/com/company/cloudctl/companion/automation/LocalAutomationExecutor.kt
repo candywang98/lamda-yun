@@ -26,6 +26,15 @@ interface LocalAutomationUi {
     fun ensureReady(targetPackage: String)
     fun inspect(targetPackage: String, locatorRef: String): LocalNodeState?
     fun visibleTextContains(expected: String): Boolean = false
+
+    /**
+     * Wrong-card defense 1 feed (2026-09-16 incident): the target's currently
+     * visible own text/content-desc lines, used to verify the just-opened
+     * detail page carries the tapped card's title. Default empty keeps plain
+     * executors honest — the verification then fails closed at its deadline
+     * instead of trusting an unreadable page.
+     */
+    fun visibleTextLines(targetPackage: String): List<String> = emptyList()
     suspend fun tapText(targetPackage: String, value: String) {
         error("tapText is not supported by this executor")
     }
@@ -406,6 +415,12 @@ class LocalAutomationExecutor(
      * List rendering misses (tab/scrollable/card absent) retry inside the step
      * window; an ambiguous title match fails immediately — a guess tap would
      * risk the wrong listing, zero side effects instead.
+     *
+     * Wrong-card defense 1 (2026-09-16 incident): after the card gesture is
+     * confirmed, the opened page must carry the target title before the step
+     * succeeds ([verifyDetailPageTitle]) — a different product's detail page
+     * terminates the task with DETAIL_TITLE_MISMATCH, so no manage-menu step
+     * and no gated confirm can ever run against the wrong object.
      */
     private suspend fun executeTapCardByTitle(
         task: AutomationTask,
@@ -441,6 +456,11 @@ class LocalAutomationExecutor(
             ui.ensureReady(task.targetPackage)
             try {
                 ui.tapCardByTitle(task.targetPackage, step.tab, step.titleContains)
+                // Wrong-card defense 1 (main): the gesture is confirmed, not
+                // the destination. Before any later step can open the manage
+                // menu — let alone the gated confirm — the opened page must
+                // carry the target title, or the task fails closed here.
+                verifyDetailPageTitle(task, step, deadline, control, lastCompleted, lastCompletedIndex)
                 return
             } catch (failure: ExecutorFailure) {
                 if (failure.code != "CARD_TITLE_NOT_FOUND" && failure.code != "LIST_TAB_NOT_FOUND" &&
@@ -451,6 +471,71 @@ class LocalAutomationExecutor(
                 if (elapsedMs() >= deadline) throw failure
                 sleep(CARD_SEARCH_POLL_MS)
             }
+        }
+    }
+
+    /**
+     * Wrong-card defense 1 (2026-09-16 incident: a stale-bounds tap opened a
+     * different product and the gated delete ran against the wrong object).
+     * The list page is recognized by the live published-tab node: while it is
+     * still visible the navigation has not happened, so the target title on
+     * screen is just the list card and proves nothing. Once the tab is gone
+     * the visible lines must carry the target fragment (same `contains`
+     * semantics as the card search). A readable page without the fragment is
+     * the wrong product — DETAIL_TITLE_MISMATCH terminates the task with zero
+     * side effects, before the manage menu and the destructive gate. The
+     * mismatch must persist [DETAIL_MISMATCH_CONFIRM_POLLS] readings so a
+     * mid-render snapshot cannot kill a correct page; a page that never
+     * becomes verifiable fails DETAIL_TITLE_UNVERIFIED at the step deadline.
+     */
+    private suspend fun verifyDetailPageTitle(
+        task: AutomationTask,
+        step: AutomationStep.TapCardByTitle,
+        deadline: Long,
+        control: ExecutionControl?,
+        lastCompleted: AutomationStep?,
+        lastCompletedIndex: Int,
+    ) {
+        val tabRef = XianyuMaintenanceLayout.publishedTabLocator(step.tab)
+        var mismatchStreak = 0
+        while (true) {
+            throwIfControlRequested(control, lastCompleted, lastCompletedIndex)
+            if (elapsedMs() >= deadline) {
+                throw ExecutorFailure(
+                    "DETAIL_TITLE_UNVERIFIED",
+                    "Detail page after tapping '${step.titleContains}' never became verifiable " +
+                        "before the step deadline",
+                )
+            }
+            ui.ensureReady(task.targetPackage)
+            val listStillShowing = tabRef != null && matches(task, tabRef, NodeCondition.EXISTS)
+            if (!listStillShowing) {
+                when (
+                    val verdict = PublishedCardLocator.verifyDetailTitle(
+                        step.titleContains, ui.visibleTextLines(task.targetPackage),
+                    )
+                ) {
+                    is PublishedCardLocator.DetailTitleVerdict.Matched -> {
+                        ui.log(LogLevel.INFO, "DETAIL_TITLE_VERIFIED")
+                        return
+                    }
+                    is PublishedCardLocator.DetailTitleVerdict.Mismatch -> {
+                        mismatchStreak += 1
+                        if (mismatchStreak >= DETAIL_MISMATCH_CONFIRM_POLLS) {
+                            ui.log(LogLevel.ERROR, "DETAIL_TITLE_MISMATCH")
+                            throw ExecutorFailure(
+                                "DETAIL_TITLE_MISMATCH",
+                                "Detail page shows a different item: expected='${step.titleContains}' " +
+                                    "actual='${verdict.actual ?: ""}'",
+                            )
+                        }
+                    }
+                    is PublishedCardLocator.DetailTitleVerdict.NoReadableContent -> mismatchStreak = 0
+                }
+            } else {
+                mismatchStreak = 0
+            }
+            sleep(DETAIL_VERIFY_POLL_MS)
         }
     }
 
@@ -672,5 +757,9 @@ class LocalAutomationExecutor(
         val SHA256 = Regex("^[a-f0-9]{64}$")
         const val TAP_TEXT_MAX_SCROLLS = 10
         const val CARD_SEARCH_POLL_MS = 700L
+
+        // Wrong-card defense 1 polling (detail-page title verification).
+        const val DETAIL_VERIFY_POLL_MS = 400L
+        const val DETAIL_MISMATCH_CONFIRM_POLLS = 2
     }
 }

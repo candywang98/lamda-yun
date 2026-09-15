@@ -164,4 +164,113 @@ object PublishedCardLocator {
     private fun contains(outer: Bounds, inner: Bounds): Boolean =
         outer.left <= inner.left && outer.top <= inner.top &&
             outer.right >= inner.right && outer.bottom >= inner.bottom
+
+    // -------------------------------------------------------------------------
+    // Wrong-card defenses (2026-09-16 incident: a post-scroll card match kept
+    // stale bounds, the tap opened a DIFFERENT product's detail page and the
+    // gated delete ran against the wrong object). Two pure, JVM-testable
+    // guards back the maintenance v2 path: bounds freshness before the tap and
+    // detail-page title verification after it.
+    // -------------------------------------------------------------------------
+
+    /** Chebyshev px tolerance for the pre-tap bounds freshness recheck. */
+    const val BOUNDS_FRESHNESS_TOLERANCE_PX = 40
+
+    /** Max re-match rounds when consecutive live readings keep disagreeing. */
+    const val BOUNDS_FRESHNESS_REMATCH_ROUNDS = 2
+
+    /** True when every edge of [a] and [b] sits within [tolerancePx] pixels. */
+    fun boundsWithinTolerance(a: Bounds, b: Bounds, tolerancePx: Int = BOUNDS_FRESHNESS_TOLERANCE_PX): Boolean =
+        maxOf(
+            kotlin.math.abs(a.left - b.left),
+            kotlin.math.abs(a.top - b.top),
+            kotlin.math.abs(a.right - b.right),
+            kotlin.math.abs(a.bottom - b.bottom),
+        ) <= tolerancePx
+
+    /**
+     * Secondary defense — pre-tap bounds freshness arbiter. The caller seeds
+     * the bounds captured at match time, then feeds each fresh re-query of the
+     * SAME title (a full re-locate, not a node-handle refresh). Two agreeing
+     * readings prove the rectangle is live; a drifted reading adopts the fresh
+     * bounds and forces a re-match; after [maxRematches] re-matches the
+     * rectangle is unstable and the caller must fail closed
+     * (CARD_BOUNDS_UNSTABLE) instead of tapping a guess.
+     */
+    class BoundsFreshnessArbiter(
+        matched: Bounds,
+        private val tolerancePx: Int = BOUNDS_FRESHNESS_TOLERANCE_PX,
+        private val maxRematches: Int = BOUNDS_FRESHNESS_REMATCH_ROUNDS,
+    ) {
+        private var reference = matched
+        private var rematches = 0
+
+        fun requery(fresh: Bounds): FreshnessDecision {
+            if (boundsWithinTolerance(reference, fresh, tolerancePx)) {
+                return FreshnessDecision.Stable(fresh)
+            }
+            rematches += 1
+            if (rematches > maxRematches) return FreshnessDecision.Unstable
+            reference = fresh
+            return FreshnessDecision.Rematch
+        }
+    }
+
+    sealed interface FreshnessDecision {
+        /** Two agreeing live readings: tap [bounds] (the fresh one). */
+        data class Stable(val bounds: Bounds) : FreshnessDecision
+
+        /** Reading drifted: adopt it and re-match once more. */
+        data object Rematch : FreshnessDecision
+
+        /** Still drifting after the re-match budget: never tap. */
+        data object Unstable : FreshnessDecision
+    }
+
+    /**
+     * Main defense — detail-page title verdict with the same-source
+     * `contains` semantics as the card search: the just-opened detail page is
+     * the right product only when one of its visible lines carries the target
+     * fragment. No readable content yet means the page is still rendering
+     * (poll again); readable content without the fragment means the WRONG
+     * product is open — fail closed with the actual line for the log.
+     */
+    sealed interface DetailTitleVerdict {
+        data class Matched(val line: String) : DetailTitleVerdict
+        data class Mismatch(val expected: String, val actual: String?) : DetailTitleVerdict
+        data object NoReadableContent : DetailTitleVerdict
+    }
+
+    fun verifyDetailTitle(titleContains: String, visibleLines: List<String>): DetailTitleVerdict {
+        visibleLines.firstOrNull { it.contains(titleContains) }?.let { return DetailTitleVerdict.Matched(it) }
+        if (visibleLines.isEmpty()) return DetailTitleVerdict.NoReadableContent
+        // The actual line is operator log material, not a control signal: the
+        // longest visible line is the most title-shaped line on a detail page.
+        return DetailTitleVerdict.Mismatch(titleContains, visibleLines.maxByOrNull { it.length })
+    }
+
+    /**
+     * The visible page's own text/content-desc lines in tree order, from the
+     * same UiNode snapshot model as the card search. Invisible branches are
+     * pruned: a covered-but-attached list page must never leak its card titles
+     * into the detail-page verdict.
+     */
+    fun visibleLines(root: UiNode): List<String> {
+        val out = mutableListOf<String>()
+        fun visit(node: UiNode) {
+            if (!node.visible) return
+            val text = node.text?.trim()?.takeIf { it.isNotBlank() }
+            val description = node.description?.trim()?.takeIf { it.isNotBlank() }
+            when {
+                text != null && description != null && text == description -> out += text
+                else -> {
+                    text?.let(out::add)
+                    description?.let(out::add)
+                }
+            }
+            node.children.forEach(::visit)
+        }
+        visit(root)
+        return out
+    }
 }
