@@ -856,6 +856,41 @@ class ImMessageRow(Base):
     )
 
 
+class OrderRow(Base, TimestampMixin):
+    """Read-only xianyu order snapshot pushed by Companion (order-sync/20260915.1).
+
+    First write wins: the (tenant, device, platform, order_key) natural key is
+    unique and slice 1 never rewrites an existing snapshot. order_key comes from
+    the device page; rows without a usable key are rejected at ingest.
+    """
+
+    __tablename__ = "xianyu_order"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(36), index=True, nullable=False)
+    device_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("device.id"), index=True, nullable=False
+    )
+    platform: Mapped[str] = mapped_column(String(32), default="xianyu", nullable=False)
+    direction: Mapped[str] = mapped_column(String(8), nullable=False)
+    order_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    item_title: Mapped[str | None] = mapped_column(String(256))
+    buyer_name: Mapped[str | None] = mapped_column(String(128))
+    amount_cents: Mapped[int | None] = mapped_column(Integer)
+    status_text: Mapped[str | None] = mapped_column(String(64))
+    occurred_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    raw: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id", "device_id", "platform", "order_key",
+            name="uq_xianyu_order_natural_key",
+        ),
+        CheckConstraint("platform IN ('xianyu')", name="ck_xianyu_order_platform"),
+        CheckConstraint("direction IN ('SOLD', 'BOUGHT')", name="ck_xianyu_order_direction"),
+        CheckConstraint("amount_cents IS NULL OR amount_cents > 0", name="ck_xianyu_order_amount"),
+    )
+
+
 class MobileTaskEventRow(Base):
     __tablename__ = "mobile_task_event"
     id: Mapped[str] = mapped_column(String(36), primary_key=True)

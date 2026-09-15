@@ -357,6 +357,80 @@ def validate_maintenance_steps(package: str, steps: list[dict[str, Any]]) -> str
         )
     return matches[0]
 
+
+# Frozen xianyu order-collection shape (order-sync/20260915.1 §5): navigate to
+# the sold/bought order list, read the visible rows with exactly one
+# ui.readOrders, capture screenshot evidence, close with run.log. Read-only:
+# no ledger-gated click, so the shape itself is the whole gate.
+ORDERS_COMMAND_TYPE = "xianyu.collect_orders.steps.v1"
+ORDERS_STEP_ACTIONS = frozenset({"ui.readOrders"})
+ORDERS_READ_LOCATOR = "xianyu_orders_container"
+ORDERS_ENTRY_LOCATORS = {
+    "SOLD": "xianyu_order_list_sold",
+    "BOUGHT": "xianyu_order_list_bought",
+}
+ORDERS_PROFILE_NAV = "xianyu_profile_tab"
+ORDERS_LOG_CODE = "XIANYU_COLLECT_ORDERS_DONE"
+# Steps tasks validated against a frozen step shape carry no recipe pin; the
+# claim path must not try to resolve a builtin recipe package for them.
+UNPINNED_STEPS_COMMANDS = MAINTENANCE_COMMAND_TYPES | frozenset({ORDERS_COMMAND_TYPE})
+
+
+def uses_orders_step_actions(steps: list[dict[str, Any]]) -> bool:
+    return any(step.get("action") in ORDERS_STEP_ACTIONS for step in steps)
+
+
+def _orders_shape_error(steps: list[dict[str, Any]]) -> str | None:
+    """Return the first collect-orders shape violation, or None on exact match."""
+
+    command = ORDERS_COMMAND_TYPE
+    reads = [step for step in steps if step.get("action") == "ui.readOrders"]
+    if len(reads) != 1:
+        return f"{command}: exactly one ui.readOrders step is required"
+    read = reads[0]
+    direction = read.get("direction")
+    if direction not in ORDERS_ENTRY_LOCATORS:
+        return f"{command}: ui.readOrders direction must be SOLD or BOUGHT"
+    max_rows = read.get("maxRows")
+    if isinstance(max_rows, bool) or not isinstance(max_rows, int) or not 1 <= max_rows <= 10:
+        return f"{command}: ui.readOrders maxRows must be an integer in 1..10"
+    if read.get("locatorRef") != ORDERS_READ_LOCATOR:
+        return f"{command}: ui.readOrders must read from {ORDERS_READ_LOCATOR}"
+    expected = [
+        ("ui.tap", ORDERS_PROFILE_NAV),
+        ("ui.tap", ORDERS_ENTRY_LOCATORS[direction]),
+        ("ui.readOrders", None),
+        ("ui.screenshot", None),
+        ("run.log", None),
+    ]
+    if len(steps) != len(expected):
+        return (
+            f"{command}: steps must be exactly navigation taps -> one ui.readOrders -> "
+            "one ui.screenshot -> closing run.log"
+        )
+    for step, (action, locator) in zip(steps, expected, strict=True):
+        if step.get("action") != action:
+            return f"{command}: step {step.get('stepId')} must use action {action}"
+        if locator is not None and step.get("locatorRef") != locator:
+            return f"{command}: step {step.get('stepId')} must target {locator}"
+    log = steps[-1]
+    if log.get("messageCode") != ORDERS_LOG_CODE:
+        return f"{command}: closing run.log {ORDERS_LOG_CODE} is required"
+    return None
+
+
+def validate_orders_steps(package: str, steps: list[dict[str, Any]]) -> str:
+    """Creation gate: steps using ui.readOrders must match the frozen shape."""
+
+    if not uses_orders_step_actions(steps):
+        raise ValidationError("order collection step actions are required for this validation")
+    if package != XIANYU_PACKAGE:
+        raise ValidationError("order collection is only defined for the xianyu package")
+    error = _orders_shape_error(steps)
+    if error is not None:
+        raise ValidationError(error)
+    return ORDERS_COMMAND_TYPE
+
 def action_view(row: MobileActionCommitRow) -> dict[str, Any]:
     names = (
         "action_key",

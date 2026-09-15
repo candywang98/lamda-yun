@@ -183,6 +183,20 @@ class AssertBadgeStep(StrictModel):
             raise ValueError("stepId is invalid")
         return value
 
+class ReadOrdersStep(LocatorStep):
+    """Read order rows from the current xianyu order list screen.
+
+    Contract order-sync/20260915.1 §5: exactly one per task, direction SOLD or
+    BOUGHT, maxRows 1..10, locatorRef points at the list container locator
+    (xianyu_orders_container; the registry entry is unverified/fail-closed on
+    the device until the real-device survey flips it).
+    """
+
+    action: Literal["ui.readOrders"]
+    direction: Literal["SOLD", "BOUGHT"]
+    max_rows: int = Field(alias="maxRows", ge=1, le=10)
+
+
 class AssertStep(LocatorStep):
     action: Literal["ui.assert"]
     predicate: Literal["EXISTS", "NOT_EXISTS", "ENABLED"]
@@ -212,6 +226,7 @@ MobileStep = Annotated[
     | ScreenshotStep
     | TapLayoutStep
     | AssertBadgeStep
+    | ReadOrdersStep
     | AssertStep
     | LogStep,
     Field(discriminator="action"),
