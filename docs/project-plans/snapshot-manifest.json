@@ -1,8 +1,13 @@
 [
   {
     "file": "lamda_yun_一期计划_智能体执行版.xlsx",
-    "sha256": "cb4b9e233e35a6ce4a95905a5d5c7d6d2f7c32dd3ec48cfe1111eaa75f10362f",
-    "bytes": 213757
+    "sha256": "7fac55d3e795ed114d8fa0a22339e97154cb7d3077ab9c6ae7fa350447b73720",
+    "bytes": 240655
+  },
+  {
+    "file": "lamda_yun_一期计划_多智能体版.xlsx",
+    "sha256": "a56cd7791cd4da2b37053490c3922c3ba794b08567865d2968a5587975ab12ec",
+    "bytes": 298993
   },
   {
     "file": "lamda_yun_一期审阅与实施_需求确认版.xlsx",

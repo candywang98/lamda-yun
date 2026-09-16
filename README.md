@@ -1,7 +1,7 @@
 # CloudCtl
 
-当前进度计划（表内更新至 2026-09-09）：[一期智能体执行计划与交接快照](docs/project-plans/README.md)。
-当前为 P00–P49 共 50 个功能包，P14 版本生命周期仍在推进。模块通过不代表整包真实验收；[V1 审核与实施计划](docs/v1/README.md)、下方及 `docs/delivery/` 中较早交付说明保留作历史背景。
+当前进度计划（表内更新至 2026-09-16）：[一期智能体执行计划与交接快照](docs/project-plans/README.md)。
+权威活动计划是 `docs/project-plans/lamda_yun_一期计划_多智能体版.xlsx`；验收/范围基线是同目录的智能体执行版。当前为 P00–P49 共 50 个功能包。P14 单机版本生命周期、P28 闲鱼单件发布、P41 订单 slice1 已验收；模块通过不代表整包真实验收。[V1 审核与实施计划](docs/v1/README.md)、下方及 `docs/delivery/` 中较早交付说明保留作历史背景。
 
 CloudCtl is the LAMDA cloud-control system implemented from the supplied architecture package. The monorepo
 contains 16 logical projects: 9 deployable applications/services, 6 shared packages, and the infrastructure
