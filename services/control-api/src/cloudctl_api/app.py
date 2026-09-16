@@ -195,13 +195,19 @@ def create_app(
     async def validation_error_handler(
         request: Request, exc: RequestValidationError
     ) -> JSONResponse:
+        def field_name(loc: tuple[int | str, ...]) -> str:
+            parts = [str(part) for part in loc]
+            if parts and parts[0] == "body":
+                parts = parts[1:]
+            return ".".join(parts) or "body"
+
         fields = {
-            ".".join(str(part) for part in error["loc"]): error["msg"] for error in exc.errors()
+            field_name(error["loc"]): error["msg"] for error in exc.errors()
         }
         return _problem(
             request,
             status=422,
-            code="REQUEST_VALIDATION_ERROR",
+            code="VALIDATION_ERROR",
             title="Request validation failed",
             detail="one or more request fields are invalid",
             fields=fields,

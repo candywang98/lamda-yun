@@ -165,7 +165,7 @@ async def test_media_assets_filtering_and_pagination(
     assert tagged.json()["total"] == 2
     grouped = await client.get(url, headers=viewer, params={"groupId": gid})
     assert grouped.json()["total"] == 2
-    for params in ({"page": 0}, {"pageSize": 101}, {"tag": " "}):
+    for params in ({"page": 0}, {"pageSize": 201}, {"tag": " "}):
         invalid = await client.get(url, headers=viewer, params=params)
         assert invalid.status_code == 422
     foreign = await client.get(
@@ -945,7 +945,10 @@ async def test_product_catalog_creates_lists_and_rejects_duplicate_or_cross_tena
             "mediaAssetIds": [asset_id],
         },
     )
-    assert foreign.status_code == 422
+    # K02 data-assets/v1: cross-tenant media reference is isolation (403),
+    # not absence (404).
+    assert foreign.status_code == 403
+    assert foreign.json()["code"] == "FORBIDDEN"
 
 
 @pytest.mark.asyncio
@@ -978,3 +981,443 @@ async def test_product_catalog_rejects_invalid_fields_and_write_without_permissi
         },
     )
     assert invalid.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# K02 data-assets/v1 fixture scenarios (contracts/parallel/K02/fixtures/, frozen
+# 20260916.1). One test per fixture plus the A03 edit-readback acceptance.
+# ---------------------------------------------------------------------------
+
+
+async def _upload_media_asset(
+    client: httpx.AsyncClient,
+    app: FastAPI,
+    editor: dict[str, str],
+    content: bytes,
+    file_name: str,
+) -> dict[str, object]:
+    upload = await client.post(
+        "/api/v1/media/uploads",
+        headers=editor,
+        json={
+            "fileName": file_name,
+            "sha256": hashlib.sha256(content).hexdigest(),
+            "contentType": "text/plain",
+            "sizeBytes": len(content),
+        },
+    )
+    assert upload.status_code == 201, upload.text
+    store = app.state.object_store
+    assert isinstance(store, InMemoryObjectStore)
+    store.put(upload.json()["objectKey"], content, "text/plain")
+    completed = await client.post(
+        f"/api/v1/media/uploads/{upload.json()['id']}:complete", headers=editor, json={}
+    )
+    assert completed.status_code == 200, completed.text
+    return completed.json()
+
+
+@pytest.mark.asyncio
+async def test_k02_positive_product_price_boundary_media_reference_and_idempotency(
+    api: tuple[httpx.AsyncClient, FastAPI],
+) -> None:
+    """Fixture k02-positive-product: price '12.80' decimal-string, media
+    reference, Idempotency-Key replay -> 200 + Idempotency-Replayed: true."""
+    client, app = api
+    editor = headers("content_editor")
+    content = b"k02 fixture product cover"
+    asset = await _upload_media_asset(client, app, editor, content, "cover.txt")
+    asset_id = str(asset["id"])
+
+    # (tenant, sha256) dedup: re-initiating the same content short-circuits.
+    dedup = await client.post(
+        "/api/v1/media/uploads",
+        headers=editor,
+        json={
+            "fileName": "cover-again.txt",
+            "sha256": hashlib.sha256(content).hexdigest(),
+            "contentType": "text/plain",
+            "sizeBytes": len(content),
+        },
+    )
+    assert dedup.status_code == 201, dedup.text
+    assert dedup.json()["state"] == "COMPLETED"
+    assert dedup.json()["asset"]["id"] == asset_id
+
+    body = {
+        "spuCode": "BOOK-0001",
+        "title": "如果历史是一群喵4",
+        "description": "个人闲置",
+        "category": "图书",
+        "price": "12.80",
+        "stock": 1,
+        "mediaAssetIds": [asset_id],
+    }
+    created = await client.post(
+        "/api/v1/products",
+        headers={**editor, "Idempotency-Key": "k02-fixture-pos-001"},
+        json=body,
+    )
+    assert created.status_code == 201, created.text
+    payload = created.json()
+    assert payload["price"] == "12.80"
+    assert payload["revision"] == 1
+    assert payload["mediaAssetIds"] == [asset_id]
+    assert payload["media"][0]["mediaAssetId"] == asset_id
+    assert payload["media"][0]["role"] == "cover"
+    assert created.headers["Idempotency-Replayed"] == "false"
+    product_id = payload["id"]
+
+    # Replay with the same Idempotency-Key: 200 + Idempotency-Replayed: true.
+    replay = await client.post(
+        "/api/v1/products",
+        headers={**editor, "Idempotency-Key": "k02-fixture-pos-001"},
+        json=body,
+    )
+    assert replay.status_code == 200, replay.text
+    assert replay.headers["Idempotency-Replayed"] == "true"
+    assert replay.json()["id"] == product_id
+    assert replay.json()["price"] == "12.80"
+
+    # Same key with a different body must not silently create.
+    mutated = dict(body)
+    mutated["price"] = "13.00"
+    conflict = await client.post(
+        "/api/v1/products",
+        headers={**editor, "Idempotency-Key": "k02-fixture-pos-001"},
+        json=mutated,
+    )
+    assert conflict.status_code == 409
+
+    # Without the header a duplicate SPU stays a plain conflict.
+    duplicate = await client.post("/api/v1/products", headers=editor, json=body)
+    assert duplicate.status_code == 409
+
+    # Price '0' is the other legal boundary (D1: 0 is valid, null is not).
+    zero = await client.post(
+        "/api/v1/products",
+        headers=editor,
+        json={
+            "spuCode": "BOOK-0001-FREE",
+            "title": "零元边界",
+            "category": "图书",
+            "price": "0",
+            "stock": 1,
+        },
+    )
+    assert zero.status_code == 201, zero.text
+    assert zero.json()["price"] == "0"
+
+
+@pytest.mark.asyncio
+async def test_k02_negative_price_null_and_malformed_values(
+    api: tuple[httpx.AsyncClient, FastAPI],
+) -> None:
+    """Fixture k02-negative-price-null: null price -> 422 VALIDATION_ERROR with
+    a `price` field; '12.800'/'-1'/'abc' are equally invalid (D1)."""
+    client, _ = api
+    editor = headers("content_editor")
+
+    null_price = await client.post(
+        "/api/v1/products",
+        headers=editor,
+        json={
+            "spuCode": "BOOK-0002",
+            "title": "坏例",
+            "description": "x",
+            "category": "图书",
+            "price": None,
+        },
+    )
+    assert null_price.status_code == 422, null_price.text
+    assert null_price.headers["content-type"].startswith("application/problem+json")
+    problem = null_price.json()
+    assert problem["code"] == "VALIDATION_ERROR"
+    assert "price" in problem["fields"]
+
+    for bad_price in ("12.800", "-1", "abc"):
+        rejected = await client.post(
+            "/api/v1/products",
+            headers=editor,
+            json={
+                "spuCode": f"BOOK-0002-{bad_price}",
+                "title": "坏例",
+                "description": "x",
+                "category": "图书",
+                "price": bad_price,
+            },
+        )
+        assert rejected.status_code == 422, bad_price
+        assert rejected.json()["code"] == "VALIDATION_ERROR"
+
+
+@pytest.mark.asyncio
+async def test_k02_negative_media_reference_404_and_cross_tenant_403(
+    api: tuple[httpx.AsyncClient, FastAPI],
+) -> None:
+    """Fixture k02-negative-media-404: unknown media id -> 404 NOT_FOUND;
+    cross-tenant media id -> 403 FORBIDDEN (isolation, not absence)."""
+    client, app = api
+    editor = headers("content_editor")
+    foreign_editor = headers(
+        "content_editor",
+        tenant="00000000-0000-7000-8000-000000000999",
+        user="00000000-0000-7000-8000-000000000998",
+    )
+
+    missing = await client.post(
+        "/api/v1/products",
+        headers=editor,
+        json={
+            "spuCode": "BOOK-0003",
+            "title": "坏例",
+            "description": "x",
+            "category": "图书",
+            "price": "8.88",
+            "stock": 1,
+            "mediaAssetIds": ["00000000-0000-7000-8000-00000000dead"],
+        },
+    )
+    assert missing.status_code == 404, missing.text
+    assert missing.json()["code"] == "NOT_FOUND"
+
+    # The same rule applies to product updates and media reordering.
+    asset = await _upload_media_asset(client, app, editor, b"owned asset", "own.txt")
+    owned_id = str(asset["id"])
+    created = await client.post(
+        "/api/v1/products",
+        headers=editor,
+        json={
+            "spuCode": "BOOK-0003-OK",
+            "title": "好例",
+            "category": "图书",
+            "price": "8.88",
+            "stock": 1,
+            "mediaAssetIds": [owned_id],
+        },
+    )
+    assert created.status_code == 201, created.text
+    product_id = created.json()["id"]
+    stale_update = await client.put(
+        f"/api/v1/products/{product_id}",
+        headers=editor,
+        json={
+            "spuCode": "BOOK-0003-OK",
+            "title": "坏引用更新",
+            "category": "图书",
+            "price": "8.88",
+            "stock": 1,
+            "mediaAssetIds": ["00000000-0000-7000-8000-00000000dead"],
+            "expectedRevision": 1,
+        },
+    )
+    assert stale_update.status_code == 404
+    stale_media = await client.put(
+        f"/api/v1/products/{product_id}/media",
+        headers=editor,
+        json={
+            "expectedRevision": 1,
+            "items": [
+                {
+                    "mediaAssetId": "00000000-0000-7000-8000-00000000dead",
+                    "sortOrder": 0,
+                    "role": "cover",
+                }
+            ],
+        },
+    )
+    assert stale_media.status_code == 404
+
+    # Cross-tenant reference: the asset exists, but not for this tenant.
+    cross = await client.post(
+        "/api/v1/products",
+        headers=foreign_editor,
+        json={
+            "spuCode": "BOOK-0003-CROSS",
+            "title": "跨租户引用",
+            "category": "图书",
+            "price": "8.88",
+            "stock": 1,
+            "mediaAssetIds": [owned_id],
+        },
+    )
+    assert cross.status_code == 403, cross.text
+    assert cross.json()["code"] == "FORBIDDEN"
+
+
+@pytest.mark.asyncio
+async def test_k02_positive_derivative_roundtrip(
+    api: tuple[httpx.AsyncClient, FastAPI],
+) -> None:
+    """Fixture k02-positive-derivative: 202 PENDING -> :result SUCCEEDED with
+    outputAssetId -> references.sources traces the derivative; errorCode
+    without outputAssetId -> FAILED."""
+    client, _ = api
+    editor = headers("content_editor")
+    service = headers("system_service", user=SERVICE)
+
+    source = await client.post(
+        "/api/v1/media/assets:register",
+        headers=editor,
+        json={
+            "sha256": "1" * 64,
+            "objectKey": "k02/source.png",
+            "contentType": "image/png",
+            "sizeBytes": 16,
+        },
+    )
+    assert source.status_code == 201, source.text
+    source_id = source.json()["id"]
+
+    requested = await client.post(
+        f"/api/v1/media/{source_id}/derivatives",
+        headers=editor,
+        json={"profileId": "watermark-v1"},
+    )
+    assert requested.status_code == 202, requested.text
+    assert requested.json()["state"] == "PENDING"
+    derivative_id = requested.json()["id"]
+
+    derivative_content = b"k02 watermarked output"
+    output = await client.post(
+        "/api/v1/media/assets:register",
+        headers=editor,
+        json={
+            "sha256": hashlib.sha256(derivative_content).hexdigest(),
+            "objectKey": "k02/derived.png",
+            "contentType": "image/png",
+            "sizeBytes": len(derivative_content),
+            "sourceAssetId": source_id,
+        },
+    )
+    assert output.status_code == 201, output.text
+    output_id = output.json()["id"]
+
+    recorded = await client.post(
+        f"/api/v1/media/derivatives/{derivative_id}:result",
+        headers=service,
+        json={"status": "SUCCEEDED", "outputAssetId": output_id},
+    )
+    assert recorded.status_code == 200, recorded.text
+    assert recorded.json()["state"] == "SUCCEEDED"
+
+    references = await client.get(
+        f"/api/v1/media/assets/{output_id}/references", headers=headers("viewer")
+    )
+    assert references.status_code == 200, references.text
+    sources = references.json()["sources"]
+    assert [item["derivativeId"] for item in sources] == [derivative_id]
+    assert sources[0]["sourceAssetId"] == source_id
+    assert sources[0]["state"] == "SUCCEEDED"
+
+    # A result carrying errorCode instead of outputAssetId fails the job.
+    failed_request = await client.post(
+        f"/api/v1/media/{source_id}/derivatives",
+        headers=editor,
+        json={"profileId": "watermark-v1"},
+    )
+    assert failed_request.status_code == 202
+    failed_id = failed_request.json()["id"]
+    failed = await client.post(
+        f"/api/v1/media/derivatives/{failed_id}:result",
+        headers=service,
+        json={"status": "FAILED", "errorCode": "RENDER_TIMEOUT"},
+    )
+    assert failed.status_code == 200, failed.text
+    assert failed.json()["state"] == "FAILED"
+    assert failed.json()["errorCode"] == "RENDER_TIMEOUT"
+
+
+@pytest.mark.asyncio
+async def test_k02_product_edit_readback_consistency(
+    api: tuple[httpx.AsyncClient, FastAPI],
+) -> None:
+    """A03 acceptance: after editing a product, GET must read back the same
+    data, including media ordering with role/sortOrder."""
+    client, app = api
+    editor = headers("content_editor")
+    first = await _upload_media_asset(client, app, editor, b"readback-a", "a.txt")
+    second = await _upload_media_asset(client, app, editor, b"readback-b", "b.txt")
+    first_id, second_id = str(first["id"]), str(second["id"])
+
+    created = await client.post(
+        "/api/v1/products",
+        headers=editor,
+        json={
+            "spuCode": "BOOK-RB-1",
+            "title": "回读基线",
+            "category": "图书",
+            "price": "15.00",
+            "stock": 2,
+            "mediaAssetIds": [first_id, second_id],
+        },
+    )
+    assert created.status_code == 201, created.text
+    product_id = created.json()["id"]
+    assert created.json()["media"] == [
+        {"mediaAssetId": first_id, "sortOrder": 0, "role": "cover"},
+        {"mediaAssetId": second_id, "sortOrder": 1, "role": "detail"},
+    ]
+
+    updated = await client.put(
+        f"/api/v1/products/{product_id}",
+        headers=editor,
+        json={
+            "spuCode": "BOOK-RB-1",
+            "title": "回读更新",
+            "description": "改价并反转媒体顺序",
+            "category": "图书",
+            "price": "16.50",
+            "stock": 1,
+            "mediaAssetIds": [second_id, first_id],
+            "expectedRevision": 1,
+        },
+    )
+    assert updated.status_code == 200, updated.text
+
+    readback = await client.get(f"/api/v1/products/{product_id}", headers=headers("viewer"))
+    assert readback.status_code == 200, readback.text
+    detail = readback.json()
+    assert detail["title"] == "回读更新"
+    assert detail["description"] == "改价并反转媒体顺序"
+    assert detail["price"] == "16.50"
+    assert detail["stock"] == 1
+    assert detail["revision"] == 2
+    assert detail["mediaAssetIds"] == [second_id, first_id]
+    assert detail["media"] == [
+        {"mediaAssetId": second_id, "sortOrder": 0, "role": "cover"},
+        {"mediaAssetId": first_id, "sortOrder": 1, "role": "detail"},
+    ]
+    assert updated.json()["media"] == detail["media"]
+
+    reordered = await client.put(
+        f"/api/v1/products/{product_id}/media",
+        headers=editor,
+        json={
+            "expectedRevision": 2,
+            "items": [
+                {"mediaAssetId": first_id, "sortOrder": 1, "role": "detail"},
+                {"mediaAssetId": second_id, "sortOrder": 0, "role": "cover"},
+            ],
+        },
+    )
+    assert reordered.status_code == 200, reordered.text
+    after_media_update = await client.get(
+        f"/api/v1/products/{product_id}", headers=headers("viewer")
+    )
+    assert after_media_update.json()["revision"] == 3
+    assert after_media_update.json()["media"] == [
+        {"mediaAssetId": second_id, "sortOrder": 0, "role": "cover"},
+        {"mediaAssetId": first_id, "sortOrder": 1, "role": "detail"},
+    ]
+
+    listed = await client.get("/api/v1/products", headers=headers("viewer"))
+    entry = next(item for item in listed.json() if item["id"] == product_id)
+    assert entry["media"] == after_media_update.json()["media"]
+
+    for asset_id in (first_id, second_id):
+        refs = await client.get(
+            f"/api/v1/media/assets/{asset_id}/references", headers=headers("viewer")
+        )
+        assert refs.status_code == 200
+        assert refs.json()["productIds"] == [product_id]
