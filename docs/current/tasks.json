@@ -972,8 +972,8 @@
       "risk": "高",
       "device_acceptance": "无；仅软件验证",
       "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
-      "dev_state": "IN_PROGRESS",
-      "acceptance_state": "NOT_RUN",
+      "dev_state": "SOFTWARE_DONE",
+      "acceptance_state": "SOFTWARE_ACCEPTED",
       "evidence": "artifacts/delivery-20260916/D10/",
       "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
       "read_only_paths": [
@@ -986,7 +986,14 @@
         "python scripts/plan_guard.py data/tasks.json",
         "任务特有验证按本任务验收场景落实，记录实际命令与退出码"
       ],
-      "activation": "R00核验与R02计划激活后执行；E10需单独选择，不自动进入队列"
+      "activation": {
+        "delivered_at": "2026-09-17T00:40:00+08:00",
+        "branch": "agent/fleet-d10",
+        "commit": "2e8c7e2",
+        "review": "控制器审查：4文件+783行全在owned_paths；bash -n通过；preflight backup/restore-verify/probe-auth/version 实测退出码符合设计；compose config 校验通过(docker daemon不可用未实起)",
+        "security_finding": "生产越权已由控制器独立复核确认：nginx auth_basic off + CLOUDCTL_ENV=development + CLOUDCTL_DEV_AUTH_BYPASS=true，公网伪造 X-Tenant-Id(真实租户UUID)+X-User-Id(任意合法UUID)+X-Roles: security_admin+X-MFA: true → 200（auth.py _development_claims 只验UUID格式不验存在性/签名）。整改需生产授权窗口：env=production+OIDC或恢复auth_basic，属用户决策",
+        "pending": "staging compose 实起(docker不可用)；首尔侧backup/restore-verify待授权窗口；/health/ready buildSha 接线归control-api侧"
+      }
     },
     {
       "id": "Q10",
