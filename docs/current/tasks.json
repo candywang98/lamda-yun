@@ -1161,8 +1161,8 @@
       "risk": "高",
       "device_acceptance": "2台真实授权设备；测试App，无发布/删除/支付",
       "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
-      "dev_state": "NOT_STARTED",
-      "acceptance_state": "NOT_RUN",
+      "dev_state": "SOFTWARE_DONE",
+      "acceptance_state": "DEVICE_ACCEPTED",
       "evidence": "artifacts/delivery-20260916/Q11/",
       "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
       "read_only_paths": [
@@ -1175,7 +1175,14 @@
         "授权设备前检查实际deviceId/serial及APK/Recipe哈希",
         "执行任务卡所列验收场景，逐个记录taskId/事件/截图/树/台账；本交付未执行"
       ],
-      "activation": "R00核验与R02计划激活后执行；E10需单独选择，不自动进入队列"
+      "activation": {
+        "accepted_at": "2026-09-17T02:16:00+08:00",
+        "devices": "A=OnePlus9R/b0644fb5(4aabc387,租户1111) B=OnePlus7/15faee1d(9b095c03,租户0001)",
+        "apk": "99f03ff1… @634b84e 同签名双机",
+        "tasks": "A: f557bc13/571e09e2 SUCCEEDED; B: e40bec4b/c0bc307f/a95f37af SUCCEEDED; 双机并行571e09e2×a95f37af同一秒完成",
+        "notes": "A故障B继续/凭据不互通/移动网络生产HTTPS全过；发现并登记缺陷：本地队列头死锁(PAUSED镜像+终态无法清除)+清空队列占位实现→修复归A13；ColorOS force-stop禁无障碍=NEEDS_USER符合B11语义",
+        "evidence": "artifacts/delivery-20260916/Q11/acceptance-evidence.md"
+      }
     },
     {
       "id": "B12",

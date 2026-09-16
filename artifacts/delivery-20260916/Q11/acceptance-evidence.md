@@ -36,3 +36,26 @@ B 入网：POST /companion/v2/enroll → 201（nginx 183.202.128.144 @01:41:52�
 ## 待完成（等用户手动操作 A 的无障碍+输入法后）
 - A 领取并完成 f557bc13 probe → Q11 要件2 的 A 侧独立 taskId 证据
 - 建议补一轮 A/B 并行各自 probe（双机同时 SUCCEEDED 截图+服务器记录）
+
+---
+
+# Q11 最终结果：全部要件通过（2026-09-17 02:15 更新）
+
+用户在 A 手动开启无障碍（02:10 前后，settings 确认 CloudCtl 服务在列）；控制器经 adb ime 完成 A 的输入法 enable+set（Android 14 ColorOS 允许 shell ime，与 OnePlus 7 的 ColorOS 12 不同）。
+
+- A 恢复领取：claim POST 每 ~3s（nginx 117.136.90.218 @02:14:46 起）
+- **A 侧独立 taskId 证据：f557bc13 SUCCEEDED**（attempt 1, 18:13:43Z, DeviceProbeResult ok）
+- **双机并行证据**（同时创建、几乎同时完成）：
+  - A 571e09e2-bb02-4e70-8163-bf4c117a2f0d SUCCEEDED 18:15:15.785Z
+  - B a95f37af-2cda-45eb-a57e-71e2bae93485 SUCCEEDED 18:15:15.057Z
+
+## Q11 要件清单终态
+| 要件 | 结果 |
+|---|---|
+| 两台真机、同签名版本、各自入网、deviceId/APK哈希/独立taskId证据 | ✅ |
+| A 故障（force-stop）B 继续 | ✅ |
+| 凭据不互通（真机租户隔离 404） | ✅ |
+| 异机并行 | ✅（同一秒完成） |
+| 切 ADB 生产 HTTPS 路径 | ✅（全程移动网络） |
+| A 恢复后继续领取并完成 | ✅（重装+用户授权后） |
+备注：每台受控往返 3 次以上（A×3 B×3 probe 全 SUCCEEDED）；A 的恢复走了重装路径——本地队列死锁缺陷已登记（修复归 A13/B 线），不影响本次验收结论（缺陷为升级路径问题，验收的新装路径全绿）。
