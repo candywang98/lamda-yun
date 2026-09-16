@@ -747,8 +747,8 @@
       "risk": "高",
       "device_acceptance": "无；仅软件验证",
       "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
-      "dev_state": "IN_PROGRESS",
-      "acceptance_state": "NOT_RUN",
+      "dev_state": "SOFTWARE_DONE",
+      "acceptance_state": "SOFTWARE_ACCEPTED",
       "evidence": "artifacts/delivery-20260916/B10/",
       "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
       "read_only_paths": [
@@ -763,12 +763,11 @@
         "python -m pytest -q（涉及API时，在集成队列统一运行）"
       ],
       "activation": {
-        "started_at": "2026-09-16T23:10:00+08:00",
-        "worktrees": "wt-b10-companion (agent/fleet-b10)",
-        "locks_held": [
-          "APK:CORE"
-        ],
-        "baseline": "18cc8d3"
+        "delivered_at": "2026-09-16T23:40:00+08:00",
+        "branch": "agent/fleet-b10",
+        "commit": "e7b8b7b",
+        "review": "控制器逐文件审查：10文件+1140/-8全部在owned_paths内；FreshClaimExecutionCoordinator仅KDoc；仲裁器接线于心跳确认边界，finally归还+边界分类；451测试0失败0跳过(基线434全保+新增17)；assembleDebug通过",
+        "pending": "真机联调归Q10/Q11；LiveSessionController接线归live线后续任务（兼容分支保持现状，RUNNING期间remote已拒）"
       }
     },
     {
