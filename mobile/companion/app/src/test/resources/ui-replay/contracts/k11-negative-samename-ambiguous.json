@@ -1,0 +1,15 @@
+{
+  "contract": "ui-observation/v1@20260916.1",
+  "case": "negative-samename-ambiguous",
+  "query": {"locatorKind": "text", "text": "云控平台验收测试服务"},
+  "candidates": [
+    {"index": 4, "bounds": "0,345,1080,500"},
+    {"index": 9, "bounds": "0,900,1080,1055"}
+  ],
+  "expect": {
+    "result": "Ambiguous",
+    "reason": "同名商品多候选",
+    "terminal": "LOCATOR_AMBIGUOUS",
+    "forbidden": ["select-first", "select-center", "select-largest", "auto-retry"]
+  }
+}

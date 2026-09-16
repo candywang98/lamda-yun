@@ -1,0 +1,14 @@
+{
+  "contract": "ui-observation/v1@20260916.1",
+  "case": "negative-fullheight-wrapper",
+  "query": {"locatorKind": "text", "text": "如果历史是一群喵4"},
+  "candidates": [
+    {"index": 1, "bounds": "0,345,1080,2337", "note": "整列表包装节点，文本经 contentDescription 汇总匹配"},
+    {"index": 4, "bounds": "0,345,1080,764", "note": "真实卡片"}
+  ],
+  "expect": {
+    "result": "Resolved",
+    "selectedIndex": 4,
+    "rule": "防误选：全高 wrapper 即使文本匹配也排除，排除依据写入 IdentityProof.excluded（P09-13 预检冻结）"
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "contract": "ui-observation/v1@20260916.1",
+  "derivedFrom": "k11-negative-samename-ambiguous.json",
+  "case": "replay-samename-ambiguous",
+  "observation": {
+    "source": "a11y_tree",
+    "package": "com.taobao.idlefish",
+    "appVersion": "7.10.20",
+    "windowId": 123,
+    "display": 0,
+    "insets": {
+      "left": 0,
+      "top": 132,
+      "right": 0,
+      "bottom": 96
+    },
+    "rotation": 0,
+    "capturedAt": "2026-09-16T22:00:00+08:00",
+    "sessionEpoch": 5,
+    "nodes": [
+      {
+        "depth": 0,
+        "index": 0,
+        "class": "android.widget.FrameLayout",
+        "resourceId": "",
+        "text": "",
+        "contentDesc": "",
+        "bounds": "0,0,1080,2400",
+        "clickable": false
+      },
+      {
+        "depth": 1,
+        "index": 1,
+        "class": "androidx.recyclerview.widget.RecyclerView",
+        "resourceId": "recycler_list",
+        "text": "",
+        "contentDesc": "",
+        "bounds": "0,132,1080,2337",
+        "clickable": false
+      },
+      {
+        "depth": 3,
+        "index": 4,
+        "class": "android.widget.TextView",
+        "resourceId": "item_title",
+        "text": "云控平台验收测试服务",
+        "contentDesc": "",
+        "bounds": "0,345,1080,500",
+        "clickable": true
+      },
+      {
+        "depth": 3,
+        "index": 9,
+        "class": "android.widget.TextView",
+        "resourceId": "item_title",
+        "text": "云控平台验收测试服务",
+        "contentDesc": "",
+        "bounds": "0,900,1080,1055",
+        "clickable": true
+      }
+    ],
+    "treeDigest": "805eed459afede0e7d975b4fbb5ef2d38f32e77023c9b0ac66771754e43fb191"
+  },
+  "query": {
+    "locatorKind": "text",
+    "text": "云控平台验收测试服务"
+  },
+  "expect": {
+    "result": "Ambiguous",
+    "candidateIndices": [
+      4,
+      9
+    ],
+    "terminal": "LOCATOR_AMBIGUOUS",
+    "forbidden": [
+      "select-first",
+      "select-center",
+      "select-largest",
+      "auto-retry"
+    ]
+  }
+}
