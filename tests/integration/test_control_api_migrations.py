@@ -164,6 +164,7 @@ def test_upgrade_and_downgrade_preserve_legacy_operation_rows(tmp_path: Path) ->
             "recipe_pin",
             "requested_by",
             "target_package",
+            "operation_id",
             "steps",
             "status",
             "lease_id",
@@ -235,6 +236,73 @@ def test_upgrade_and_downgrade_preserve_legacy_operation_rows(tmp_path: Path) ->
     command.downgrade(config, "base")
     with sqlite3.connect(database_path) as connection:
         assert tables(connection) <= {"alembic_version"}
+
+
+def test_mobile_task_operation_id_updown_is_symmetric(tmp_path: Path) -> None:
+    """20260916_0022 (K03 D1): nullable operation_id column + index, reversible.
+
+    task-schedule/v1@20260916.1 §2 ruling D1 persists the field-map catalog
+    identity on MobileTaskRow. Existing rows keep NULL (never retro-guessed);
+    the downgrade drops the column and index without touching row data.
+    """
+    database_path = tmp_path / "operation-id-migrations.db"
+    config = migration_config(database_path)
+    command.upgrade(config, "20260915_0021")
+
+    with sqlite3.connect(database_path) as connection:
+        columns = table_columns(connection, "mobile_task")
+        assert "operation_id" not in columns
+        # SQLite does not enforce the device FK by default, so a legacy
+        # mobile_task row can stand in without seeding device/edge_node.
+        connection.execute(
+            """
+            INSERT INTO mobile_task (
+                id, tenant_id, device_id, idempotency_key, request_sha256,
+                requested_by, target_package, steps, status, attempt,
+                last_sequence, result, created_at
+            ) VALUES (
+                '00000000-0000-7000-8000-00000000a010',
+                '00000000-0000-7000-8000-00000000a002',
+                '00000000-0000-7000-8000-00000000a001',
+                'legacy-op-id-task', 'd' * 64, '00000000-0000-7000-8000-00000000a003',
+                'com.taobao.idlefish', '[]', 'QUEUED', 0, 0, '{}',
+                '2026-09-15 09:01:00+00:00'
+            )
+            """
+        )
+        connection.commit()
+
+    command.upgrade(config, "head")
+    with sqlite3.connect(database_path) as connection:
+        assert "operation_id" in table_columns(connection, "mobile_task")
+        legacy = connection.execute(
+            "SELECT operation_id FROM mobile_task WHERE id = ?",
+            ("00000000-0000-7000-8000-00000000a010",),
+        ).fetchone()
+        assert legacy == (None,)
+        indexes = {
+            name
+            for (name,) in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'mobile_task'"
+            ).fetchall()
+        }
+        assert "ix_mobile_task_operation_id" in indexes
+
+    command.downgrade(config, "20260915_0021")
+    with sqlite3.connect(database_path) as connection:
+        assert "operation_id" not in table_columns(connection, "mobile_task")
+        indexes = {
+            name
+            for (name,) in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'mobile_task'"
+            ).fetchall()
+        }
+        assert "ix_mobile_task_operation_id" not in indexes
+        assert connection.execute("SELECT count(*) FROM mobile_task").fetchone() == (1,)
+
+    command.upgrade(config, "head")
+    with sqlite3.connect(database_path) as connection:
+        assert "operation_id" in table_columns(connection, "mobile_task")
 
 
 def test_im_message_delivery_state_backfills_and_downgrades(tmp_path: Path) -> None:

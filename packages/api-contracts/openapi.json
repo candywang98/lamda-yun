@@ -4431,6 +4431,19 @@
               }
             ],
             "title": "Scheduledfor"
+          },
+          "templateRevision": {
+            "anyOf": [
+              {
+                "maximum": 10000.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Templaterevision"
           }
         },
         "required": [

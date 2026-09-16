@@ -735,6 +735,9 @@ class MobileTaskRow(Base, TimestampMixin):
     account_id: Mapped[str | None] = mapped_column(String(36), index=True)
     binding_version: Mapped[int | None] = mapped_column(Integer)
     device_id_at_execution: Mapped[str | None] = mapped_column(String(36))
+    # field-map.json catalog identity frozen by task-schedule/v1 D1: the
+    # operationId that minted this task (null for direct commandType creates).
+    operation_id: Mapped[str | None] = mapped_column(String(64), index=True)
     command_type: Mapped[str | None] = mapped_column(String(80), index=True)
     command_payload: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
     recipe_pin: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)

@@ -72,13 +72,19 @@ def _zone(name: str) -> ZoneInfo:
 def next_occurrences(timezone: str, rrule: str, *, after: datetime, count: int = 3) -> list[datetime]:
     zone = _zone(timezone)
     local_after = _aware(after).astimezone(zone)
+    # task-schedule/v1 §5 (ruling D3): restricted rrule subset only —
+    # FREQ=HOURLY/DAILY/WEEKLY + INTERVAL. RFC5545 is explicitly out of scope.
+    rrule_field = {"rrule": "仅支持 FREQ=HOURLY/DAILY/WEEKLY + INTERVAL"}
     if not rrule.startswith("FREQ="):
-        raise ValidationError("rrule must start with FREQ=")
+        raise ValidationError("rrule must start with FREQ=", fields=rrule_field)
     parts = dict(item.split("=", 1) for item in rrule.split(";") if "=" in item)
     freq = parts.get("FREQ")
-    interval = int(parts.get("INTERVAL", "1"))
+    try:
+        interval = int(parts.get("INTERVAL", "1"))
+    except ValueError as exc:
+        raise ValidationError("rrule INTERVAL must be an integer", fields=rrule_field) from exc
     if interval < 1:
-        raise ValidationError("rrule INTERVAL must be >= 1")
+        raise ValidationError("rrule INTERVAL must be >= 1", fields=rrule_field)
     cursor = local_after.replace(second=0, microsecond=0)
     if freq == "HOURLY":
         step = timedelta(hours=interval)
@@ -90,7 +96,9 @@ def next_occurrences(timezone: str, rrule: str, *, after: datetime, count: int =
         step = timedelta(days=7 * interval)
         cursor = (cursor + step).replace(hour=local_after.hour, minute=local_after.minute)
     else:
-        raise ValidationError("only FREQ=HOURLY,DAILY,WEEKLY are supported")
+        raise ValidationError(
+            "only FREQ=HOURLY,DAILY,WEEKLY are supported", fields=rrule_field
+        )
     values: list[datetime] = []
     while len(values) < count:
         values.append(cursor.astimezone(UTC))
@@ -201,7 +209,15 @@ class TaskScheduleService:
 
     async def fire(
         self, actor: Actor, schedule_id: str, request: ScheduleFireRequest
-    ) -> list[dict[str, Any]]:
+    ) -> tuple[list[dict[str, Any]], bool]:
+        """Fire a schedule occurrence; returns (fire views, created-any flag).
+
+        task-schedule/v1 §5: the fire idempotency key is
+        sha256(schedule_id:utc_time:device_id)[:64] and the TaskScheduleFireRow
+        Unique(schedule_id, scheduled_for, device_id) is the backstop, so a
+        replayed fire returns the existing records without minting new tasks
+        (created=False → HTTP 200; first fire → HTTP 201).
+        """
         require_permissions(actor.roles, Permission.TASK_CREATE)
         scheduled_for = _aware(request.scheduled_for)
         pending: list[dict[str, Any]] = []
@@ -220,6 +236,7 @@ class TaskScheduleService:
                 "binding_version": row.binding_version,
                 "command_type": row.command_type,
                 "parameters": dict(row.parameters or {}),
+                "template_revision": row.template_revision,
                 "tenant_id": row.tenant_id,
             }
             devices = [request.device_id] if request.device_id else list(row.device_ids)
@@ -268,6 +285,7 @@ class TaskScheduleService:
                     }
                 )
         results: list[dict[str, Any]] = []
+        created_any = False
         for item in pending:
             if "existing" in item:
                 results.append(item["existing"])
@@ -288,6 +306,9 @@ class TaskScheduleService:
                             "expectedBindingVersion": snapshot["binding_version"],
                             "parameters": snapshot["parameters"],
                             "scheduledFor": item["utc_time"],
+                            # §5 parameter freeze: stamp the template revision
+                            # this command was minted from.
+                            "templateRevision": snapshot["template_revision"],
                         }
                     ),
                 )
@@ -320,8 +341,9 @@ class TaskScheduleService:
                     await session.flush()
                 except IntegrityError as exc:
                     raise ConflictError("schedule fire already exists") from exc
+                created_any = True
                 results.append(self._fire_view(fire))
-        return results
+        return results, created_any
 
     async def pause_account_schedules(self, tenant_id: str, account_id: str, reason: str) -> None:
         async with self.database.unit_of_work() as session:
