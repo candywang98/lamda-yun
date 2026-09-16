@@ -531,8 +531,8 @@
       "risk": "高",
       "device_acceptance": "无；仅软件验证",
       "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
-      "dev_state": "IN_PROGRESS",
-      "acceptance_state": "NOT_RUN",
+      "dev_state": "SOFTWARE_DONE",
+      "acceptance_state": "SOFTWARE_ACCEPTED",
       "evidence": "artifacts/delivery-20260916/A10/",
       "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
       "read_only_paths": [
@@ -547,13 +547,12 @@
         "涉及迁移：隔离PostgreSQL升级/回退/再升级，兼容性明确后执行"
       ],
       "activation": {
-        "started_at": "2026-09-16T23:10:00+08:00",
-        "worktrees": "wt-a10-fleet (agent/fleet-a10)",
-        "locks_held": [
-          "API:MOBILE",
-          "DB_MIGRATION"
-        ],
-        "baseline": "18cc8d3"
+        "delivered_at": "2026-09-17T00:00:00+08:00",
+        "branch": "agent/fleet-a10",
+        "commit": "16093d3",
+        "review": "控制器审查：4文件+1736/-2全在owned_paths；claim守卫顺序符合§8(UNKNOWN 409优先)→§2可执行门(未上报兼容)；迁移0023对称；369集成+167单测+parity全过",
+        "merged": "integration 64146e5；同SHA验证72560c3+6f030e3: 后端536过/1跳过",
+        "pending": "HTTP路由层会话协商接线(薄层,后续切片)；心跳schema增强；真实账号列替换归A11/控制器"
       }
     },
     {
@@ -767,7 +766,8 @@
         "branch": "agent/fleet-b10",
         "commit": "e7b8b7b",
         "review": "控制器逐文件审查：10文件+1140/-8全部在owned_paths内；FreshClaimExecutionCoordinator仅KDoc；仲裁器接线于心跳确认边界，finally归还+边界分类；451测试0失败0跳过(基线434全保+新增17)；assembleDebug通过",
-        "pending": "真机联调归Q10/Q11；LiveSessionController接线归live线后续任务（兼容分支保持现状，RUNNING期间remote已拒）"
+        "pending": "真机联调归Q10/Q11；LiveSessionController接线归live线后续任务（兼容分支保持现状，RUNNING期间remote已拒）",
+        "merged": "integration 61f0477(B10)/72560c3(C10)+路由接线6f030e3；同SHA验证: Android JVM 451/0、Web 201+typecheck 0"
       }
     },
     {
@@ -918,7 +918,8 @@
         "branch": "agent/fleet-c10",
         "commit": "e6e884e",
         "review": "控制器审查：9文件+1348行全在owned_paths；router/AppShell零改动（接线点已导出fleetRoutes）；fail-closed模式验证正确；vitest 33文件/201用例全过(新增17)+typecheck 0",
-        "pending": "路由接线由控制器在合并时完成；真实API联调待A10落地；e2e归后续"
+        "pending": "路由接线由控制器在合并时完成；真实API联调待A10落地；e2e归后续",
+        "merged": "integration 61f0477(B10)/72560c3(C10)+路由接线6f030e3；同SHA验证: Android JVM 451/0、Web 201+typecheck 0"
       }
     },
     {
