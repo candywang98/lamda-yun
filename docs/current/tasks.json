@@ -1004,7 +1004,14 @@
         "commit": "2e8c7e2",
         "review": "控制器审查：4文件+783行全在owned_paths；bash -n通过；preflight backup/restore-verify/probe-auth/version 实测退出码符合设计；compose config 校验通过(docker daemon不可用未实起)",
         "security_finding": "生产越权已由控制器独立复核确认：nginx auth_basic off + CLOUDCTL_ENV=development + CLOUDCTL_DEV_AUTH_BYPASS=true，公网伪造 X-Tenant-Id(真实租户UUID)+X-User-Id(任意合法UUID)+X-Roles: security_admin+X-MFA: true → 200（auth.py _development_claims 只验UUID格式不验存在性/签名）。整改需生产授权窗口：env=production+OIDC或恢复auth_basic，属用户决策",
-        "pending": "staging compose 实起(docker不可用)；首尔侧backup/restore-verify待授权窗口；/health/ready buildSha 接线归control-api侧"
+        "pending": "staging compose 实起(docker不可用)；首尔侧backup/restore-verify待授权窗口；/health/ready buildSha 接线归control-api侧",
+        "security_remediation": {
+          "authorized_by": "user 2026-09-17",
+          "executed_at": "2026-09-17T00:26:00+08:00",
+          "change": "nginx snippet /api/v1/ 与 /api/v1/mobile/ 移除 auth_basic off（继承server级 GenericAgent realm），/companion/与/health/ 保持off；备份 /etc/nginx/backup/cloudctl-mobile-api.conf.bak-authfix-20260917",
+          "verification": "nginx -t通过+reload；伪造头无凭证401(原200)；/health/ready 200；Companion /companion/v2/ 心跳持续200零影响；合法BasicAuth+开发头200；fleet-preflight probe-auth strict PASSED(原FAIL)",
+          "residual": "应用层dev bypass仍在(env=development)——现已藏于BasicAuth之后，根治(env=production+OIDC)留下次部署窗口"
+        }
       }
     },
     {
