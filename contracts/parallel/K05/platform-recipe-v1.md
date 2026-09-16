@@ -74,3 +74,7 @@ CommandType 是封闭枚举、双端冻结（command_v1.py + companion CommandV1
 
 - 契约层：`uv run pytest -q tests/contracts/`（recipe 版本契约已有测试归属，见 p14-recipe-version-contract.md §Ownership）
 - A05/B05/B06/B07/A09：各实现线交付时按任务卡补（B05 含设备端 RecipePackageManager 安装测试；A09 落 K03 operation_id 后可全链断言）。
+
+## 勘误（2026-09-16，总控）
+
+§6 媒体上限：闲鱼**可选封面数 = 49**（原文误写 50）。依据：图库 tile 定位器生成区间 xianyu_gallery_select_0..49，tile 0 为相机快门不可选（steps 冻结路径同口径）；MediaDelivery 传输上限（50）不变。已同步：A05 PUBLISH_MEDIA_LIMITS、companion 引擎 media 校验。
