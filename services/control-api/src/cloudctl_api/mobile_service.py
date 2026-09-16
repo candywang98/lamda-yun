@@ -37,6 +37,23 @@ from .db import (
     PlatformAccountRow,
     RecipeDeploymentRow,
 )
+from .fleet_identity import (
+    AccountBusyError,
+    AuthorizationEnvelopeStaleError,
+    IneligibleCapabilityError,
+    ReconcileRequiredError,
+    account_write_conflict,
+    active_session,
+    capability_shortfall,
+    device_online,
+    evaluate_executable,
+    lease_envelope_stale,
+    negotiated_engine_min,
+    open_unknown_actions,
+    register_session_row,
+    session_envelope,
+    task_write_effect,
+)
 from .media_store import ObjectStore
 from .mobile_schemas import DevicePreviewUpload, MobileDeviceHeartbeat, MobileTaskCreate
 from .xianyu_publish import build_text_publish_task
@@ -81,6 +98,44 @@ class MobileTaskService:
         self.database = database
         self.object_store = object_store
 
+    @staticmethod
+    async def _authorized_media_asset_ids(
+        session: Any, tenant_id: str, device_id: str
+    ) -> set[str]:
+        """fleet-identity/v1 task-card rule: media downloads are authorized per
+        tenant AND per task — an asset is fetchable by this device only while a
+        non-terminal task on this device references it through its frozen media
+        delivery (steps metadata) or frozen command parameters."""
+        rows = (
+            await session.execute(
+                select(MobileTaskRow).where(
+                    MobileTaskRow.tenant_id == tenant_id,
+                    MobileTaskRow.device_id == device_id,
+                    MobileTaskRow.status.not_in(
+                        ("SUCCEEDED", "FAILED", "CANCELLED", "CANCELED", "EXPIRED")
+                    ),
+                    MobileTaskRow.business_state.not_in(
+                        ("SUCCEEDED", "FAILED", "CANCELLED", "CANCELED", "EXPIRED")
+                    ),
+                )
+            )
+        ).scalars()
+        allowed: set[str] = set()
+        for row in rows:
+            metadata = (row.steps or [{}])[0] if row.steps else {}
+            delivery = metadata.get("mediaDelivery") or {}
+            payload = row.command_payload or {}
+            sources = (
+                delivery.get("assetIds"),
+                (payload.get("parameters") or {}).get("mediaAssetIds"),
+                payload.get("mediaAssetIds"),
+            )
+            for source in sources:
+                for asset_id in source or []:
+                    if isinstance(asset_id, str):
+                        allowed.add(asset_id)
+        return allowed
+
     async def media_manifest(
         self, current: MobileBindingRow, delivery_id: str, asset_ids: list[str]
     ) -> dict[str, Any]:
@@ -95,9 +150,17 @@ class MobileTaskService:
                     )
                 ).scalars()
             )
+            allowed = await self._authorized_media_asset_ids(
+                session, current.tenant_id, current.device_id
+            )
         by_id = {row.id: row for row in rows}
         if len(by_id) != len(asset_ids):
             raise NotFoundError("one or more media assets were not found in tenant")
+        unauthorized = [asset_id for asset_id in asset_ids if asset_id not in allowed]
+        if unauthorized:
+            raise NotFoundError(
+                "one or more media assets are not authorized for this device"
+            )
         return {
             "protocolVersion": "cloudctl.media/v1",
             "deliveryId": delivery_id,
@@ -121,8 +184,13 @@ class MobileTaskService:
             raise ValidationError("media object store is not configured")
         async with self.database.unit_of_work() as session:
             row = await session.get(MediaAssetRow, asset_id)
-        if row is None or row.tenant_id != current.tenant_id:
-            raise NotFoundError("media asset was not found in tenant")
+            if row is None or row.tenant_id != current.tenant_id:
+                raise NotFoundError("media asset was not found in tenant")
+            allowed = await self._authorized_media_asset_ids(
+                session, current.tenant_id, current.device_id
+            )
+            if asset_id not in allowed:
+                raise NotFoundError("media asset was not found for this device")
         stored = await self.object_store.get(row.object_key)
         if stored is None:
             raise NotFoundError("media object was not found")
@@ -392,6 +460,17 @@ class MobileTaskService:
                 device.control_epoch = int(getattr(device, "control_epoch", 0) or 0) + 1
                 device.active_binding_id = binding.id
                 device.fencing_counter = int(device.fencing_counter or 0) + 1
+            # fleet-identity/v1 §2: every process registration mints a fresh
+            # session (sessionId) and revokes the device's prior sessions, so
+            # late heartbeats from an old session can never resurrect it.
+            await register_session_row(
+                session,
+                tenant_id=row.tenant_id,
+                device_id=row.device_id,
+                binding_id=binding.id,
+                companion_version=companion_version,
+                now=now,
+            )
         return {
             "bindingToken": token,
             "bindingId": binding.id,
@@ -417,6 +496,68 @@ class MobileTaskService:
             if device is not None:
                 device.last_seen_at = now
             return row
+
+    async def register_fleet_session(
+        self,
+        binding: MobileBindingRow,
+        *,
+        boot_id: str | None = None,
+        companion_version: str | None = None,
+        capabilities: dict[str, Any] | None = None,
+        accessibility_enabled: bool | None = None,
+        accessibility_active: bool | None = None,
+        ime_ready: bool | None = None,
+        screen_unlocked: bool | None = None,
+        engine_version: int | None = None,
+    ) -> dict[str, Any]:
+        """Companion process (re)registration: capability negotiation (§2/§3).
+
+        Mints a fresh sessionId for the binding, revokes the device's prior
+        sessions (late heartbeats under an old session/boot become stale), and
+        stores the closed capability table plus the raw executable gate states.
+        Returns the resulting FleetEnvelope view.
+        """
+        now = _now()
+        async with self.database.unit_of_work() as session:
+            stored = await session.get(MobileBindingRow, binding.id, with_for_update=True)
+            if stored is None or stored.revoked_at is not None:
+                raise AuthenticationError("invalid or revoked Companion bearer token")
+            row = await register_session_row(
+                session,
+                tenant_id=stored.tenant_id,
+                device_id=stored.device_id,
+                binding_id=stored.id,
+                now=now,
+                boot_id=boot_id,
+                companion_version=companion_version or stored.companion_version,
+                capabilities=capabilities,
+                accessibility_enabled=accessibility_enabled,
+                accessibility_active=accessibility_active,
+                ime_ready=ime_ready,
+                screen_unlocked=screen_unlocked,
+                engine_version=engine_version,
+            )
+            device = await session.get(DeviceRow, stored.device_id, with_for_update=True)
+            if device is not None:
+                device.last_seen_at = now
+            tenant_id, device_id = stored.tenant_id, stored.device_id
+        return session_envelope(
+            row, tenant_id=tenant_id, device_id=device_id, online=True
+        )
+
+    async def fleet_device_status(self, binding: MobileBindingRow) -> dict[str, Any]:
+        """FleetEnvelope view for the binding's device (online ≠ executable)."""
+        now = _now()
+        async with self.database.unit_of_work() as session:
+            device = await session.get(DeviceRow, binding.device_id)
+            fleet = await active_session(session, binding.tenant_id, binding.id)
+        last_seen = device.last_seen_at if device is not None else None
+        return session_envelope(
+            fleet,
+            tenant_id=binding.tenant_id,
+            device_id=binding.device_id,
+            online=device_online(last_seen, now),
+        )
 
     async def account_status(self, binding: MobileBindingRow) -> list[dict[str, Any]]:
         """Return non-secret authorization state for accounts bound to this device."""
@@ -510,6 +651,17 @@ class MobileTaskService:
                 if health.get("mediaProjection"):
                     capabilities["mediaProjection"] = health["mediaProjection"]
             device.capabilities = capabilities
+            # fleet-identity/v1 §2: refresh the negotiated session profile from
+            # the transport heartbeat. A revoked/superseded session is never
+            # resurrected here — only the binding's current active session row
+            # receives updates.
+            fleet = await active_session(session, stored.tenant_id, stored.id)
+            if fleet is not None:
+                fleet.last_seen_at = now
+                fleet.companion_version = body.companion_version
+                fleet.accessibility_enabled = body.accessibility_enabled
+                if body.health is not None and body.health.input_method:
+                    fleet.ime_ready = True
             preview = await session.get(DevicePreviewRow, stored.device_id)
             resume = await session.scalar(
                 select(MobileTaskRow)
@@ -752,6 +904,34 @@ class MobileTaskService:
                 raise ConflictError("DEVICE_REMOTE")
             if device.active_binding_id and device.active_binding_id != binding.id:
                 raise AuthenticationError("companion instance is no longer the active binding")
+            # fleet-identity/v1 §8: open UNKNOWN ledger rows block reclaim for
+            # the whole device until reconciliation converges (KEEP_WAITING).
+            open_unknown = await open_unknown_actions(
+                session, binding.tenant_id, binding.device_id
+            )
+            if open_unknown:
+                raise ReconcileRequiredError(
+                    "device has open UNKNOWN action ledger rows; "
+                    "reconcile them before claiming new work"
+                )
+            # fleet-identity/v1 §2: scheduling eligibility requires executable
+            # (never just online). Gates only apply once the device negotiated
+            # a capability profile; unreported gates stay compatible.
+            fleet = await active_session(session, binding.tenant_id, binding.id)
+            negotiated = fleet is not None and fleet.capabilities is not None
+            if negotiated:
+                assert fleet is not None
+                executable, _, _ = evaluate_executable(
+                    online=device_online(device.last_seen_at, now),
+                    accessibility_enabled=fleet.accessibility_enabled,
+                    accessibility_active=fleet.accessibility_active,
+                    ime_ready=fleet.ime_ready,
+                    screen_unlocked=fleet.screen_unlocked,
+                    engine_version=fleet.engine_version,
+                    engine_min=negotiated_engine_min(fleet.capabilities),
+                )
+                if not executable:
+                    return None
             blocking = await session.scalar(
                 select(MobileTaskRow)
                 .where(
@@ -813,6 +993,7 @@ class MobileTaskService:
                 )
             )
             row = None
+            ineligible: list[tuple[str, list[str]]] = []
             for candidate in queued:
                 mismatch = await self._account_binding_mismatch(session, candidate)
                 if mismatch:
@@ -827,10 +1008,35 @@ class MobileTaskService:
 
                     await settle_reply_delivery(session, candidate.id, "FAILED")
                     continue
+                if negotiated:
+                    assert fleet is not None
+                    # fleet-identity/v1 §3: missing required capabilities make
+                    # the task INELIGIBLE — not dispatched, never failed.
+                    missing = capability_shortfall(candidate, fleet.capabilities or {})
+                    if missing:
+                        ineligible.append((candidate.id, missing))
+                        continue
                 row = candidate
                 break
             if row is None:
+                if ineligible:
+                    task_id, missing = ineligible[0]
+                    raise IneligibleCapabilityError(
+                        f"task {task_id} requires unsupported fleet capabilities: "
+                        f"{', '.join(missing)}"
+                    )
                 return None
+            # fleet-identity/v1 §6.2: at most one active write task per
+            # (tenantId, accountId), across devices.
+            if row.account_id and task_write_effect(row):
+                conflict = await account_write_conflict(
+                    session, binding.tenant_id, row.account_id, exclude_task_id=row.id
+                )
+                if conflict is not None:
+                    raise AccountBusyError(
+                        f"account already has an active write task {conflict.id} "
+                        f"on device {conflict.device_id}"
+                    )
             if row.command_type and row.attempt > 0 and row.recipe_pin is None:
                 raise ConflictError(
                     "legacy task has no persisted recipe pin; reconcile before continuing"
@@ -862,6 +1068,13 @@ class MobileTaskService:
             if row.steps:
                 metadata = dict(row.steps[0])
                 metadata["controlEpoch"] = device.fencing_counter
+                # fleet-identity/v1 §2/§4: stamp the dynamic authorization
+                # envelope (session/boot) on the lease so a late heartbeat
+                # from a superseded session is rejected as stale.
+                if fleet is not None:
+                    metadata["fleetSessionId"] = fleet.session_id
+                    if fleet.boot_id:
+                        metadata["fleetBootId"] = fleet.boot_id
                 row.steps = [metadata, *row.steps[1:]]
             if row.recipe_pin is None and row.command_type:
                 from .builtin_recipes import builtin_recipe_ref
@@ -973,6 +1186,19 @@ class MobileTaskService:
             stored = await session.get(MobileTaskRow, task_id, with_for_update=True)
             self._validate_owned_task(stored, binding)
             assert stored is not None
+            # fleet-identity/v1 §4: pre-commit recovery — a lease minted under
+            # a superseded fleet session (process re-registration, reboot with
+            # a new bootId, reinstall) must not be drivable by a late
+            # heartbeat. The actionKey is unaffected; only the envelope is.
+            metadata = dict(stored.steps[0]) if stored.steps else {}
+            if lease_envelope_stale(
+                recorded_session_id=metadata.get("fleetSessionId"),
+                recorded_boot_id=metadata.get("fleetBootId"),
+                current=await active_session(session, stored.tenant_id, binding.id),
+            ):
+                raise AuthorizationEnvelopeStaleError(
+                    "task lease was minted under a superseded fleet session or boot"
+                )
             self._validate_active_lease(stored, lease_id)
             stored.status = "RUNNING"
             if stored.business_state == "RESUME_CHECK":
