@@ -226,8 +226,11 @@ async def test_s01f_reconciling_task_is_not_claimable_second_runner(
     assert outcome.status_code == 200, outcome.text
     assert outcome.json()["status"] == "UNKNOWN"
     # A second claim attempt (duplicate runner) must not receive this task.
+    # fleet-identity/v1 §8 (A10): open UNKNOWN now fails closed with 409
+    # RECONCILE_REQUIRED instead of a silent 204.
     blocked = await client.post(
         "/companion/v2/tasks/claim", headers=ctx["auth"], json={"leaseSeconds": 60}
     )
-    assert blocked.status_code == 204, blocked.text
+    assert blocked.status_code == 409, blocked.text
+    assert blocked.json()["code"] == "RECONCILE_REQUIRED", blocked.text
     ledger.record_action(ctx["taskId"], outcome.json(), scenario="s01-intent-order")

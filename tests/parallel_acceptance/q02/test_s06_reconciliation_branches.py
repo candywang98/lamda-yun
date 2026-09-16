@@ -217,10 +217,12 @@ async def test_s06e_unknown_not_bypassed_by_any_channel(
         )
         assert response.status_code == 409, response.text
     else:
+        # fleet-identity/v1 §8 (A10): open UNKNOWN claim fails closed 409.
         response = await client.post(
             "/companion/v2/tasks/claim", headers=ctx["auth"], json={"leaseSeconds": 60}
         )
-        assert response.status_code == 204, response.text
+        assert response.status_code == 409, response.text
+        assert response.json()["code"] == "RECONCILE_REQUIRED", response.text
     ledger.record("unknown-not-bypassed", taskId=task_id, channel=channel)
 
 
