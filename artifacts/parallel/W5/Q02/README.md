@@ -97,3 +97,9 @@ uv run python -m pytest -q tests/parallel_acceptance/q02/test_s08_device_scenari
 - `uv run python -m pytest -q tests/parallel_acceptance/q02/` → 42 passed, 2 skipped；
 - `uv run ruff check tests/parallel_acceptance/q02/` → All checks passed;
 - 全量 `uv run python -m pytest -q` → 基线 702 passed / 1 skipped，合入本套件后 744 passed / 3 skipped（无新失败，新增 = 42 A 类 + 2 B 类 skip）。
+
+## 2026-09-16 总控真机执行记录（b0644fb5 @ 131d3b4）
+
+- A 类 42 用例：CI 全绿（合并前复跑确认）
+- B 类首跑：2 passed 但 **B1 为空通过**（settle 窗口内无人执行重启，断言平凡成立；设备 uptime 2天12小时未变）；**B2 实走安全失败分支**（任务 5d03641e FAILED，零副作用，但读回成功路径未被走到）
+- ⚠️ 风险发现：DELIST_STEPS 用 cardIndex:0 作用于在卖 tab 第一张卡（无标题定向）——对真实账号执行会命中任意真实在售商品。总控已暂停 B 类复跑，待用户裁决目标对象后再执行（候选：Q03 发布后的测试商品 / 用户指定的可牺牲旧书 / 改 titleContains 定位）
