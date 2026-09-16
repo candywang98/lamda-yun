@@ -1,0 +1,17 @@
+{
+  "contract": "delivery-delta/v1@20260916.1",
+  "case": "negative-missing-field-success",
+  "claim": {
+    "taskStatus": "SUCCEEDED",
+    "declaredOutcome": "full-field-publish-success",
+    "fieldInputProofs": {
+      "title": "present",
+      "description": "present",
+      "price": "absent"
+    }
+  },
+  "expect": {
+    "rejected": true,
+    "reason": "price 必填但 InputProof 缺失；只能记部分字段/open-only 档，不得记全字段成功（delivery-delta/v1 §3）"
+  }
+}

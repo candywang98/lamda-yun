@@ -280,8 +280,8 @@
       "risk": "高",
       "device_acceptance": "无；仅软件验证",
       "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
-      "dev_state": "NOT_STARTED",
-      "acceptance_state": "NOT_RUN",
+      "dev_state": "SOFTWARE_DONE",
+      "acceptance_state": "SOFTWARE_ACCEPTED",
       "evidence": "artifacts/delivery-20260916/K10/",
       "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
       "read_only_paths": [
@@ -294,7 +294,10 @@
         "python scripts/plan_guard.py data/tasks.json",
         "任务特有验证按本任务验收场景落实，记录实际命令与退出码"
       ],
-      "activation": "R00核验与R02计划激活后执行；E10需单独选择，不自动进入队列"
+      "activation": {
+        "delivered_at": "2026-09-16T23:16:58+08:00",
+        "note": "K10 差额合同冻结：contracts/ 下对应 v1 目录（契约+fixtures+check 脚本，退出码0）；算法与跨语言金样 parity 已验证（K10）；消费者镜像测试义务已写入契约，由 A/B 线落地。"
+      }
     },
     {
       "id": "K11",
@@ -360,8 +363,8 @@
       "risk": "中",
       "device_acceptance": "无；仅软件验证",
       "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
-      "dev_state": "NOT_STARTED",
-      "acceptance_state": "NOT_RUN",
+      "dev_state": "SOFTWARE_DONE",
+      "acceptance_state": "SOFTWARE_ACCEPTED",
       "evidence": "artifacts/delivery-20260916/K11/",
       "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
       "read_only_paths": [
@@ -374,7 +377,10 @@
         "python scripts/plan_guard.py data/tasks.json",
         "任务特有验证按本任务验收场景落实，记录实际命令与退出码"
       ],
-      "activation": "R00核验与R02计划激活后执行；E10需单独选择，不自动进入队列"
+      "activation": {
+        "delivered_at": "2026-09-16T23:16:58+08:00",
+        "note": "K11 差额合同冻结：contracts/ 下对应 v1 目录（契约+fixtures+check 脚本，退出码0）；算法与跨语言金样 parity 已验证（K10）；消费者镜像测试义务已写入契约，由 A/B 线落地。"
+      }
     },
     {
       "id": "K12",
@@ -454,8 +460,8 @@
       "risk": "中",
       "device_acceptance": "无；仅软件验证",
       "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
-      "dev_state": "NOT_STARTED",
-      "acceptance_state": "NOT_RUN",
+      "dev_state": "SOFTWARE_DONE",
+      "acceptance_state": "SOFTWARE_ACCEPTED",
       "evidence": "artifacts/delivery-20260916/K12/",
       "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
       "read_only_paths": [
@@ -468,7 +474,10 @@
         "python scripts/plan_guard.py data/tasks.json",
         "任务特有验证按本任务验收场景落实，记录实际命令与退出码"
       ],
-      "activation": "R00核验与R02计划激活后执行；E10需单独选择，不自动进入队列"
+      "activation": {
+        "delivered_at": "2026-09-16T23:16:58+08:00",
+        "note": "K12 差额合同冻结：contracts/ 下对应 v1 目录（契约+fixtures+check 脚本，退出码0）；算法与跨语言金样 parity 已验证（K10）；消费者镜像测试义务已写入契约，由 A/B 线落地。"
+      }
     },
     {
       "id": "A10",

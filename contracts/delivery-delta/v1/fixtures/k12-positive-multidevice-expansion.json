@@ -1,0 +1,35 @@
+{
+  "contract": "delivery-delta/v1@20260916.1",
+  "case": "positive-multidevice-expansion",
+  "request": {
+    "tenantId": "tenant-0001",
+    "publishTargetId": "pt-9001",
+    "orderedMediaAssetIds": [
+      "ma-01",
+      "ma-02",
+      "ma-03"
+    ],
+    "expansions": [
+      {
+        "deviceId": "dev-b0644fb5",
+        "accountId": "acc-xianyu-01",
+        "bindingVersion": 7
+      },
+      {
+        "deviceId": "dev-note9-02",
+        "accountId": "acc-xianyu-02",
+        "bindingVersion": 3
+      }
+    ],
+    "idempotencyKey": "expand:pt-9001:{batchDigest}"
+  },
+  "expect": {
+    "createdTasks": 2,
+    "publishTargetExpansionIds": [
+      "4e6edad4a255955dabb01025e76884c68b95da0f88c6c3319545c18ac8645656",
+      "a2fbd3f461348d53fee18b7dcb811217c35706effb204d70bd60fec66ddba2b5"
+    ],
+    "scheduling": "同账号任务错峰，不并发 RUNNING",
+    "deliveryDigest": "1d07291216146d673b7195f8a2f69902c79741e04193d636b2a2f0a30223512e"
+  }
+}

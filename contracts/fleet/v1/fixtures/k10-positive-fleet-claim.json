@@ -1,0 +1,63 @@
+{
+  "contract": "fleet-identity/v1@20260916.1",
+  "case": "positive-fleet-claim",
+  "envelope": {
+    "tenantId": "tenant-0001",
+    "deviceId": "dev-b0644fb5",
+    "accountId": "acc-xianyu-01",
+    "bindingVersion": 7,
+    "sessionId": "sess-20260916-a1",
+    "bootId": "boot-20260916-01",
+    "capabilities": {
+      "accessibility": {
+        "supported": true,
+        "engineMin": 1
+      },
+      "ime": {
+        "supported": true,
+        "engineMin": 1
+      },
+      "screen_capture": {
+        "supported": true,
+        "engineMin": 1
+      },
+      "media_projection": {
+        "supported": false
+      },
+      "flutter_anchors": {
+        "supported": true,
+        "engineMin": 2
+      },
+      "im_listen": {
+        "supported": true,
+        "engineMin": 1
+      }
+    },
+    "online": true,
+    "executable": true,
+    "executableGates": [
+      "transport",
+      "accessibility-enabled",
+      "accessibility-active",
+      "ime",
+      "screen-unlocked",
+      "engine>=min"
+    ]
+  },
+  "authorizationEnvelope": {
+    "controlEpoch": 3,
+    "fencingToken": 12,
+    "leaseExpiresAt": "2026-09-16T23:59:59+08:00",
+    "sessionId": "sess-20260916-a1",
+    "bootId": "boot-20260916-01"
+  },
+  "actionIdentity": {
+    "taskId": "0a1b2c3d-aaaa-bbbb-cccc-444455556666",
+    "commandType": "xianyu.publish_listing.steps.v1",
+    "actionId": "click-publish",
+    "recipeSha256": "1111111111111111111111111111111111111111111111111111111111111111",
+    "snapshotSha256": "2222222222222222222222222222222222222222222222222222222222222222",
+    "expectedActionKey": "9dec6c14876d82be4a911fe64083aab41bc0523489a4451a4def4d8fe321075b",
+    "expectedParameterHash": "1256e9fdeed2f05b7a23f2d392f8d89f4c7672b122209ee10e90b7184ff525af"
+  }
+}

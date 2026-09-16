@@ -1,0 +1,15 @@
+{
+  "contract": "fleet-identity/v1@20260916.1",
+  "case": "negative-actionkey-contains-epoch",
+  "expect": "REJECT",
+  "reason": "哈希输入混入动态授权字段，违反稳定动作身份（fleet-identity/v1 §4）",
+  "identityInputs": {
+    "taskId": "0a1b2c3d-aaaa-bbbb-cccc-444455556666",
+    "recipeSha256": "1111111111111111111111111111111111111111111111111111111111111111",
+    "actionId": "click-publish",
+    "controlEpoch": 3,
+    "fencingToken": 12,
+    "sessionId": "sess-20260916-a1"
+  },
+  "violation": "controlEpoch/fencingToken/sessionId 出现在 actionKey 或 parameterHash 的输入串中"
+}

@@ -1,0 +1,13 @@
+{
+  "contract": "delivery-delta/v1@20260916.1",
+  "case": "negative-sku-claimed-supported",
+  "recipeRegistration": {
+    "commandType": "xianyu.publish_listing.v1",
+    "declaredCapabilities": ["sku_variants:SUPPORTED"]
+  },
+  "expect": {
+    "status": 422,
+    "code": "CAPABILITY_PENDING_VERIFICATION",
+    "rule": "delivery-delta/v1 §6：SKU/拍卖/价格页完整字段/其它平台页面均 PENDING_VERIFICATION，旧 APK A 级参考不算当前支持"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "contract": "ui-observation/v1@20260916.1",
+  "case": "negative-input-redraw-lost",
+  "inputProof": {
+    "fieldLocator": "xianyu_description",
+    "submittedValue": "验收测试文案",
+    "source": "a11y_tree",
+    "imeCommitted": false,
+    "postValue": "",
+    "inconclusive": true
+  },
+  "expect": {
+    "treatedAs": "FAILURE",
+    "forbidden": ["continue-to-commit", "assume-filled"],
+    "reference": "Q03 SET_TEXT 幻影输入教训；须 CloudCtl Input 为当前输入法"
+  }
+}

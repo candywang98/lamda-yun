@@ -1,0 +1,18 @@
+{
+  "contract": "delivery-delta/v1@20260916.1",
+  "case": "negative-account-spray",
+  "request": {
+    "tenantId": "tenant-0001",
+    "publishTargetId": "pt-9002",
+    "orderedMediaAssetIds": ["ma-07"],
+    "expansions": [
+      {"deviceId": "dev-b0644fb5", "accountId": "acc-xianyu-01", "bindingVersion": 7},
+      {"deviceId": "dev-note9-02", "accountId": "acc-xianyu-01", "bindingVersion": 7, "note": "同账号第二设备，无显式绑定差异说明——隐式撒号"}
+    ]
+  },
+  "expect": {
+    "status": 422,
+    "code": "FANOUT_ACCOUNT_UNBOUND",
+    "rule": "delivery-delta/v1 §4：整批拒绝，不建一半；同账号多设备须显式绑定+调度错峰"
+  }
+}

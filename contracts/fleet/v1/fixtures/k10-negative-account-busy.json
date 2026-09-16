@@ -1,0 +1,26 @@
+{
+  "contract": "fleet-identity/v1@20260916.1",
+  "case": "negative-account-busy",
+  "precondition": {
+    "runningTask": {
+      "tenantId": "tenant-0001",
+      "accountId": "acc-xianyu-01",
+      "deviceId": "dev-b0644fb5",
+      "taskId": "task-running-001",
+      "status": "RUNNING",
+      "writeEffect": true
+    }
+  },
+  "incomingTask": {
+    "tenantId": "tenant-0001",
+    "accountId": "acc-xianyu-01",
+    "deviceId": "dev-note9-02",
+    "taskId": "task-incoming-002",
+    "writeEffect": true
+  },
+  "expect": {
+    "status": 409,
+    "code": "ACCOUNT_BUSY",
+    "rule": "fleet-identity/v1 §6：每 (tenantId, accountId) 至多一条 RUNNING 写任务，跨设备生效"
+  }
+}
