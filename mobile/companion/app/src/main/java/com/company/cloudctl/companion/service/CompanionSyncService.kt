@@ -1051,12 +1051,18 @@ class CompanionSyncService : Service() {
      * upload failure only logs (slice 1 has no orders outbox; re-collection
      * is idempotent server-side). An empty read reports 0 rows here — the
      * batch endpoint requires 1..20 rows, so nothing is POSTed for it.
+     *
+     * Slice 2 (order-sync-slice2/20260915.1 §3): one call per screen, so a
+     * later screen failing never loses the screens already uploaded. The
+     * screen ordinal is log material only (screen=N) — it never enters the
+     * §3 batch payload.
      */
-    private fun orderReporterFor(client: CloudTaskClient): OrderReporter = OrderReporter { taskId, direction, collected, skipped ->
+    private fun orderReporterFor(client: CloudTaskClient): OrderReporter = OrderReporter { taskId, direction, collected, skipped, screen ->
         if (collected.isEmpty()) {
             android.util.Log.i(
                 "CompanionSync",
-                "orders batch task=$taskId direction=$direction rows=0 skipped=${skipped.size} (nothing uploaded)",
+                "orders batch task=$taskId direction=$direction screen=$screen " +
+                    "rows=0 skipped=${skipped.size} (nothing uploaded)",
             )
             return@OrderReporter
         }
@@ -1066,8 +1072,8 @@ class CompanionSyncService : Service() {
             val result = parseOrdersBatchResponse(response)
             android.util.Log.i(
                 "CompanionSync",
-                "orders batch task=$taskId direction=$direction accepted=${result.accepted} " +
-                    "duplicates=${result.duplicates} skipped=${skipped.size}",
+                "orders batch task=$taskId direction=$direction screen=$screen " +
+                    "accepted=${result.accepted} duplicates=${result.duplicates} skipped=${skipped.size}",
             )
         } catch (cancelled: kotlinx.coroutines.CancellationException) {
             throw cancelled
@@ -1076,7 +1082,7 @@ class CompanionSyncService : Service() {
             // diagnosis instead of the bare status line.
             android.util.Log.w(
                 "CompanionSync",
-                "orders batch upload rejected task=$taskId status=${rejected.status} " +
+                "orders batch upload rejected task=$taskId screen=$screen status=${rejected.status} " +
                     "body=${rejected.responseBody.take(500)}",
             )
         } catch (error: Exception) {

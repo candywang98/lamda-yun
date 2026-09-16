@@ -101,6 +101,21 @@ sealed interface AutomationStep {
     ) : AutomationStep
 
     /**
+     * Order-sync slice 2 (contract order-sync-slice2/20260915.1 §1): swipe up
+     * one screen strictly inside the bounds of the node resolved from
+     * [locatorRef] — the xianyu orders list container (xianyu-anchors §3).
+     * A full-screen swipe is forbidden: it would drag the bottom tab bar and
+     * the top banners. The step body carries exactly the slice1 parameter
+     * set (locatorRef); the screen ordinal lives only in runtime logs, never
+     * in the hashed step fields (exact key-set parsing enforces that).
+     */
+    data class SwipeUp(
+        override val stepId: String,
+        override val timeoutMs: Long,
+        val locatorRef: String,
+    ) : AutomationStep
+
+    /**
      * W4 maintenance v2 (contract xianyu-anchors-20260915 §1/§2): locate the
      * published-list card whose text contains [titleContains] on the [tab]
      * list and tap its bounds center to enter the detail page. The card is
@@ -267,6 +282,16 @@ object AutomationTaskParser {
                     value.getInt("maxRows").also { require(it in 1..10) { "readOrders maxRows is invalid" } },
                     locator(value, keys),
                 )
+            }
+            // Order-sync slice 2 §1: the multi-screen scroll primitive. Key set
+            // stays exactly stepId/action/timeoutMs/locatorRef — a step body
+            // carrying a "screen" ordinal (or any extra field) is rejected
+            // before execution, so screen numbers can never leak into the
+            // hashed steps identity.
+            "ui.swipeUp" -> {
+                val keys = common + "locatorRef"
+                requireKeys(value, keys)
+                AutomationStep.SwipeUp(stepId, timeout, locator(value, keys))
             }
             "ui.tapCardByTitle" -> {
                 val keys = common + setOf("titleContains", "tab")
