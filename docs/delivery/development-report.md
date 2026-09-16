@@ -127,5 +127,5 @@ task-specific authorized evidence is supplied.
 - Production capabilities exclude arbitrary shell, Frida, MITM, CAPTCHA bypass, anti-detection, fake traffic,
   and unauthorized bulk actions.
 
-See `task-status.md` and `task-status.json` for all 59 architecture tasks. No task is marked acceptance-done
+See `task-status.md` (archived 2026-09-16 to `docs/archive/2026-09-16/docs/delivery/`) and `task-status.json` for all 59 architecture tasks. No task is marked acceptance-done
 without its own evidence; hardware-required tasks are not misreported as complete based on mock evidence.

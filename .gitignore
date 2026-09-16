@@ -58,3 +58,7 @@ project-cache/
 !/artifacts/tasks/**/*.md
 /artifacts/review-20260905/browser-results/
 /artifacts/review-20260905/cleanup-backup.zip
+
+# Kotlin daemon error caches (quarantined per R01 2026-09-16)
+.kotlin/
+mobile/companion/.gradle

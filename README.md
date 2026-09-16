@@ -138,7 +138,7 @@ cd ../dpc && ./gradlew test lint
 
 `connectedCheck` and every task requiring real LAMDA, APK installation, rollback, endurance, chaos, or production
 rollout evidence remain `blocked_hardware` until an authorized device lab is available. Mock tests never promote
-those gates to done. Detailed status is in `docs/delivery/task-status.md`.
+those gates to done. Detailed status is in `docs/archive/2026-09-16/docs/delivery/task-status.md` (2026-08-31 snapshot; the generator script `scripts/generate_delivery_status.py` can still emit a fresh copy).
 
 ## Security invariants
 
