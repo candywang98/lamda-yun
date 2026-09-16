@@ -1,0 +1,13 @@
+{
+  "contract": "ui-observation/v1@20260916.1",
+  "case": "negative-banner-displacement",
+  "frames": [
+    {"n": 1, "banner": "absent", "treeDigest": "aaaa1111aaaa1111aaaa1111aaaa1111aaaa1111aaaa1111aaaa1111aaaa1111", "businessDigest": "bbbb2222bbbb2222bbbb2222bbbb2222bbbb2222bbbb2222bbbb2222bbbb2222"},
+    {"n": 2, "banner": "present-96px", "treeDigest": "cccc3333cccc3333cccc3333cccc3333cccc3333cccc3333cccc3333cccc3333", "businessDigest": "bbbb2222bbbb2222bbbb2222bbbb2222bbbb2222bbbb2222bbbb2222bbbb2222"}
+  ],
+  "expect": {
+    "noProgressJudgement": "按业务节点子集 digest 判定=无进展；全树 digest 变化不算进展",
+    "afterLimit": "NO_PROGRESS 退出，零副作用",
+    "pollingBudget": {"maxAttempts": 20, "minIntervalMs": 500, "noProgressLimit": 3}
+  }
+}

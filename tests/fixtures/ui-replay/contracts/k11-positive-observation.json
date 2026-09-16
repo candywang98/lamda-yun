@@ -1,0 +1,61 @@
+{
+  "contract": "ui-observation/v1@20260916.1",
+  "case": "positive-observation",
+  "observation": {
+    "source": "a11y_tree",
+    "package": "com.taobao.idlefish",
+    "appVersion": "7.10.20",
+    "windowId": 123,
+    "display": 0,
+    "insets": {
+      "left": 0,
+      "top": 132,
+      "right": 0,
+      "bottom": 96
+    },
+    "rotation": 0,
+    "capturedAt": "2026-09-16T22:00:00+08:00",
+    "sessionEpoch": 5,
+    "nodes": [
+      {
+        "depth": 3,
+        "index": 0,
+        "class": "android.widget.TextView",
+        "resourceId": "title",
+        "text": "如果历史是一群喵4",
+        "contentDesc": "",
+        "bounds": "0,345,1080,764",
+        "clickable": true
+      },
+      {
+        "depth": 4,
+        "index": 1,
+        "class": "android.widget.Button",
+        "resourceId": "btn_cancel",
+        "text": "取消",
+        "contentDesc": "",
+        "bounds": "120,1330,480,1400",
+        "clickable": true
+      }
+    ]
+  },
+  "expectedTreeDigest": "bdd20465c6ea8cdb085a82f6d5b9b8060a8925bf414fa0dd7194c39b4071f84d",
+  "resolution": {
+    "result": "Resolved",
+    "identityProof": {
+      "locatorKind": "text",
+      "source": "a11y_tree",
+      "nodeDigest": "b23b04af5cda66a1916445ef3b262981775054cb7923cb34068671c1faca919c",
+      "crossCheckedAgainst": [
+        "a11y_tree",
+        "screenshot"
+      ],
+      "excluded": [
+        {
+          "why": "full-height wrapper",
+          "nodeIndex": -1
+        }
+      ]
+    }
+  }
+}

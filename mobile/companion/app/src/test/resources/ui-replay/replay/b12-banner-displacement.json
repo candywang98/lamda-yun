@@ -1,0 +1,167 @@
+{
+  "contract": "ui-observation/v1@20260916.1",
+  "derivedFrom": "k11-negative-banner-displacement.json",
+  "case": "replay-banner-displacement",
+  "frames": [
+    {
+      "n": 1,
+      "banner": "absent",
+      "displacementY": 0,
+      "excludedLayerResourceIds": [
+        "banner_container"
+      ],
+      "observation": {
+        "source": "a11y_tree",
+        "package": "com.taobao.idlefish",
+        "appVersion": "7.10.20",
+        "windowId": 123,
+        "display": 0,
+        "insets": {
+          "left": 0,
+          "top": 132,
+          "right": 0,
+          "bottom": 96
+        },
+        "rotation": 0,
+        "capturedAt": "2026-09-16T22:00:00+08:00",
+        "sessionEpoch": 5,
+        "nodes": [
+          {
+            "depth": 0,
+            "index": 0,
+            "class": "android.widget.FrameLayout",
+            "resourceId": "",
+            "text": "",
+            "contentDesc": "",
+            "bounds": "0,0,1080,2400",
+            "clickable": false
+          },
+          {
+            "depth": 3,
+            "index": 2,
+            "class": "android.widget.TextView",
+            "resourceId": "item_title",
+            "text": "如果历史是一群喵4",
+            "contentDesc": "",
+            "bounds": "0,132,1080,300",
+            "clickable": true
+          },
+          {
+            "depth": 3,
+            "index": 3,
+            "class": "android.widget.TextView",
+            "resourceId": "item_title",
+            "text": "如果历史是一群喵5",
+            "contentDesc": "",
+            "bounds": "0,320,1080,500",
+            "clickable": true
+          },
+          {
+            "depth": 4,
+            "index": 4,
+            "class": "android.widget.Button",
+            "resourceId": "btn_publish",
+            "text": "发布",
+            "contentDesc": "",
+            "bounds": "120,2130,480,2200",
+            "clickable": true
+          }
+        ],
+        "treeDigest": "e010971241fe4a8957d5d51cbf2cf0b3091bc229cb3dd6526132f1ac5370d127"
+      }
+    },
+    {
+      "n": 2,
+      "banner": "present-96px",
+      "displacementY": 96,
+      "excludedLayerResourceIds": [
+        "banner_container"
+      ],
+      "observation": {
+        "source": "a11y_tree",
+        "package": "com.taobao.idlefish",
+        "appVersion": "7.10.20",
+        "windowId": 123,
+        "display": 0,
+        "insets": {
+          "left": 0,
+          "top": 132,
+          "right": 0,
+          "bottom": 96
+        },
+        "rotation": 0,
+        "capturedAt": "2026-09-16T22:00:00+08:00",
+        "sessionEpoch": 5,
+        "nodes": [
+          {
+            "depth": 0,
+            "index": 0,
+            "class": "android.widget.FrameLayout",
+            "resourceId": "",
+            "text": "",
+            "contentDesc": "",
+            "bounds": "0,96,1080,2496",
+            "clickable": false
+          },
+          {
+            "depth": 1,
+            "index": 1,
+            "class": "android.widget.LinearLayout",
+            "resourceId": "banner_container",
+            "text": "限时活动",
+            "contentDesc": "",
+            "bounds": "0,0,1080,96",
+            "clickable": true
+          },
+          {
+            "depth": 3,
+            "index": 2,
+            "class": "android.widget.TextView",
+            "resourceId": "item_title",
+            "text": "如果历史是一群喵4",
+            "contentDesc": "",
+            "bounds": "0,228,1080,396",
+            "clickable": true
+          },
+          {
+            "depth": 3,
+            "index": 3,
+            "class": "android.widget.TextView",
+            "resourceId": "item_title",
+            "text": "如果历史是一群喵5",
+            "contentDesc": "",
+            "bounds": "0,416,1080,596",
+            "clickable": true
+          },
+          {
+            "depth": 4,
+            "index": 4,
+            "class": "android.widget.Button",
+            "resourceId": "btn_publish",
+            "text": "发布",
+            "contentDesc": "",
+            "bounds": "120,2226,480,2296",
+            "clickable": true
+          }
+        ],
+        "treeDigest": "3d1c96eba9e65e58a02ef81e4b67d855b6f7ab79f0151adef84f7b9858308748"
+      }
+    }
+  ],
+  "expect": {
+    "result": "NO_PROGRESS",
+    "feed": [
+      1,
+      2,
+      2
+    ],
+    "pollingBudget": {
+      "maxAttempts": 20,
+      "minIntervalMs": 500,
+      "noProgressLimit": 3
+    },
+    "treeDigestChanges": true,
+    "businessDigestStable": true,
+    "afterLimit": "NO_PROGRESS 退出，零副作用"
+  }
+}

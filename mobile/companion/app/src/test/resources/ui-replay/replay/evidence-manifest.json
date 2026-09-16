@@ -1,0 +1,73 @@
+{
+  "manifest": "ui-replay-evidence/v1",
+  "contract": "ui-observation/v1@20260916.1",
+  "task": "B12",
+  "note": "证据现状清单：本目录所有节点树均为合同冻结 fixture 或其派生合成数据，不存在任何真实设备抓取的 XML，也不虚构 capturedXml；缺失证据逐条列明。",
+  "fixtures": [
+    {
+      "file": "contracts/k11-positive-observation.json",
+      "origin": "contract-frozen",
+      "capturedXml": null,
+      "missingEvidence": [
+        "真机 a11y_tree 原始 dump（windowId/insets 实测值）"
+      ]
+    },
+    {
+      "file": "contracts/k11-negative-samename-ambiguous.json",
+      "origin": "contract-frozen",
+      "capturedXml": null,
+      "missingEvidence": [
+        "真机同名商品列表实测候选 bounds"
+      ]
+    },
+    {
+      "file": "contracts/k11-negative-fullheight-wrapper.json",
+      "origin": "contract-frozen",
+      "capturedXml": null,
+      "missingEvidence": [
+        "真机整列表 wrapper contentDescription 汇总实测"
+      ]
+    },
+    {
+      "file": "contracts/k11-negative-banner-displacement.json",
+      "origin": "contract-frozen",
+      "capturedXml": null,
+      "missingEvidence": [
+        "真机横幅出现前后两帧 dump"
+      ]
+    },
+    {
+      "file": "contracts/k11-negative-input-redraw-lost.json",
+      "origin": "contract-frozen",
+      "capturedXml": null,
+      "missingEvidence": [
+        "真机 IME 输入重绘 trace（B14 消费义务）"
+      ]
+    },
+    {
+      "file": "replay/b12-fullheight-wrapper.json",
+      "origin": "derived-synthetic",
+      "capturedXml": null,
+      "missingEvidence": [
+        "真机闲鱼商品列表页 a11y dump（wrapper 汇总 contentDescription 实测）",
+        "uiautomator_dump 跨源复核样本（§4 crossCheckedAgainst 第二源）"
+      ]
+    },
+    {
+      "file": "replay/b12-samename-ambiguous.json",
+      "origin": "derived-synthetic",
+      "capturedXml": null,
+      "missingEvidence": [
+        "真机同名商品两候选实测 bounds/层级"
+      ]
+    },
+    {
+      "file": "replay/b12-banner-displacement.json",
+      "origin": "derived-synthetic",
+      "capturedXml": null,
+      "missingEvidence": [
+        "真机横幅出现前后两帧连续 dump（含位移量实测）"
+      ]
+    }
+  ]
+}
