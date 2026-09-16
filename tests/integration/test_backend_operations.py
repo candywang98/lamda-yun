@@ -61,7 +61,10 @@ async def test_catalog_has_15_safe_modules_and_rbac_flags(client: httpx.AsyncCli
     response = await client.get("/api/v1/operations/catalog", headers=headers("viewer"))
     assert response.status_code == 200
     catalog = response.json()
-    assert len(catalog) == 16
+    # A09: the 31 xy-tasks field-map actions are registered in the catalog
+    # (16 module lanes + 30 xy-tasks registrations = 46 definitions; the
+    # xy-tasks registrations share the existing xy_tasks module).
+    assert len(catalog) == 46
     assert len({entry["module"] for entry in catalog}) == 16
     assert any(entry["allowed"] for entry in catalog)
     serialized = str(catalog).lower()

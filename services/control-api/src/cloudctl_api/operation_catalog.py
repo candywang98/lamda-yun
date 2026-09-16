@@ -7,6 +7,15 @@ from typing import Literal
 
 from cloudctl_domain import Permission
 
+# A09 (task-schedule/v1 §2 identity chain): every xy-tasks action in
+# docs/phase1/field-map.json is registered as a catalog OperationDefinition.
+# The registration records the *catalog identity* (operationId → key), the
+# per-action result schema, and whether a production execution lane exists.
+# Registration never implies an executor: contract_only / pending entries stay
+# fail-closed in both the operations lane (OperationExecutorRegistry) and the
+# CommandV1 mint lane (command_factory.PRODUCTION_ALIASES).
+OperationAvailability = Literal["executable", "contract_only", "pending_device_verification"]
+
 
 @dataclass(frozen=True, slots=True)
 class OperationDefinition:
@@ -18,6 +27,28 @@ class OperationDefinition:
     allowed_parameters: frozenset[str]
     description: str
     risk: Literal["standard", "approval"] = "standard"
+    # Terminal result schema identity for this action. Distinct per action
+    # family: a polish must report a polish result, a deletion a deleted
+    # result, a price change a price_updated result. Never a generic
+    # "success"/"deleted" blob shared across unrelated actions.
+    result_type: str = ""
+    # field-map.json catalog identity (xy-tasks-01..31) when this definition
+    # registers one of the 31 xianyu task actions; None otherwise.
+    catalog_id: str | None = None
+    # Registration status of the production execution lane for this action.
+    # "executable" only when a deployed lane can mint/execute today.
+    availability: OperationAvailability = "executable"
+    # Why the action is not executable yet (required when availability !=
+    # "executable"): the prerequisite that must land first.
+    prerequisite: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.result_type:
+            raise ValueError(f"operation {self.key} must declare a result_type")
+        if self.availability != "executable" and not self.prerequisite:
+            raise ValueError(
+                f"operation {self.key} must declare a prerequisite when it is {self.availability}"
+            )
 
 
 FeatureMode = Literal["guide", "table", "form", "assets", "insight", "settings"]
@@ -58,6 +89,7 @@ DEFINITIONS = (
         True,
         frozenset({"checks"}),
         "Validate recorded authorization and binding health without collecting credentials.",
+        result_type="AccountHealthReportResult",
     ),
     OperationDefinition(
         "devices.capabilities.refresh",
@@ -67,6 +99,7 @@ DEFINITIONS = (
         True,
         frozenset({"includeApps"}),
         "Refresh the safe device capability inventory through Edge.",
+        result_type="DeviceCapabilityInventoryResult",
     ),
     OperationDefinition(
         "groups.membership.reindex",
@@ -76,6 +109,7 @@ DEFINITIONS = (
         True,
         frozenset({"dryRun"}),
         "Rebuild content group membership indexes without modifying frozen snapshots.",
+        result_type="GroupMembershipIndexResult",
     ),
     OperationDefinition(
         "media.derivative.generate",
@@ -85,6 +119,7 @@ DEFINITIONS = (
         True,
         frozenset({"derivativeProfileId"}),
         "Generate traceable media derivatives while retaining the original object.",
+        result_type="MediaDerivativeGeneratedResult",
     ),
     OperationDefinition(
         "watermarks.preview.render",
@@ -94,6 +129,7 @@ DEFINITIONS = (
         True,
         frozenset({"ruleVersionId"}),
         "Render a non-destructive watermark preview.",
+        result_type="WatermarkPreviewRenderedResult",
     ),
     OperationDefinition(
         "works.revision.validate",
@@ -103,6 +139,7 @@ DEFINITIONS = (
         True,
         frozenset({"policyVersion"}),
         "Validate immutable work revisions against content policy.",
+        result_type="WorkRevisionValidatedResult",
     ),
     OperationDefinition(
         "publish_plans.snapshot.validate",
@@ -113,6 +150,7 @@ DEFINITIONS = (
         frozenset({"strict"}),
         "Validate frozen snapshots without scheduling or controlling devices.",
         "approval",
+        result_type="PublishSnapshotValidatedResult",
     ),
     OperationDefinition(
         "xianyu.listing.publish",
@@ -120,8 +158,11 @@ DEFINITIONS = (
         "device",
         Permission.DEVICE_MAINTAIN,
         False,
-        frozenset({"listingBody", "price"}),
+        frozenset({"listingBody", "price", "mediaAssetIds", "productId"}),
         "Dispatch an idlefish text listing form-fill task to the enrolled Companion.",
+        result_type="XianyuPublishListingResult",
+        catalog_id="xy-tasks-01",
+        availability="executable",
     ),
     OperationDefinition(
         "task_runs.evidence.export",
@@ -131,6 +172,7 @@ DEFINITIONS = (
         True,
         frozenset({"format", "redact"}),
         "Export tenant-scoped evidence indexes with mandatory redaction support.",
+        result_type="TaskEvidenceExportResult",
     ),
     OperationDefinition(
         "automation_packages.qualification.run",
@@ -140,6 +182,7 @@ DEFINITIONS = (
         True,
         frozenset({"matrixProfile"}),
         "Run qualification against an approved compatibility matrix.",
+        result_type="QualificationRunReportResult",
     ),
     OperationDefinition(
         "debug_sessions.evidence.export",
@@ -149,6 +192,7 @@ DEFINITIONS = (
         True,
         frozenset({"format"}),
         "Export audited debug-session evidence without exposing device credentials.",
+        result_type="DebugEvidenceExportResult",
     ),
     OperationDefinition(
         "apk_artifacts.analysis.run",
@@ -158,6 +202,7 @@ DEFINITIONS = (
         True,
         frozenset({"scanners"}),
         "Run malware, permission, signature, and SBOM analysis.",
+        result_type="ApkArtifactAnalysisResult",
     ),
     OperationDefinition(
         "apk_rollouts.health_check",
@@ -167,6 +212,7 @@ DEFINITIONS = (
         True,
         frozenset({"observationWindowSeconds"}),
         "Check rollout health without starting installation or bypassing package policy.",
+        result_type="ApkRolloutHealthReportResult",
     ),
     OperationDefinition(
         "security_policies.export",
@@ -176,6 +222,7 @@ DEFINITIONS = (
         False,
         frozenset({"format"}),
         "Export the effective tenant security policy without secret material.",
+        result_type="SecurityPolicyExportResult",
     ),
     OperationDefinition(
         "users_roles.access_review.generate",
@@ -185,6 +232,7 @@ DEFINITIONS = (
         True,
         frozenset({"scope"}),
         "Generate an access review without changing role assignments.",
+        result_type="AccessReviewReportResult",
     ),
     OperationDefinition(
         "audit_exports.generate",
@@ -194,10 +242,521 @@ DEFINITIONS = (
         False,
         frozenset({"from", "to", "format"}),
         "Generate a tenant-scoped immutable audit export.",
+        result_type="AuditExportResult",
     ),
 )
 
+# ---------------------------------------------------------------------------
+# A09: per-action registration of the 31 xianyu (xy-tasks) operations from
+# docs/phase1/field-map.json. Keys reuse the frozen field-map commandType
+# identity where one exists; xy-tasks-01 keeps its pre-existing catalog key
+# (xianyu.listing.publish, the A05 mint lane target).
+#
+# Result identity red line: every action carries its own result_type that
+# names what the action actually did (polish / deleted / price updated /
+# review posted / promote started / ...). Deletions of different resources
+# (goods / posts / feed / messages / comments) are distinct result types.
+# Shared-service pages (pools / watermark) register their shared-lane use
+# without minting device commands.
+# ---------------------------------------------------------------------------
+
+_T102 = (
+    "T102 real-device verification required (field-map {catalog_id} AVAILABILITY_PENDING): "
+    "the Xianyu surface for this action must be verified on authorized hardware before "
+    "any executor can be declared."
+)
+_NO_COMMAND_V1 = (
+    "No production CommandV1 type exists for this action (K05 frozen closed CommandType "
+    "enum); minting stays fail-closed until an executor command type is delivered and "
+    "five-way synced per platform-recipe/v1 §2."
+)
+_POLICY_BLOCKED = (
+    "Production policy blocks this feature (BLOCKED_FEATURE_IDS: coin/review engagement "
+    "actions are prohibited, repository rule 7); catalogued for inventory only and the "
+    "feature stays blocked even though the operation contract is registered."
+)
+
+XY_TASK_DEFINITIONS: tuple[OperationDefinition, ...] = (
+    # xy-tasks-02 发布帖子 — AVAILABILITY_PENDING, must not be silently removed.
+    OperationDefinition(
+        "xianyu.publish_post",
+        "xy_tasks",
+        "device",
+        Permission.DEVICE_MAINTAIN,
+        False,
+        frozenset(),
+        "Publish a Xianyu post (fish circle) on the bound account's device.",
+        "approval",
+        result_type="XianyuPublishPostResult",
+        catalog_id="xy-tasks-02",
+        availability="pending_device_verification",
+        prerequisite=_T102.format(catalog_id="xy-tasks-02"),
+    ),
+    # xy-tasks-03 擦亮商品
+    OperationDefinition(
+        "xianyu.polish_goods",
+        "xy_tasks",
+        "device",
+        Permission.DEVICE_MAINTAIN,
+        True,
+        frozenset({"intervalSeconds", "schedule"}),
+        "Re-polish (bump) listings on the bound account's device on an interval.",
+        "approval",
+        result_type="XianyuPolishGoodsResult",
+        catalog_id="xy-tasks-03",
+        availability="contract_only",
+        prerequisite=_NO_COMMAND_V1,
+    ),
+    # xy-tasks-04 上架商品
+    OperationDefinition(
+        "xianyu.shelf_up",
+        "xy_tasks",
+        "device",
+        Permission.DEVICE_MAINTAIN,
+        True,
+        frozenset({"intervalSeconds"}),
+        "Put shelf-down listings back on sale on the bound account's device.",
+        "approval",
+        result_type="XianyuShelfUpResult",
+        catalog_id="xy-tasks-04",
+        availability="contract_only",
+        prerequisite=_NO_COMMAND_V1,
+    ),
+    # xy-tasks-05 下架商品
+    OperationDefinition(
+        "xianyu.shelf_down",
+        "xy_tasks",
+        "device",
+        Permission.DEVICE_MAINTAIN,
+        True,
+        frozenset({"exposure", "views", "wants", "keyword"}),
+        "Take listings off sale when they match exposure/view/want/keyword filters.",
+        "approval",
+        result_type="XianyuShelfDownResult",
+        catalog_id="xy-tasks-05",
+        availability="contract_only",
+        prerequisite=_NO_COMMAND_V1,
+    ),
+    # xy-tasks-06 删除商品
+    OperationDefinition(
+        "xianyu.delete_goods",
+        "xy_tasks",
+        "device",
+        Permission.DEVICE_MAINTAIN,
+        True,
+        frozenset({"target"}),
+        "Delete listings matching the declared target selection on the device.",
+        "approval",
+        result_type="XianyuGoodsDeletedResult",
+        catalog_id="xy-tasks-06",
+        availability="contract_only",
+        prerequisite=_NO_COMMAND_V1,
+    ),
+    # xy-tasks-07 删除帖子 — AVAILABILITY_PENDING, must not be silently removed.
+    OperationDefinition(
+        "xianyu.delete_post",
+        "xy_tasks",
+        "device",
+        Permission.DEVICE_MAINTAIN,
+        True,
+        frozenset(),
+        "Delete previously published Xianyu posts on the bound account's device.",
+        "approval",
+        result_type="XianyuPostDeletedResult",
+        catalog_id="xy-tasks-07",
+        availability="pending_device_verification",
+        prerequisite=_T102.format(catalog_id="xy-tasks-07"),
+    ),
+    # xy-tasks-08 绑定闲鱼
+    OperationDefinition(
+        "xianyu.bind_account",
+        "xy_tasks",
+        "device",
+        Permission.DEVICE_MAINTAIN,
+        True,
+        frozenset({"memberName"}),
+        "Bind the enrolled device to the declared Xianyu member identity.",
+        "approval",
+        result_type="XianyuAccountBoundResult",
+        catalog_id="xy-tasks-08",
+        availability="contract_only",
+        prerequisite=_NO_COMMAND_V1,
+    ),
+    # xy-tasks-09 签到鱼币 — production-policy blocked feature.
+    OperationDefinition(
+        "xianyu.checkin_coins",
+        "xy_tasks",
+        "device",
+        Permission.DEVICE_MAINTAIN,
+        True,
+        frozenset({"jumpTask"}),
+        "Perform the Xianyu daily coin check-in (feature blocked by production policy).",
+        "approval",
+        result_type="XianyuCoinCheckinResult",
+        catalog_id="xy-tasks-09",
+        availability="contract_only",
+        prerequisite=_POLICY_BLOCKED,
+    ),
+    # xy-tasks-10 鱼币抵扣 — production-policy blocked feature.
+    OperationDefinition(
+        "xianyu.coin_discount",
+        "xy_tasks",
+        "device",
+        Permission.DEVICE_MAINTAIN,
+        True,
+        frozenset({"dikouType", "dikouTarget", "intervalSeconds"}),
+        "Apply coin deduction offers to eligible orders (feature blocked by production policy).",
+        "approval",
+        result_type="XianyuCoinDiscountAppliedResult",
+        catalog_id="xy-tasks-10",
+        availability="contract_only",
+        prerequisite=_POLICY_BLOCKED,
+    ),
+    # xy-tasks-11 鱼币推广 — production-policy blocked feature; budget fields are
+    # declared Literals so any budget drift fails validation.
+    OperationDefinition(
+        "xianyu.coin_promote",
+        "xy_tasks",
+        "device",
+        Permission.DEVICE_MAINTAIN,
+        True,
+        frozenset({"promoteItem", "promotePackage"}),
+        "Spend coins on listing promotion packages (feature blocked by production policy).",
+        "approval",
+        result_type="XianyuCoinPromoteStartedResult",
+        catalog_id="xy-tasks-11",
+        availability="contract_only",
+        prerequisite=_POLICY_BLOCKED,
+    ),
+    # xy-tasks-12 一键小刀
+    OperationDefinition(
+        "xianyu.bargain",
+        "xy_tasks",
+        "device",
+        Permission.DEVICE_MAINTAIN,
+        True,
+        frozenset({"xiaodaoType", "privateMessage"}),
+        "Offer small bargaining discounts to interested buyers on the device.",
+        "approval",
+        result_type="XianyuBargainOfferedResult",
+        catalog_id="xy-tasks-12",
+        availability="contract_only",
+        prerequisite=_NO_COMMAND_V1,
+    ),
+    # xy-tasks-13 一键降价
+    OperationDefinition(
+        "xianyu.price_cut",
+        "xy_tasks",
+        "device",
+        Permission.DEVICE_MAINTAIN,
+        True,
+        frozenset({"percentCut", "amountCut", "target"}),
+        "Cut listing prices by a declared percent or fixed amount.",
+        "approval",
+        result_type="XianyuPriceUpdatedResult",
+        catalog_id="xy-tasks-13",
+        availability="contract_only",
+        prerequisite=_NO_COMMAND_V1,
+    ),
+    # xy-tasks-14 一键好评 — production-policy blocked feature.
+    OperationDefinition(
+        "xianyu.review",
+        "xy_tasks",
+        "device",
+        Permission.DEVICE_MAINTAIN,
+        True,
+        frozenset({"reviewBody", "reviewTarget"}),
+        "Post reviews to buyers on the device (feature blocked by production policy).",
+        "approval",
+        result_type="XianyuReviewPostedResult",
+        catalog_id="xy-tasks-14",
+        availability="contract_only",
+        prerequisite=_POLICY_BLOCKED,
+    ),
+    # xy-tasks-15 重启闲鱼 — plain APKs cannot guarantee a process kill; failures
+    # must surface a reasonCode.
+    OperationDefinition(
+        "xianyu.restart_app",
+        "xy_tasks",
+        "device",
+        Permission.DEVICE_MAINTAIN,
+        True,
+        frozenset(),
+        "Restart the Xianyu app on the device; failures must report a reasonCode.",
+        "approval",
+        result_type="XianyuAppRestartedResult",
+        catalog_id="xy-tasks-15",
+        availability="contract_only",
+        prerequisite=_NO_COMMAND_V1,
+    ),
+    # xy-tasks-16 删除动态
+    OperationDefinition(
+        "xianyu.delete_feed",
+        "xy_tasks",
+        "device",
+        Permission.DEVICE_MAINTAIN,
+        True,
+        frozenset({"quantity"}),
+        "Delete the account's feed items up to the declared quantity.",
+        "approval",
+        result_type="XianyuFeedDeletedResult",
+        catalog_id="xy-tasks-16",
+        availability="contract_only",
+        prerequisite=_NO_COMMAND_V1,
+    ),
+    # xy-tasks-17 删除消息
+    OperationDefinition(
+        "xianyu.delete_message",
+        "xy_tasks",
+        "device",
+        Permission.DEVICE_MAINTAIN,
+        True,
+        frozenset({"messageAction"}),
+        "Delete chat messages according to the declared message action.",
+        "approval",
+        result_type="XianyuMessageDeletedResult",
+        catalog_id="xy-tasks-17",
+        availability="contract_only",
+        prerequisite=_NO_COMMAND_V1,
+    ),
+    # xy-tasks-18 删除留言
+    OperationDefinition(
+        "xianyu.delete_comment",
+        "xy_tasks",
+        "device",
+        Permission.DEVICE_MAINTAIN,
+        True,
+        frozenset({"quantity"}),
+        "Delete listing comments up to the declared quantity.",
+        "approval",
+        result_type="XianyuCommentDeletedResult",
+        catalog_id="xy-tasks-18",
+        availability="contract_only",
+        prerequisite=_NO_COMMAND_V1,
+    ),
+    # xy-tasks-19 草稿上架
+    OperationDefinition(
+        "xianyu.draft_publish",
+        "xy_tasks",
+        "device",
+        Permission.DEVICE_MAINTAIN,
+        True,
+        frozenset(),
+        "Publish listings sitting in the account's Xianyu drafts.",
+        "approval",
+        result_type="XianyuDraftRelistedResult",
+        catalog_id="xy-tasks-19",
+        availability="contract_only",
+        prerequisite=_NO_COMMAND_V1,
+    ),
+    # xy-tasks-20 编辑重发
+    OperationDefinition(
+        "xianyu.reedit",
+        "xy_tasks",
+        "device",
+        Permission.DEVICE_MAINTAIN,
+        True,
+        frozenset({"intervalSeconds", "addressPool"}),
+        "Edit and re-publish listings on an interval, optionally rotating pool addresses.",
+        "approval",
+        result_type="XianyuReeditRelistedResult",
+        catalog_id="xy-tasks-20",
+        availability="contract_only",
+        prerequisite=_NO_COMMAND_V1,
+    ),
+    # xy-tasks-21 托管无忧卖
+    OperationDefinition(
+        "xianyu.wuyoumai",
+        "xy_tasks",
+        "device",
+        Permission.DEVICE_MAINTAIN,
+        True,
+        frozenset({"wuyoumaiType"}),
+        "Enable the declared Wuyoumai hosting tier on listings.",
+        "approval",
+        result_type="XianyuWuyoumaiEnabledResult",
+        catalog_id="xy-tasks-21",
+        availability="contract_only",
+        prerequisite=_NO_COMMAND_V1,
+    ),
+    # xy-tasks-22 快速编辑重发
+    OperationDefinition(
+        "xianyu.fast_reedit",
+        "xy_tasks",
+        "device",
+        Permission.DEVICE_MAINTAIN,
+        True,
+        frozenset({"autoShortTitle"}),
+        "Quick edit-and-republish with optional automatic short titles.",
+        "approval",
+        result_type="XianyuFastReeditRelistedResult",
+        catalog_id="xy-tasks-22",
+        availability="contract_only",
+        prerequisite=_NO_COMMAND_V1,
+    ),
+    # xy-tasks-23 快速下架商品
+    OperationDefinition(
+        "xianyu.fast_shelf_down",
+        "xy_tasks",
+        "device",
+        Permission.DEVICE_MAINTAIN,
+        True,
+        frozenset(),
+        "Take all on-sale listings down in one quick pass.",
+        "approval",
+        result_type="XianyuFastShelfDownResult",
+        catalog_id="xy-tasks-23",
+        availability="contract_only",
+        prerequisite=_NO_COMMAND_V1,
+    ),
+    # xy-tasks-24 采集宝贝信息 — read-only collection, shared with analytics.
+    OperationDefinition(
+        "xianyu.collect_listings",
+        "xy_tasks",
+        "device",
+        Permission.DEVICE_MAINTAIN,
+        True,
+        frozenset(),
+        "Collect own-listing analytics snapshots on the bound account's device.",
+        result_type="XianyuListingsCollectedResult",
+        catalog_id="xy-tasks-24",
+        availability="contract_only",
+        prerequisite=_NO_COMMAND_V1,
+    ),
+    # xy-tasks-25/26 通用/设备地址池 — shared address-pool service pages.
+    OperationDefinition(
+        "xianyu.shared.generic_address_pool",
+        "xy_tasks",
+        "address_pool",
+        Permission.CONTENT_WRITE,
+        True,
+        frozenset(),
+        "Generic address pool management entry on the xy-tasks module (shared service).",
+        result_type="GenericAddressPoolUpdatedResult",
+        catalog_id="xy-tasks-25",
+        availability="contract_only",
+        prerequisite=(
+            "Shared address-pool service (product-editor/assets lanes own the pool "
+            "contract); this entry only registers the xy-tasks page's use of it."
+        ),
+    ),
+    OperationDefinition(
+        "xianyu.shared.device_address_pool",
+        "xy_tasks",
+        "address_pool",
+        Permission.CONTENT_WRITE,
+        True,
+        frozenset(),
+        "Per-device address pool management entry on the xy-tasks module (shared service).",
+        result_type="DeviceAddressPoolUpdatedResult",
+        catalog_id="xy-tasks-26",
+        availability="contract_only",
+        prerequisite=(
+            "Shared address-pool service (product-editor/assets lanes own the pool "
+            "contract); this entry only registers the xy-tasks page's use of it."
+        ),
+    ),
+    # xy-tasks-27 描述池
+    OperationDefinition(
+        "xianyu.shared.description_pool",
+        "xy_tasks",
+        "description_pool",
+        Permission.CONTENT_WRITE,
+        True,
+        frozenset(),
+        "Description pool management entry on the xy-tasks module (shared service).",
+        result_type="DescriptionPoolUpdatedResult",
+        catalog_id="xy-tasks-27",
+        availability="contract_only",
+        prerequisite=(
+            "Shared description-pool service (product-editor/assets lanes own the pool "
+            "contract); this entry only registers the xy-tasks page's use of it."
+        ),
+    ),
+    # xy-tasks-28 标签池
+    OperationDefinition(
+        "xianyu.shared.tag_pool",
+        "xy_tasks",
+        "tag_pool",
+        Permission.CONTENT_WRITE,
+        True,
+        frozenset(),
+        "Tag pool management entry on the xy-tasks module (shared service).",
+        result_type="TagPoolUpdatedResult",
+        catalog_id="xy-tasks-28",
+        availability="contract_only",
+        prerequisite=(
+            "Shared tag-pool service (product-editor/assets lanes own the pool "
+            "contract); this entry only registers the xy-tasks page's use of it."
+        ),
+    ),
+    # xy-tasks-29 图片水印
+    OperationDefinition(
+        "xianyu.shared.watermark",
+        "xy_tasks",
+        "media_asset",
+        Permission.CONTENT_WRITE,
+        True,
+        frozenset({"ruleVersionId"}),
+        "Image watermark entry on the xy-tasks module (shared watermark service).",
+        result_type="XianyuWatermarkRenderedResult",
+        catalog_id="xy-tasks-29",
+        availability="contract_only",
+        prerequisite=(
+            "Shared watermark service (watermarks.preview.render lane owns the render "
+            "contract); this entry only registers the xy-tasks page's use of it."
+        ),
+    ),
+    # xy-tasks-30 违禁词检测 — server-side scan, no device command.
+    OperationDefinition(
+        "content.forbidden_words.scan",
+        "xy_tasks",
+        "content_revision",
+        Permission.CONTENT_WRITE,
+        True,
+        frozenset({"policyVersion"}),
+        "Scan frozen content revisions for forbidden words against a policy version.",
+        result_type="ForbiddenWordsScanResult",
+        catalog_id="xy-tasks-30",
+        availability="contract_only",
+        prerequisite=(
+            "Server-side scan lane is not wired to an operations executor yet; the "
+            "works.revision.validate lane carries the deployed validation contract."
+        ),
+    ),
+    # xy-tasks-31 视频操作教程 — guide-only page, registered for inventory parity.
+    OperationDefinition(
+        "xianyu.guide.videos",
+        "xy_tasks",
+        "feature_guide",
+        Permission.CONTENT_READ,
+        False,
+        frozenset(),
+        "Video operation guide page; guide-only inventory with no execution semantics.",
+        result_type="VideoGuideContentResult",
+        catalog_id="xy-tasks-31",
+        availability="contract_only",
+        prerequisite="Guide-only page: tutorial video inventory, no backend operation.",
+    ),
+)
+
+DEFINITIONS = (*DEFINITIONS, *XY_TASK_DEFINITIONS)
+
 BY_KEY = {definition.key: definition for definition in DEFINITIONS}
+BY_CATALOG_ID: dict[str, OperationDefinition] = {
+    definition.catalog_id: definition for definition in DEFINITIONS if definition.catalog_id
+}
+XY_TASK_CATALOG_IDS = tuple(f"xy-tasks-{index:02d}" for index in range(1, 32))
+if set(BY_CATALOG_ID) != set(XY_TASK_CATALOG_IDS):
+    raise ValueError("every xy-tasks-01..31 action must be registered exactly once")
+
+# field-map xy-tasks actions whose AVAILABILITY_PENDING status is preserved as
+# pending_device_verification (T102 real-device verification prerequisite).
+XY_PENDING_DEVICE_VERIFICATION_IDS = frozenset(
+    catalog_id
+    for catalog_id in XY_TASK_CATALOG_IDS
+    if BY_CATALOG_ID[catalog_id].availability == "pending_device_verification"
+)
 
 # The supplied competitor report contains 134 stable feature entries.  This metadata is
 # requirement inventory only: it never grants permission or implies an executor exists.
@@ -427,13 +986,18 @@ FEATURE_OPERATION_MAP.update(
         "post-management-05": "watermarks.preview.render",
         "post-management-07": "publish_plans.snapshot.validate",
         "post-management-08": "publish_plans.snapshot.validate",
-        "xy-tasks-01": "xianyu.listing.publish",
-        "xy-tasks-02": "publish_plans.snapshot.validate",
         "zz-tasks-01": "publish_plans.snapshot.validate",
         "red-tasks-01": "publish_plans.snapshot.validate",
         "assets-01": "watermarks.preview.render",
         "assets-02": "media.derivative.generate",
     }
+)
+# A09: every xy-tasks feature maps to its per-action registration. xy-tasks-02
+# previously pointed at the publish_plans.snapshot.validate validation gate;
+# after A09 it points at its own pending registration (T102 prerequisite),
+# preserving the AVAILABILITY_PENDING action instead of a placeholder.
+FEATURE_OPERATION_MAP.update(
+    {catalog_id: BY_CATALOG_ID[catalog_id].key for catalog_id in XY_TASK_CATALOG_IDS}
 )
 
 BLOCKED_FEATURE_IDS = frozenset(
