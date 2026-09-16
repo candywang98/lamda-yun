@@ -1,0 +1,12 @@
+09-16 11:48:32.366 I/CloudCtlExecutor(28858): ensureReady expected=com.taobao.idlefish actual=com.taobao.idlefish
+09-16 11:48:32.658 I/CloudCtlExecutor(28858): ensureReady expected=com.taobao.idlefish actual=com.taobao.idlefish
+09-16 11:48:32.943 I/CloudCtlExecutor(28858): ensureReady expected=com.taobao.idlefish actual=com.taobao.idlefish
+09-16 11:48:33.244 I/CloudCtlExecutor(28858): ensureReady expected=com.taobao.idlefish actual=com.taobao.idlefish
+09-16 11:48:33.527 I/CloudCtlExecutor(28858): ensureReady expected=com.taobao.idlefish actual=com.taobao.idlefish
+09-16 11:48:33.810 I/CloudCtlExecutor(28858): ensureReady expected=com.taobao.idlefish actual=com.taobao.idlefish
+09-16 11:48:34.095 I/CloudCtlExecutor(28858): ensureReady expected=com.taobao.idlefish actual=com.taobao.idlefish
+09-16 11:48:34.393 I/CloudCtlExecutor(28858): ensureReady expected=com.taobao.idlefish actual=com.taobao.idlefish
+09-16 11:48:34.680 I/CloudCtlExecutor(28858): ensureReady expected=com.taobao.idlefish actual=com.taobao.idlefish
+09-16 11:48:34.964 I/CloudCtlExecutor(28858): ensureReady expected=com.taobao.idlefish actual=com.taobao.idlefish
+09-16 11:48:35.248 I/CloudCtlExecutor(28858): ensureReady expected=com.taobao.idlefish actual=com.taobao.idlefish
+09-16 11:48:35.528 I/CloudCtlExecutor(28858): ensureReady expected=com.taobao.idlefish actual=com.taobao.idlefish
