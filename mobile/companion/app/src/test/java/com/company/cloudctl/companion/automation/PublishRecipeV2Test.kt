@@ -27,7 +27,7 @@ private class RecordingUi : LocalAutomationUi {
 
 class PublishRecipeV2Test {
     private val elapsed = { 0L }
-    private val v2Hash = "f706ba274905dafa818d03e5e66a4d4b959fa431d7554adb2321c4a3ecc576d0"
+    private val v2Hash = "f6adebdca3575cce16b64b62b6e27730de77868d64cceff3e83bee2223f62372"
 
     private fun command(parameters: JSONObject) = CommandV1(
         protocolVersion = CommandV1Parser.PROTOCOL,
@@ -66,7 +66,12 @@ class PublishRecipeV2Test {
         assertNull(parsed.commitActionId)
         val states = parsed.states
         assertEquals("listingBody", states.getValue("fill-description").valueRef)
-        assertEquals("price", states.getValue("fill-price").valueRef)
+        // v1.1.0 (device-verified 2026-09-16): gallery_next opens the image edit
+        // page; its 完成 exit is part of the graph, and price states are gone
+        // (operator enters price at the WAITING_USER checkpoint).
+        assertEquals("xianyu_crop_done", states.getValue("confirm-crop").locatorRef)
+        assertEquals("xianyu_publish_page", states.getValue("await-form-back").locatorRef)
+        assertTrue(states.keys.none { it.startsWith("await-price") || it.startsWith("fill-price") })
         assertEquals("WAITING_USER", states.getValue("await-confirm").onSuccess)
         assertTrue(states.getValue("await-confirm").terminal)
         // Open-only red line: no state references the publish button and no submit
@@ -107,10 +112,9 @@ class PublishRecipeV2Test {
             expectedHash = v2Hash,
         )
         engine.execute(parsed, command(publishParameters(2)), journal = { _, _ -> })
-        assertEquals(
-            listOf("xianyu_description" to "自用闲置好书", "xianyu_price" to "12.80"),
-            ui.texts,
-        )
+        assertEquals(listOf("xianyu_description" to "自用闲置好书"), ui.texts)
+        // The edit-page exit runs between media and the description fill.
+        assertTrue("xianyu_crop_done" in ui.taps)
     }
 
     @Test

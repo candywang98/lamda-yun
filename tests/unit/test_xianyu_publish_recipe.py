@@ -82,9 +82,11 @@ def test_media_publish_task_adds_bounded_gallery_selection_steps() -> None:
     assert task["steps"].index(crop) < task["steps"].index(
         next(step for step in task["steps"] if step["stepId"] == "fill-description")
     )
-    assert next(step for step in task["steps"] if step["stepId"] == "wait-publish-complete")[
-        "locatorRef"
-    ] == "xianyu_publish_success"
+    assert next(step for step in task["steps"] if step["stepId"] == "mark-ready")[
+        "messageCode"
+    ] == "XIANYU_PUBLISH_FORM_READY"
+    # Open-only default: no auto-publish tail on the built task.
+    assert not any(step["stepId"] == "click-publish" for step in task["steps"])
 
 
 @pytest.mark.parametrize(

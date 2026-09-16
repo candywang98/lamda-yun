@@ -370,11 +370,16 @@ class MobileMediaManifestRequest(StrictModel):
 class MobilePublishListingRequest(StrictModel):
     description: str = Field(min_length=1, max_length=1024)
     price: str = Field(min_length=1, max_length=32, pattern=r"^[0-9]+(\.[0-9]{1,2})?$")
+    # Gallery tile 0 is the camera shutter: at most 49 images are selectable.
     media_asset_ids: list[str] | None = Field(
-        default=None, alias="mediaAssetIds", min_length=1, max_length=50
+        default=None, alias="mediaAssetIds", min_length=1, max_length=49
     )
     delivery_id: str | None = Field(default=None, alias="deliveryId", min_length=1, max_length=64)
-    auto_publish: bool = Field(default=True, alias="autoPublish")
+    auto_publish: bool = Field(
+        default=False,
+        alias="autoPublish",
+        description="Open-only default: a human operator confirms submission.",
+    )
 
 
 class MobileClaimRequest(StrictModel):

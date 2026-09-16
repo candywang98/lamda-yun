@@ -696,14 +696,7 @@ async def test_xianyu_text_publish_task_is_accepted_and_claimable(
         "wait-price",
         "fill-price",
         "capture-form",
-        "wait-location",
-        "open-location",
-        "select-location",
-        "wait-publish-button",
-        "click-publish",
-        "wait-publish-complete",
-        "capture-success",
-        "mark-published",
+        "mark-ready",
     ]
 
     claimed = await client.post(

@@ -39,6 +39,7 @@ def _package(
     states: list[dict[str, Any]],
     start_state_id: str,
     commit_action_id: str | None = None,
+    version: str = "1.0.0",
 ) -> dict[str, Any]:
     graph: dict[str, Any] = {
         "startStateId": start_state_id,
@@ -54,7 +55,7 @@ def _package(
             "kind": "LocalRecipePackage",
             "manifest": {
                 "id": recipe_id,
-                "version": "1.0.0",
+                "version": version,
                 "hash": "0" * 64,
                 "signingKeyId": "builtin-phase1",
                 "minEngineVersion": _ENGINE_MIN_VERSION,
@@ -73,7 +74,7 @@ def _package(
 
 
 # B05 (K05 platform-recipe/v1 §4 open-only): the minimal xianyu publish graph.
-# Flow mirrors the frozen dispatch-xianyu steps family (tapsPublish=false) and
+# Flow mirrors the frozen dispatch-xianyu steps family (tapsPublish=False) and
 # stops at the confirm point — the checkpoint state is terminal WAITING_USER and
 # the graph contains no publish/submit action of any kind (xianyu_publish_button
 # is never referenced; real submission stays behind Q02 pre-protection +
@@ -82,8 +83,17 @@ def _package(
 # xianyu_gallery_select_1..N (tile 0 is the camera shutter and is never
 # referenced; mediaDelivery item order == download/export order == tile order).
 # Task values are bound at execution time from CommandV1 parameters
-# (xianyu_description <- listingBody, xianyu_price <- price); the graph bytes
-# stay parameter-free so the hash is stable.
+# (xianyu_description <- listingBody); the graph bytes stay parameter-free so
+# the hash is stable.
+#
+# v1.1.0 (device-verified 2026-09-16, OnePlus 9R b0644fb5, Q03 recon): tapping
+# gallery_next ("下一步 (N)") opens a per-listing image EDIT page whose only
+# exit is the 完成 button (xianyu_crop_done), so the graph must wait+tap it
+# before the form is reachable again. The price states were removed: after
+# images attach, Xianyu renders a service-template form variant where 价格
+# opens a "价格设置" bottom sheet with a custom numeric keypad (no text field,
+# so the input action cannot drive it); price entry and the publish tap stay
+# with the human operator at the WAITING_USER checkpoint.
 _XIANYU_PUBLISH_OPEN_ONLY_STATES: list[dict[str, Any]] = [
     {
         "stateId": "wait-home",
@@ -119,6 +129,27 @@ _XIANYU_PUBLISH_OPEN_ONLY_STATES: list[dict[str, Any]] = [
         "stateId": "select-media",
         "action": "media",
         "locatorRef": "xianyu_add_image",
+        "onSuccess": "wait-edit-page",
+        "onFailure": "FAILED",
+    },
+    {
+        "stateId": "wait-edit-page",
+        "action": "wait",
+        "locatorRef": "xianyu_crop_done",
+        "onSuccess": "confirm-crop",
+        "onFailure": "FAILED",
+    },
+    {
+        "stateId": "confirm-crop",
+        "action": "tap",
+        "locatorRef": "xianyu_crop_done",
+        "onSuccess": "await-form-back",
+        "onFailure": "FAILED",
+    },
+    {
+        "stateId": "await-form-back",
+        "action": "wait",
+        "locatorRef": "xianyu_publish_page",
         "onSuccess": "fill-description",
         "onFailure": "FAILED",
     },
@@ -127,28 +158,6 @@ _XIANYU_PUBLISH_OPEN_ONLY_STATES: list[dict[str, Any]] = [
         "action": "input",
         "locatorRef": "xianyu_description",
         "valueRef": "listingBody",
-        "onSuccess": "confirm-description",
-        "onFailure": "FAILED",
-    },
-    {
-        "stateId": "confirm-description",
-        "action": "tap",
-        "locatorRef": "xianyu_composer_done",
-        "onSuccess": "await-price",
-        "onFailure": "FAILED",
-    },
-    {
-        "stateId": "await-price",
-        "action": "wait",
-        "locatorRef": "xianyu_price",
-        "onSuccess": "fill-price",
-        "onFailure": "FAILED",
-    },
-    {
-        "stateId": "fill-price",
-        "action": "input",
-        "locatorRef": "xianyu_price",
-        "valueRef": "price",
         "onSuccess": "capture-confirm-point",
         "onFailure": "FAILED",
     },
@@ -174,6 +183,7 @@ _XIANYU_PUBLISH_OPEN_ONLY = _package(
     command_type="xianyu.publish_listing.v1",
     start_state_id="wait-home",
     states=_XIANYU_PUBLISH_OPEN_ONLY_STATES,
+    version="1.1.0",
 )
 _XIANYU_PUBLISH_OPEN_ONLY["graph"]["maxIterations"] = 40
 _XIANYU_PUBLISH_OPEN_ONLY["graph"]["maxDurationMs"] = 600_000

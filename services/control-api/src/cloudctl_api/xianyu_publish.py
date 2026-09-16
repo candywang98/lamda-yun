@@ -236,22 +236,25 @@ def build_text_publish_task(
     price: str,
     media_asset_ids: list[str] | None = None,
     delivery_id: str | None = None,
-    auto_publish: bool = True,
+    auto_publish: bool = False,
 ) -> dict[str, Any]:
     """Build a complete Xianyu publish task.
-    
+
     Args:
         device_id: Target device ID
         description: Product description
         price: Product price
         media_asset_ids: List of media asset IDs to upload (optional)
         delivery_id: Media delivery ID (required if media_asset_ids provided)
-        auto_publish: If True, automatically click publish button (default: True)
+        auto_publish: If True, automatically click publish button. Defaults to
+            False (open-only): a human operator confirms submission.
     """
     if media_asset_ids is not None:
+        # Gallery tile 0 is the camera shutter, so at most 49 images are
+        # selectable (device-verified 2026-09-16; executor enforces 1..49).
         is_valid = (
             media_asset_ids
-            and len(media_asset_ids) <= 50
+            and len(media_asset_ids) <= 49
             and len(set(media_asset_ids)) == len(media_asset_ids)
         )
         if not is_valid:

@@ -559,7 +559,7 @@ class MobileTaskService:
         price: str,
         media_asset_ids: list[str] | None = None,
         delivery_id: str | None = None,
-        auto_publish: bool = True,
+        auto_publish: bool = False,
         key: str,
     ) -> tuple[dict[str, Any], bool]:
         body = MobileTaskCreate.model_validate(

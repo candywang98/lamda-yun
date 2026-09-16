@@ -656,7 +656,6 @@ class PlatformTaskService:
                 price=price,
                 media_asset_ids=media_ids if isinstance(media_ids, list) and media_ids else None,
                 delivery_id=body.media_delivery_id,
-                auto_publish=True,
             )
         elif body.command_type == "xiaohongshu.publish_note.v1":
             raw = {

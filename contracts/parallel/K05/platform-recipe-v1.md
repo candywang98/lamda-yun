@@ -78,3 +78,13 @@ CommandType 是封闭枚举、双端冻结（command_v1.py + companion CommandV1
 ## 勘误（2026-09-16，总控）
 
 §6 媒体上限：闲鱼**可选封面数 = 49**（原文误写 50）。依据：图库 tile 定位器生成区间 xianyu_gallery_select_0..49，tile 0 为相机快门不可选（steps 冻结路径同口径）；MediaDelivery 传输上限（50）不变。已同步：A05 PUBLISH_MEDIA_LIMITS、companion 引擎 media 校验。
+
+## 勘误 2（2026-09-16 下午，总控，Q03 真机勘察后 v1.0.0→v1.1.0）
+
+真机勘察（OnePlus 9R b0644fb5，只读+手动验证，证据 artifacts/parallel/W5/Q03/）证明 §4 v2 图三处与真实交互不符，图已修订为 **v1.1.0**（hash `f6adebdca3575cce16b64b62b6e27730de77868d64cceff3e83bee2223f62372`，替换 v1.0.0 的 `f706ba27…`；python builtin / Kotlin BuiltinRecipes 字面量 / 测试三方同步）：
+
+1. **补裁剪页步骤**：gallery_next（desc 前缀「下一步」，选中 N 张后出现于右下角）之后闲鱼进入**逐图编辑页**（计数 1/N，工具栏 裁剪/文字/贴纸…，唯一出口 desc「完成」= xianyu_crop_done）。v2 图新增 `wait-edit-page → confirm-crop → await-form-back` 三态，否则 media 后直接找描述节点必失败。
+2. **删除价格三态**（confirm-description/await-price/fill-price）：挂图后表单翻成**服务模板变体**，「价格」行弹出「价格设置」底部弹层（自定义数字键盘，无文本节点，input 动作不可驱动）；纯文本变体行为未验证。价格与发布一律由操作员在 WAITING_USER 确认点人工完成——open-only 红线更严。
+3. **desc 输入后不做键盘收束**：input 走 SET_TEXT 不开键盘，composer_done（IME 完成键）不可依赖，已从图删除。
+
+关联修复（同一提交）：`build_text_publish_task` 默认 `auto_publish=True→False`（platform_tasks/_mobile_body 显式 True 一并移除；此前两条产线默认产出含 click-publish 的全自动 steps 任务，与 open-only 响应声明 `tapsPublish:false` 自相矛盾，属安全隐患）；媒体资产上限 50→49 同步到 builder/schema。
