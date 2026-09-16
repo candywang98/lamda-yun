@@ -84,10 +84,11 @@ async def device_api() -> AsyncIterator[tuple[httpx.AsyncClient, str]]:
 
 
 async def _device_id(client: httpx.AsyncClient, serial: str) -> str:
-    response = await client.get("/api/v1/mobile/devices", headers=_operator_headers())
+    # GET /api/v1/devices returns a bare list; the serial is embedded in logical_name.
+    response = await client.get("/api/v1/devices", headers=_operator_headers())
     assert response.status_code == 200, response.text
-    for device in response.json()["items"]:
-        if device.get("logicalName") == serial or device.get("serial") == serial:
+    for device in response.json():
+        if serial in str(device.get("logical_name") or ""):
             return str(device["id"])
     pytest.fail(f"device {serial} is not registered in the control API")
 
