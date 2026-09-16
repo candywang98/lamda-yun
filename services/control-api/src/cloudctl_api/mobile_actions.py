@@ -12,6 +12,7 @@ from cloudctl_domain import ConflictError, NotFoundError, ValidationError
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 from sqlalchemy import select
 
+from .controlled_actions import OUTCOME_REPLAY, evidence_binding, outcome_guard
 from .db import (
     AccountDeviceBindingRow,
     AuditEventRow,
@@ -21,6 +22,11 @@ from .db import (
     MobileActionCommitRow,
     MobileBindingRow,
     MobileTaskRow,
+)
+from .fleet_identity import (
+    AuthorizationEnvelopeStaleError,
+    active_session,
+    lease_envelope_stale,
 )
 from .mobile_service import COMPANION_PACKAGE, MobileTaskService, _aware, _now
 
@@ -626,6 +632,7 @@ def action_view(row: MobileActionCommitRow) -> dict[str, Any]:
         "task_id",
         "device_id",
         "account_id",
+        "platform_account_id",
         "binding_version",
         "recipe_version_id",
         "recipe_sha256",
@@ -669,6 +676,9 @@ def audit_action(session: Any, row: MobileActionCommitRow, actor_id: str, kind: 
                 "status": row.status,
                 "resolutionRevision": row.resolution_revision,
                 "resolutionEvidence": row.resolution_evidence,
+                # A13: reconciliation evidence binding (additive — original
+                # keys above stay untouched for existing consumers/counts).
+                "evidenceBinding": evidence_binding(row),
             },
             occurred_at=_now(),
             result="SUCCESS",
@@ -695,7 +705,24 @@ class MobileActionService:
         self.mobile._validate_owned_task(task, current)
         return task
 
-    async def _lease(self, session: Any, task: MobileTaskRow, lease_id: str) -> None:
+    async def _lease(
+        self, session: Any, binding: MobileBindingRow, task: MobileTaskRow, lease_id: str
+    ) -> None:
+        # fleet-identity/v1 §4 (DEFECT-Q12-1): pre-commit recovery — the gated
+        # intent/outcome channels must honor the session envelope exactly like
+        # the heartbeat channel. A lease minted under a superseded fleet
+        # session (process re-registration, reboot with a new bootId) must not
+        # authorize a controlled action even while the lease itself is live;
+        # the actionKey/parameterHash stay untouched (envelope never hashed).
+        metadata = dict(task.steps[0]) if task.steps else {}
+        if lease_envelope_stale(
+            recorded_session_id=metadata.get("fleetSessionId"),
+            recorded_boot_id=metadata.get("fleetBootId"),
+            current=await active_session(session, task.tenant_id, binding.id),
+        ):
+            raise AuthorizationEnvelopeStaleError(
+                "action lease was minted under a superseded fleet session or boot"
+            )
         self.mobile._validate_active_lease(task, lease_id)
         lease = await session.get(DeviceLeaseRow, task.device_id, with_for_update=True)
         if (
@@ -789,7 +816,7 @@ class MobileActionService:
         async with self.mobile.database.unit_of_work() as session:
             task = await self._owned(session, binding, task_id)
             frozen = await self._identity(session, task, body.action_id)
-            await self._lease(session, task, body.lease_id)
+            await self._lease(session, binding, task, body.lease_id)
             if (
                 body.action_key != frozen["action_key"]
                 or body.parameter_hash != frozen["parameter_hash"]
@@ -813,6 +840,10 @@ class MobileActionService:
             now = _now()
             row = MobileActionCommitRow(
                 **frozen,
+                # A13 (fleet-identity/v1 §2 debt): record the real platform
+                # account without touching the frozen hash inputs; steps and
+                # probe intents carry it uniformly. Not part of _matches.
+                platform_account_id=task.account_id,
                 lease_id=body.lease_id,
                 status="INTENT",
                 before_evidence=body.before_evidence,
@@ -836,18 +867,25 @@ class MobileActionService:
             if row is None or row.task_id != task.id or row.tenant_id != task.tenant_id:
                 raise NotFoundError("action was not found")
             frozen = await self._identity(session, task, row.action_id)
-            await self._lease(session, task, body.lease_id)
+            await self._lease(session, binding, task, body.lease_id)
             self._matches(row, frozen)
-            if body.parameter_hash != row.parameter_hash or body.lease_id != row.lease_id:
-                raise ConflictError("outcome identity mismatch")
-            if row.resolution_revision or task.business_state != "RECONCILING":
-                raise ConflictError("action already resolved or task not reconciling")
-            if row.status != "INTENT":
-                if row.status != body.status or row.reported_evidence != body.evidence:
-                    raise ConflictError("outcome replay differs")
+            # p09 outcome decision delegated to the pure guard (controlled_
+            # actions.outcome_guard): check order and 409 messages frozen.
+            decision = outcome_guard(
+                row_status=row.status,
+                row_parameter_hash=row.parameter_hash,
+                row_lease_id=row.lease_id,
+                row_reported_evidence=row.reported_evidence,
+                row_resolution_revision=row.resolution_revision,
+                row_before_evidence=row.before_evidence,
+                task_business_state=task.business_state,
+                body_parameter_hash=body.parameter_hash,
+                body_lease_id=body.lease_id,
+                body_status=body.status,
+                body_evidence=body.evidence,
+            )
+            if decision == OUTCOME_REPLAY:
                 return action_view(row)
-            if body.status == "APPLIED" and body.evidence == row.before_evidence:
-                raise ConflictError("independent postcondition evidence required")
             row.status = body.status
             row.reported_evidence = body.evidence
             row.updated_at = _now()
