@@ -859,18 +859,8 @@ async def test_f2_accessibility_rebind_stale_envelope_then_identity_preserving_r
     )
 
 
-@pytest.mark.xfail(
-    reason="DEFECT-Q12-1 (recorded, not fixed here — no production-code changes "
-    "in Q12): MobileActionService.intent/outcome validate the lease but not "
-    "the fleet-session envelope, so a late gated-intent under a lease minted "
-    "by a superseded session (accessibility rebind / reboot with the lease "
-    "still unexpired) is still AUTHORIZED instead of 409 "
-    "AUTHORIZATION_ENVELOPE_STALE (fleet-identity/v1 §4: pre-commit recovery "
-    "must reject a mismatched envelope). The heartbeat channel is guarded "
-    "(asserted above); the gated commit channels are the gap. strict=True so "
-    "the xfail flips loudly the moment the guard lands.",
-    strict=True,
-)
+# DEFECT-Q12-1 fixed by A13 @a6a1cc8 (merge b2f488c): the gated
+# commit channels now validate the fleet-session envelope.
 async def test_f2_late_gated_intent_under_superseded_session_rejected(api):
     """Contract behavior for the DEFECT-Q12-1 channel: a gated intent posted
     under a lease whose session was superseded must be refused."""
