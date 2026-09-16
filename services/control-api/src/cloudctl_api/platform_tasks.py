@@ -8,7 +8,14 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from cloudctl_domain import Actor, ConflictError, NotFoundError, Permission, ValidationError, require_permissions
+from cloudctl_domain import (
+    Actor,
+    ConflictError,
+    NotFoundError,
+    Permission,
+    ValidationError,
+    require_permissions,
+)
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import select
 
@@ -17,6 +24,7 @@ from .command_factory import mint_operation_command
 from .command_v1 import COMMAND_PACKAGES, CommandType
 from .db import (
     AccountDeviceBindingRow,
+    AuditEventRow,
     Database,
     DeviceLeaseRow,
     DeviceRow,
@@ -28,7 +36,7 @@ from .db import (
 )
 from .mobile_actions import audit_action
 from .mobile_schemas import MobileTaskCreate
-from .mobile_service import COMPANION_PACKAGE, XIANYU_PACKAGE, MobileTaskService
+from .mobile_service import COMPANION_PACKAGE, XIANYU_PACKAGE, MobileTaskService, _aware
 from .xianyu_publish import build_text_publish_task, listing_copy_from_parameters
 
 XHS_PACKAGE = "com.xingin.xhs"
@@ -70,6 +78,348 @@ RUNNER_TO_BUSINESS = {
 }
 
 
+# ---------------------------------------------------------------------------
+# A12 control-transition matrix (fleet-identity/v1 §5/§8, task-schedule/v1 §4)
+# ---------------------------------------------------------------------------
+# The legal ordering of cancel / pause / ack-paused / resume against every
+# business state is pinned here as one explicit table per action. Each table is
+# total over BUSINESS_STATES and its values come from a closed outcome set —
+# both properties are asserted at import time and mirrored by
+# tests/integration/test_fleet_cancel_reconcile.py, so a control decision can
+# never fall through a scattered if-chain: it is read from the matrix.
+#
+# commit-intent modifier (task-schedule/v1 §4): a task whose command payload
+# carries a written commitIntent is inside the post-commit window regardless of
+# its current state — cancel is refused (409, converge via :reconcile) and an
+# ack-paused redirects to RECONCILING. The matrix stays state-pure; the
+# modifier is applied at the single decision point via _has_commit_intent.
+
+CANCEL_OUTCOMES = frozenset(
+    {
+        "CANCELLED_NOW",  # not started / executor parked: settle CANCELLED now
+        "CANCEL_REQUESTED",  # live executor: deferred to the next safe point
+        "IDEMPOTENT_RETURN",  # duplicate control event: replay the current view
+        "REJECTED_RECONCILE_FIRST",  # uncertain result must converge first (409)
+        "REJECTED_TERMINAL",  # already settled with a different outcome (409)
+    }
+)
+CANCEL_TRANSITIONS: dict[str, str] = {
+    "QUEUED": "CANCELLED_NOW",
+    "WAITING_MATERIALS": "CANCELLED_NOW",
+    "PREFLIGHT": "CANCELLED_NOW",
+    "PAUSE_REQUESTED": "CANCELLED_NOW",
+    "PAUSED_WAITING_USER": "CANCELLED_NOW",
+    "RUNNING": "CANCEL_REQUESTED",
+    "RESUME_CHECK": "CANCEL_REQUESTED",
+    "CANCEL_REQUESTED": "IDEMPOTENT_RETURN",
+    "RECONCILING": "REJECTED_RECONCILE_FIRST",
+    "SUCCEEDED": "REJECTED_TERMINAL",
+    "FAILED": "REJECTED_TERMINAL",
+    "CANCELLED": "IDEMPOTENT_RETURN",
+    "EXPIRED": "REJECTED_TERMINAL",
+}
+
+PAUSE_OUTCOMES = frozenset(
+    {
+        "PAUSE_REQUESTED",
+        "IDEMPOTENT_RETURN",
+        "REJECTED_CANCEL_WINS",
+        "REJECTED_RECONCILE_FIRST",
+        "REJECTED_TERMINAL",
+    }
+)
+PAUSE_TRANSITIONS: dict[str, str] = {
+    "QUEUED": "PAUSE_REQUESTED",
+    "WAITING_MATERIALS": "PAUSE_REQUESTED",
+    "PREFLIGHT": "PAUSE_REQUESTED",
+    "RUNNING": "PAUSE_REQUESTED",
+    "RESUME_CHECK": "PAUSE_REQUESTED",
+    "PAUSE_REQUESTED": "IDEMPOTENT_RETURN",
+    "PAUSED_WAITING_USER": "IDEMPOTENT_RETURN",
+    "CANCEL_REQUESTED": "REJECTED_CANCEL_WINS",
+    "RECONCILING": "REJECTED_RECONCILE_FIRST",
+    "SUCCEEDED": "REJECTED_TERMINAL",
+    "FAILED": "REJECTED_TERMINAL",
+    "CANCELLED": "REJECTED_TERMINAL",
+    "EXPIRED": "REJECTED_TERMINAL",
+}
+
+ACK_PAUSED_OUTCOMES = frozenset(
+    {
+        "PAUSED_WAITING_USER",
+        "IDEMPOTENT_RETURN",
+        "REJECTED_CANCEL_WINS",
+        "REJECTED_SUPERSEDED",
+        "REJECTED_RECONCILE_FIRST",
+        "REJECTED_TERMINAL",
+    }
+)
+ACK_PAUSED_TRANSITIONS: dict[str, str] = {
+    "QUEUED": "PAUSED_WAITING_USER",
+    "WAITING_MATERIALS": "PAUSED_WAITING_USER",
+    "PREFLIGHT": "PAUSED_WAITING_USER",
+    "RUNNING": "PAUSED_WAITING_USER",
+    "PAUSE_REQUESTED": "PAUSED_WAITING_USER",
+    "PAUSED_WAITING_USER": "IDEMPOTENT_RETURN",
+    # A12 out-of-order: resume already superseded the pause request; a late ack
+    # must not drag the task back into a manual-wait state.
+    "RESUME_CHECK": "REJECTED_SUPERSEDED",
+    "CANCEL_REQUESTED": "REJECTED_CANCEL_WINS",
+    "RECONCILING": "REJECTED_RECONCILE_FIRST",
+    "SUCCEEDED": "REJECTED_TERMINAL",
+    "FAILED": "REJECTED_TERMINAL",
+    "CANCELLED": "REJECTED_TERMINAL",
+    "EXPIRED": "REJECTED_TERMINAL",
+}
+
+RESUME_OUTCOMES = frozenset(
+    {
+        "RESUME_CHECK",
+        "REJECTED_CANCEL_WINS",
+        "REJECTED_RECONCILE_FIRST",
+        "REJECTED_REQUIRES_PAUSE_ACK",
+    }
+)
+RESUME_TRANSITIONS: dict[str, str] = {
+    "PAUSED_WAITING_USER": "RESUME_CHECK",
+    "QUEUED": "REJECTED_REQUIRES_PAUSE_ACK",
+    "WAITING_MATERIALS": "REJECTED_REQUIRES_PAUSE_ACK",
+    "PREFLIGHT": "REJECTED_REQUIRES_PAUSE_ACK",
+    "RUNNING": "REJECTED_REQUIRES_PAUSE_ACK",
+    "PAUSE_REQUESTED": "REJECTED_REQUIRES_PAUSE_ACK",
+    "RESUME_CHECK": "REJECTED_REQUIRES_PAUSE_ACK",
+    "CANCEL_REQUESTED": "REJECTED_CANCEL_WINS",
+    "RECONCILING": "REJECTED_RECONCILE_FIRST",
+    "SUCCEEDED": "REJECTED_REQUIRES_PAUSE_ACK",
+    "FAILED": "REJECTED_REQUIRES_PAUSE_ACK",
+    "CANCELLED": "REJECTED_CANCEL_WINS",
+    "EXPIRED": "REJECTED_REQUIRES_PAUSE_ACK",
+}
+
+# The tables are total and closed — assert it in code, not only in tests.
+assert frozenset(CANCEL_TRANSITIONS) == frozenset(BUSINESS_STATES)
+assert frozenset(PAUSE_TRANSITIONS) == frozenset(BUSINESS_STATES)
+assert frozenset(ACK_PAUSED_TRANSITIONS) == frozenset(BUSINESS_STATES)
+assert frozenset(RESUME_TRANSITIONS) == frozenset(BUSINESS_STATES)
+assert set(CANCEL_TRANSITIONS.values()) <= CANCEL_OUTCOMES
+assert set(PAUSE_TRANSITIONS.values()) <= PAUSE_OUTCOMES
+assert set(ACK_PAUSED_TRANSITIONS.values()) <= ACK_PAUSED_OUTCOMES
+assert set(RESUME_TRANSITIONS.values()) <= RESUME_OUTCOMES
+
+
+def _business_state_of(row: MobileTaskRow) -> str:
+    state = row.business_state or RUNNER_TO_BUSINESS.get(row.status, row.status)
+    # task-schedule/v1 D4: legacy single-L rows stay readable for decisions;
+    # new writes are double-L CANCELLED only.
+    return "CANCELLED" if state == "CANCELED" else state
+
+
+def _has_commit_intent(row: MobileTaskRow) -> bool:
+    return "commitIntent" in (row.command_payload or {})
+
+
+# ---------------------------------------------------------------------------
+# A12 persisted control events with a per-task monotonic revision
+# ---------------------------------------------------------------------------
+# Cloud-issued control decisions (cancel/pause/resume/mark-unknown/reconcile
+# verdicts) and the device's pause acknowledgement are persisted on the task
+# row's dynamic steps header (the same header that carries controlEpoch /
+# fleetSessionId — never part of payloadIdentity, whose formula only covers
+# entries with an "action" key). Revisions increase monotonically per task;
+# duplicate control events replay idempotently without minting a revision.
+
+CONTROL_EVENTS_HEADER_KEY = "controlEvents"
+CONTROL_REVISION_HEADER_KEY = "controlRevision"
+MAX_CONTROL_EVENTS = 50
+CONTROL_EVENT_KINDS = frozenset(
+    {
+        "CANCEL_REQUESTED",
+        "CANCELLED",
+        "PAUSE_REQUESTED",
+        "PAUSE_ACKED",
+        "PAUSE_ACKED_RECONCILING",
+        "RESUMED",
+        "MARKED_UNKNOWN",
+        "RECONCILED_APPLIED",
+        "RECONCILED_NOT_SUBMITTED",
+        "RECONCILED_KEEP_WAITING",
+    }
+)
+
+
+def _record_control_event(
+    row: MobileTaskRow, kind: str, reason: str, actor: str, now: datetime
+) -> int:
+    """Append one persistent control event and return its revision."""
+    assert kind in CONTROL_EVENT_KINDS  # closed event vocabulary
+    header = dict(row.steps[0]) if row.steps else {}
+    events = list(header.get(CONTROL_EVENTS_HEADER_KEY) or [])
+    revision = int(header.get(CONTROL_REVISION_HEADER_KEY) or 0) + 1
+    events.append(
+        {
+            "revision": revision,
+            "event": kind,
+            "reason": (reason or "")[:160],
+            "actor": (actor or "")[:128],
+            "issuedAt": now.isoformat(),
+        }
+    )
+    header[CONTROL_REVISION_HEADER_KEY] = revision
+    header[CONTROL_EVENTS_HEADER_KEY] = events[-MAX_CONTROL_EVENTS:]
+    row.steps = [header, *(row.steps[1:] if row.steps else [])]
+    return revision
+
+
+def _control_view(row: MobileTaskRow) -> tuple[int | None, list[dict[str, Any]]]:
+    header = (row.steps or [{}])[0] or {}
+    return header.get(CONTROL_REVISION_HEADER_KEY), list(
+        header.get(CONTROL_EVENTS_HEADER_KEY) or []
+    )
+
+
+def _audit_control_event(
+    session: Any,
+    row: MobileTaskRow,
+    *,
+    action: str,
+    revision: int,
+    actor_id: str,
+    actor_type: str = "operator",
+    extra: dict[str, Any] | None = None,
+) -> None:
+    """A12 任务卡 #3: 结案/控制决策必须带审计——每次决策落一条 audit 行。"""
+    session.add(
+        AuditEventRow(
+            id=str(uuid.uuid4()),
+            tenant_id=row.tenant_id,
+            actor_type=actor_type,
+            actor_id=actor_id[:255],
+            action=f"platform.task.{action}",
+            resource_type="mobile_task",
+            resource_id=row.id,
+            request_id=str(uuid.uuid4()),
+            device_id=row.device_id,
+            result="SUCCEEDED",
+            metadata_json={
+                "taskId": row.id,
+                "controlRevision": revision,
+                "businessState": row.business_state,
+                **(extra or {}),
+            },
+            occurred_at=_now(),
+        )
+    )
+
+
+async def _release_occupation(session: Any, row: MobileTaskRow, now: datetime) -> bool:
+    """A12: settling a task by cancel must release the device lease occupation.
+
+    Only the lease owned by this task's AUTO workflow is touched — a REMOTE or
+    foreign workflow lease is never force-released here.
+    """
+    lease = await session.get(DeviceLeaseRow, row.device_id, with_for_update=True)
+    if (
+        lease is None
+        or lease.canceled_at is not None
+        or lease.tenant_id != row.tenant_id
+        or lease.owner_type != "AUTO"
+        or lease.owner_workflow_id != f"auto/{row.id}"
+    ):
+        return False
+    lease.canceled_at = now
+    return True
+
+
+# ---------------------------------------------------------------------------
+# A12 read-only window proof (fleet-identity/v1 §8, task card #4)
+# ---------------------------------------------------------------------------
+
+READONLY_WINDOW_VERDICTS = frozenset(
+    {"ALLOWED", "BLOCKED_EXECUTOR_LIVE", "BLOCKED_OCCUPANCY_LIVE"}
+)
+
+
+async def evaluate_readonly_window(
+    session: Any, tenant_id: str, device_id: str, *, now: datetime | None = None
+) -> dict[str, Any]:
+    """Decide whether a device still carrying pending/uncertain work may take
+    an unrelated READ-ONLY task. ``ALLOWED`` requires both proofs:
+
+    * old executor stopped — no CLAIMED task and no RUNNING task holding an
+      unexpired lease (lease expiry is the system-wide fencing proof: every
+      write path validates the lease, exactly like claim does);
+    * window safe — no live device lease of any owner type remains (AUTO or
+      REMOTE occupancy keeps the window closed).
+
+    The verdict is pure: it never resolves or clears UNKNOWN ledger rows and
+    never unlocks the device — claim keeps answering 409 RECONCILE_REQUIRED
+    until an explicit reconciliation converges them (KEEP_WAITING semantics).
+    """
+    from .fleet_identity import open_unknown_actions
+
+    moment = now or _now()
+    tasks = list(
+        await session.scalars(
+            select(MobileTaskRow).where(
+                MobileTaskRow.tenant_id == tenant_id,
+                MobileTaskRow.device_id == device_id,
+            )
+        )
+    )
+
+    def lease_live(task: MobileTaskRow) -> bool:
+        return task.lease_expires_at is not None and _aware(task.lease_expires_at) > moment
+
+    executor_live = [
+        task
+        for task in tasks
+        if task.status == "CLAIMED" or (task.status == "RUNNING" and lease_live(task))
+    ]
+    leases = list(
+        await session.scalars(
+            select(DeviceLeaseRow).where(
+                DeviceLeaseRow.tenant_id == tenant_id,
+                DeviceLeaseRow.device_id == device_id,
+                DeviceLeaseRow.canceled_at.is_(None),
+            )
+        )
+    )
+    live_leases = [lease for lease in leases if _aware(lease.expires_at) > moment]
+    if executor_live:
+        verdict = "BLOCKED_EXECUTOR_LIVE"
+    elif live_leases:
+        verdict = "BLOCKED_OCCUPANCY_LIVE"
+    else:
+        verdict = "ALLOWED"
+    open_unknown = await open_unknown_actions(session, tenant_id, device_id)
+    return {
+        "verdict": verdict,
+        "proof": {
+            "executorLiveTasks": [
+                {
+                    "taskId": task.id,
+                    "status": task.status,
+                    "businessState": task.business_state,
+                }
+                for task in executor_live
+            ],
+            "liveLeases": [
+                {
+                    "leaseId": lease.lease_id,
+                    "ownerType": lease.owner_type,
+                    "ownerWorkflowId": lease.owner_workflow_id,
+                    "expiresAt": lease.expires_at,
+                }
+                for lease in live_leases
+            ],
+            "openUnknownActions": len(open_unknown),
+            "reconcilingTasks": sorted(
+                task.id for task in tasks if _business_state_of(task) == "RECONCILING"
+            ),
+        },
+    }
+
+
 class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
@@ -90,7 +440,9 @@ class PlatformTaskReconcile(StrictModel):
     @model_validator(mode="after")
     def known_decision(self) -> PlatformTaskReconcile:
         if self.decision not in RECONCILE_DECISIONS:
-            raise ValueError("decision must be CONFIRMED_APPLIED, CONFIRMED_NOT_SUBMITTED, or KEEP_WAITING")
+            raise ValueError(
+                "decision must be CONFIRMED_APPLIED, CONFIRMED_NOT_SUBMITTED, or KEEP_WAITING"
+            )
         return self
 
 
@@ -270,9 +622,9 @@ class PlatformTaskService:
                 )
             rows = list(
                 await session.scalars(
-                    statement.order_by(MobileTaskRow.created_at.desc(), MobileTaskRow.id.desc()).limit(
-                        limit + 1
-                    )
+                    statement.order_by(
+                        MobileTaskRow.created_at.desc(), MobileTaskRow.id.desc()
+                    ).limit(limit + 1)
                 )
             )
         page = rows[:limit]
@@ -307,25 +659,56 @@ class PlatformTaskService:
             row = await session.get(MobileTaskRow, task_id, with_for_update=True)
             if row is None or row.tenant_id != str(actor.tenant_id):
                 raise NotFoundError("platform task was not found")
-            current = row.business_state or RUNNER_TO_BUSINESS.get(row.status, row.status)
-            if current in TERMINAL_BUSINESS:
-                if current == "CANCELLED":
-                    return self._business_view(row)
+            # A12: the decision is read from the explicit transition matrix.
+            outcome = CANCEL_TRANSITIONS[_business_state_of(row)]
+            if outcome == "IDEMPOTENT_RETURN":
+                # Duplicate cancel event: replay idempotently, no new revision.
+                return self._business_view(row)
+            if outcome == "REJECTED_TERMINAL":
                 raise ConflictError("terminal platform task cannot be canceled")
-            if current == "RECONCILING":
+            if outcome == "REJECTED_RECONCILE_FIRST":
                 raise ConflictError("uncertain result must be reconciled before cancellation")
-            if current in {"QUEUED", "WAITING_MATERIALS", "PREFLIGHT", "PAUSE_REQUESTED", "PAUSED_WAITING_USER"}:
-                row.status = "FAILED"
-                row.business_state = "CANCELLED"
-                row.error_code = "CANCELLED"
-                row.detail = reason
-                row.completed_at = now
-                row.lease_id = None
-                row.lease_expires_at = None
-                await _settle_reply_delivery(session, row.id, "CANCELLED")
-            else:
+            if _has_commit_intent(row):
+                # Post-commit window (legacy marker): cancellation must not erase
+                # the uncertain outcome — converge through :reconcile instead.
+                raise ConflictError("uncertain result must be reconciled before cancellation")
+            if outcome == "CANCEL_REQUESTED":
+                revision = _record_control_event(
+                    row, "CANCEL_REQUESTED", reason, f"operator:{actor.user_id}", now
+                )
                 row.business_state = "CANCEL_REQUESTED"
-                row.stall_reason = reason
+                row.stall_reason = reason[:160]
+                _audit_control_event(
+                    session,
+                    row,
+                    action="cancel_requested",
+                    revision=revision,
+                    actor_id=str(actor.user_id),
+                    extra={"reason": reason[:160]},
+                )
+                return self._business_view(row)
+            row.status = "FAILED"
+            row.business_state = "CANCELLED"
+            row.error_code = "CANCELLED"
+            row.detail = reason
+            row.completed_at = now
+            row.lease_id = None
+            row.lease_expires_at = None
+            # A12: the local occupation (device lease) is released with the
+            # cancel so the same device can immediately claim new work.
+            occupation_released = await _release_occupation(session, row, now)
+            revision = _record_control_event(
+                row, "CANCELLED", reason, f"operator:{actor.user_id}", now
+            )
+            _audit_control_event(
+                session,
+                row,
+                action="cancelled",
+                revision=revision,
+                actor_id=str(actor.user_id),
+                extra={"occupationReleased": occupation_released},
+            )
+            await _settle_reply_delivery(session, row.id, "CANCELLED")
             return self._business_view(row)
 
     async def retry(self, actor: Actor, task_id: str, request: PlatformTaskRetry) -> dict[str, Any]:
@@ -339,7 +722,9 @@ class PlatformTaskService:
             if source.business_state != "FAILED" and source.status != "FAILED":
                 raise ConflictError("only a failed task can be retried")
             if source.error_code in UNSAFE_RETRY_CODES:
-                raise ConflictError("uncertain or binding-changed failures must be reconciled first")
+                raise ConflictError(
+                    "uncertain or binding-changed failures must be reconciled first"
+                )
             if source.error_code and source.error_code not in SAFE_RETRY_CODES:
                 raise ConflictError("this failure is not classified as safely retryable")
             payload = dict(source.command_payload or {})
@@ -366,24 +751,37 @@ class PlatformTaskService:
 
     async def mark_unknown(self, actor: Actor, task_id: str, reason: str) -> dict[str, Any]:
         require_permissions(actor.roles, Permission.TASK_CREATE)
+        now = _now()
         async with self.database.unit_of_work() as session:
             row = await session.get(MobileTaskRow, task_id, with_for_update=True)
             if row is None or row.tenant_id != str(actor.tenant_id):
                 raise NotFoundError("platform task was not found")
-            current = row.business_state or RUNNER_TO_BUSINESS.get(row.status, row.status)
+            current = _business_state_of(row)
             if current in TERMINAL_BUSINESS or row.status == "SUCCEEDED":
                 raise ConflictError("terminal tasks cannot enter reconciliation")
             row.business_state = "RECONCILING"
-            row.stall_reason = reason
+            row.stall_reason = reason[:160]
             row.reconciliation = {
                 **dict(row.reconciliation or {}),
                 "status": "UNKNOWN",
                 "reason": reason,
                 "history": list((row.reconciliation or {}).get("history") or []),
             }
+            revision = _record_control_event(
+                row, "MARKED_UNKNOWN", reason, f"operator:{actor.user_id}", now
+            )
+            _audit_control_event(
+                session,
+                row,
+                action="marked_unknown",
+                revision=revision,
+                actor_id=str(actor.user_id),
+            )
             return self._business_view(row)
 
-    async def reconcile(self, actor: Actor, task_id: str, request: PlatformTaskReconcile) -> dict[str, Any]:
+    async def reconcile(
+        self, actor: Actor, task_id: str, request: PlatformTaskReconcile
+    ) -> dict[str, Any]:
         require_permissions(actor.roles, Permission.TASK_CREATE)
         now = _now()
         async with self.database.unit_of_work() as session:
@@ -392,7 +790,10 @@ class PlatformTaskService:
                 raise NotFoundError("platform task was not found")
             if row.business_state in TERMINAL_BUSINESS:
                 raise ConflictError("terminal tasks cannot be reconciled again")
-            if row.business_state != "RECONCILING" and row.error_code not in {"COMMIT_UNKNOWN", "RECONCILING"}:
+            if row.business_state != "RECONCILING" and row.error_code not in {
+                "COMMIT_UNKNOWN",
+                "RECONCILING",
+            }:
                 raise ConflictError("only RECONCILING tasks can be reconciled")
             actions = list(await session.scalars(
                 select(MobileActionCommitRow)
@@ -428,6 +829,23 @@ class PlatformTaskService:
                 row.business_state = "RECONCILING"
                 row.stall_reason = "waiting for unique platform result"
                 row.reconciliation = {"status": "KEEP_WAITING", "history": history}
+                # A12 任务卡 #3: KEEP_WAITING 保留未决动作——台账行原样保留
+                # （仍为 UNKNOWN、未决、继续阻断重领），只记录决策与审计。
+                revision = _record_control_event(
+                    row,
+                    "RECONCILED_KEEP_WAITING",
+                    request.evidence,
+                    f"operator:{actor.user_id}",
+                    now,
+                )
+                _audit_control_event(
+                    session,
+                    row,
+                    action="reconciled_keep_waiting",
+                    revision=revision,
+                    actor_id=str(actor.user_id),
+                    extra={"evidence": request.evidence[:160]},
+                )
                 return self._business_view(row)
             if request.decision == "CONFIRMED_APPLIED":
                 if not request.platform_item_id:
@@ -443,6 +861,21 @@ class PlatformTaskService:
                     "platformItemId": request.platform_item_id,
                 }
                 row.reconciliation = {"status": "APPLIED", "history": history}
+                revision = _record_control_event(
+                    row,
+                    "RECONCILED_APPLIED",
+                    request.evidence,
+                    f"operator:{actor.user_id}",
+                    now,
+                )
+                _audit_control_event(
+                    session,
+                    row,
+                    action="reconciled_applied",
+                    revision=revision,
+                    actor_id=str(actor.user_id),
+                    extra={"platformItemId": request.platform_item_id},
+                )
                 await _settle_reply_delivery(session, row.id, "SUCCEEDED")
                 return self._business_view(row)
             row.status = "FAILED"
@@ -451,24 +884,56 @@ class PlatformTaskService:
             row.detail = request.evidence
             row.completed_at = now
             row.reconciliation = {"status": "NOT_SUBMITTED", "history": history}
+            revision = _record_control_event(
+                row,
+                "RECONCILED_NOT_SUBMITTED",
+                request.evidence,
+                f"operator:{actor.user_id}",
+                now,
+            )
+            _audit_control_event(
+                session,
+                row,
+                action="reconciled_not_submitted",
+                revision=revision,
+                actor_id=str(actor.user_id),
+                extra={"evidence": request.evidence[:160]},
+            )
             await _settle_reply_delivery(session, row.id, "FAILED")
             return self._business_view(row)
 
     async def pause(self, actor: Actor, task_id: str, reason: str) -> dict[str, Any]:
         require_permissions(actor.roles, Permission.DEVICE_CONTROL)
+        now = _now()
         async with self.database.unit_of_work() as session:
             row = await session.get(MobileTaskRow, task_id, with_for_update=True)
             if row is None or row.tenant_id != str(actor.tenant_id):
                 raise NotFoundError("platform task was not found")
-            current = row.business_state or RUNNER_TO_BUSINESS.get(row.status, row.status)
-            if current in TERMINAL_BUSINESS:
-                raise ConflictError("terminal platform task cannot be paused")
-            if current == "RECONCILING":
-                raise ConflictError("uncertain result must be reconciled before pause")
-            if current == "PAUSED_WAITING_USER":
+            # A12: the decision is read from the explicit transition matrix.
+            outcome = PAUSE_TRANSITIONS[_business_state_of(row)]
+            if outcome == "IDEMPOTENT_RETURN":
+                # Duplicate pause event: replay idempotently, no new revision.
                 return self._business_view(row)
+            if outcome == "REJECTED_TERMINAL":
+                raise ConflictError("terminal platform task cannot be paused")
+            if outcome == "REJECTED_RECONCILE_FIRST":
+                raise ConflictError("uncertain result must be reconciled before pause")
+            if outcome == "REJECTED_CANCEL_WINS":
+                # A12 out-of-order protection: a cancel decision is sticky — a
+                # late pause must not overwrite CANCEL_REQUESTED.
+                raise ConflictError("cancelled task cannot be paused")
+            revision = _record_control_event(
+                row, "PAUSE_REQUESTED", reason, f"operator:{actor.user_id}", now
+            )
             row.business_state = "PAUSE_REQUESTED"
-            row.stall_reason = reason
+            row.stall_reason = reason[:160]
+            _audit_control_event(
+                session,
+                row,
+                action="pause_requested",
+                revision=revision,
+                actor_id=str(actor.user_id),
+            )
             return self._business_view(row)
 
     async def ack_paused(self, task_id: str, lease_id: str | None) -> dict[str, Any]:
@@ -477,37 +942,70 @@ class PlatformTaskService:
             row = await session.get(MobileTaskRow, task_id, with_for_update=True)
             if row is None:
                 raise NotFoundError("platform task was not found")
-            current = row.business_state or RUNNER_TO_BUSINESS.get(row.status, row.status)
-            if current in TERMINAL_BUSINESS or row.status in {"SUCCEEDED", "FAILED"}:
+            # A12: the decision is read from the explicit transition matrix.
+            outcome = ACK_PAUSED_TRANSITIONS[_business_state_of(row)]
+            if outcome == "REJECTED_TERMINAL" or row.status in {"SUCCEEDED", "FAILED"}:
                 raise ConflictError("terminal platform task cannot be pause-acked")
-            if current == "RECONCILING":
-                raise ConflictError("uncertain result must be reconciled before pause acknowledgement")
-            if current in {"CANCEL_REQUESTED"}:
+            if outcome == "REJECTED_RECONCILE_FIRST":
+                raise ConflictError(
+                    "uncertain result must be reconciled before pause acknowledgement"
+                )
+            if outcome == "REJECTED_CANCEL_WINS":
                 raise ConflictError("cancelled task cannot be pause-acked")
+            if outcome == "REJECTED_SUPERSEDED":
+                # A12 out-of-order: resume already superseded the pause request;
+                # a late ack must not drag the task back into a wait state.
+                raise ConflictError(
+                    "task already resumed; late pause acknowledgement is superseded"
+                )
             if lease_id and row.lease_id and row.lease_id != lease_id:
                 raise ConflictError("pause ack lease does not match")
-            if (row.command_payload or {}).get("commitIntent"):
+            if outcome == "IDEMPOTENT_RETURN":
+                # Duplicate ack (本地重复确认): replay idempotently — pause_ack_at
+                # is not re-stamped and no new revision is minted.
+                return self._business_view(row)
+            if _has_commit_intent(row):
                 row.business_state = "RECONCILING"
-                row.stall_reason = "commit intent already written"
+                row.stall_reason = row.stall_reason or "commit intent already written"
+                kind = "PAUSE_ACKED_RECONCILING"
             else:
                 row.business_state = "PAUSED_WAITING_USER"
+                kind = "PAUSE_ACKED"
             row.pause_ack_at = now
             row.control_mode = "REMOTE"
+            # A12 任务卡 #2: 本地按任务确认（pause ack）也是持久化控制事件。
+            revision = _record_control_event(
+                row, kind, row.stall_reason or "pause acknowledged", "companion", now
+            )
+            _audit_control_event(
+                session,
+                row,
+                action="pause_acked",
+                revision=revision,
+                actor_id="companion",
+                actor_type="companion",
+            )
             return self._business_view(row)
 
-    async def resume(self, actor: Actor, task_id: str, request: PlatformTaskResume) -> dict[str, Any]:
+    async def resume(
+        self, actor: Actor, task_id: str, request: PlatformTaskResume
+    ) -> dict[str, Any]:
         require_permissions(actor.roles, Permission.DEVICE_CONTROL)
         now = _now()
         async with self.database.unit_of_work() as session:
             row = await session.get(MobileTaskRow, task_id, with_for_update=True)
             if row is None or row.tenant_id != str(actor.tenant_id):
                 raise NotFoundError("platform task was not found")
-            if row.business_state in {"CANCELLED", "CANCEL_REQUESTED"}:
+            # A12: the state guard is read from the explicit transition matrix.
+            outcome = RESUME_TRANSITIONS[_business_state_of(row)]
+            if outcome == "REJECTED_CANCEL_WINS":
                 raise ConflictError("cancelled task cannot be resumed")
-            if row.business_state == "RECONCILING":
+            if outcome == "REJECTED_RECONCILE_FIRST":
                 raise ConflictError("reconciling tasks must be decided before resume")
-            if row.business_state != "PAUSED_WAITING_USER":
-                raise ConflictError("resume requires pause ack before the original task can continue")
+            if outcome != "RESUME_CHECK":
+                raise ConflictError(
+                    "resume requires pause ack before the original task can continue"
+                )
             if not request.page_verified:
                 # task-schedule/v1 fixture k03-positive-pause-resume: a resume
                 # missing pageVerified is a request-level validation failure,
@@ -568,6 +1066,19 @@ class PlatformTaskService:
                 metadata = dict(row.steps[0])
                 metadata["controlEpoch"] = device.fencing_counter
                 row.steps = [metadata, *row.steps[1:]]
+            # A12: the resume decision (same taskId / frozen payload / recipe,
+            # new epoch + lease) is a persisted control event with audit.
+            revision = _record_control_event(
+                row, "RESUMED", request.reason, f"operator:{actor.user_id}", now
+            )
+            _audit_control_event(
+                session,
+                row,
+                action="resumed",
+                revision=revision,
+                actor_id=str(actor.user_id),
+                extra={"pageVerified": True, "controlEpoch": device.fencing_counter},
+            )
             return self._business_view(row)
 
     async def _stamp_business_fields(
@@ -696,6 +1207,7 @@ class PlatformTaskService:
         business = row.business_state or RUNNER_TO_BUSINESS.get(row.status, row.status)
         if business == "CANCELED":
             business = "CANCELLED"
+        control_revision, control_events = _control_view(row)
         return {
             "id": row.id,
             "taskId": row.id,
@@ -717,6 +1229,8 @@ class PlatformTaskService:
             "stallReason": row.stall_reason,
             "resumeCount": row.resume_count,
             "controlEpoch": ((row.steps or [{}])[0] or {}).get("controlEpoch"),
+            "controlRevision": control_revision,
+            "controlEvents": control_events,
             "pauseAckAt": row.pause_ack_at,
             "reconciliation": row.reconciliation,
             "errorCode": row.error_code,
