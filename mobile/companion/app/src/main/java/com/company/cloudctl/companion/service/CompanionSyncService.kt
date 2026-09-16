@@ -54,6 +54,11 @@ import com.company.cloudctl.companion.network.ResumeCommand
 import com.company.cloudctl.companion.network.DeliveryFailureAction
 import com.company.cloudctl.companion.network.OutboxRetryPolicy
 import com.company.cloudctl.companion.network.NetworkAvailability
+import com.company.cloudctl.companion.runtime.DeviceArbiter
+import com.company.cloudctl.companion.runtime.DeviceArbiterHolder
+import com.company.cloudctl.companion.runtime.ReleaseBoundary
+import com.company.cloudctl.companion.runtime.TaskSession
+import com.company.cloudctl.companion.runtime.UiWriter
 import com.company.cloudctl.companion.security.SecretStore
 import com.company.cloudctl.companion.updates.RecipePackageManager
 import com.company.cloudctl.companion.updates.RecipeLifecycle
@@ -89,6 +94,13 @@ internal fun hasMaintenanceDestructiveConfirm(task: AutomationTask): Boolean = t
 
 class CompanionSyncService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    // B10 single-writer seam: the process-wide arbiter owns the device write
+    // lease. A task session is minted at the execution boundary (fresh-claim
+    // heartbeat confirmed) and returned at a safe boundary in every finally;
+    // the fencing token is re-checked before every task write.
+    private val deviceArbiter: DeviceArbiter get() = DeviceArbiterHolder.get()
+
     private lateinit var recipes: RecipeLifecycle
     private lateinit var store: AutomationStore
     private lateinit var runtimeStatus: RuntimeStatusStore
@@ -501,6 +513,8 @@ class CompanionSyncService : Service() {
         val commitGate = buildStepsPublishGate(service, task)
         val destructiveGate = buildMaintenanceDestructiveGate(service, task)
         val orderReporter = if (task.steps.any { it is AutomationStep.ReadOrders }) orderReporterFor(client) else null
+        var taskWriteSession: TaskSession? = null
+        var releaseBoundary = ReleaseBoundary.COMPLETED
         try {
             // Frozen protocol (R20260916-P09-18): for a fresh claim the initial
             // task heartbeat is the execution boundary. Without a confirmed
@@ -514,6 +528,10 @@ class CompanionSyncService : Service() {
                 },
             ) {
                 throwIfControlRequested(control)
+                // B10: heartbeat confirmed — the task now holds the device write
+                // lease; IM duty / remote / edge writes are rejected until the
+                // session returns at a safe boundary.
+                taskWriteSession = deviceArbiter.beginTaskSession(task.taskId)
                 coroutineScope {
                     val currentStep = AtomicInteger(-1)
                     val heartbeatJob = launch(Dispatchers.IO) {
@@ -528,7 +546,11 @@ class CompanionSyncService : Service() {
                             "preflight launch targetPackage=${task.targetPackage} " +
                                 "xianyu=com.taobao.idlefish",
                         )
-                        service.launchTargetApp(task.targetPackage)
+                        service.launchTargetApp(
+                            task.targetPackage,
+                            writer = UiWriter.TASK,
+                            fencingToken = taskWriteSession?.fencingToken,
+                        )
                         throwIfControlRequested(control)
                         runtimeStatus.updateTask(
                             task.taskId,
@@ -592,8 +614,10 @@ class CompanionSyncService : Service() {
                 return true
             }
         } catch (paused: TaskPausedException) {
+            releaseBoundary = ReleaseBoundary.PAUSED_CHECKPOINT
             persistPaused(task.taskId, pending, paused)
         } catch (cancelled: CancellationException) {
+            releaseBoundary = ReleaseBoundary.CANCELLED
             store.finish(task.taskId, false, "CANCELLED")
             runtimeStatus.updateTask(
                 task.taskId,
@@ -604,17 +628,27 @@ class CompanionSyncService : Service() {
             throw cancelled
         } catch (failure: ExecutorFailure) {
             if (control.pauseRequested) {
+                releaseBoundary = ReleaseBoundary.PAUSED_CHECKPOINT
                 persistPaused(task.taskId, pending, TaskPausedException(null, -1, control.reason))
                 return true
             }
+            releaseBoundary = ReleaseBoundary.FAILED
             val waiting = failure.code in setOf("UNKNOWN_PAGE", "LAUNCH_REQUIRES_USER", "DEVICE_LOCKED")
             failTask(task.taskId, failure.code, failure.message ?: failure.code, waitingUser = waiting)
         } catch (error: Exception) {
             if (control.pauseRequested) {
+                releaseBoundary = ReleaseBoundary.PAUSED_CHECKPOINT
                 persistPaused(task.taskId, pending, TaskPausedException(null, -1, control.reason))
                 return true
             }
+            releaseBoundary = ReleaseBoundary.FAILED
             failTask(task.taskId, "TASK_EXECUTION_FAILED", error.message ?: "本地任务已安全终止")
+        } finally {
+            // B10: hand the device back at the classified safe boundary. A late
+            // or duplicate release (stale token) is a no-op inside the arbiter.
+            taskWriteSession?.let {
+                deviceArbiter.endTaskSession(it.fencingToken, releaseBoundary)
+            }
         }
         return true
     }
@@ -652,8 +686,17 @@ class CompanionSyncService : Service() {
         }
         val control = ExecutionControl()
         val startAfterIndex = checkpoint.optInt("loopCursor", -1)
+        var taskWriteSession: TaskSession? = null
+        var releaseBoundary = ReleaseBoundary.COMPLETED
         try {
-            service.launchTargetApp(task.targetPackage)
+            // B10: the resume claim owns the device write lease from its first
+            // launch through the classified safe boundary in the finally below.
+            taskWriteSession = deviceArbiter.beginTaskSession(task.taskId)
+            service.launchTargetApp(
+                task.targetPackage,
+                writer = UiWriter.TASK,
+                fencingToken = taskWriteSession.fencingToken,
+            )
             ResumeValidator.guard(
                 service,
                 task,
@@ -719,12 +762,15 @@ class CompanionSyncService : Service() {
                 )
             }
         } catch (paused: TaskPausedException) {
+            releaseBoundary = ReleaseBoundary.PAUSED_CHECKPOINT
             persistPaused(task.taskId, pending, paused)
         } catch (cancelled: CancellationException) {
+            releaseBoundary = ReleaseBoundary.CANCELLED
             store.finish(task.taskId, false, "CANCELLED")
             runtimeStatus.updateTask(task.taskId, AuthorizedTaskState.Canceled, "任务已取消", "CANCELLED")
             throw cancelled
         } catch (failure: ExecutorFailure) {
+            releaseBoundary = ReleaseBoundary.FAILED
             if (failure.code in setOf(
                     "RESUME_PAGE_MISMATCH",
                     "RESUME_PAGE_UNVERIFIED",
@@ -737,6 +783,7 @@ class CompanionSyncService : Service() {
                     "ACCESSIBILITY_NOT_ACTIVE",
                 )
             ) {
+                releaseBoundary = ReleaseBoundary.PAUSED_CHECKPOINT
                 persistPaused(
                     task.taskId,
                     pending,
@@ -745,16 +792,23 @@ class CompanionSyncService : Service() {
                 return
             }
             if (control.pauseRequested) {
+                releaseBoundary = ReleaseBoundary.PAUSED_CHECKPOINT
                 persistPaused(task.taskId, pending, TaskPausedException(null, -1, control.reason))
                 return
             }
             failTask(task.taskId, failure.code, failure.message ?: failure.code)
         } catch (error: Exception) {
             if (control.pauseRequested) {
+                releaseBoundary = ReleaseBoundary.PAUSED_CHECKPOINT
                 persistPaused(task.taskId, pending, TaskPausedException(null, -1, control.reason))
                 return
             }
+            releaseBoundary = ReleaseBoundary.FAILED
             failTask(task.taskId, "TASK_EXECUTION_FAILED", error.message ?: "本地任务已安全终止")
+        } finally {
+            taskWriteSession?.let {
+                deviceArbiter.endTaskSession(it.fencingToken, releaseBoundary)
+            }
         }
     }
 
@@ -795,6 +849,8 @@ class CompanionSyncService : Service() {
         val checkpoint = store.latestCheckpoint(command.taskId)
         var recipeProgress: RecipeResumeProgress? = null
         var parsedRecipe: RecipePackage? = null
+        var taskWriteSession: TaskSession? = null
+        var releaseBoundary = ReleaseBoundary.COMPLETED
         try {
             val recipeJson = withContext(Dispatchers.IO) {
                 recipes.ensureCommand(command) { versionId -> downloadRecipe(client, versionId) }
@@ -860,6 +916,9 @@ class CompanionSyncService : Service() {
                 sendInitialHeartbeat(client, command.taskId, pending.leaseId, control)
             }
             throwIfControlRequested(control)
+            // B10: heartbeat confirmed — the recipe command holds the device
+            // write lease until the classified safe boundary in the finally.
+            taskWriteSession = deviceArbiter.beginTaskSession(command.taskId)
             coroutineScope {
                 val currentStep = AtomicInteger(
                     progress.lastSuccessfulStateId?.let { recipe.states.keys.indexOf(it) } ?: -1,
@@ -876,7 +935,11 @@ class CompanionSyncService : Service() {
                     )
                     prepareMedia(command.taskId, pending.payload)
                     throwIfControlRequested(control)
-                    service.launchTargetApp(command.targetPackage)
+                    service.launchTargetApp(
+                        command.targetPackage,
+                        writer = UiWriter.TASK,
+                        fencingToken = taskWriteSession?.fencingToken,
+                    )
                     throwIfControlRequested(control)
                     val resumeFromStateId = progress.nextStateId.takeIf { resume != null }
                     val outcome = withTimeout(recipe.maxDurationMs) {
@@ -945,6 +1008,7 @@ class CompanionSyncService : Service() {
                 }
             }
         } catch (paused: TaskPausedException) {
+            releaseBoundary = ReleaseBoundary.PAUSED_CHECKPOINT
             val progress = recipeProgress
             val recipe = parsedRecipe
             if (progress?.nextStateId != null && recipe != null) {
@@ -953,10 +1017,12 @@ class CompanionSyncService : Service() {
                 persistPaused(command.taskId, pending, paused)
             }
         } catch (cancelled: CancellationException) {
+            releaseBoundary = ReleaseBoundary.CANCELLED
             store.finish(command.taskId, false, "CANCELLED")
             runtimeStatus.updateTask(command.taskId, AuthorizedTaskState.Canceled, "任务已取消", "CANCELLED")
             throw cancelled
         } catch (failure: ExecutorFailure) {
+            releaseBoundary = ReleaseBoundary.FAILED
             if (resume != null && (
                     failure.code.startsWith("RESUME_") || failure.code in setOf(
                     "WRONG_ACTIVE_PACKAGE",
@@ -966,15 +1032,18 @@ class CompanionSyncService : Service() {
                     )
                 )
             ) {
+                releaseBoundary = ReleaseBoundary.PAUSED_CHECKPOINT
                 persistResumeRejected(command.taskId, checkpoint, failure.message)
                 return true
             }
             if (control.cancelRequested) {
+                releaseBoundary = ReleaseBoundary.CANCELLED
                 store.finish(command.taskId, false, "CANCELLED")
                 runtimeStatus.updateTask(command.taskId, AuthorizedTaskState.Canceled, "任务已取消", "CANCELLED")
                 return true
             }
             if (control.pauseRequested) {
+                releaseBoundary = ReleaseBoundary.PAUSED_CHECKPOINT
                 val progress = recipeProgress
                 val recipe = parsedRecipe
                 if (progress?.nextStateId != null && recipe != null) {
@@ -987,11 +1056,16 @@ class CompanionSyncService : Service() {
             failTask(command.taskId, failure.code, failure.message ?: failure.code)
         } catch (error: Exception) {
             if (control.pauseRequested) {
+                releaseBoundary = ReleaseBoundary.PAUSED_CHECKPOINT
                 persistPaused(command.taskId, pending, TaskPausedException(null, -1, control.reason))
                 return true
             }
+            releaseBoundary = ReleaseBoundary.FAILED
             failTask(command.taskId, "TASK_EXECUTION_FAILED", error.message ?: "本地任务已安全终止")
         } finally {
+            taskWriteSession?.let {
+                deviceArbiter.endTaskSession(it.fencingToken, releaseBoundary)
+            }
             if (store.unresolvedControlledActionKeys().any { store.actionJournal(it)?.taskId == command.taskId }) {
                 showReconciling(command.taskId)
             }

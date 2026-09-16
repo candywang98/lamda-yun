@@ -27,6 +27,15 @@ import com.company.cloudctl.companion.BuildConfig
 import com.company.cloudctl.companion.ClipboardRelayActivity
 import com.company.cloudctl.companion.ime.CloudCtlInputMethod
 import com.company.cloudctl.companion.network.PreviewFrame
+import com.company.cloudctl.companion.runtime.ArbiterDecision
+import com.company.cloudctl.companion.runtime.ArbiterGuardedUiExecutionPort
+import com.company.cloudctl.companion.runtime.ArbiterDenialReason
+import com.company.cloudctl.companion.runtime.DeviceArbiter
+import com.company.cloudctl.companion.runtime.DeviceArbiterHolder
+import com.company.cloudctl.companion.runtime.RawUiOps
+import com.company.cloudctl.companion.runtime.UiExecutionPort
+import com.company.cloudctl.companion.runtime.UiWriteKind
+import com.company.cloudctl.companion.runtime.UiWriter
 import com.company.cloudctl.companion.service.CompanionServiceStarter
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -46,6 +55,80 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
     )
 
     private val generation = nextGeneration()
+
+    // B10 single-writer seam: the process-wide DeviceArbiter gates every UI
+    // write primitive below. Task-context writes present the RUNNING session
+    // (token re-checked before every write); IM duty / remote live / edge
+    // writes are rejected and recorded while a task owns the device.
+    private val deviceArbiter: DeviceArbiter get() = DeviceArbiterHolder.get()
+
+    /** Go-forward arbitrated port for new writers (feature/adapter directories). */
+    val uiExecutionPort: UiExecutionPort by lazy {
+        ArbiterGuardedUiExecutionPort(deviceArbiter, rawOps)
+    }
+
+    private val rawOps = object : RawUiOps {
+        override suspend fun launchTargetApp(targetPackage: String) {
+            rawLaunchTargetApp(targetPackage)
+        }
+
+        override fun globalBack() {
+            performGlobalAction(GLOBAL_ACTION_BACK)
+        }
+
+        override fun submitGestureTap(x: Double, y: Double) {
+            serviceScope.launch { tapScreen(x.toFloat(), y.toFloat()) }
+        }
+
+        override fun submitGestureSwipe(x1: Double, y1: Double, x2: Double, y2: Double) {
+            serviceScope.launch { dispatchStroke(x1.toFloat(), y1.toFloat(), x2.toFloat(), y2.toFloat(), 220L) }
+        }
+
+        override suspend fun replaceText(targetPackage: String, locatorRef: String, value: String) {
+            rawReplaceText(targetPackage, locatorRef, value)
+        }
+    }
+
+    /** Task-context guard: a denial fails the step closed. */
+    private fun demandWrite(
+        writer: UiWriter,
+        kind: UiWriteKind,
+        fencingToken: Long? = null,
+        detail: String? = null,
+    ) {
+        val decision = deviceArbiter.request(writer, kind, fencingToken, detail)
+        if (decision is ArbiterDecision.Denied) {
+            val code = when (decision.reason) {
+                ArbiterDenialReason.DEVICE_BUSY -> "DEVICE_BUSY"
+                ArbiterDenialReason.EPOCH_STALE -> "EPOCH_STALE"
+                ArbiterDenialReason.NOT_HOLDER -> "ARBITER_NOT_HOLDER"
+            }
+            throw ExecutorFailure(
+                code,
+                "Device arbiter rejected ${decision.denial.writer}/${decision.denial.kind} " +
+                    "epoch=${decision.denial.controlEpoch}: ${decision.reason}",
+            )
+        }
+    }
+
+    /** Fire-and-forget guard (remote live channel): a denial skips the gesture. */
+    private fun tryWrite(
+        writer: UiWriter,
+        kind: UiWriteKind,
+        epoch: Long? = null,
+        detail: String? = null,
+    ): Boolean {
+        val decision = deviceArbiter.request(writer, kind, epoch, detail)
+        if (decision is ArbiterDecision.Denied) {
+            Log.w(
+                TAG,
+                "ARBITER_DENY writer=$writer kind=$kind reason=${decision.reason} " +
+                    "epoch=${decision.denial.controlEpoch} detail=${detail ?: ""}",
+            )
+            return false
+        }
+        return true
+    }
 
     override fun onServiceConnected() {
         serviceInfo = serviceInfo.apply {
@@ -153,12 +236,13 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         journal: (AutomationStep, String) -> Unit,
     ) {
         if (active !== this) throw ExecutorFailure("ACCESSIBILITY_NOT_ACTIVE", "Accessibility service is not active")
-        launchTargetApp(task.targetPackage)
+        launchTargetApp(task.targetPackage, writer = UiWriter.TASK)
         LocalAutomationExecutor(this, commitGate = commitGate, destructiveGate = destructiveGate, orderReporter = orderReporter)
             .execute(task, control, startAfterIndex, journal)
     }
 
     override suspend fun tapText(targetPackage: String, value: String) {
+        demandWrite(UiWriter.TASK, UiWriteKind.TAP, detail = "tapText $value")
         ensureReady(targetPackage)
         val matches = allRoots()
             .filter { it.packageName?.toString() == targetPackage }
@@ -184,11 +268,13 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
     fun allRootsForDuty(): List<AccessibilityNodeInfo> = allRoots()
 
     fun tapRemoteGestureLike(x: Double, y: Double) {
-        serviceScope.launch { tapScreen(x.toFloat(), y.toFloat()) }
+        demandWrite(UiWriter.IM_DUTY, UiWriteKind.TAP, detail = "duty tap $x,$y")
+        rawOps.submitGestureTap(x, y)
     }
 
     fun dutyBack() {
-        performGlobalAction(GLOBAL_ACTION_BACK)
+        demandWrite(UiWriter.IM_DUTY, UiWriteKind.BACK, detail = "duty back")
+        rawOps.globalBack()
     }
     /**
      * Duty-mode tab navigation (duty-anchor gap 3): park the target on its
@@ -198,6 +284,7 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
      * screen coordinates.
      */
     suspend fun ensureMessageListTab(targetPackage: String): Boolean {
+        demandWrite(UiWriter.IM_DUTY, UiWriteKind.TAP, detail = "duty message-list tab")
         if (targetPackage != TargetLocatorRegistry.XIANYU_PACKAGE) return false
         for (attempt in 1..DUTY_NAV_ANCHOR_ATTEMPTS) {
             val node = runCatching {
@@ -214,15 +301,29 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
     }
 
     // ROOT-INTEGRATION live sink (p10-live/20260913.1): remote gestures via accessibility.
+    // B10: a rejection (task RUNNING owns the device, or a superseded remote
+    // epoch after a remote->auto handover) is recorded and the command never
+    // lands — the WS transport thread must not see an exception.
     fun remoteTap(x: Double, y: Double) {
+        if (!tryWrite(UiWriter.REMOTE_LIVE, UiWriteKind.TAP, detail = "remote tap $x,$y")) return
         serviceScope.launch { tapScreen(x.toFloat(), y.toFloat()) }
     }
 
     fun remoteSwipe(x1: Double, y1: Double, x2: Double, y2: Double) {
+        if (!tryWrite(UiWriter.REMOTE_LIVE, UiWriteKind.SWIPE, detail = "remote swipe")) return
         serviceScope.launch { dispatchStroke(x1.toFloat(), y1.toFloat(), x2.toFloat(), y2.toFloat(), 220L) }
     }
 
-    suspend fun launchTargetApp(targetPackage: String) {
+    suspend fun launchTargetApp(
+        targetPackage: String,
+        writer: UiWriter = UiWriter.IM_DUTY,
+        fencingToken: Long? = null,
+    ) {
+        demandWrite(writer, UiWriteKind.LAUNCH, fencingToken, "launch $targetPackage")
+        rawLaunchTargetApp(targetPackage)
+    }
+
+    private suspend fun rawLaunchTargetApp(targetPackage: String) {
         val activePackage = rootInActiveWindow?.packageName?.toString()
         Log.i(
             TAG,
@@ -304,6 +405,7 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
 
     override suspend fun dismissBlockedDialog(targetPackage: String): String? =
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main.immediate) {
+            demandWrite(UiWriter.TASK, UiWriteKind.TAP, detail = "dismiss blocked dialog")
             if (BlockedDialogRegistry.rules(targetPackage).isEmpty() || !isTargetForeground(targetPackage)) {
                 return@withContext null
             }
@@ -330,11 +432,13 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         }
 
     override suspend fun goBack() {
-        performGlobalAction(GLOBAL_ACTION_BACK)
+        demandWrite(UiWriter.TASK, UiWriteKind.BACK)
+        rawOps.globalBack()
         delay(NAV_SETTLE_MS)
     }
 
     override suspend fun restartTargetApp(targetPackage: String) {
+        demandWrite(UiWriter.TASK, UiWriteKind.LAUNCH, detail = "restart $targetPackage")
         // A plain launchTargetApp no-ops when the target is already foreground on
         // an inner page; the forced relaunch below always re-enters the root task.
         if (targetPackage !in setOf(
@@ -363,6 +467,7 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         runCatching { ensureReady(targetPackage) }.isSuccess && findScrollableContainer(targetPackage) != null
 
     override suspend fun scrollTextListForward(targetPackage: String) {
+        demandWrite(UiWriter.TASK, UiWriteKind.SWIPE, detail = "scroll list forward")
         val container = findScrollableContainer(targetPackage)
             ?: throw ExecutorFailure("SCROLL_CONTAINER_MISSING", "No visible scrollable list to scroll")
         // Flutter lists ignore accessibility scroll actions; fall back to a gesture.
@@ -439,6 +544,7 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
      * view; dragging up returns to our newest replies at the bottom.
      */
     suspend fun swipeConversationList(targetPackage: String, backward: Boolean) {
+        demandWrite(UiWriter.TASK, UiWriteKind.SWIPE, detail = "swipe conversation list")
         val bounds = findScrollableContainer(targetPackage)?.let { node ->
             val rect = Rect()
             node.getBoundsInScreen(rect)
@@ -503,6 +609,7 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
     }.getOrNull()
 
     override suspend fun tapScreenAt(targetPackage: String, x: Int, y: Int) {
+        demandWrite(UiWriter.TASK, UiWriteKind.TAP, detail = "coordinate tap $x,$y")
         // Structured maintenance coordinates (xianyu only): one dispatchGesture
         // path, bounds-checked against the live screen, no fallback click.
         if (targetPackage != TargetLocatorRegistry.XIANYU_PACKAGE) {
@@ -519,6 +626,7 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
     }
 
     override suspend fun tapOnce(targetPackage: String, locatorRef: String) {
+        demandWrite(UiWriter.TASK, UiWriteKind.TAP, detail = "single-shot $locatorRef")
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main.immediate) {
             val locator = resolveGuardedDialogLocator(targetPackage, locatorRef)
             val evidenceId = "g$generation-${nextGestureEvidenceId()}"
@@ -576,6 +684,7 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
     }
 
     override suspend fun tap(targetPackage: String, locatorRef: String) {
+        demandWrite(UiWriter.TASK, UiWriteKind.TAP, detail = "tap $locatorRef")
         val node = resolveUniqueNode(targetPackage, locatorRef)
             ?: throw ExecutorFailure("LOCATOR_NOT_FOUND", "Approved locator was not found")
         if (!node.isVisibleToUser) {
@@ -614,6 +723,11 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
             .flatMap { PublishedCardLocator.visibleLines(snapshotCardTree(it)) }
 
     override suspend fun replaceText(targetPackage: String, locatorRef: String, value: String) {
+        demandWrite(UiWriter.TASK, UiWriteKind.TEXT_INPUT, detail = "replaceText $locatorRef")
+        rawReplaceText(targetPackage, locatorRef, value)
+    }
+
+    private suspend fun rawReplaceText(targetPackage: String, locatorRef: String, value: String) {
         if (locatorRef == "xianyu_chat_input") {
             commitChatInput(targetPackage, locatorRef, value)
             return
@@ -765,6 +879,7 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
     }
 
     override suspend fun swipeUp() {
+        demandWrite(UiWriter.TASK, UiWriteKind.SWIPE)
         dispatchStroke(540f, 1_850f, 540f, 420f, 500L)
         delay(250)
         dispatchStroke(540f, 1_850f, 540f, 420f, 500L)
@@ -902,6 +1017,7 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
      * swipe is never widened to the full screen.
      */
     override suspend fun swipeUpWithin(targetPackage: String, locatorRef: String) {
+        demandWrite(UiWriter.TASK, UiWriteKind.SWIPE, detail = "orders swipe within $locatorRef")
         val container = resolveUniqueNode(targetPackage, locatorRef)
             ?: throw ExecutorFailure("LOCATOR_NOT_FOUND", "Approved locator was not found")
         val rect = Rect()
@@ -935,6 +1051,7 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         tab: XianyuMaintenanceLayout.Tab,
         titleContains: String,
     ) {
+        demandWrite(UiWriter.TASK, UiWriteKind.TAP, detail = "card title tap '$titleContains'")
         if (targetPackage != TargetLocatorRegistry.XIANYU_PACKAGE) {
             throw ExecutorFailure("TARGET_PACKAGE_REJECTED", "Card title taps are approved for xianyu only")
         }

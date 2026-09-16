@@ -13,6 +13,16 @@ sealed interface FreshClaimStart<out T> {
     data class Blocked(val error: Exception) : FreshClaimStart<Nothing>
 }
 
+/**
+ * Frozen protocol (R20260916-P09-18 / P09-19): a fresh local claim that cannot
+ * reach a stable accessibility runtime must release the server task back to
+ * the queue. The release is legal only in the CLAIMED/PREFLIGHT window —
+ * before the first task heartbeat and before any committed write (see
+ * runtime/ReleasePolicy.kt, fleet-identity/v1@20260916.1 §8); this coordinator
+ * runs strictly inside that window, so no committed action can exist and the
+ * settled task is never re-executed locally, only redelivered by the server
+ * after lease expiry (no loss, no busy loop).
+ */
 class FreshClaimExecutionCoordinator<T : Any>(
     private val awaitAccessibility: suspend () -> AccessibilityRuntimeReadiness<T>,
     private val markReleaseBlocked: (String) -> Boolean,
