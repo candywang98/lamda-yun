@@ -54,16 +54,28 @@
       "lane": "WEB",
       "dispatchState": "ACCEPTED",
       "branch": "agent/p14-web-t041",
-      "ownedPaths": ["apps/web/**"],
-      "readOnlyPaths": ["packages/api-contracts/**", "services/control-api/**"],
-      "forbiddenPaths": ["mobile/companion/**", "services/control-api/migrations/**"],
+      "ownedPaths": [
+        "apps/web/**"
+      ],
+      "readOnlyPaths": [
+        "packages/api-contracts/**",
+        "services/control-api/**"
+      ],
+      "forbiddenPaths": [
+        "mobile/companion/**",
+        "services/control-api/migrations/**"
+      ],
       "requiredLocks": [],
       "deliverables": [
         "manual recipe publish and rollback UI",
         "signature, compatibility, deployment, actor and timestamp display",
         "permission, loading and failure states"
       ],
-      "acceptance": ["web unit tests", "web typecheck", "web build"],
+      "acceptance": [
+        "web unit tests",
+        "web typecheck",
+        "web build"
+      ],
       "evidenceDir": "artifacts/tasks/P14-multi-agent/P14-WEB-T041/"
     },
     {
@@ -72,10 +84,25 @@
       "lane": "CONTROL",
       "dispatchState": "ACCEPTED",
       "branch": "agent/p14-api-version-pin",
-      "ownedPaths": ["services/control-api/**", "tests/integration/**", "tests/unit/**"],
-      "readOnlyPaths": ["contracts/phase1/**", "mobile/companion/**", "apps/web/**"],
-      "forbiddenPaths": ["apps/web/**", "mobile/companion/**", "packages/api-contracts/**"],
-      "requiredLocks": ["CONTRACT:recipe-version", "DB_MIGRATION"],
+      "ownedPaths": [
+        "services/control-api/**",
+        "tests/integration/**",
+        "tests/unit/**"
+      ],
+      "readOnlyPaths": [
+        "contracts/phase1/**",
+        "mobile/companion/**",
+        "apps/web/**"
+      ],
+      "forbiddenPaths": [
+        "apps/web/**",
+        "mobile/companion/**",
+        "packages/api-contracts/**"
+      ],
+      "requiredLocks": [
+        "CONTRACT:recipe-version",
+        "DB_MIGRATION"
+      ],
       "deliverables": [
         "persist recipe version and hash on first claim",
         "keep running and paused tasks pinned",
@@ -83,7 +110,11 @@
         "explicit idempotent rollback and audit",
         "authorized download for task-pinned historical versions"
       ],
-      "acceptance": ["migration upgrade and downgrade tests", "API and claim integration tests", "concurrency tests"],
+      "acceptance": [
+        "migration upgrade and downgrade tests",
+        "API and claim integration tests",
+        "concurrency tests"
+      ],
       "evidenceDir": "artifacts/tasks/P14-multi-agent/P14-CONTROL-VERSION/"
     },
     {
@@ -92,9 +123,18 @@
       "lane": "ANDROID",
       "dispatchState": "ACCEPTED",
       "branch": "agent/p14-android-lifecycle",
-      "ownedPaths": ["mobile/companion/**"],
-      "readOnlyPaths": ["contracts/phase1/**", "services/control-api/**"],
-      "forbiddenPaths": ["apps/web/**", "services/control-api/**", "packages/api-contracts/**"],
+      "ownedPaths": [
+        "mobile/companion/**"
+      ],
+      "readOnlyPaths": [
+        "contracts/phase1/**",
+        "services/control-api/**"
+      ],
+      "forbiddenPaths": [
+        "apps/web/**",
+        "services/control-api/**",
+        "packages/api-contracts/**"
+      ],
       "requiredLocks": [],
       "deliverables": [
         "atomic verified download and install",
@@ -104,7 +144,10 @@
         "old-version survival across interrupted download, restart and offline",
         "local rollback state recovery"
       ],
-      "acceptance": ["focused Android unit tests", "assembleDebug"],
+      "acceptance": [
+        "focused Android unit tests",
+        "assembleDebug"
+      ],
       "evidenceDir": "artifacts/tasks/P14-multi-agent/P14-ANDROID-LIFECYCLE/"
     },
     {
@@ -116,8 +159,16 @@
       "acceptanceScope": "OnePlus 9R single-device signed Recipe lifecycle; excludes G3 and public Basic Auth login",
       "acceptanceReport": "artifacts/tasks/P14-multi-agent/P14-INTEGRATION-ACCEPTANCE/summary.md",
       "owner": "ROOT-WORKER",
-      "dependsOn": ["P14-WEB-T041", "P14-CONTROL-VERSION", "P14-ANDROID-LIFECYCLE"],
-      "requiredLocks": ["MERGE:integration", "RELEASE:P14", "DEVICE:b0644fb5"],
+      "dependsOn": [
+        "P14-WEB-T041",
+        "P14-CONTROL-VERSION",
+        "P14-ANDROID-LIFECYCLE"
+      ],
+      "requiredLocks": [
+        "MERGE:integration",
+        "RELEASE:P14",
+        "DEVICE:b0644fb5"
+      ],
       "acceptance": [
         "same integration SHA passes backend, Android and Web tests",
         "user manually publishes a no-side-effect signed recipe",
@@ -128,5 +179,8 @@
       ],
       "evidenceDir": "artifacts/tasks/P14-multi-agent/P14-INTEGRATION-ACCEPTANCE/"
     }
-  ]
+  ],
+  "historical": true,
+  "supersededBy": "docs/current/tasks.json (fleet-first-20260916.1, activated 2026-09-16T22:59:24+08:00)",
+  "historyNote": "P14 multi-agent queue served 2026-09-10..2026-09-16; slices A05/B05/A09/Q02/Q03 etc. merged into integration/p14-20260909 and accepted. Do not schedule new work from this file."
 }

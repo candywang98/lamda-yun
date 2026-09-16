@@ -121,5 +121,16 @@ semantic contract conflict with mechanical `ours`/`theirs` choices.
 
 The current executable template and P14 work-item queue are documented in
 `docs/phase1/multi-agent-execution.md` and
-`docs/phase1/multi-agent-work-items.json`.
+`docs/phase1/multi-agent-work-items.json` (HISTORICAL since 2026-09-16).
+
+## Single active task source (fleet-first-20260916.1)
+
+Since R02 activation (2026-09-16), the authoritative machine task source is
+`docs/current/tasks.json`. Read `docs/current/README.md` first. Task states use
+`dev_state` (NOT_STARTED/IN_PROGRESS/SOFTWARE_DONE) and `acceptance_state`
+(NOT_RUN/SOFTWARE_ACCEPTED/DEVICE_WAIT/DEVICE_ACCEPTED/BLOCKED) as separate
+fields. Validate changes with `python scripts/plan_guard.py
+docs/current/tasks.json`. Legacy Excel plans under `docs/project-plans/` are
+read-only baselines until their migration is verified; progress text never
+overrides safety gates.
 
