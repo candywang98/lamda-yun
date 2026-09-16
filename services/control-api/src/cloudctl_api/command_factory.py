@@ -132,6 +132,26 @@ def production_command_type(catalog_command_type: str | None) -> CommandType | N
     return PRODUCTION_ALIASES.get(catalog_command_type)
 
 
+def xy_catalog_registration(operation_id: str) -> dict[str, Any] | None:
+    """A09 catalog facts for a field-map operationId, or None if unregistered.
+
+    Single source of truth is operation_catalog.BY_CATALOG_ID (the 31 xy-tasks
+    registrations). This is audit/mint metadata only: it never enables a
+    command — PRODUCTION_ALIASES stays the sole mint gate.
+    """
+    from .operation_catalog import BY_CATALOG_ID
+
+    definition = BY_CATALOG_ID.get(operation_id)
+    if definition is None:
+        return None
+    return {
+        "operationKey": definition.key,
+        "resultType": definition.result_type,
+        "availability": definition.availability,
+        "prerequisite": definition.prerequisite,
+    }
+
+
 def _allowed_fields(spec: dict[str, Any]) -> set[str]:
     declared = {field for field in (spec.get("fields") or []) if field not in CONSTRAINT_FIELDS}
     return declared | COMMON_TASK_FIELDS
@@ -160,9 +180,11 @@ def mint_operation_command(operation_id: str, parameters: dict[str, Any] | None 
         )
     catalog_type = spec.get("commandType")
     command_type = production_command_type(catalog_type if isinstance(catalog_type, str) else None)
+    registration = xy_catalog_registration(operation_id)
     if command_type is None:
+        availability = registration["availability"] if registration else "unregistered"
         raise ValueError(
-            f"{operation_id} is catalogued but not enabled for production CommandV1 claim"
+            f"{operation_id} is catalogued ({availability}) but not enabled for production CommandV1 claim"
         )
     model = PARAMETER_MODELS[command_type]
     aliases = {(field.alias or name) for name, field in model.model_fields.items()}
@@ -176,6 +198,9 @@ def mint_operation_command(operation_id: str, parameters: dict[str, Any] | None 
         "targetPackage": package,
         "openOnly": command_type in OPEN_ONLY_COMMAND_TYPES,
         "catalogCommandType": catalog_type,
+        # A09 result identity: the catalog registration's declared result
+        # schema for this action (matches command_v1 RESULT_TYPES).
+        "resultType": registration["resultType"] if registration else None,
     }
 
 

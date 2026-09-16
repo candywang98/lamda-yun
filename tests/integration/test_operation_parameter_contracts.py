@@ -178,7 +178,9 @@ MAPPED_CASES: tuple[tuple[str, str, dict[str, Any]], ...] = (
                 "dryRun": True,
             },
         )
-        for feature_id in ("xy-tasks-02", "zz-tasks-01", "red-tasks-01")
+        # xy-tasks-02 no longer maps to the snapshot-validation placeholder:
+        # A09 registered it as its own pending (T102) operation.
+        for feature_id in ("zz-tasks-01", "red-tasks-01")
     ),
     (
         "assets-01",
