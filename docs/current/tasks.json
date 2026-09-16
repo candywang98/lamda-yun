@@ -1245,8 +1245,8 @@
       "risk": "中",
       "device_acceptance": "无；仅软件验证",
       "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
-      "dev_state": "IN_PROGRESS",
-      "acceptance_state": "NOT_RUN",
+      "dev_state": "SOFTWARE_DONE",
+      "acceptance_state": "SOFTWARE_ACCEPTED",
       "evidence": "artifacts/delivery-20260916/B12/",
       "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
       "read_only_paths": [
@@ -1260,7 +1260,13 @@
         "cd mobile/companion && ./gradlew testDebugUnitTest lint assembleDebug（涉及Android时）",
         "python -m pytest -q（涉及API时，在集成队列统一运行）"
       ],
-      "activation": "R00核验与R02计划激活后执行；E10需单独选择，不自动进入队列"
+      "activation": {
+        "delivered_at": "2026-09-17T03:30:00+08:00",
+        "branch": "agent/fleet-b12",
+        "commit": "4750e91",
+        "review": "控制器审查：路径零越界；observation包8文件+44测试，Kotlin与合同Python的treeDigest跨语言逐字节一致(golden parity)；wrapper误选离线复现；549全绿",
+        "merged": "integration b2f488c(A13)/51e07a3(B12)；Q12 xfail已摘(fault matrix 13过)；同SHA终验：后端885过11跳过、Android 549/0"
+      }
     },
     {
       "id": "B13",
@@ -1533,8 +1539,8 @@
       "risk": "高",
       "device_acceptance": "无；仅软件验证",
       "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
-      "dev_state": "IN_PROGRESS",
-      "acceptance_state": "NOT_RUN",
+      "dev_state": "SOFTWARE_DONE",
+      "acceptance_state": "SOFTWARE_ACCEPTED",
       "evidence": "artifacts/delivery-20260916/A13/",
       "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
       "read_only_paths": [
@@ -1548,7 +1554,13 @@
         "ruff check <本任务Python文件>",
         "涉及迁移：隔离PostgreSQL升级/回退/再升级，兼容性明确后执行"
       ],
-      "activation": "R00核验与R02计划激活后执行；E10需单独选择，不自动进入队列"
+      "activation": {
+        "delivered_at": "2026-09-17T03:30:00+08:00",
+        "branch": "agent/fleet-a13",
+        "commit": "a6a1cc8",
+        "review": "控制器审查：路径零越界；六族身份金样+相位机+证据绑定+platform_account_id加列(迁移0024)+DEFECT-Q12-1信封守卫修复(复现验证:回退后镜像测试红/修复绿)；632过其树",
+        "merged": "integration b2f488c(A13)/51e07a3(B12)；Q12 xfail已摘(fault matrix 13过)；同SHA终验：后端885过11跳过、Android 549/0"
+      }
     },
     {
       "id": "C11",
