@@ -116,6 +116,9 @@ class PlatformTaskCreate(StrictModel):
     scheduled_for: datetime | None = Field(default=None, alias="scheduledFor")
     publish_target_id: str | None = Field(default=None, alias="publishTargetId")
     operation_id: str | None = Field(default=None, alias="operationId", min_length=1, max_length=64)
+    # task-schedule/v1 §5 parameter freeze: schedule fire stamps the template
+    # revision it minted from so later template edits cannot drift a fired task.
+    template_revision: int | None = Field(default=None, alias="templateRevision", ge=1, le=10000)
 
     @model_validator(mode="after")
     def require_devices_and_command(self) -> PlatformTaskCreate:
@@ -212,6 +215,12 @@ class PlatformTaskService:
                 "snapshotId": f"snap-{view['taskId']}",
                 "recipe": builtin_recipe_ref(body.command_type),
             }
+            # task-schedule/v1 §2/D1: freeze the minting operationId into the
+            # snapshot; §5: freeze the template revision the command was minted from.
+            if body.operation_id:
+                command_payload["operationId"] = body.operation_id
+            if body.template_revision is not None:
+                command_payload["templateRevision"] = body.template_revision
             command_payload["snapshotSha256"] = hashlib.sha256(
                 _canonical(command_payload).encode()
             ).hexdigest()
@@ -221,6 +230,7 @@ class PlatformTaskService:
                 command_payload=command_payload,
                 batch_id=batch_id,
                 scheduled_for=body.scheduled_for,
+                operation_id=body.operation_id,
             )
             views.append(await self.get(actor, view["taskId"]))
         return views, created_any
@@ -344,6 +354,10 @@ class PlatformTaskService:
                 "publishTargetId": payload.get("publishTargetId"),
                 "productId": payload.get("productId"),
                 "mediaDeliveryId": payload.get("mediaDeliveryId"),
+                # task-schedule/v1 §2: retries keep the original catalog identity
+                # and frozen template revision instead of re-deriving them.
+                "operationId": source.operation_id or payload.get("operationId"),
+                "templateRevision": payload.get("templateRevision"),
             }
             retry_key = f"retry:{source.id}:{source.attempt + 1}:{request.reason[:24]}"
         body = PlatformTaskCreate.model_validate(retry_body)
@@ -495,7 +509,13 @@ class PlatformTaskService:
             if row.business_state != "PAUSED_WAITING_USER":
                 raise ConflictError("resume requires pause ack before the original task can continue")
             if not request.page_verified:
-                raise ConflictError("resume requires pageVerified=true after resumeGuard")
+                # task-schedule/v1 fixture k03-positive-pause-resume: a resume
+                # missing pageVerified is a request-level validation failure,
+                # not a state conflict — the task itself is properly paused.
+                raise ValidationError(
+                    "resume requires pageVerified=true after resumeGuard",
+                    fields={"pageVerified": "resume requires pageVerified=true after resumeGuard"},
+                )
             if (row.command_payload or {}).get("commitIntent"):
                 raise ConflictError("reconciling tasks must be decided before resume")
             live = None
@@ -558,12 +578,14 @@ class PlatformTaskService:
         command_payload: dict[str, Any],
         batch_id: str,
         scheduled_for: datetime | None,
+        operation_id: str | None = None,
     ) -> None:
         async with self.database.unit_of_work() as session:
             row = await session.get(MobileTaskRow, task_id, with_for_update=True)
             if row is None:
                 raise NotFoundError("platform task was not found")
             row.command_type = command_type
+            row.operation_id = operation_id
             row.command_payload = command_payload
             row.business_state = "QUEUED"
             row.control_mode = "AUTO"
@@ -683,6 +705,7 @@ class PlatformTaskService:
             "bindingVersion": row.binding_version,
             "deviceIdAtExecution": row.device_id_at_execution,
             "commandType": row.command_type,
+            "operationId": row.operation_id,
             "commandPayload": row.command_payload,
             "snapshotSha256": (row.command_payload or {}).get("snapshotSha256"),
             "state": business,

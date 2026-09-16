@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Annotated, Any, cast
 
 from cloudctl_domain import Actor
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, Response, status
 
 from .auth import current_actor
 from .schedules import ScheduleFireRequest, TaskScheduleCreate, TaskScheduleService
@@ -54,6 +54,13 @@ async def fire_schedule(
     body: ScheduleFireRequest,
     actor: ActorDep,
     schedules: Service,
+    response: Response,
 ) -> dict[str, Any]:
-    items = await schedules.fire(actor, schedule_id, body)
-    return {"items": items, "count": len(items)}
+    items, created = await schedules.fire(actor, schedule_id, body)
+    # task-schedule/v1 fixture k03-positive-schedule-once: first fire answers
+    # 201 with the minted taskIds; a replayed fire answers 200 and is marked
+    # as an idempotent replay (no second task is minted).
+    response.status_code = status.HTTP_201_CREATED if created else status.HTTP_200_OK
+    response.headers["Idempotency-Replayed"] = "false" if created else "true"
+    task_ids = [item["taskId"] for item in items if item.get("taskId")]
+    return {"items": items, "count": len(items), "taskIds": task_ids}

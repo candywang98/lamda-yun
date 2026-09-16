@@ -457,7 +457,10 @@ async def test_pause_ack_blocks_queue_and_resume_keeps_task_id(
         headers=identity(),
         json={"reason": "page not checked", "pageVerified": False},
     )
-    assert denied.status_code == 409
+    # task-schedule/v1 fixture k03-positive-pause-resume: missing pageVerified
+    # is a request validation failure (422), not a state conflict.
+    assert denied.status_code == 422
+    assert denied.json()["code"] == "VALIDATION_ERROR"
     resumed = await client.post(
         f"/api/v1/platform-tasks/{task_id}:resume",
         headers=identity(),
@@ -1274,9 +1277,239 @@ async def test_operation_id_mints_command_v1_and_rejects_unwired_catalog(
     )
     assert created.status_code == 201, created.text
     assert created.json()["items"][0]["commandType"] == "device.probe_capabilities.v1"
+    # task-schedule/v1 §2/D1: the minting operationId is persisted and visible
+    # on the operator task list, task detail, and frozen command payload.
+    assert created.json()["items"][0]["operationId"] == "device-probe"
+    assert created.json()["items"][0]["commandPayload"]["operationId"] == "device-probe"
+    task_id = created.json()["items"][0]["taskId"]
+    detail = await client.get(f"/api/v1/platform-tasks/{task_id}", headers=identity())
+    assert detail.status_code == 200, detail.text
+    assert detail.json()["operationId"] == "device-probe"
     auth = await _enroll(client, device_id, "instance-factory")
     claimed = await client.post("/companion/v2/tasks/claim", headers=auth, json={"leaseSeconds": 60})
     assert claimed.status_code == 200, claimed.text
     command = parse_command_v1(claimed.json()["command"])
     assert command["commandType"] == "device.probe_capabilities.v1"
     assert command["legacyStepsEnabled"] is False
+
+
+@pytest.mark.asyncio
+async def test_k03_pause_resume_full_chain_event_sequence(
+    api: tuple[httpx.AsyncClient, FastAPI],
+) -> None:
+    """K03 fixture k03-positive-pause-resume: pause is not cancel.
+
+    RUNNING --pause--> PAUSE_REQUESTED --:ack-paused(lease match)-->
+    PAUSED_WAITING_USER --:resume(pageVerified=true)--> RESUME_CHECK with
+    control_epoch and fencing_token both incremented and a fresh 60s lease.
+    The business_state migration chain is asserted step by step through the
+    fixture's :ack-paused endpoint (lease-checked), and the companion-reported
+    PAUSED_WAITING_USER event lands in the Unique(task_id, sequence) event log;
+    resume without pageVerified answers 422 (operator transitions surface on
+    the state view, events come from the companion channel — see the A04
+    contract-review note in artifacts/tasks/phase1/a04-task-schedule/).
+    """
+    client, app = api
+    device_id = await create_direct_device(client, "phone-k03-pause")
+    account = await create_account(client, "xy-k03-pause")
+    await bind(client, account, device_id)
+    created = await client.post(
+        "/api/v1/platform-tasks",
+        headers={**identity(), "Idempotency-Key": "k03-pause-resume"},
+        json={"deviceId": device_id, "accountId": account, **PROBE},
+    )
+    assert created.status_code == 201, created.text
+    task_id = created.json()["items"][0]["taskId"]
+    auth = await _enroll(client, device_id, "instance-k03-pause")
+    claimed = await client.post("/companion/v2/tasks/claim", headers=auth, json={"leaseSeconds": 60})
+    assert claimed.status_code == 200, claimed.text
+    lease_id = claimed.json()["leaseId"]
+    started = await client.post(
+        f"/companion/v2/tasks/{task_id}/heartbeat",
+        headers=auth,
+        json={"leaseId": lease_id, "currentStep": 0, "leaseSeconds": 60},
+    )
+    assert started.status_code == 200, started.text
+    assert started.json()["businessState"] == "RUNNING"
+
+    from cloudctl_api.db import DeviceRow
+
+    async with app.state.database.unit_of_work() as session:
+        device = await session.get(DeviceRow, device_id)
+        assert device is not None
+        fencing_before = int(device.fencing_counter or 0)
+        epoch_before = int(getattr(device, "control_epoch", 0) or 0)
+
+    paused = await client.post(
+        f"/api/v1/platform-tasks/{task_id}:pause",
+        headers=identity(),
+        json={"reason": "operator taking over"},
+    )
+    assert paused.status_code == 200, paused.text
+    assert paused.json()["state"] == "PAUSE_REQUESTED"
+    assert paused.json()["runnerStatus"] not in {"FAILED", "SUCCEEDED"}
+
+    # Companion acks the pause through :ack-paused with the live lease.
+    wrong_lease = await client.post(
+        f"/api/v1/platform-tasks/{task_id}:ack-paused",
+        headers=identity(),
+        json={"leaseId": "00000000-0000-0000-0000-000000000000"},
+    )
+    assert wrong_lease.status_code == 409
+    acked = await client.post(
+        f"/api/v1/platform-tasks/{task_id}:ack-paused",
+        headers=identity(),
+        json={"leaseId": lease_id},
+    )
+    assert acked.status_code == 200, acked.text
+    assert acked.json()["state"] == "PAUSED_WAITING_USER"
+    assert acked.json()["controlMode"] == "REMOTE"
+
+    # The companion also reports the pause through the event channel, which is
+    # the Unique(task_id, sequence) record the audit trail reads.
+    reported = await client.post(
+        f"/companion/v2/tasks/{task_id}/events",
+        headers=auth,
+        json={
+            "leaseId": lease_id,
+            "sequence": 1,
+            "eventType": "PAUSED_WAITING_USER",
+            "payload": {"reason": "operator taking over"},
+        },
+    )
+    assert reported.status_code == 201, reported.text
+
+    denied = await client.post(
+        f"/api/v1/platform-tasks/{task_id}:resume",
+        headers=identity(),
+        json={"reason": "page not verified", "pageVerified": False},
+    )
+    assert denied.status_code == 422, denied.text
+    assert denied.json()["code"] == "VALIDATION_ERROR"
+    assert "pageVerified" in denied.json()["fields"]
+
+    resumed = await client.post(
+        f"/api/v1/platform-tasks/{task_id}:resume",
+        headers=identity(),
+        json={"reason": "operator returned to the frozen page", "pageVerified": True},
+    )
+    assert resumed.status_code == 200, resumed.text
+    assert resumed.json()["taskId"] == task_id
+    assert resumed.json()["state"] == "RESUME_CHECK"
+    assert resumed.json()["controlMode"] == "AUTO"
+    assert resumed.json()["resumeCount"] == 1
+    assert resumed.json()["controlEpoch"] == fencing_before + 1
+
+    async with app.state.database.unit_of_work() as session:
+        device = await session.get(DeviceRow, device_id)
+        assert device is not None
+        assert int(device.fencing_counter or 0) == fencing_before + 1
+        assert int(getattr(device, "control_epoch", 0) or 0) == epoch_before + 1
+
+    detail = await client.get(f"/api/v1/platform-tasks/{task_id}", headers=identity())
+    assert detail.status_code == 200, detail.text
+    events = detail.json()["events"]
+    assert [(event["sequence"], event["eventType"]) for event in events] == [
+        (1, "PAUSED_WAITING_USER")
+    ]
+    assert events[0]["payload"]["reason"] == "operator taking over"
+
+
+@pytest.mark.asyncio
+async def test_k03_cancel_reconciling_rejected_and_terminal_idempotent(
+    api: tuple[httpx.AsyncClient, FastAPI],
+) -> None:
+    """K03 fixture k03-negative-cancel-reconciling.
+
+    RECONCILING (uncertain applied action) refuses cancel with 409 until the
+    reconciliation verdict lands; terminal semantics: CANCELLED cancel is an
+    idempotent 200, SUCCEEDED/FAILED answer 409, and a RUNNING task degrades
+    to CANCEL_REQUESTED instead of an immediate CANCELLED.
+    """
+    client, app = api
+    device_id = await create_direct_device(client, "phone-k03-cancel")
+    account = await create_account(client, "xy-k03-cancel")
+    await bind(client, account, device_id)
+
+    async def mint(key: str) -> str:
+        created = await client.post(
+            "/api/v1/platform-tasks",
+            headers={**identity(), "Idempotency-Key": key},
+            json={"deviceId": device_id, "accountId": account, **PROBE},
+        )
+        assert created.status_code == 201, created.text
+        return str(created.json()["items"][0]["taskId"])
+
+    # RUNNING task: cancel degrades to CANCEL_REQUESTED, not immediate CANCELLED.
+    running_id = await mint("k03-running")
+    auth = await _enroll(client, device_id, "instance-k03-cancel")
+    claimed = await client.post("/companion/v2/tasks/claim", headers=auth, json={"leaseSeconds": 60})
+    assert claimed.status_code == 200, claimed.text
+    lease_id = claimed.json()["leaseId"]
+    started = await client.post(
+        f"/companion/v2/tasks/{running_id}/heartbeat",
+        headers=auth,
+        json={"leaseId": lease_id, "currentStep": 0, "leaseSeconds": 60},
+    )
+    assert started.status_code == 200, started.text
+    soft = await client.post(
+        f"/api/v1/platform-tasks/{running_id}:cancel",
+        headers=identity(),
+        json={"reason": "stop at the next safe point"},
+    )
+    assert soft.status_code == 200, soft.text
+    assert soft.json()["state"] == "CANCEL_REQUESTED"
+    assert soft.json()["runnerStatus"] == "RUNNING"
+
+    # Unstarted task: cancel lands immediately and replays idempotently.
+    cancelled_id = await mint("k03-cancelled")
+    cancelled = await client.post(
+        f"/api/v1/platform-tasks/{cancelled_id}:cancel",
+        headers=identity(),
+        json={"reason": "operator stopped before claim"},
+    )
+    assert cancelled.status_code == 200, cancelled.text
+    assert cancelled.json()["state"] == "CANCELLED"
+    replay = await client.post(
+        f"/api/v1/platform-tasks/{cancelled_id}:cancel",
+        headers=identity(),
+        json={"reason": "operator stopped before claim"},
+    )
+    assert replay.status_code == 200
+    assert replay.json()["state"] == "CANCELLED"
+
+    # SUCCEEDED/FAILED terminals refuse cancel.
+    failed_id = await mint("k03-failed")
+    async with app.state.database.unit_of_work() as session:
+        from cloudctl_api.db import MobileTaskRow
+
+        row = await session.get(MobileTaskRow, failed_id)
+        assert row is not None
+        row.status = "FAILED"
+        row.business_state = "FAILED"
+        row.error_code = "STEP_TIMEOUT"
+    failed_cancel = await client.post(
+        f"/api/v1/platform-tasks/{failed_id}:cancel",
+        headers=identity(),
+        json={"reason": "cannot cancel a finished task"},
+    )
+    assert failed_cancel.status_code == 409
+
+    # RECONCILING (uncertain applied action) must be reconciled before cancel.
+    reconciling_id = await mint("k03-reconciling")
+    unknown = await client.post(
+        f"/api/v1/platform-tasks/{reconciling_id}:mark-unknown",
+        headers=identity(),
+        json={"reason": "publish clicked but result lost"},
+    )
+    assert unknown.status_code == 200, unknown.text
+    assert unknown.json()["state"] == "RECONCILING"
+    denied = await client.post(
+        f"/api/v1/platform-tasks/{reconciling_id}:cancel",
+        headers=identity(),
+        json={"reason": "operator wants to stop"},
+    )
+    assert denied.status_code == 409, denied.text
+    problem = denied.json()
+    assert problem["code"] == "CONFLICT"
+    assert "reconcil" in problem["detail"].lower()
