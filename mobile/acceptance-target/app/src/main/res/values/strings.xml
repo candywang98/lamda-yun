@@ -2,8 +2,22 @@
 <resources>
     <string name="app_name">CloudCtl Acceptance Target</string>
     <string name="status_ready">READY_FOR_CLOUD_TASK</string>
+    <string name="status_armed">TARGET_ARMED</string>
     <string name="input_hint">Structured input</string>
+    <string name="focus_thief">Steal input focus (fault inject)</string>
+    <string name="arm_run">Arm unique target run</string>
     <string name="action_run">Run approved action</string>
     <string name="result_complete">TASK_COMPLETED</string>
     <string name="result_empty">TASK_COMPLETED_WITH_EMPTY_INPUT</string>
+    <string name="result_not_armed">NOT_ARMED_RUN_FIRST</string>
+    <string name="result_struck">STRUCK %1$s TOTAL#%2$d</string>
+    <string name="result_cancelled">CANCELLED %1$s TOTAL#%2$d</string>
+    <string name="target_pending">TARGET_PENDING %1$s</string>
+    <string name="target_armed">TARGET_TOKEN %1$s RUN#%2$d ARMED</string>
+    <string name="confirm_dialog_title">Confirm the gated strike on the unique target</string>
+    <string name="confirm_dialog_token">TARGET_TOKEN %1$s</string>
+    <string name="confirm_strike">CONFIRM_STRIKE</string>
+    <string name="cancel_strike">CANCEL_STRIKE</string>
+    <string name="boot_marker">BOOT#%1$d PAGE#%2$d RUNS#%3$d</string>
+    <string name="ledger_line">TAPS=%1$d STRIKES=%2$d CANCELS=%3$d FOCUS_LOSS=%4$d</string>
 </resources>
