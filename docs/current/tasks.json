@@ -1082,8 +1082,8 @@
       "risk": "中",
       "device_acceptance": "无；仅软件验证",
       "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
-      "dev_state": "IN_PROGRESS",
-      "acceptance_state": "NOT_RUN",
+      "dev_state": "SOFTWARE_DONE",
+      "acceptance_state": "SOFTWARE_ACCEPTED",
       "evidence": "artifacts/delivery-20260916/Q10/",
       "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
       "read_only_paths": [
@@ -1096,7 +1096,14 @@
         "python scripts/plan_guard.py data/tasks.json",
         "任务特有验证按本任务验收场景落实，记录实际命令与退出码"
       ],
-      "activation": "R00核验与R02计划激活后执行；E10需单独选择，不自动进入队列"
+      "activation": {
+        "delivered_at": "2026-09-17T01:50:00+08:00",
+        "branch": "agent/fleet-q10",
+        "commit": "83d130f",
+        "review": "控制器审查：3文件+1288行全在owned_paths、零生产代码改动；11软件用例+3设备跳过项分账；真实PG双进程双设备",
+        "merged": "integration 863aac0；q02两个过时断言(204→409 RECONCILE_REQUIRED)由控制器更新@39a3b83；全量后端798过6跳过0失败",
+        "pending": "取消收敛矩阵断言待A12矩阵列定后加固(已注释标记)；3设备侧项待真机线"
+      }
     },
     {
       "id": "Q11",
