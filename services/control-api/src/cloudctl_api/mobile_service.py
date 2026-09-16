@@ -61,6 +61,14 @@ from .xianyu_publish import build_text_publish_task
 ACTIVE_STATES = ("CLAIMED", "RUNNING")
 TERMINAL_BUSINESS_STATES = frozenset({"SUCCEEDED", "FAILED", "CANCELLED", "EXPIRED"})
 COMPANION_PACKAGE = "com.company.cloudctl.companion"
+# fleet-identity/v1 §7: version string of the frozen steps command registry
+# (STEPS_SHAPES + maintenance/orders shapes in mobile_actions). Bump only when
+# a frozen step shape changes; re-claim of a task frozen under a different
+# registry version is rejected pending reconciliation.
+COMMAND_REGISTRY_VERSION = "steps-registry/20260916.1"
+# Bound the per-device candidate scan so claim stays O(bounded) even with a
+# deep queue (A11: 有界取候选); FIFO order over created_at is preserved.
+CLAIM_CANDIDATE_LIMIT = 64
 XIANYU_PACKAGE = "com.taobao.idlefish"
 XHS_PACKAGE = "com.xingin.xhs"
 DOUYIN_PACKAGE = "com.ss.android.ugc.aweme"
@@ -892,6 +900,9 @@ class MobileTaskService:
             return view
 
     async def claim(self, binding: MobileBindingRow, lease_seconds: int) -> dict[str, Any] | None:
+        # Lazy import: mobile_actions imports helpers from this module.
+        from .mobile_actions import UNPINNED_STEPS_COMMANDS
+
         now = _now()
         async with self.database.unit_of_work() as session:
             device = await session.get(DeviceRow, binding.device_id, with_for_update=True)
@@ -989,6 +1000,7 @@ class MobileTaskService:
                         MobileTaskRow.status == "QUEUED",
                     )
                     .order_by(MobileTaskRow.created_at)
+                    .limit(CLAIM_CANDIDATE_LIMIT)
                     .with_for_update()
                 )
             )
@@ -1016,6 +1028,16 @@ class MobileTaskService:
                     if missing:
                         ineligible.append((candidate.id, missing))
                         continue
+                if await self._post_commit_pending(session, candidate):
+                    # fleet-identity/v1 §8 / A11 过期回收守卫：任务已进入提交
+                    # 窗口（动作台账已有行，或遗留 commitIntent 未决）时，先查
+                    # 台账/意图——挂 RECONCILING 等操作员对账，绝不当作新任务
+                    # 重新派发（提交后断网/ACK 丢失不触发再次提交）。
+                    candidate.business_state = "RECONCILING"
+                    candidate.stall_reason = (
+                        candidate.stall_reason or "post-commit recovery pending"
+                    )
+                    continue
                 row = candidate
                 break
             if row is None:
@@ -1038,9 +1060,30 @@ class MobileTaskService:
                         f"on device {conflict.device_id}"
                     )
             if row.command_type and row.attempt > 0 and row.recipe_pin is None:
-                raise ConflictError(
-                    "legacy task has no persisted recipe pin; reconcile before continuing"
-                )
+                if row.command_type not in UNPINNED_STEPS_COMMANDS:
+                    raise ConflictError(
+                        "legacy task has no persisted recipe pin; reconcile before continuing"
+                    )
+                # fleet-identity/v1 §7: 合法固定 steps（注册表内 commandType）本就
+                # 不带 recipe pin；重领必须校验冻结身份 {payloadIdentity,
+                # commandRegistryVersion} 不变——不允许为通过重领而删除守卫。
+                metadata = dict(row.steps[0]) if row.steps else {}
+                if not metadata.get("payloadIdentity") or not metadata.get(
+                    "commandRegistryVersion"
+                ):
+                    raise ConflictError(
+                        "frozen steps task has no persisted payload identity; "
+                        "reconcile before continuing"
+                    )
+                if metadata["payloadIdentity"] != self._steps_payload_identity(row):
+                    raise ConflictError(
+                        "frozen steps payload identity changed; reconcile before continuing"
+                    )
+                if metadata["commandRegistryVersion"] != COMMAND_REGISTRY_VERSION:
+                    raise ConflictError(
+                        "frozen steps command registry version changed; "
+                        "reconcile before continuing"
+                    )
             row.status = "CLAIMED"
             row.business_state = "PREFLIGHT"
             row.lease_id = str(uuid.uuid4())
@@ -1075,39 +1118,54 @@ class MobileTaskService:
                     metadata["fleetSessionId"] = fleet.session_id
                     if fleet.boot_id:
                         metadata["fleetBootId"] = fleet.boot_id
+                if row.command_type in UNPINNED_STEPS_COMMANDS:
+                    # §7: 首次领取冻结 {payloadIdentity, commandRegistryVersion}；
+                    # 重领路径已在上方守卫校验两者不变，此处幂等回写。
+                    metadata["payloadIdentity"] = metadata.get(
+                        "payloadIdentity"
+                    ) or self._steps_payload_identity(row)
+                    metadata["commandRegistryVersion"] = COMMAND_REGISTRY_VERSION
                 row.steps = [metadata, *row.steps[1:]]
             if row.recipe_pin is None and row.command_type:
                 from .builtin_recipes import builtin_recipe_ref
 
-                from .mobile_actions import UNPINNED_STEPS_COMMANDS
-
+                audit_metadata: dict[str, Any] | None = None
                 if row.command_type in UNPINNED_STEPS_COMMANDS:
                     # Frozen-shape steps tasks (maintenance, order collection) are
                     # gated by their validated step shape / the controlled action
                     # ledger, not by a recipe pin; claim must not resolve a
-                    # builtin recipe.
+                    # builtin recipe. Identity is the §7 frozen
+                    # {payloadIdentity, commandRegistryVersion} pair; audit the
+                    # freeze once (first claim), not on every re-claim.
                     row.recipe_pin = None
+                    if row.attempt == 1:
+                        audit_metadata = {
+                            "stepsIdentity": self._steps_payload_identity(row),
+                            "commandRegistryVersion": COMMAND_REGISTRY_VERSION,
+                        }
                 else:
                     published = await self._published_recipe_ref(
                         session, binding.tenant_id, binding.device_id, row.command_type
                     )
                     row.recipe_pin = published or builtin_recipe_ref(row.command_type)
-                session.add(
-                    AuditEventRow(
-                        id=str(uuid.uuid4()),
-                        tenant_id=binding.tenant_id,
-                        actor_id=binding.id,
-                        actor_type="companion",
-                        action="recipe.task.pinned",
-                        resource_type="mobile_task",
-                        resource_id=row.id,
-                        request_id=row.id,
-                        device_id=binding.device_id,
-                        result="SUCCEEDED",
-                        metadata_json={"deviceId": binding.device_id, "recipe": row.recipe_pin},
-                        occurred_at=now,
+                    audit_metadata = {"recipe": row.recipe_pin}
+                if audit_metadata is not None:
+                    session.add(
+                        AuditEventRow(
+                            id=str(uuid.uuid4()),
+                            tenant_id=binding.tenant_id,
+                            actor_id=binding.id,
+                            actor_type="companion",
+                            action="recipe.task.pinned",
+                            resource_type="mobile_task",
+                            resource_id=row.id,
+                            request_id=row.id,
+                            device_id=binding.device_id,
+                            result="SUCCEEDED",
+                            metadata_json={"deviceId": binding.device_id, **audit_metadata},
+                            occurred_at=now,
+                        )
                     )
-                )
             return self._task_view(row, companion_claim=True)
 
     async def release(
@@ -1510,6 +1568,37 @@ class MobileTaskService:
         if digest != body.sha256:
             raise ValidationError("preview image checksum does not match")
         return image
+
+    @staticmethod
+    def _steps_payload_identity(row: MobileTaskRow) -> str:
+        """fleet-identity/v1 §7 payloadIdentity = sha256(canonical_steps(steps)).
+
+        Only the real steps participate (the dynamic header entry prepended by
+        claim carries no ``action`` key), matching the frozen formula shared
+        with the Companion (mobile_actions.canonical_steps).
+        """
+        from .mobile_actions import canonical_steps
+
+        real = [step for step in (row.steps or []) if step.get("action")]
+        return hashlib.sha256(canonical_steps(real).encode()).hexdigest()
+
+    @staticmethod
+    async def _post_commit_pending(session: Any, task: MobileTaskRow) -> bool:
+        """True when the task already entered its commit window.
+
+        fleet-identity/v1 §4/§8: once a controlled-action ledger row exists
+        (intent/outcome written) or a legacy ``commitIntent`` payload marker is
+        present, the outcome is uncertain-or-applied and must converge through
+        reconciliation — claim must never re-dispatch it as fresh work.
+        """
+        if "commitIntent" in (task.command_payload or {}):
+            return True
+        ledger = await session.scalar(
+            select(MobileActionCommitRow.action_key)
+            .where(MobileActionCommitRow.task_id == task.id)
+            .limit(1)
+        )
+        return ledger is not None
 
     @staticmethod
     async def _account_binding_mismatch(
