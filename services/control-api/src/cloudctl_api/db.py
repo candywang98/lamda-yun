@@ -781,6 +781,11 @@ class MobileActionCommitRow(Base, TimestampMixin):
     task_id: Mapped[str] = mapped_column(String(36), ForeignKey("mobile_task.id"), nullable=False)
     device_id: Mapped[str] = mapped_column(String(36), nullable=False)
     account_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    # A13 (fleet-identity/v1 §2 debt): real platform account for the action.
+    # Nullable — legacy rows and steps-family tasks without an account keep
+    # NULL; deliberately outside the immutable identity (_matches) set so
+    # actionKey/parameterHash inputs stay cross-language frozen.
+    platform_account_id: Mapped[str | None] = mapped_column(String(36))
     binding_version: Mapped[int] = mapped_column(Integer, nullable=False)
     recipe_version_id: Mapped[str] = mapped_column(String(128), nullable=False)
     recipe_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
