@@ -1,0 +1,6 @@
+export * from './model'
+export * from './batch'
+export * from './api'
+export { default as FleetWorkbenchView } from './FleetWorkbenchView.vue'
+export { default as FleetDeviceCardView } from './FleetDeviceCardView.vue'
+export { fleetRoutes, registerFleetRoutes } from './routes'
