@@ -45,6 +45,9 @@ class RecipeState(StrictModel):
     action: str
     locator_ref: str | None = Field(default=None, alias="locatorRef", max_length=160)
     postcondition: str | None = Field(default=None, max_length=160)
+    # Static parameter key bound at execution time (input states); graph bytes
+    # stay parameter-free so the canonical hash remains stable.
+    value_ref: str | None = Field(default=None, alias="valueRef", max_length=64)
     on_success: str = Field(alias="onSuccess", min_length=1, max_length=128)
     on_failure: str | None = Field(default=None, alias="onFailure", max_length=128)
     on_pause: Literal["WAITING_USER"] | None = Field(default=None, alias="onPause")
