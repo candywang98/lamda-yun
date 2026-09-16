@@ -14,6 +14,7 @@ data class RecipeState(
     val onFailure: String?,
     val terminal: Boolean,
     val postcondition: String? = null,
+    val valueRef: String? = null,
 )
 
 data class RecipePackage(
@@ -60,6 +61,7 @@ class RecipeEngine(
                 onFailure = item.optString("onFailure").takeIf { !item.isNull("onFailure") && it.isNotBlank() },
                 terminal = item.optBoolean("terminal"),
                 postcondition = item.optString("postcondition").takeIf { !item.isNull("postcondition") && it.isNotBlank() },
+                valueRef = item.optString("valueRef").takeIf { !item.isNull("valueRef") && it.isNotBlank() },
             )
             require(!states.containsKey(state.stateId)) { "stateId values must be unique" }
             states[state.stateId] = state
@@ -137,7 +139,7 @@ class RecipeEngine(
                 if (state.action == "wait") {
                     waitForLocator(command.targetPackage, state, deadline, controlCheckpoint)
                 } else {
-                    runAction(command.targetPackage, state)
+                    runAction(command.targetPackage, state, command, deadline, controlCheckpoint)
                 }
                 if (state.terminal || state.onSuccess in TERMINAL) state.onSuccess else state.onSuccess
             } catch (interrupted: ControlCheckpointFailure) {
@@ -200,11 +202,54 @@ class RecipeEngine(
         if (elapsedMs() >= deadline) throw ExecutorFailure("STEP_TIMEOUT", "recipe exceeded maxDuration")
     }
 
-    private suspend fun runAction(targetPackage: String, state: RecipeState) {
+    private suspend fun runAction(
+        targetPackage: String,
+        state: RecipeState,
+        command: CommandV1,
+        deadline: Long,
+        controlCheckpoint: () -> Unit,
+    ) {
         when (state.action) {
             "tap" -> ui.tap(targetPackage, state.locatorRef ?: error("locator required"))
-            "input" -> ui.replaceText(targetPackage, state.locatorRef ?: error("locator required"), "")
-            "checkpoint", "log", "extract", "media", "launch", "scroll" -> ui.log(LogLevel.INFO, state.action.uppercase())
+            "input" -> {
+                // Graph bytes stay parameter-free: the value is bound at execution
+                // time from CommandV1 parameters through the static valueRef key.
+                val key = state.valueRef
+                    ?: throw ExecutorFailure("PARAMETER_REQUIRED", "input state ${state.stateId} has no valueRef")
+                val raw = command.parameters.opt(key)
+                val value = (raw as? String)?.trim().takeIf { !it.isNullOrBlank() }
+                    ?: throw ExecutorFailure("PARAMETER_REQUIRED", "parameter $key is missing or blank")
+                ui.replaceText(targetPackage, state.locatorRef ?: error("locator required"), value)
+            }
+            "media" -> {
+                // Mirror of the frozen dispatch-xianyu steps sequence: tap the add-image
+                // entry, wait for the gallery, tap ordered cover tiles (tile 0 is the
+                // camera shutter and is never referenced), then confirm via Next.
+                val count = command.parameters.opt("mediaAssetIds").let { entry ->
+                    when (entry) {
+                        is org.json.JSONArray -> entry.length()
+                        is List<*> -> entry.size
+                        else -> -1
+                    }
+                }
+                // Tile generator resolves xianyu_gallery_select_0..49 (0 = shutter),
+                // so at most 49 covers are selectable per listing.
+                if (count < 1 || count > 49) {
+                    throw ExecutorFailure("PARAMETER_REQUIRED", "mediaAssetIds must contain 1..49 entries")
+                }
+                ui.tap(targetPackage, state.locatorRef ?: error("locator required"))
+                waitForLocator(
+                    targetPackage,
+                    state.copy(locatorRef = "xianyu_gallery_select_0"),
+                    deadline,
+                    controlCheckpoint,
+                )
+                for (index in 1..count) {
+                    ui.tap(targetPackage, "xianyu_gallery_select_$index")
+                }
+                ui.tap(targetPackage, "xianyu_gallery_next")
+            }
+            "checkpoint", "log", "extract", "launch", "scroll" -> ui.log(LogLevel.INFO, state.action.uppercase())
             else -> error("action is not on the APK whitelist")
         }
     }
