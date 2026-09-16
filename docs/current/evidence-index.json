@@ -1,0 +1,21 @@
+{
+  "updated_at": "2026-09-16T22:49:31+08:00",
+  "updated_by": "R00",
+  "canonical_locations": {
+    "machine_task_source_after_R02": "docs/current/tasks.json (激活前为交付包 lamda_yun_delivery_20260916/data/tasks.json)",
+    "baseline": "docs/current/baseline.json",
+    "scope_decisions": "docs/current/scope-decisions.md",
+    "contracts": "contracts/parallel/ (K02/K03/K05), contracts/phase1/",
+    "phase1_history": "docs/phase1/",
+    "task_evidence_root": "artifacts/tasks/",
+    "legacy_excel_readonly": "docs/project-plans/*.xlsx (R02迁移验证前只读)"
+  },
+  "key_evidence": {
+    "Q03_real_publish": "commit d4206bb; artifacts/tasks/ 下 task 24c923bb 全图12态 + 在卖列表在线验证",
+    "orders_slice2_device": "artifacts/tasks/P41-P42-orders/orders-slice2-20260916/ run 9135e84c",
+    "P09_delete_incident": "artifacts/tasks/P09-unknown/xianyu-maintenance-20260916/ (第3次CARD_BOUNDS_UNVERIFIED零副作用, 交接delete-automation-issue-handoff.md)",
+    "seoul_deploys": "a11-9c53cc7 running; 历史releases见baseline.json",
+    "pack_startup": "lamda_yun_delivery_20260916/evidence/local-plan-audit.json + 26/26 tests OK (TMPDIR=/private/tmp/zcode-tmp)"
+  },
+  "rules": "秘密不入公共索引；新增证据先登记路径与所属任务再引用"
+}

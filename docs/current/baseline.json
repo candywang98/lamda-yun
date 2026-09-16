@@ -1,0 +1,125 @@
+{
+  "recorded_at": "2026-09-16T22:49:16+08:00",
+  "task": "R00",
+  "pack_baseline_commit": "4af3698c6f31f041c957a490a48adaeb71ca5ef1",
+  "repo": {
+    "path": "/Users/wangziheng/Desktop/LAMDA云控系统/cloudctl-source",
+    "origin": "https://github.com/candywang98/lamda-yun.git",
+    "head": "4af3698c6f31f041c957a490a48adaeb71ca5ef1",
+    "head_subject": "docs: snapshot 2026-09-16 progress plans to GitHub context",
+    "head_committed_at": "2026-09-16 14:42:14 +0800",
+    "head_equals_pack_baseline": true,
+    "current_branch": "integration/p14-20260909",
+    "dirty_files": [
+      "?? docs/compatibility/yuyou-assistant-qa.md",
+      "?? mobile/companion/.gradle"
+    ],
+    "branch_total": 45,
+    "worktrees_live": [
+      "/Users/wangziheng/Desktop/LAMDA云控系统/cloudctl-source      4af3698 [integration/p14-20260909]",
+      "/Users/wangziheng/Desktop/boss/workspaces/integration        9ca9c62 [boss/v1-integration]",
+      "/Users/wangziheng/Desktop/boss/workspaces/qa                 ce823ad [boss/v1-qa]",
+      "/Users/wangziheng/Desktop/boss/workspaces/runtime            42078b3 [boss/v1-runtime]",
+      "/Users/wangziheng/Desktop/boss/workspaces/web                ce823ad [boss/v1-web]",
+      "/Users/wangziheng/Desktop/lamda-pi-parallel/frontend         ce823ad [pi/frontend] locked"
+    ],
+    "worktrees_note": "旧表所记23棵工作树与现状不符：git活树6棵；桌面临时p14-worktrees已空；其余已归档于 Desktop/LAMDA云控系统/worktree-遗物归档-20260916/",
+    "unmerged_branches": [
+      {
+        "branch": "agent/p09-android-hardening",
+        "tip": "cfa3493",
+        "subject": "Persist unresolved Android actions and preserve cancellation semantics"
+      },
+      {
+        "branch": "agent/p09-control-hardening",
+        "tip": "24ee513",
+        "subject": "Keep uncertain mobile results in reconciliation until explicit resolution"
+      },
+      {
+        "branch": "agent/p09-ledger-android",
+        "tip": "b3288e6",
+        "subject": "Persist controlled action identity and synchronize authoritative resolution"
+      },
+      {
+        "branch": "agent/p14-device-storage-tests",
+        "tip": "eeb20ce",
+        "subject": "test(android): cover recipe storage failures with isolated instrumentation"
+      },
+      {
+        "branch": "boss/v1-integration",
+        "tip": "9ca9c62",
+        "subject": "Boss runtime-preflight-slice: verified scoped module"
+      },
+      {
+        "branch": "boss/v1-runtime",
+        "tip": "42078b3",
+        "subject": "Boss runtime-preflight-slice: verified scoped module"
+      }
+    ],
+    "unmerged_note": "6个未合入tip：3条agent/p09-*为删除安全硬化线（协议已由R20260916-P09-19冻结实现，分支内容需差额核对）；boss/v1-integration与boss/v1-runtime同题runtime-preflight-slice；agent/p14-device-storage-tests为存储失败测试。禁止reset/删除，留待对应任务续做。"
+  },
+  "server_mirrors": {
+    "seoul_mobile_api": {
+      "running_release": "a11-9c53cc7",
+      "bind": "127.0.0.1:8000 (nginx反代公网)",
+      "delta_vs_head": "落后3提交：628f19c(companion侧)、d4206bb(evidence)、4af3698(docs)；后端功能无差额",
+      "releases_kept": [
+        "a11-9c53cc7",
+        "a10-68ff611",
+        "a09-b226105",
+        "publish-29f19dd",
+        "a04-3ce33ba",
+        "orders-81e24ec"
+      ]
+    },
+    "seoul_edge_hub": {
+      "running_release": "20260901-rpc10",
+      "path": "/opt/cloudctl-edge-hub",
+      "service": "cloudctl-edge-hub.service active"
+    }
+  },
+  "apk": {
+    "application_id": "com.company.cloudctl.companion",
+    "version_code": 1,
+    "version_name": "0.1.0",
+    "local_build": "mobile/companion/app/build/outputs/apk/debug/app-debug.apk",
+    "local_sha256": "2391f38001127da11e7e9c4f2c19f3c50c6c6a147961e9750e5ec7f7061a3416",
+    "device_installed_at": "2026-09-16 12:53:41"
+  },
+  "recipes": {
+    "manifest_schema_sha256": "b6c9c24c46fe8fd74dbd2cf0fd428776b760d35ba7e2af004344992cf5c72c85",
+    "builtin": {
+      "xianyu-publish.json": "8992739f54b1400a28c5c45dcbd49544af5226099cb318101f6a3ee55589c7a9",
+      "xianyu-collect.json": "bcf91d894fa36b41291182a0e4129d48fa7310753e81015ab475299f6623a6b9",
+      "xhs-note.json": "6797ff297e774536acca8adc33cfe878e18494f8aba60ad7f0bbe19a42220042",
+      "device-probe.json": "189442f2ee17d1a6872527f54b4131b288df9469666d767972a7a60b64f75fbb"
+    }
+  },
+  "devices": [
+    {
+      "serial": "b0644fb5",
+      "model": "OnePlus 9R (LE2100)",
+      "usb_connected": true,
+      "role": "Q03真实验收用机（闲鱼在卖187项）",
+      "companion_installed": true,
+      "accessibility": "UNKNOWN(未在本轮采集)",
+      "account": "绑定闲鱼账号具体身份未在本轮采集，凭证隔离待A10"
+    }
+  ],
+  "accepted_slices_reused": {
+    "P14": "docs/phase1/ + artifacts/tasks/P14-*；K02/K03/K05合同已冻结于contracts/parallel/",
+    "P41/P42": "orders slice2 真机验收PASSED run 9135e84c，artifacts/tasks/P41-P42-orders/",
+    "Q03": "真实发布验收PASSED task 24c923bb，在卖+1，证据d4206bb",
+    "P09": "原始证据受保护：artifacts/tasks/P09-unknown/xianyu-maintenance-20260916/；UNKNOWN/KEEP_WAITING第3次删除仍挂起，见delete-automation-issue-handoff.md"
+  },
+  "legacy_delta_mapping": {
+    "61_old_items": "交付包 data/legacy_to_new_mapping.csv",
+    "p00_p49_coverage": "交付包 data/package_coverage.csv",
+    "note": "R02激活时随tasks.json一并迁入docs/current/并在README登记"
+  },
+  "known_unknowns": [
+    "设备无障碍服务当前状态",
+    "闲鱼账号登录态/多账号凭证现状",
+    "P09三条硬化分支与HEAD的具体diff未逐行核对"
+  ]
+}
