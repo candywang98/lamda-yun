@@ -1,6 +1,6 @@
-# platform-recipe/v1 契约（草案）— DRAFT 20260916
+# platform-recipe/v1 契约 — FROZEN 20260916.1
 
-状态：**DRAFT（未冻结）**。起草人：W0 总控。基线 `ce074df`。消费者：A05（闲鱼/小红书发布命令与冻结目标）、B05（最小闲鱼签名 Recipe）、B06（小红书 Recipe）、B07（闲鱼完整字段+水印）、A09（operation 目录逐动作）。上位契约：`contracts/phase1/p14-recipe-version-contract.md`（签名/版本/分发已冻结，本契约不重复、只补平台语义）。冻结需用户拍板 §8 裁决项。
+状态：**FROZEN（已冻结）**，版本 `platform-recipe/v1@20260916.1`。起草人：W0 总控；裁决人：用户（2026-09-16，4 项全按建议）。基线 `ce074df`。消费者：A05（闲鱼/小红书发布命令与冻结目标）、B05（最小闲鱼签名 Recipe）、B06（小红书 Recipe）、B07（闲鱼完整字段+水印）、A09（operation 目录逐动作）。上位契约：`contracts/phase1/p14-recipe-version-contract.md`（签名/版本/分发已冻结，本契约不重复、只补平台语义）。
 
 ## 1. 范围与边界
 
@@ -54,16 +54,16 @@ CommandType 是封闭枚举、双端冻结（command_v1.py + companion CommandV1
 - 结果身份链：`publishTargetId`（盖章进 command_payload）+ `taskId` + `recipe.versionId/sha256`（pin）+ `batch_id`；open-only 档的终态结果=「到达确认点+截图证据」，**不得**报告为「已发布」。
 - 版本兼容：recipe 包 manifest.minEngineVersion 与设备 engine 版本不满足 → 任务 fail-closed；canonical hash 三方实现（python builtin/automation-sdk/companion）逐字节一致义务不变；builtin `digest:"hash-pinned-builtin"` 永远进不了签名目录（register_recipe 拒收维持）。
 
-## 8. 裁决项（冻结前需用户拍板）
+## 8. 裁决记录（用户 2026-09-16 拍板，全按建议）
 
-| # | 事项 | 草案建议 | 备选 |
+| # | 事项 | 裁决 |
 |---|---|---|---|
-| D1 | 闲鱼发布迁移路径 | dispatch-xianyu(steps) 保留为兼容主路；B05 签名 Recipe 平行实现+验收后切换，切换需单独裁决 | 直接切签名 Recipe（风险：发布主路中断） |
-| D2 | 小红书首发走哪族 | 家族 A（CommandV1+签名 recipe，open-only） | 家族 B steps（放弃已验证的 builtin/参数模型） |
-| D3 | 自动提交档 | V1 不放开（open-only/需确认两档足够覆盖 31 目录需求） | 放开抖音档（无需求方，先不） |
-| D4 | 状态机同步 | 记录义务（映射断言表），不自动同步 | 自动同步（工程量大且 Temporal 相位≠业务态） |
+| D1 | 闲鱼发布迁移路径 | ✅ dispatch-xianyu(steps) 保留为兼容主路；B05 签名 Recipe 平行实现+验收后切换，切换需单独裁决 |
+| D2 | 小红书首发走哪族 | ✅ 家族 A（CommandV1+签名 recipe，open-only） |
+| D3 | 自动提交档 | ✅ V1 不放开（open-only/需确认两档足够覆盖 31 目录需求） |
+| D4 | 状态机同步 | ✅ 记录义务（映射断言表），不自动同步 |
 
-## 9. 正/负 fixture（见 fixtures/，冻结时随契约定稿）
+## 9. 正/负 fixture：`contracts/parallel/K05/fixtures/`（4 个，随本契约冻结）
 
 - `k05-positive-recipe-register.json`：合法签名包注册 201→active 目录下发→companion 三方 hash 校验安装成功。
 - `k05-negative-bad-signature.json`：错签/改 hash → 服务端 409 或设备端安装失败 fail-closed。
