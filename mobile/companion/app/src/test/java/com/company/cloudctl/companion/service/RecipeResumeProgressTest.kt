@@ -132,6 +132,23 @@ class RecipeResumeProgressTest {
         assertEquals("RESUME_RECIPE_INCOMPATIBLE", incompatible.code)
     }
 
+    @Test
+    fun `terminal WAITING_USER checkpoint stays persistable without a successor`() = runBlocking {
+        // Task db2d6347 shape: the whole graph succeeds and the final checkpoint
+        // state is terminal WAITING_USER - checkpoint() must yield the state
+        // itself, not RESUME_NO_PENDING_STATE.
+        val engine = RecipeEngine(FakeUi(), elapsedMs = { 0L })
+        val recipe = engine.parse(hashed(openOnlyCheckpointJson()))
+        val progress = RecipeResumeProgress.fresh(recipe)
+        val outcome = engine.execute(recipe, command(recipe.hash)) { stateId, state ->
+            progress.record(recipe, stateId, state)
+        }
+        assertEquals("WAITING_USER", outcome)
+        val paused = progress.checkpoint(recipe)
+        assertEquals("await-confirm", paused.nextStateId)
+        assertEquals("await-confirm", paused.lastSuccessfulStateId)
+    }
+
     private class FakeUi(
         private val failUnknownAt: String? = null,
         private val failAt: String? = null,
@@ -188,6 +205,19 @@ class RecipeResumeProgressTest {
           "graph":{"startStateId":"tapA","maxIterations":12,"maxDurationMs":90000,"states":[
             {"stateId":"tapA","action":"tap","locatorRef":"locator_a","onSuccess":"tapB","onFailure":"tapB"},
             {"stateId":"tapB","action":"tap","locatorRef":"locator_b","onSuccess":"SUCCEEDED","onFailure":"FAILED"}
+          ]},
+          "signature":{"algorithm":"Ed25519","keyId":"prod-1","digest":"unsigned"}
+        }
+    """.trimIndent()
+
+    private fun openOnlyCheckpointJson() = """
+        {
+          "apiVersion":"cloudctl.recipe/v1",
+          "kind":"LocalRecipePackage",
+          "manifest":{"id":"recipe-2","version":"1.0.0","hash":"${"b".repeat(64)}","signingKeyId":"prod-1","minEngineVersion":1,"platform":"xianyu","app":"com.taobao.idlefish","commandTypes":["xianyu.publish_listing.v1"]},
+          "graph":{"startStateId":"tapA","maxIterations":12,"maxDurationMs":90000,"states":[
+            {"stateId":"tapA","action":"tap","locatorRef":"locator_a","onSuccess":"await-confirm","onFailure":"FAILED"},
+            {"stateId":"await-confirm","action":"checkpoint","onSuccess":"WAITING_USER","onPause":"WAITING_USER","terminal":true}
           ]},
           "signature":{"algorithm":"Ed25519","keyId":"prod-1","digest":"unsigned"}
         }

@@ -30,7 +30,15 @@ internal class RecipeResumeProgress private constructor(
             }
             "SUCCEEDED" -> {
                 lastSuccessfulStateId = stateId
-                nextStateId = recipeState.onSuccess.takeUnless { recipeState.terminal || it in TERMINAL_STATES }
+                // A terminal WAITING_USER checkpoint (open-only confirm point) has
+                // no successor, but the pause must still be persistable: keep the
+                // checkpoint state itself as the resume entry so the operator
+                // hand-over survives (task db2d6347 died exactly here, after the
+                // whole graph had succeeded).
+                nextStateId = when {
+                    recipeState.terminal && recipeState.onSuccess == "WAITING_USER" -> stateId
+                    else -> recipeState.onSuccess.takeUnless { recipeState.terminal || it in TERMINAL_STATES }
+                }
                 "STEP_SUCCEEDED"
             }
             "FAILED" -> {
