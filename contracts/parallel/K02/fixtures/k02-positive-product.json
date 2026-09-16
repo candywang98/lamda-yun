@@ -1,1 +1,36 @@
-{"name":"商品价格边界+媒体引用（正）","request":{"method":"POST","path":"/api/v1/products","body":{"spuCode":"BOOK-0001","title":"如果历史是一群喵4","description":"个人闲置","category":"图书","price":"12.80","stock":1,"mediaAssetIds":["{{media_asset_id}}"]},"headers":{"Idempotency-Key":"k02-fixture-pos-001"}},"expect":{"status":201,"body":{"price":"12.80","revision":1,"media":[{"id":"{{media_asset_id}}","role":null}]}},"notes":"price '0' 同样合法（另一边界）；重复 Idempotency-Key → 200 + Idempotency-Replayed:true"}
+{
+ "name": "商品价格边界+媒体引用（正）",
+ "request": {
+  "method": "POST",
+  "path": "/api/v1/products",
+  "body": {
+   "spuCode": "BOOK-0001",
+   "title": "如果历史是一群喵4",
+   "description": "个人闲置",
+   "category": "图书",
+   "price": "12.80",
+   "stock": 1,
+   "mediaAssetIds": [
+    "{{media_asset_id}}"
+   ]
+  },
+  "headers": {
+   "Idempotency-Key": "k02-fixture-pos-001"
+  }
+ },
+ "expect": {
+  "status": 201,
+  "body": {
+   "price": "12.80",
+   "revision": 1,
+   "media": [
+    {
+     "mediaAssetId": "{{media_asset_id}}",
+     "sortOrder": 0,
+     "role": null
+    }
+   ]
+  }
+ },
+ "notes": "price '0' 同样合法（另一边界）；重复 Idempotency-Key → 200 + Idempotency-Replayed:true；media 响应形状=现行 API（mediaAssetId/sortOrder/role）且写响应=GET 回读（总控裁决 2026-09-16）"
+}
