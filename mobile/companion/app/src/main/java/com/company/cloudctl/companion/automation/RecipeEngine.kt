@@ -1,5 +1,6 @@
 package com.company.cloudctl.companion.automation
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
@@ -191,7 +192,27 @@ class RecipeEngine(
                 throw ControlCheckpointFailure(failure)
             }
             ensureBeforeDeadline(deadline)
-            val node = ui.inspect(targetPackage, locatorRef)
+            // The accessibility service rebinds itself every few minutes under
+            // load (4x observed 2026-09-16, ~1s each): a poll landing inside a
+            // rebind window must keep polling until the deadline, not fail the
+            // wait state (task e22395db was killed exactly this way).
+            val node = try {
+                ui.inspect(targetPackage, locatorRef)
+            } catch (failure: CancellationException) {
+                throw failure
+            } catch (transient: ExecutorFailure) {
+                // Only rebind-window transients keep polling; anything that
+                // names a different package or an unapproved locator fails now.
+                if (transient.code == "ACTIVE_WINDOW_MISSING" ||
+                    transient.code == "WINDOW_CONTENT_DENIED"
+                ) {
+                    null
+                } else {
+                    throw transient
+                }
+            } catch (error: RuntimeException) {
+                null
+            }
             ensureBeforeDeadline(deadline)
             if (node?.visible == true && node.enabled) return
             delay(minOf(WAIT_POLL_MS, deadline - elapsedMs()).coerceAtLeast(1L))

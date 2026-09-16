@@ -27,7 +27,7 @@ private class RecordingUi : LocalAutomationUi {
 
 class PublishRecipeV2Test {
     private val elapsed = { 0L }
-    private val v2Hash = "f6adebdca3575cce16b64b62b6e27730de77868d64cceff3e83bee2223f62372"
+    private val v2Hash = "becbe9d861b1f25335808f37593598d2a537d30839d9bd38059cb708442f5dcb"
 
     private fun command(parameters: JSONObject) = CommandV1(
         protocolVersion = CommandV1Parser.PROTOCOL,

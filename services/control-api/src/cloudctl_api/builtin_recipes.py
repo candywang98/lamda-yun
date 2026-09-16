@@ -106,7 +106,17 @@ _XIANYU_PUBLISH_OPEN_ONLY_STATES: list[dict[str, Any]] = [
         "stateId": "open-sell",
         "action": "tap",
         "locatorRef": "xianyu_home_sell",
-        "postcondition": "xianyu_publish_entry",
+        "onSuccess": "wait-menu",
+        "onFailure": "FAILED",
+    },
+    {
+        # v1.1.1: taps do not verify their postcondition (fire-and-forget), so
+        # the menu entry must be an explicit wait before the card is tapped —
+        # device-verified 2026-09-16: tapping 发闲置 60ms after 卖闲置 hit the
+        # menu mid-animation and the form never opened (task e22395db).
+        "stateId": "wait-menu",
+        "action": "wait",
+        "locatorRef": "xianyu_publish_entry",
         "onSuccess": "open-publish",
         "onFailure": "FAILED",
     },
@@ -183,7 +193,7 @@ _XIANYU_PUBLISH_OPEN_ONLY = _package(
     command_type="xianyu.publish_listing.v1",
     start_state_id="wait-home",
     states=_XIANYU_PUBLISH_OPEN_ONLY_STATES,
-    version="1.1.0",
+    version="1.1.1",
 )
 _XIANYU_PUBLISH_OPEN_ONLY["graph"]["maxIterations"] = 40
 _XIANYU_PUBLISH_OPEN_ONLY["graph"]["maxDurationMs"] = 600_000
