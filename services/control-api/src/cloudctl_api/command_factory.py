@@ -199,7 +199,10 @@ PUBLISH_COMMAND_PLATFORMS: dict[str, str] = {
 
 # Platform media caps (K05 §6): xianyu gallery covers tiles 1..50, xhs 18.
 PUBLISH_MEDIA_LIMITS: dict[str, int] = {
-    "xianyu": 50,
+    # xianyu gallery tiles resolve xianyu_gallery_select_0..49 (tile 0 is the
+    # camera shutter), so at most 49 covers are selectable per listing; the
+    # companion MediaDelivery transport cap (50) stays above this.
+    "xianyu": 49,
     "xiaohongshu": 18,
 }
 

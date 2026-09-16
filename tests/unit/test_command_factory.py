@@ -148,7 +148,7 @@ def test_publish_mint_registry_stays_inside_the_frozen_scope() -> None:
     from cloudctl_api.command_factory import PRODUCTION_ALIASES
 
     assert set(PUBLISH_COMMAND_PLATFORMS) <= set(PRODUCTION_ALIASES.values())
-    assert PUBLISH_MEDIA_LIMITS == {"xianyu": 50, "xiaohongshu": 18}
+    assert PUBLISH_MEDIA_LIMITS == {"xianyu": 49, "xiaohongshu": 18}
     minimal_parameters = {
         "xy-tasks-01": {"listingBody": "自用闲置", "price": "128"},
         "red-tasks-01": {"title": "测试笔记", "body": "正文"},
