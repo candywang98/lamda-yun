@@ -1,0 +1,22 @@
+{
+  "contract": "fleet-identity/v1@20260916.1",
+  "task": "Q10 dual-device scheduling software integration gate",
+  "case": "q10-cross-tenant-isolation",
+  "secondTenant": {
+    "tenantId": "00000000-0000-7000-8000-000000000999",
+    "userId": "00000000-0000-7000-8000-000000000888",
+    "device": {
+      "role": "deviceB2",
+      "logicalName": "q10-acceptance-b2",
+      "androidVersion": "14",
+      "appInstanceId": "q10-instance-b2",
+      "pinnedApiProcess": 2
+    }
+  },
+  "expect": {
+    "claimIsolation": "tenant B's device claim never returns tenant A's task and vice versa",
+    "readIsolation": "operator GET of a foreign-tenant platform task answers 404",
+    "bindingIsolation": "a companion binding never drives a foreign task (heartbeat/complete -> 404)",
+    "cancelIsolation": "operator cancel of a foreign-tenant task answers 404"
+  }
+}

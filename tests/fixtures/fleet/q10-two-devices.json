@@ -1,0 +1,74 @@
+{
+  "contract": "fleet-identity/v1@20260916.1",
+  "task": "Q10 dual-device scheduling software integration gate",
+  "case": "q10-two-devices-software-integration",
+  "topology": {
+    "apiProcesses": 2,
+    "sharedDatabase": "disposable PostgreSQL cluster (isolated_postgres; SQLite must not stand in for the cross-process row-lock proofs)",
+    "deviceClients": [
+      {
+        "role": "deviceA",
+        "logicalName": "q10-acceptance-a",
+        "androidVersion": "14",
+        "appInstanceId": "q10-instance-a",
+        "bootId": "q10-boot-a-1",
+        "pinnedApiProcess": 1
+      },
+      {
+        "role": "deviceB",
+        "logicalName": "q10-acceptance-b",
+        "androidVersion": "14",
+        "appInstanceId": "q10-instance-b",
+        "bootId": "q10-boot-b-1",
+        "pinnedApiProcess": 2
+      }
+    ]
+  },
+  "sideEffectFreeCommands": {
+    "readProbe": "device.probe_capabilities.v1",
+    "collectReadFamily": ["xianyu.collect_orders.v1", "xianyu.collect_orders.steps.v1", "xianyu.collect_orders.steps.v2"],
+    "writeRepresentative": {
+      "family": "xianyu maintenance steps (legacy steps task, writeEffect=true by fail-closed default)",
+      "rationale": "No real publish: the Companion is simulated by the test client and never executes a step against a real platform; Q03 real publishing is not used."
+    }
+  },
+  "injectedFaults": [
+    "reclaim-after-release (cross-process)",
+    "stale-binding-token (reinstall/rebind)",
+    "stale-authorization-envelope (boot change, late heartbeat)",
+    "duplicate-event-replay (same and diverging content)",
+    "device-a-disconnect (lease lapse mid-run)",
+    "tenant-conflict (same account write mutex across devices/processes)",
+    "open-unknown-blocks-only-own-device"
+  ],
+  "expectedErrorCodes": {
+    "accountBusy": {"status": 409, "code": "ACCOUNT_BUSY"},
+    "reconcileRequired": {"status": 409, "code": "RECONCILE_REQUIRED"},
+    "envelopeStale": {"status": 409, "code": "AUTHORIZATION_ENVELOPE_STALE"}
+  },
+  "acceptance": {
+    "noSameDeviceDoubleWrite": "each device holds at most one CLAIMED/RUNNING task and at most one live lease at any time, across both API processes",
+    "noCrossTenantOrCrossDeviceCrosstalk": "a binding never claims, reads, heartbeats, cancels or completes a task of another device or tenant",
+    "parallelProgressWithIndependentCancel": "device B progresses to SUCCEEDED while device A is disconnected or canceled; canceling A never touches B's task"
+  },
+  "deviceItems": [
+    {
+      "id": "q10-device-real-partition-after-intent",
+      "aspect": "B11 network resilience",
+      "reason": "physical network partition after the gated intent commit requires real hardware (Android Companion + real transport); software simulation is covered by the lease-lapse and open-UNKNOWN tests",
+      "owner": "B10/B11 hardware line"
+    },
+    {
+      "id": "q10-device-arbiter-single-writer",
+      "aspect": "B10 on-device DeviceArbiter",
+      "reason": "the on-device single-writer arbiter (Recipe/IME/remote gesture arbitration inside the Companion process) executes on Android and is not observable through the API; its API-side projection is the at-most-one-active-task-per-device invariant asserted here",
+      "owner": "B10 hardware line"
+    },
+    {
+      "id": "q10-device-real-executable-gates",
+      "aspect": "B11 executable gates",
+      "reason": "accessibility enabled/active, IME readiness and screen-unlock gates measured against a real Android runtime; software-level gate evaluation is covered by the A10 mirror tests at the same SHA",
+      "owner": "B10/B11 hardware line"
+    }
+  ]
+}
