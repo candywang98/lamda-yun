@@ -1,0 +1,99 @@
+# CloudCtl fleet staging orchestration (D10).
+#
+# Runs control-api + PostgreSQL with a BUILD_SHA identity injected at build time.
+# This stack is for staging verification only (probe-auth dev-bypass posture,
+# backup/restore-verify, migration rehearsal). Production lives on the Seoul
+# server under systemd — see docs/runbooks/fleet-deploy.md for port facts.
+#
+# Usage:
+#   BUILD_SHA=$(git rev-parse --short HEAD) docker compose build
+#   BUILD_SHA=$(git rev-parse --short HEAD) docker compose up -d
+#   docker compose run --rm migrate   # alembic upgrade head (also runs on first up)
+#
+# Host port pins (do not change without updating docs/runbooks/fleet-deploy.md):
+#   API      127.0.0.1:18001  (local dev API is 18000; :8000 is taken by Spider_XHS)
+#   postgres 127.0.0.1:15432  (5432 collides with the Homebrew PostgreSQL)
+
+name: cloudctl-staging
+
+services:
+  postgres:
+    image: postgres:${STAGING_POSTGRES_IMAGE_TAG:-18-alpine}
+    environment:
+      POSTGRES_DB: cloudctl
+      POSTGRES_USER: cloudctl
+      POSTGRES_PASSWORD: ${STAGING_POSTGRES_PASSWORD:-cloudctl-staging-only}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cloudctl -d cloudctl"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    ports:
+      - "127.0.0.1:15432:5432"
+    volumes:
+      - staging-postgres-data:/var/lib/postgresql/data
+
+  migrate:
+    build:
+      context: ../../..
+      dockerfile: infra/compose/staging/Dockerfile
+      args:
+        BUILD_SHA: ${BUILD_SHA:-unknown}
+    environment: &api-env
+      CLOUDCTL_ENV: development
+      CLOUDCTL_REPOSITORY_MODE: postgresql
+      CLOUDCTL_DATABASE_URL: postgresql+asyncpg://cloudctl:${STAGING_POSTGRES_PASSWORD:-cloudctl-staging-only}@postgres:5432/cloudctl
+      # Staging posture: dev identity headers are intentionally enabled so the
+      # fleet preflight can exercise RBAC/tenant probes without an OIDC provider.
+      # This mode MUST NEVER be internet-facing without an auth wall in front
+      # (the Seoul /api/v1/ exposure is documented in the runbook).
+      CLOUDCTL_DEV_AUTH_BYPASS: "true"
+      CLOUDCTL_OBJECT_STORE_MODE: filesystem
+      CLOUDCTL_OBJECT_STORE_DIR: /var/lib/cloudctl/media
+      # Build identity. The service does not read this yet (service code is out
+      # of D10 scope); wiring point is documented in docs/runbooks/fleet-deploy.md
+      # and verified via `scripts/fleet-preflight.sh version --require-build`.
+      BUILD_SHA: ${BUILD_SHA:-unknown}
+    working_dir: /app/services/control-api
+    command: ["/app/venv/bin/alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  control-api:
+    build:
+      context: ../../..
+      dockerfile: infra/compose/staging/Dockerfile
+      args:
+        BUILD_SHA: ${BUILD_SHA:-unknown}
+    image: cloudctl/control-api-staging:${BUILD_SHA:-unknown}
+    environment: *api-env
+    command:
+      - /app/venv/bin/python
+      - -m
+      - uvicorn
+      - cloudctl_api.app:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+    healthcheck:
+      test: ["CMD", "/app/venv/bin/python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/live', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "127.0.0.1:18001:8000"
+    volumes:
+      - staging-media-data:/var/lib/cloudctl/media
+    restart: unless-stopped
+
+volumes:
+  staging-postgres-data:
+  staging-media-data:
