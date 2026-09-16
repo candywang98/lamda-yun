@@ -20,6 +20,7 @@ import {
   Repeat2,
   Settings2,
   ShoppingBag,
+  Smartphone,
   Sparkles,
   UserRound,
   X,
@@ -62,6 +63,7 @@ const settingsOpen = computed(() => route.name === 'operations-display-settings'
 const recipesOpen = computed(() => route.name === 'recipe-versions')
 const imOpen = computed(() => route.path.startsWith('/im'))
 const ordersOpen = computed(() => route.path.startsWith('/orders'))
+const fleetOpen = computed(() => route.path.startsWith('/fleet'))
 const remoteOpen = computed(() => route.name === 'device-detail')
 const pageTitle = computed(() => {
   if (currentOperation.value) return currentOperation.value.title
@@ -117,6 +119,7 @@ watch(currentOperation, (operation) => {
         <RouterLink to="/recipes" class="yy-catalog-link" :class="{ active: recipesOpen }" @click="session.sidebarOpen = false"><Package :size="14" />Recipe 版本管理</RouterLink>
         <RouterLink to="/im" class="yy-catalog-link" :class="{ active: imOpen }" @click="session.sidebarOpen = false"><MessageCircle :size="14" />消息聚合</RouterLink>
         <RouterLink to="/orders" class="yy-catalog-link" :class="{ active: ordersOpen }" @click="session.sidebarOpen = false"><ListOrdered :size="14" />订单同步</RouterLink>
+        <RouterLink to="/fleet" class="yy-catalog-link" :class="{ active: fleetOpen }" @click="session.sidebarOpen = false"><Smartphone :size="14" />设备工作台</RouterLink>
         <section v-for="module in visibleModules" :key="module.id" class="yy-module-block">
           <button
             class="nav-link operation-module-nav yy-module"

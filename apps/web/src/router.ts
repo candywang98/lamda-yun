@@ -8,6 +8,7 @@ import ImInboxView from './views/ImInboxView.vue'
 import OrdersView from '@/views/OrdersView.vue'
 import RecipeVersionsView from '@/views/RecipeVersionsView.vue'
 import { findOperation } from '@/data/operations-catalog'
+import { fleetRoutes } from '@/features/fleet'
 
 const deviceList = '/operations/system-home/system-home-02'
 const taskQueue = '/operations/task-queue/task-queue-01'
@@ -57,6 +58,6 @@ export const operationRoutes: RouteRecordRaw[] = [
 
 export const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
-  routes: [...coreRoutes, ...operationRoutes],
+  routes: [...coreRoutes, ...operationRoutes, ...fleetRoutes],
   scrollBehavior: () => ({ top: 0 }),
 })
