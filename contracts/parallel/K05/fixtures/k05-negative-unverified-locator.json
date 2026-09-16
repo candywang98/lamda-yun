@@ -1,0 +1,1 @@
+{"name":"引用未验证定位器（负，fail-closed）","flow":"recipe 图引用 locatorRef=xianyu_order_detail_container（当前在 UNVERIFIED 集）→ 注册通过（静态校验只查 namespace）→ 运行时 resolveVerified 返回 null → 步骤 LOCATOR_UNVERIFIED 终止，零副作用","expect":{"任务失败错误码=LOCATOR_UNVERIFIED；无任何 tap/gesture；台账无新 intent"},"notes":"verified 翻转仅 Root（xianyu-anchors §4）；新定位器先注册 UNVERIFIED 再由总控真机勘测翻转"}

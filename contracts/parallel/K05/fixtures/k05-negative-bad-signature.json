@@ -1,0 +1,1 @@
+{"name":"坏签名/篡改 hash（负）","variants":[{"request":{"method":"POST","path":"/api/v1/recipes","body":"graph 内容与 hash 不一致"},"expect":{"status":409 或 422，注册被拒"}},{"device":"传输中篡改 manifest.hash → RecipePackageManager.verify 三方比对失败 → 安装失败 fail-closed，.part 不 rename"}],"notes":"禁止任何端关闭签名校验；禁止 builtin fallback 兜底（p14-recipe-version-contract 已冻结）"}
