@@ -278,7 +278,7 @@ async def list_media_assets(
     tag: Annotated[str | None, Query()] = None,
     group_id: Annotated[str | None, Query(alias="groupId")] = None,
     page: Annotated[int, Query(ge=1)] = 1,
-    page_size: Annotated[int, Query(alias="pageSize", ge=1, le=100)] = 50,
+    page_size: Annotated[int, Query(alias="pageSize", ge=1, le=200)] = 50,
 ) -> dict[str, Any]:
     return await control.list_media_assets(
         actor, tag=tag, group_id=group_id, page=page, page_size=page_size
@@ -317,11 +317,18 @@ async def delete_media_group(
     return Response(status_code=204)
 
 
-@router.post("/products", status_code=status.HTTP_201_CREATED)
+@router.post("/products")
 async def create_product(
-    body: ProductCreate, actor: ActorDependency, control: ServiceDependency
+    body: ProductCreate,
+    actor: ActorDependency,
+    control: ServiceDependency,
+    response: Response,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> dict[str, Any]:
-    return await control.create_product(actor, body)
+    result, created = await control.create_product(actor, body, idempotency_key=idempotency_key)
+    response.status_code = status.HTTP_201_CREATED if created else status.HTTP_200_OK
+    response.headers["Idempotency-Replayed"] = "false" if created else "true"
+    return result
 
 
 @router.get("/products")

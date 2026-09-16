@@ -8768,7 +8768,7 @@
             "required": false,
             "schema": {
               "default": 50,
-              "maximum": 100,
+              "maximum": 200,
               "minimum": 1,
               "title": "Pagesize",
               "type": "integer"
@@ -11070,6 +11070,24 @@
       },
       "post": {
         "operationId": "create_product_api_v1_products_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -11081,7 +11099,7 @@
           "required": true
         },
         "responses": {
-          "201": {
+          "200": {
             "content": {
               "application/json": {
                 "schema": {

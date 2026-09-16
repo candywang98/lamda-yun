@@ -37,6 +37,7 @@ from .db import (
     AccountDeviceBindingRow,
     ApkArtifactRow,
     ApprovalRow,
+    AuditEventRow,
     AutomationVersionRow,
     ContentGroupMembershipRow,
     ContentGroupRow,
@@ -861,10 +862,99 @@ class ControlService:
                 items.append(item)
             return {"items": items, "page": page, "pageSize": page_size, "total": total}
 
-    async def create_product(self, actor: Actor, request: ProductCreate) -> dict[str, Any]:
+    async def _resolve_media_assets(
+        self, session: AsyncSession, repository: ControlRepository, asset_ids: list[str]
+    ) -> list[MediaAssetRow]:
+        """Resolve unique media asset ids for a product write.
+
+        K02 data-assets/v1: a referenced media asset that does not exist is
+        NOT_FOUND/404; one that exists under a different tenant is
+        FORBIDDEN/403 (tenant isolation must be distinguishable from absence).
+        """
+        resolved: list[MediaAssetRow] = []
+        for asset_id in dict.fromkeys(asset_ids):
+            asset = await session.get(MediaAssetRow, asset_id)
+            if asset is None:
+                raise NotFoundError("one or more media assets do not exist")
+            if asset.tenant_id != repository.tenant_id:
+                raise ForbiddenError("one or more media assets belong to another tenant")
+            resolved.append(asset)
+        return resolved
+
+    async def _product_idempotency_replay(
+        self,
+        session: AsyncSession,
+        repository: ControlRepository,
+        idempotency_key: str,
+        request_sha256: str,
+    ) -> ProductRow | None:
+        """Find a product previously created with the same Idempotency-Key.
+
+        The key and request fingerprint are persisted inside the
+        `product.created` audit trail (metadata_json), so replay semantics
+        survive restarts without any new schema object (DB_MIGRATION is out
+        of scope for this slice).
+        """
+        rows = await session.scalars(
+            select(AuditEventRow)
+            .where(
+                AuditEventRow.tenant_id == repository.tenant_id,
+                AuditEventRow.action == "product.created",
+                AuditEventRow.resource_type == "product",
+                AuditEventRow.result == "SUCCEEDED",
+            )
+            .order_by(AuditEventRow.occurred_at.desc(), AuditEventRow.id.desc())
+        )
+        for row in rows:
+            metadata = row.metadata_json or {}
+            if metadata.get("idempotency_key") != idempotency_key:
+                continue
+            if metadata.get("request_sha256") != request_sha256:
+                raise ConflictError("Idempotency-Key was already used for a different request")
+            return await session.scalar(
+                select(ProductRow).where(
+                    ProductRow.id == row.resource_id,
+                    ProductRow.tenant_id == repository.tenant_id,
+                )
+            )
+        return None
+
+    async def _product_media_rows(
+        self, session: AsyncSession, repository: ControlRepository, product_id: str
+    ) -> list[ProductMediaRow]:
+        return list(
+            await session.scalars(
+                select(ProductMediaRow)
+                .where(
+                    ProductMediaRow.product_id == product_id,
+                    ProductMediaRow.tenant_id == repository.tenant_id,
+                )
+                .order_by(ProductMediaRow.sort_order)
+            )
+        )
+
+    async def create_product(
+        self, actor: Actor, request: ProductCreate, *, idempotency_key: str | None = None
+    ) -> tuple[dict[str, Any], bool]:
         require_permissions(actor.roles, Permission.CONTENT_WRITE)
+        request_sha256 = canonical_hash(request.model_dump(mode="json", by_alias=True))
         async with self.database.unit_of_work() as session:
             repository = ControlRepository(session, actor)
+            replayed: ProductRow | None = None
+            if idempotency_key:
+                if len(idempotency_key) > 128:
+                    raise ValidationError("Idempotency-Key header is too long")
+                replayed = await self._product_idempotency_replay(
+                    session, repository, idempotency_key, request_sha256
+                )
+            if replayed is not None:
+                media = await self._product_media_rows(session, repository, replayed.id)
+                return (
+                    self._product_view(
+                        replayed, [row.media_asset_id for row in media], media
+                    ),
+                    False,
+                )
             existing = await session.scalar(
                 select(ProductRow).where(
                     ProductRow.tenant_id == repository.tenant_id,
@@ -874,20 +964,7 @@ class ControlService:
             if existing is not None:
                 raise ConflictError("product SPU already exists")
             asset_ids = list(dict.fromkeys(request.media_asset_ids))
-            assets = (
-                list(
-                    await session.scalars(
-                        select(MediaAssetRow).where(
-                            MediaAssetRow.tenant_id == repository.tenant_id,
-                            MediaAssetRow.id.in_(asset_ids),
-                        )
-                    )
-                )
-                if asset_ids
-                else []
-            )
-            if len(assets) != len(asset_ids):
-                raise ValidationError("one or more media assets do not exist in tenant")
+            await self._resolve_media_assets(session, repository, asset_ids)
             product = ProductRow(
                 id=repository.new_id(),
                 tenant_id=repository.tenant_id,
@@ -904,18 +981,24 @@ class ControlService:
             )
             repository.add(product)
             await session.flush()
+            media_rows: list[ProductMediaRow] = []
             for order, asset_id in enumerate(asset_ids):
-                repository.add(
-                    ProductMediaRow(
-                        id=repository.new_id(),
-                        tenant_id=repository.tenant_id,
-                        product_id=product.id,
-                        media_asset_id=asset_id,
-                        sort_order=order,
-                        role="cover" if order == 0 else "detail",
-                        created_at=_now(),
-                    )
+                media_row = ProductMediaRow(
+                    id=repository.new_id(),
+                    tenant_id=repository.tenant_id,
+                    product_id=product.id,
+                    media_asset_id=asset_id,
+                    sort_order=order,
+                    role="cover" if order == 0 else "detail",
+                    created_at=_now(),
                 )
+                repository.add(media_row)
+                media_rows.append(media_row)
+            audit_metadata = (
+                {"idempotency_key": idempotency_key, "request_sha256": request_sha256}
+                if idempotency_key
+                else {}
+            )
             repository.audit(
                 action="product.created",
                 resource_type="product",
@@ -925,8 +1008,14 @@ class ControlService:
                     "revision": product.revision,
                     "media_count": len(asset_ids),
                 },
+                metadata=audit_metadata,
             )
-            return self._product_view(product, asset_ids)
+            return (
+                self._product_view(
+                    product, [row.media_asset_id for row in media_rows], media_rows
+                ),
+                True,
+            )
 
     async def update_media_taxonomy(
         self, actor: Actor, asset_id: str, request: MediaTaxonomyUpdate
@@ -1209,6 +1298,17 @@ class ControlService:
                     )
                 )
             )
+            # K02 data-assets/v1: derivative outputs must be traceable back to
+            # their derivative job from the asset side (fixture
+            # k02-positive-derivative expects `sources` to include it).
+            derivative_sources = list(
+                await session.scalars(
+                    select(MediaDerivativeRow).where(
+                        MediaDerivativeRow.output_asset_id == asset_id,
+                        MediaDerivativeRow.tenant_id == repository.tenant_id,
+                    )
+                )
+            )
             return {
                 "mediaAssetId": asset_id,
                 "tags": tags,
@@ -1218,6 +1318,15 @@ class ControlService:
                 "publishPlanReferences": [
                     {"publishPlanId": plan.id, "state": plan.state, "platform": plan.platform}
                     for plan in publish_plans
+                ],
+                "sources": [
+                    {
+                        "derivativeId": row.id,
+                        "sourceAssetId": row.source_asset_id,
+                        "profileId": row.profile_id,
+                        "state": row.state,
+                    }
+                    for row in derivative_sources
                 ],
             }
 
@@ -1298,20 +1407,7 @@ class ControlService:
             if duplicate is not None:
                 raise ConflictError("product SPU already exists")
             asset_ids = list(dict.fromkeys(request.media_asset_ids))
-            assets = (
-                list(
-                    await session.scalars(
-                        select(MediaAssetRow).where(
-                            MediaAssetRow.tenant_id == repository.tenant_id,
-                            MediaAssetRow.id.in_(asset_ids),
-                        )
-                    )
-                )
-                if asset_ids
-                else []
-            )
-            if len(assets) != len(asset_ids):
-                raise ValidationError("one or more media assets do not exist in tenant")
+            await self._resolve_media_assets(session, repository, asset_ids)
             before = self._product_view(
                 product,
                 list(
@@ -1336,18 +1432,19 @@ class ControlService:
                     ProductMediaRow.tenant_id == repository.tenant_id,
                 )
             )
+            media_rows: list[ProductMediaRow] = []
             for order, asset_id in enumerate(asset_ids):
-                repository.add(
-                    ProductMediaRow(
-                        id=repository.new_id(),
-                        tenant_id=repository.tenant_id,
-                        product_id=product.id,
-                        media_asset_id=asset_id,
-                        sort_order=order,
-                        role="cover" if order == 0 else "detail",
-                        created_at=_now(),
-                    )
+                media_row = ProductMediaRow(
+                    id=repository.new_id(),
+                    tenant_id=repository.tenant_id,
+                    product_id=product.id,
+                    media_asset_id=asset_id,
+                    sort_order=order,
+                    role="cover" if order == 0 else "detail",
+                    created_at=_now(),
                 )
+                repository.add(media_row)
+                media_rows.append(media_row)
             repository.audit(
                 action="product.updated",
                 resource_type="product",
@@ -1355,7 +1452,9 @@ class ControlService:
                 before={"revision": before["revision"]},
                 after={"revision": product.revision, "media_count": len(asset_ids)},
             )
-            return self._product_view(product, asset_ids)
+            return self._product_view(
+                product, [row.media_asset_id for row in media_rows], media_rows
+            )
 
     async def archive_product(
         self, actor: Actor, product_id: str, request: ProductArchiveRequest
@@ -1371,14 +1470,10 @@ class ControlService:
             if product is None:
                 raise NotFoundError("product was not found")
             if product.status == "ARCHIVED":
-                asset_ids = list(
-                    await session.scalars(
-                        select(ProductMediaRow.media_asset_id)
-                        .where(ProductMediaRow.product_id == product.id)
-                        .order_by(ProductMediaRow.sort_order)
-                    )
+                media = await self._product_media_rows(session, repository, product.id)
+                return self._product_view(
+                    product, [row.media_asset_id for row in media], media
                 )
-                return self._product_view(product, asset_ids)
             active_plan = await session.scalar(
                 select(PublishPlanRow.id).where(
                     PublishPlanRow.product_id == product.id,
@@ -1397,14 +1492,8 @@ class ControlService:
                 after={"status": product.status, "revision": product.revision},
                 metadata={"reason": request.reason},
             )
-            asset_ids = list(
-                await session.scalars(
-                    select(ProductMediaRow.media_asset_id)
-                    .where(ProductMediaRow.product_id == product.id)
-                    .order_by(ProductMediaRow.sort_order)
-                )
-            )
-            return self._product_view(product, asset_ids)
+            media = await self._product_media_rows(session, repository, product.id)
+            return self._product_view(product, [row.media_asset_id for row in media], media)
 
     async def update_product_media(
         self, actor: Actor, product_id: str, request: ProductMediaUpdate
@@ -1429,20 +1518,9 @@ class ControlService:
                 raise ValidationError("sortOrder values must be contiguous from zero")
             if request.items and sum(item.role == "cover" for item in request.items) != 1:
                 raise ValidationError("exactly one cover is required when media is present")
-            assets = (
-                list(
-                    await session.scalars(
-                        select(MediaAssetRow).where(
-                            MediaAssetRow.tenant_id == repository.tenant_id,
-                            MediaAssetRow.id.in_(ids),
-                        )
-                    )
-                )
-                if ids
-                else []
+            await self._resolve_media_assets(
+                session, repository, [item.media_asset_id for item in request.items]
             )
-            if len(assets) != len(ids):
-                raise ValidationError("one or more media assets do not exist in tenant")
             await session.execute(
                 delete(ProductMediaRow).where(
                     ProductMediaRow.product_id == product.id,
@@ -1930,7 +2008,9 @@ class ControlService:
                 tenant_id=repository.tenant_id,
                 source_asset_id=source.id,
                 profile_id=request.profile_id,
-                state="QUEUED",
+                # K02 data-assets/v1: derivative creation returns 202 with
+                # state PENDING (fixture k02-positive-derivative).
+                state="PENDING",
                 output_asset_id=None,
                 error_code=None,
                 detail=None,
