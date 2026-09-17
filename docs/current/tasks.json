@@ -2261,9 +2261,9 @@
       "risk": "高",
       "device_acceptance": "无；仅软件验证",
       "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
-      "dev_state": "NOT_STARTED",
-      "acceptance_state": "NOT_RUN",
-      "evidence": "artifacts/delivery-20260916/U11/",
+      "dev_state": "SOFTWARE_DONE",
+      "acceptance_state": "SOFTWARE_ACCEPTED",
+      "evidence": "agent/fleet-u11 @15cb0f3 merged 61093d5. ArtifactTransfer atomic staging (APK sha256 / Recipe canonical-hash layered), PackageInstaller tri-state + journal-based reboot recovery (AWAITING_USER_ACTION survives restart), install gate (unfinished task rows + critical report drain + claim suspension, no self force-stop), statusReport for reconnect, rollback = higher-versionCode accepted / downgrade parked manual. Android 949/0 (29 new). GAP FOUND: U10 has no :report-installed endpoint — receipt persisted locally until endpoint exists. Seams: CloudTaskClient adapter (ApkReleaseClient iface), gate adapters to AutomationStore, status bus attach.",
       "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
       "read_only_paths": [
         "contracts/**",
@@ -2398,9 +2398,9 @@
       "risk": "中",
       "device_acceptance": "无；仅软件验证",
       "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
-      "dev_state": "NOT_STARTED",
-      "acceptance_state": "NOT_RUN",
-      "evidence": "artifacts/delivery-20260916/K13/",
+      "dev_state": "SOFTWARE_DONE",
+      "acceptance_state": "SOFTWARE_ACCEPTED",
+      "evidence": "agent/fleet-k13 @8294ae0 merged a431da7. contracts/live-capabilities/v1 FROZEN: three tiers (JPEG_PREVIEW read-only / INTERACTIVE_REMOTE / WEBRTC production with independent TURN/bandwidth/security gates), frame geometry + rotation inverse-transform tables, dual-watermark gesture expiry (5 rejection rules), REQUEUE_AUTO vs CONFIRM_REQUIRED handover, per-session MediaProjection auth + reboot-terminal (schema-pinned persistsAcrossReboot:false). 8/8 fixtures validated in both jsonschema and structural modes + 7 negative mutation probes rejected. R02 prerequisite executed under de-facto-satisfied rationale, Provenance note in README §2 (does NOT claim R02 done). Q14 gate depends only on JPEG tiers.",
       "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
       "read_only_paths": [
         "contracts/**",
@@ -2895,9 +2895,9 @@
       "risk": "高",
       "device_acceptance": "逐件授权已下架测试商品；不复试尚UNKNOWN的原任务",
       "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
-      "dev_state": "NOT_STARTED",
-      "acceptance_state": "NOT_RUN",
-      "evidence": "artifacts/delivery-20260916/X10/",
+      "dev_state": "SOFTWARE_DONE",
+      "acceptance_state": "SOFTWARE_ACCEPTED",
+      "evidence": "agent/fleet-x10 @5491ec9 merged 5f27446. DeleteFailureTaxonomy (4 classes replaying real P09 failures 4d226249/6d22dd62/37a665b0 with distinct states), DeleteOrchestrator (CANCEL_LOOP_PLAN default zero-side-effect, B13 ItemIdentityEvidence reuse), DeleteApprovalLedger single-shot + PROTECTION_PERIOD explicit rejection, DeleteResultReadback dual-proof (list-gone + badge delta, missing badge -> PendingVerification); backend xianyu_delete_evidence.py reconciles against real A13 ledger (INTENT rejected, platform_result_proven as resolve gate), migration 0029. Android 949/0 (41 new), backend 962 passed (14 new). Seams: automation event-translation adapter, device ledger persistence.",
       "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
       "read_only_paths": [
         "contracts/**",
@@ -4167,6 +4167,11 @@
       "at": "2026-09-17T22:45:00+08:00",
       "by": "root",
       "note": "FLEET-29: P10+F12+WIRE parallel wave merged from 9992212. Android 879/0, backend 948 passed (openapi regen 508 lines), Web 246/246 unchanged. Migration chain renumbered (F12 0028, single alembic head). Three FLEET-28 seams now wired (orders/IM/album). New deferred-decision items: F12 legacy :fire freeze + ERROR retry policy (registered Excel BLK-010); K13 deferred next wave with R02-prerequisite governance note. User-side BLK-001..006 unchanged."
+    },
+    {
+      "at": "2026-09-18T00:05:00+08:00",
+      "by": "root",
+      "note": "FLEET-30: K13+X10+U11 parallel wave merged from 44d49ef. Android 949/0, backend 962 passed (openapi regen 530 lines), Web 246/246. K13 executed under R02 de-facto-satisfied rationale (Provenance in contract). Registered seams (not blockers): U10 :report-installed endpoint + CloudTaskClient ApkReleaseClient adapter + gate adapters (next wave candidate WIRE2); X10 automation event adapter; P10 adapter pending from FLEET-29. Five waves total: 15 tasks + 2 wiring items merged. User-side BLK-001..010 unchanged."
     }
   ]
 }
