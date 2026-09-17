@@ -553,6 +553,56 @@
         "title": "CommitIntentCreate",
         "type": "object"
       },
+      "CompanionControlAckRequest": {
+        "additionalProperties": false,
+        "description": "control-plane/v1 §4 — device acknowledgement of a desired CANCEL.\n\n``CANCEL_APPLIED``: the device neutralized the UI (discarded forms,\nexited confirm pages, rolled back navigation) and the server converges\nthe task to CANCELLED. ``CANCEL_DEFERRED_RECONCILING``: the device could\nnot safely roll back (open UNKNOWN / irreversible commit already sent)\nand the server must keep the task RECONCILING for manual reconciliation.",
+        "properties": {
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "result": {
+            "enum": [
+              "CANCEL_APPLIED",
+              "CANCEL_DEFERRED_RECONCILING"
+            ],
+            "title": "Result",
+            "type": "string"
+          },
+          "taskId": {
+            "maxLength": 36,
+            "minLength": 1,
+            "title": "Taskid",
+            "type": "string"
+          },
+          "taskRevision": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Taskrevision"
+          }
+        },
+        "required": [
+          "taskId",
+          "result"
+        ],
+        "title": "CompanionControlAckRequest",
+        "type": "object"
+      },
       "ContentArchiveRequest": {
         "properties": {
           "reason": {
@@ -2362,8 +2412,9 @@
         "title": "MobileDeviceHealth",
         "type": "object"
       },
-      "MobileDeviceHeartbeat": {
+      "MobileDeviceHeartbeatV2": {
         "additionalProperties": false,
+        "description": "deviceHeartbeat with the optional control-plane/v1 §2.3 fields.\n\nLegacy clients omit both fields (they default to ``None``); a client that\npersists ``lastAppliedControlSeq`` in the same local transaction as its\nmirror updates gets the watermark + inline events escape channel, and a\nclient whose local safety ledger is not clean reports the barrier so the\nserver-side fleet view reflects the cautious state.",
         "properties": {
           "accessibilityEnabled": {
             "title": "Accessibilityenabled",
@@ -2408,6 +2459,18 @@
               }
             ]
           },
+          "lastAppliedControlSeq": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastappliedcontrolseq"
+          },
           "runnerState": {
             "enum": [
               "IDLE",
@@ -2416,6 +2479,22 @@
             ],
             "title": "Runnerstate",
             "type": "string"
+          },
+          "safetyBarrier": {
+            "anyOf": [
+              {
+                "enum": [
+                  "NONE",
+                  "UNKNOWN",
+                  "RECONCILING"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Safetybarrier"
           }
         },
         "required": [
@@ -2423,7 +2502,7 @@
           "accessibilityEnabled",
           "runnerState"
         ],
-        "title": "MobileDeviceHeartbeat",
+        "title": "MobileDeviceHeartbeatV2",
         "type": "object"
       },
       "MobileEnrollRequest": {
@@ -13483,6 +13562,103 @@
         ]
       }
     },
+    "/companion/v2/control": {
+      "get": {
+        "operationId": "control_pull_companion_v2_control_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "after",
+            "required": true,
+            "schema": {
+              "title": "After",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Control Pull Companion V2 Control Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Control Pull",
+        "tags": [
+          "mobile-companion"
+        ]
+      }
+    },
+    "/companion/v2/control/ack": {
+      "post": {
+        "operationId": "control_ack_companion_v2_control_ack_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompanionControlAckRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Control Ack Companion V2 Control Ack Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Control Ack",
+        "tags": [
+          "mobile-companion"
+        ]
+      }
+    },
     "/companion/v2/devices/heartbeat": {
       "post": {
         "operationId": "device_heartbeat_companion_v2_devices_heartbeat_post",
@@ -13490,7 +13666,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/MobileDeviceHeartbeat"
+                "$ref": "#/components/schemas/MobileDeviceHeartbeatV2"
               }
             }
           },
@@ -13866,6 +14042,29 @@
           }
         },
         "summary": "Download Recipe",
+        "tags": [
+          "mobile-companion"
+        ]
+      }
+    },
+    "/companion/v2/reconcile-snapshot": {
+      "get": {
+        "operationId": "reconcile_snapshot_companion_v2_reconcile_snapshot_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Reconcile Snapshot Companion V2 Reconcile Snapshot Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Reconcile Snapshot",
         "tags": [
           "mobile-companion"
         ]
