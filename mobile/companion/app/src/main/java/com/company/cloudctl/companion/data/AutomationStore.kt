@@ -14,6 +14,22 @@ import java.security.MessageDigest
 import java.time.Instant
 
 data class PendingTask(val taskId: String, val payload: String, val leaseId: String)
+
+/**
+ * B17 control-plane/v1 §1: a cancel ack waiting for upload. Enqueued in the
+ * SAME transaction as the mirror change + lastAppliedControlSeq advance, so a
+ * crash between apply and upload replays into an idempotent redelivery.
+ */
+data class PendingControlAck(
+    val id: Long,
+    val taskId: String,
+    val taskRevision: Long,
+    val result: String,
+    val reason: String?,
+)
+
+/** B17: the PAUSED queue head that gates claims; input to SUSPECT_ORPHANED evaluation. */
+data class PausedHeadInfo(val taskId: String, val pausedSince: String)
 data class OutboxEvent(
     val id: Long,
     val path: String,
@@ -41,6 +57,11 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
                 "(SELECT task_id FROM action_journal WHERE (status IN ('INTENT','UNKNOWN') OR action_key IN (SELECT action_key FROM controlled_action WHERE resolution_revision=0)))",
             arrayOf(STATE_RECONCILING),
         )
+        // B17 control-plane tables (cursor + ack outbox) are created
+        // idempotently on open: they must live in THIS database so the cursor
+        // commits atomically with mirror changes, without bumping the schema
+        // version contract other upgrade tests pin.
+        createControlPlaneTables(db)
     }
 
     private fun SQLiteDatabase.hasUnresolvedAction(taskId: String? = null): Boolean =
@@ -834,6 +855,105 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
             "FOREIGN KEY(action_key) REFERENCES action_journal(action_key))")
         db.execSQL("ALTER TABLE event_outbox ADD COLUMN superseded_at TEXT")
         db.execSQL("ALTER TABLE event_outbox ADD COLUMN superseded_reason TEXT")
+    }
+
+    /**
+     * B17 control-plane/v1@20260917.1 §1: client-side cursor persisted next to
+     * the task mirror (same database, same transaction) plus the cancel-ack
+     * outbox (§4). All writes go through [controlTransaction] so that
+     * "apply event + update mirror + update lastApplied + COMMIT" is one
+     * atomic unit — any crash replays idempotently.
+     */
+    private fun createControlPlaneTables(db: SQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS control_state(" +
+                "id INTEGER PRIMARY KEY CHECK(id=1)," +
+                "last_applied_control_seq INTEGER NOT NULL DEFAULT 0," +
+                "updated_at TEXT NOT NULL)",
+        )
+        db.execSQL(
+            "INSERT OR IGNORE INTO control_state(id,last_applied_control_seq,updated_at) VALUES(1,0,?)",
+            arrayOf(Instant.now().toString()),
+        )
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS control_ack_outbox(" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                "task_id TEXT NOT NULL,task_revision INTEGER NOT NULL,result TEXT NOT NULL,reason TEXT," +
+                "created_at TEXT NOT NULL," +
+                "UNIQUE(task_id,task_revision,result))",
+        )
+    }
+
+    /** Runs [block] in one transaction over the same connection the mirror writes use. */
+    fun <T> controlTransaction(block: SQLiteDatabase.() -> T): T = transaction(block)
+
+    fun lastAppliedControlSeq(): Long = readableDatabase
+        .row("SELECT last_applied_control_seq FROM control_state WHERE id=1", emptyArray())
+        ?.toLong() ?: 0L
+
+    fun setLastAppliedControlSeq(seq: Long) = transaction {
+        execSQL(
+            "UPDATE control_state SET last_applied_control_seq=?,updated_at=? WHERE id=1 AND last_applied_control_seq<?",
+            arrayOf(seq.toString(), Instant.now().toString(), seq.toString()),
+        )
+    }
+
+    fun taskExecutionState(taskId: String): String? =
+        readableDatabase.row("SELECT state FROM task_inbox WHERE task_id=?", arrayOf(taskId))
+
+    /** Marks the mirror row as needing reconciliation without emitting outbox events. */
+    fun markTaskReconciling(taskId: String): Boolean = transaction {
+        if (row("SELECT 1 FROM task_inbox WHERE task_id=?", arrayOf(taskId)) == null) {
+            return@transaction false
+        }
+        markReconcilingLocked(taskId)
+        true
+    }
+
+    fun pausedHeadInfo(): PausedHeadInfo? = readableDatabase.rawQuery(
+        "SELECT task_id,updated_at FROM task_inbox WHERE state=? ORDER BY updated_at,rowid LIMIT 1",
+        arrayOf(STATE_PAUSED),
+    ).use {
+        if (it.moveToFirst()) PausedHeadInfo(it.getString(0), it.getString(1)) else null
+    }
+
+    fun enqueueControlAck(taskId: String, taskRevision: Long, result: String, reason: String?): Unit = transaction {
+        insertWithOnConflict(
+            "control_ack_outbox",
+            null,
+            ContentValues().apply {
+                put("task_id", taskId)
+                put("task_revision", taskRevision)
+                put("result", result)
+                put("reason", reason)
+                put("created_at", Instant.now().toString())
+            },
+            SQLiteDatabase.CONFLICT_IGNORE,
+        )
+        Unit
+    }
+
+    fun pendingControlAcks(): List<PendingControlAck> = readableDatabase.rawQuery(
+        "SELECT id,task_id,task_revision,result,reason FROM control_ack_outbox ORDER BY id",
+        emptyArray(),
+    ).use { cursor ->
+        buildList {
+            while (cursor.moveToNext()) {
+                add(
+                    PendingControlAck(
+                        id = cursor.getLong(0),
+                        taskId = cursor.getString(1),
+                        taskRevision = cursor.getLong(2),
+                        result = cursor.getString(3),
+                        reason = cursor.getString(4),
+                    ),
+                )
+            }
+        }
+    }
+
+    fun removeControlAck(id: Long) {
+        writableDatabase.execSQL("DELETE FROM control_ack_outbox WHERE id=?", arrayOf(id.toString()))
     }
 
     fun persistedTask(taskId: String): PendingTask? = readableDatabase.rawQuery(
