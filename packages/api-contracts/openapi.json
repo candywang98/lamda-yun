@@ -1782,6 +1782,61 @@
         "title": "FleetOrderScreenIn",
         "type": "object"
       },
+      "FleetScheduleCancelRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "FleetScheduleCancelRequest",
+        "type": "object"
+      },
+      "FleetScheduleMintRequest": {
+        "additionalProperties": false,
+        "description": "Mint-due is normally invoked by the temporal worker tick.\n\n``now`` is injectable for deterministic tests/replays; production callers\nleave it empty and the server uses wall clock.",
+        "properties": {
+          "now": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Now"
+          }
+        },
+        "title": "FleetScheduleMintRequest",
+        "type": "object"
+      },
+      "FleetSchedulePollRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "now": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Now"
+          }
+        },
+        "title": "FleetSchedulePollRequest",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -8710,6 +8765,157 @@
         "summary": "Poll Events"
       }
     },
+    "/api/v1/fleet-schedules/{schedule_id}:cancel": {
+      "post": {
+        "operationId": "cancel_schedule_api_v1_fleet_schedules__schedule_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "schedule_id",
+            "required": true,
+            "schema": {
+              "title": "Schedule Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FleetScheduleCancelRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Cancel Schedule Api V1 Fleet Schedules  Schedule Id  Cancel Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel Schedule",
+        "tags": [
+          "fleet-schedules"
+        ]
+      }
+    },
+    "/api/v1/fleet-schedules/{schedule_id}:mint-due": {
+      "post": {
+        "operationId": "mint_due_api_v1_fleet_schedules__schedule_id__mint_due_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "schedule_id",
+            "required": true,
+            "schema": {
+              "title": "Schedule Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FleetScheduleMintRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Mint Due Api V1 Fleet Schedules  Schedule Id  Mint Due Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Mint Due",
+        "tags": [
+          "fleet-schedules"
+        ]
+      }
+    },
+    "/api/v1/fleet-schedules:poll": {
+      "post": {
+        "operationId": "poll_due_schedules_api_v1_fleet_schedules_poll_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FleetSchedulePollRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Poll Due Schedules Api V1 Fleet Schedules Poll Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Poll Due Schedules",
+        "tags": [
+          "fleet-schedules"
+        ]
+      }
+    },
     "/api/v1/fleet/orders/history": {
       "get": {
         "operationId": "fleet_order_history_api_v1_fleet_orders_history_get",
@@ -14053,6 +14259,308 @@
         "summary": "Collect Orders",
         "tags": [
           "xianyu-orders"
+        ]
+      }
+    },
+    "/api/v1/xianyu/publish/queues": {
+      "post": {
+        "operationId": "create_publish_queue_api_v1_xianyu_publish_queues_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "title": "Body",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Create Publish Queue Api V1 Xianyu Publish Queues Post"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Publish Queue",
+        "tags": [
+          "xianyu-publish"
+        ]
+      }
+    },
+    "/api/v1/xianyu/publish/queues/{queue_id}": {
+      "get": {
+        "operationId": "get_publish_queue_api_v1_xianyu_publish_queues__queue_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "queue_id",
+            "required": true,
+            "schema": {
+              "title": "Queue Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Get Publish Queue Api V1 Xianyu Publish Queues  Queue Id  Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Publish Queue",
+        "tags": [
+          "xianyu-publish"
+        ]
+      }
+    },
+    "/api/v1/xianyu/publish/queues/{queue_id}/next": {
+      "post": {
+        "operationId": "next_publish_target_api_v1_xianyu_publish_queues__queue_id__next_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "queue_id",
+            "required": true,
+            "schema": {
+              "title": "Queue Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Next Publish Target",
+        "tags": [
+          "xianyu-publish"
+        ]
+      }
+    },
+    "/api/v1/xianyu/publish/queues/{queue_id}/targets/{target_id}/confirm": {
+      "post": {
+        "operationId": "confirm_publish_result_api_v1_xianyu_publish_queues__queue_id__targets__target_id__confirm_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "queue_id",
+            "required": true,
+            "schema": {
+              "title": "Queue Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "target_id",
+            "required": true,
+            "schema": {
+              "title": "Target Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "title": "Body",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Confirm Publish Result Api V1 Xianyu Publish Queues  Queue Id  Targets  Target Id  Confirm Post"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Confirm Publish Result",
+        "tags": [
+          "xianyu-publish"
+        ]
+      }
+    },
+    "/api/v1/xianyu/publish/queues/{queue_id}/targets/{target_id}/dispatch": {
+      "post": {
+        "operationId": "dispatch_publish_target_api_v1_xianyu_publish_queues__queue_id__targets__target_id__dispatch_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "queue_id",
+            "required": true,
+            "schema": {
+              "title": "Queue Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "target_id",
+            "required": true,
+            "schema": {
+              "title": "Target Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Dispatch Publish Target Api V1 Xianyu Publish Queues  Queue Id  Targets  Target Id  Dispatch Post"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Dispatch Publish Target",
+        "tags": [
+          "xianyu-publish"
+        ]
+      }
+    },
+    "/api/v1/xianyu/publish/queues/{queue_id}/targets/{target_id}/report-failure": {
+      "post": {
+        "operationId": "report_publish_failure_api_v1_xianyu_publish_queues__queue_id__targets__target_id__report_failure_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "queue_id",
+            "required": true,
+            "schema": {
+              "title": "Queue Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "target_id",
+            "required": true,
+            "schema": {
+              "title": "Target Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "title": "Body",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Report Publish Failure Api V1 Xianyu Publish Queues  Queue Id  Targets  Target Id  Report Failure Post"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Report Publish Failure",
+        "tags": [
+          "xianyu-publish"
         ]
       }
     },
