@@ -223,6 +223,29 @@ class NavigationResetExecutorTest {
             }
         }
 
+        // I10 reply-boundary feed: before the conversation opens nothing is
+        // readable; after tapText(peer) the fake chat page shows exactly the
+        // authorized peer with its input and a traceable inbound bubble.
+        override fun imChatEvidence(
+            targetPackage: String,
+            expectedPeer: String?,
+        ): com.company.cloudctl.companion.im.ImReplyBoundary.ChatEvidence? {
+            val chatOpen = nodes["xianyu_chat_input"]?.visible == true
+            return if (!chatOpen) {
+                com.company.cloudctl.companion.im.ImReplyBoundary.ChatEvidence(
+                    openPeerName = null,
+                    chatInputVisible = false,
+                    triggeringInboundVisible = false,
+                )
+            } else {
+                com.company.cloudctl.companion.im.ImReplyBoundary.ChatEvidence(
+                    openPeerName = peerName,
+                    chatInputVisible = true,
+                    triggeringInboundVisible = true,
+                )
+            }
+        }
+
         override suspend fun tap(targetPackage: String, locatorRef: String) {
             taps += locatorRef
         }

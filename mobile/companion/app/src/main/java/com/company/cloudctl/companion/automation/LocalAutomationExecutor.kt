@@ -1,5 +1,16 @@
 package com.company.cloudctl.companion.automation
 
+import com.company.cloudctl.companion.features.xianyu.orders.OrderPageReading
+import com.company.cloudctl.companion.features.xianyu.orders.OrderPageSummary
+import com.company.cloudctl.companion.features.xianyu.orders.OrderScrollDecision
+import com.company.cloudctl.companion.features.xianyu.orders.OrderScrollPolicy
+import com.company.cloudctl.companion.features.xianyu.orders.OrderSeenRegistry
+import com.company.cloudctl.companion.features.xianyu.orders.absorbPage
+import com.company.cloudctl.companion.features.xianyu.orders.isPartiallyVisible
+import com.company.cloudctl.companion.features.xianyu.orders.toSummary
+import com.company.cloudctl.companion.im.ImReplyBoundary
+import com.company.cloudctl.companion.im.ImReplyTaskShape
+import com.company.cloudctl.companion.locators.AlbumPickDispatcher
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout
@@ -114,6 +125,15 @@ interface LocalAutomationUi {
         error("swipeUpWithin is not supported by this executor")
     }
 
+    // I10 reply boundary feed (fleet-first-20260916.1): what the open chat
+    // page verifiably shows at a conversation-level decision point — the open
+    // conversation's identity ([expectedPeer] resolves first when the header
+    // literally carries it), the chat input's visibility, and whether any
+    // plausible inbound bubble is on the page. Null when nothing readable is
+    // available; the executor guards treat null per their own fail-closed
+    // rules (never as "assume the best").
+    fun imChatEvidence(targetPackage: String, expectedPeer: String?): ImReplyBoundary.ChatEvidence? = null
+
     // W4 maintenance v2 (contract xianyu-anchors-20260915 §1/§2): open a
     // published-list card by its title text. Implementations resolve the live
     // tab-strip bottom edge (never a hardcoded y), search the visible cards of
@@ -140,11 +160,54 @@ private val WAIT_RECOVERY_LOCATORS = setOf(
 /** Container-resolution poll interval while the Flutter order list renders. */
 private const val ORDER_ROW_POLL_MS = 700L
 
+/**
+ * O10 page-report port (fleet-first-20260916.1): one call per collected
+ * multi-screen page, right after that screen's readOrders step SUCCEEDED —
+ * the same boundary the slice1 batch reporter fires at. Carries the
+ * absorbPage verdict, the frozen page summary and the screen's parsed rows;
+ * the service side turns it into POST /companion/v2/orders/screens
+ * (runKey/accountKey/schemaVersion come from the task context there) and
+ * advances the OrderCheckpoint.
+ */
+fun interface OrderScreensReporter {
+    suspend fun reportScreen(
+        taskId: String,
+        direction: OrderDirection,
+        page: OrderPageReading,
+        summary: OrderPageSummary,
+        rows: List<OrderRowSnapshot>,
+        partialRowIndices: List<Int>,
+    )
+}
+
+/**
+ * B15X: packages allowed to receive single-shot coordinate taps. Xianyu owns
+ * the frozen maintenance layout; the AOSP system gallery/gallery3d picker
+ * windows own album cell taps. Everything else — Google Photos
+ * (com.google.android.apps.photos) and OEM galleries (com.miui.gallery /
+ * com.huawei.photos / com.sec.android.gallery3d …) — stays rejected until
+ * surveyed on device; extend [ALBUM_PICKER_PACKAGES] only after that
+ * verification, never speculatively.
+ */
+object CoordinateTapPackageGate {
+    val ALBUM_PICKER_PACKAGES: Set<String> = setOf(
+        "com.android.gallery3d",
+        "com.android.gallery",
+    )
+
+    fun approves(targetPackage: String): Boolean =
+        targetPackage == TargetLocatorRegistry.XIANYU_PACKAGE || targetPackage in ALBUM_PICKER_PACKAGES
+}
+
 private class PendingOrderReport(
     val direction: OrderDirection,
     val collected: List<OrderRowSnapshot>,
     val skipped: List<SkippedOrderRow>,
     val screen: Int,
+    val page: OrderPageReading? = null,
+    val summary: OrderPageSummary? = null,
+    val rows: List<OrderRowSnapshot> = emptyList(),
+    val partialRowIndices: List<Int> = emptyList(),
 )
 
 class LocalAutomationExecutor(
@@ -155,6 +218,7 @@ class LocalAutomationExecutor(
     private val commitGate: CommitGate? = null,
     private val destructiveGate: DestructiveClickGate? = null,
     private val orderReporter: OrderReporter? = null,
+    private val orderScreensReporter: OrderScreensReporter? = null,
 ) {
     /** Badge baselines (tab locator -> count at the strike) captured during one run. */
     private val badgeBaselines = mutableMapOf<String, Int>()
@@ -163,13 +227,18 @@ class LocalAutomationExecutor(
     private var pendingOrderReport: PendingOrderReport? = null
 
     /**
-     * Slice-2 cross-screen dedup (order-sync-slice2/20260915.1 §3): order keys
-     * already handed to the reporter by EARLIER readOrders screens of this
-     * run. Overlap rows the scrolled list re-exposes are skipped here (never
-     * re-reported); same-screen duplicates keep the slice1 semantics — both
-     * rows report and the server-side idempotent key absorbs them.
+     * O10 seen registry: every parsed row of a MULTI-SCREEN run is absorbed
+     * here (cross-screen overlap AND same-page replays land in overlapCount;
+     * status changes upsert). Single-read (v1) tasks keep the frozen slice1
+     * semantics and never touch the registry.
      */
-    private val reportedOrderKeys = mutableSetOf<String>()
+    private var seenRegistry = OrderSeenRegistry()
+
+    /** O10 page summaries (one per absorbed screen) — OrderScrollPolicy's feed. */
+    private val orderPageSummaries = mutableListOf<OrderPageSummary>()
+
+    /** O10 three-stop reason once OrderScrollPolicy ended this run's pagination; null while scrolling. */
+    private var ordersScrollStopReason: String? = null
 
     /** 1-based readOrders screen counter for this run (log material only). */
     private var ordersScreensRead = 0
@@ -182,7 +251,9 @@ class LocalAutomationExecutor(
     ) {
         badgeBaselines.clear()
         pendingOrderReport = null
-        reportedOrderKeys.clear()
+        seenRegistry = OrderSeenRegistry()
+        orderPageSummaries.clear()
+        ordersScrollStopReason = null
         ordersScreensRead = 0
         MaintenanceBadgeSnapshots.clear(task.taskId)
         if (!task.expiresAt.isAfter(now())) throw ExecutorFailure("TASK_EXPIRED", "Task has expired")
@@ -194,6 +265,30 @@ class LocalAutomationExecutor(
         var lastCompletedIndex = startAfterIndex
         for ((index, step) in task.steps.withIndex()) {
             if (index <= startAfterIndex) continue
+            // O10 three-stop: BEFORE the next between-screens swipe, the frozen
+            // policy decides (empty page / stagnation / max screens); a Stop
+            // freezes this run's pagination. The decision lives here — ahead
+            // of the step's STARTED journal — so a stopped swipe is never
+            // journaled as if it had run.
+            if (step is AutomationStep.SwipeUp && ordersScrollStopReason == null) {
+                when (val decision = OrderScrollPolicy.decide(orderPageSummaries, ordersScreensRead + 1)) {
+                    is OrderScrollDecision.Continue -> Unit
+                    is OrderScrollDecision.Stop -> {
+                        ordersScrollStopReason = decision.reason
+                        ui.log(LogLevel.INFO, decision.reason)
+                    }
+                }
+            }
+            // Once stopped, the remaining readOrders/swipeUp steps of this run
+            // are skipped — no swipe, no read, and no step journal (a skipped
+            // screen was never executed, so it never reaches SUCCEEDED).
+            // Later non-orders steps keep running.
+            if (ordersScrollStopReason != null &&
+                (step is AutomationStep.ReadOrders || step is AutomationStep.SwipeUp)
+            ) {
+                ui.log(LogLevel.INFO, "ORDERS_STOPPED_SKIP_${step.stepId}")
+                continue
+            }
             ensureWithinTaskDeadline(task, runDeadline)
             throwIfControlRequested(control, lastCompleted, lastCompletedIndex)
             journal(step, "STARTED")
@@ -255,6 +350,9 @@ class LocalAutomationExecutor(
                     lastCompleted, lastCompletedIndex,
                 )
                 throwIfControlRequested(control, lastCompleted, lastCompletedIndex)
+                // I10: the send tap is the last write of a reply task — the
+                // conversation proof runs again right before it.
+                guardReplySend(task, step.locatorRef)
                 val node = requireNode(task, step.locatorRef)
                 // A disabled clickable control must never be tapped, but Douyin gallery
                 // cells expose passive (enabled=false, unclickable) marks over
@@ -284,11 +382,14 @@ class LocalAutomationExecutor(
                 }
             }
             is AutomationStep.Input -> {
+                throwIfControlRequested(control, lastCompleted, lastCompletedIndex)
+                // I10: the fail-closed conversation proof runs BEFORE the reply
+                // text is typed into the chat input.
+                guardReplySend(task, step.locatorRef)
                 waitFor(
                     task, step.locatorRef, NodeCondition.EXISTS, step.pollInterval(), runDeadline, control,
                     lastCompleted, lastCompletedIndex,
                 )
-                throwIfControlRequested(control, lastCompleted, lastCompletedIndex)
                 val node = requireNode(task, step.locatorRef)
                 if (!node.visible || !node.enabled) {
                     throw ExecutorFailure("NODE_NOT_EDITABLE", "Approved locator is not safely editable")
@@ -298,6 +399,9 @@ class LocalAutomationExecutor(
             }
             is AutomationStep.TapText -> {
                 throwIfControlRequested(control, lastCompleted, lastCompletedIndex)
+                // I10: prove an already-open conversation is the authorized one
+                // BEFORE the reply task's conversation-opening tap fires.
+                guardReplyConversationOpen(task, step)
                 tapTextWithScroll(task, step, runDeadline, control, lastCompleted, lastCompletedIndex)
             }
             is AutomationStep.Wait -> waitFor(
@@ -340,11 +444,12 @@ class LocalAutomationExecutor(
      * zero side effects.
      *
      * Slice 2 (order-sync-slice2/20260915.1 §1/§3): one call per screen.
-     * Cross-screen overlap rows (order keys reported by an earlier screen of
-     * this run) are absorbed silently — not re-reported, not counted as
-     * duplicates, not skipped-rows; same-screen duplicates keep slice1
-     * semantics. The screen ordinal reaches LOG events only; a single-read
-     * (v1) task logs exactly what slice1 logged.
+     * O10 upgrade (fleet-first-20260916.1): multi-screen runs absorb every
+     * screen through OrderSeenRegistry.absorbPage — cross-screen overlap AND
+     * same-page replays are absorbed (overlapCount), status changes upsert —
+     * while single-read (v1) tasks keep the frozen slice1 semantics. The
+     * screen ordinal reaches LOG events only; a single-read (v1) task logs
+     * exactly what slice1 logged.
      */
     private suspend fun executeReadOrders(task: AutomationTask, step: AutomationStep.ReadOrders, runDeadline: Long) {
         if (task.targetPackage != TargetLocatorRegistry.XIANYU_PACKAGE) {
@@ -375,34 +480,49 @@ class LocalAutomationExecutor(
             }
         }
         val screen = ordersScreensRead + 1
-        val collected = mutableListOf<OrderRowSnapshot>()
+        val parsed = mutableListOf<OrderRowSnapshot>()
         val skipped = mutableListOf<SkippedOrderRow>()
-        var overlap = 0
         rows.forEachIndexed { index, lines ->
             when (val outcome = OrderRowParser.parse(step.direction, lines)) {
-                is OrderRowParseOutcome.Parsed -> {
-                    val snapshot = outcome.toSnapshot(step.direction, lines)
-                    if (snapshot.orderKey in reportedOrderKeys) {
-                        // Cross-screen overlap (scrolled list inertia): the row
-                        // already went to the §3 endpoint from an earlier
-                        // screen — absorb it here instead of re-reporting.
-                        overlap += 1
-                    } else {
-                        collected += snapshot
-                    }
-                }
+                is OrderRowParseOutcome.Parsed -> parsed += outcome.toSnapshot(step.direction, lines)
                 is OrderRowParseOutcome.Skipped -> skipped += SkippedOrderRow(index, outcome.reason)
             }
         }
+        if (!isMultiScreenOrdersTask(task)) {
+            // v1 single-read (contract order-sync-slice2 §1: screens=1 forever
+            // stays v1): the slice1 semantics are frozen — same-screen
+            // duplicate rows all report (the server-side idempotent key
+            // absorbs them) and the log lines stay byte-identical.
+            ordersScreensRead = screen
+            ui.log(LogLevel.INFO, "ORDERS_READ_${parsed.size}")
+            if (skipped.isNotEmpty()) ui.log(LogLevel.WARN, "ORDERS_SKIPPED_${skipped.size}")
+            pendingOrderReport = PendingOrderReport(step.direction, parsed, skipped, screen)
+            return
+        }
+        // O10 (fleet-first-20260916.1): every screen of a multi-screen run is
+        // absorbed through the seen registry — cross-screen overlap AND
+        // same-page replays land in overlapCount (never re-reported), status
+        // changes upsert (reported again so both channels can refresh). Only
+        // new keys and updates leave the page as reportable rows.
+        val page = seenRegistry.absorbPage(screen, parsed, skipped)
+        val summary = page.toSummary(now().toString())
+        orderPageSummaries += summary
         ordersScreensRead = screen
-        reportedOrderKeys += collected.map { it.orderKey }
-        ui.log(LogLevel.INFO, "ORDERS_READ_${collected.size}")
+        val reportable = page.newRows + page.updatedRows
+        ui.log(LogLevel.INFO, "ORDERS_READ_${reportable.size}")
         if (skipped.isNotEmpty()) ui.log(LogLevel.WARN, "ORDERS_SKIPPED_${skipped.size}")
-        if (overlap > 0) ui.log(LogLevel.INFO, "ORDERS_OVERLAP_${overlap}")
-        // Screen ordinal is log material only (§1); single-read (v1) tasks
-        // keep their slice1 log lines byte-identical.
-        if (isMultiScreenOrdersTask(task)) ui.log(LogLevel.INFO, "ORDERS_READ_SCREEN_${screen}")
-        pendingOrderReport = PendingOrderReport(step.direction, collected, skipped, screen)
+        if (page.overlapCount > 0) ui.log(LogLevel.INFO, "ORDERS_OVERLAP_${page.overlapCount}")
+        ui.log(LogLevel.INFO, "ORDERS_READ_SCREEN_${screen}")
+        pendingOrderReport = PendingOrderReport(
+            direction = step.direction,
+            collected = reportable,
+            skipped = skipped,
+            screen = screen,
+            page = page,
+            summary = summary,
+            rows = parsed,
+            partialRowIndices = parsed.withIndex().filter { it.value.isPartiallyVisible() }.map { it.index },
+        )
     }
 
     /**
@@ -441,11 +561,112 @@ class LocalAutomationExecutor(
         task.steps.count { it is AutomationStep.ReadOrders } > 1 ||
             task.steps.any { it is AutomationStep.SwipeUp }
 
-    /** Flushes the current screen's readOrders collection to the §5 reporter, exactly once per screen. */
+    // ------------------------------------------------------------------
+    // I10 reply boundary (fleet-first-20260916.1): an outbound IM reply may
+    // only be typed and sent into the ONE conversation the authorized inbound
+    // triggered. Both guards below are conversation-level; the field-level
+    // commit rules (ChatInputCommit) and the cloud request rules keep their
+    // own fail-closed seams untouched.
+    // ------------------------------------------------------------------
+
+    /** The peer name when the task carries the cloud reply shape (im_service reply steps), else null. */
+    private fun replyPeerOf(task: AutomationTask): String? = ImReplyTaskShape.peerNameOf(task)
+
+    /**
+     * Fired before the reply task's conversation-opening tapText. When the
+     * screen ALREADY shows an open chat (left over from an earlier task, a
+     * resumed run, a notification tap), the boundary must prove THAT
+     * conversation is the authorized one before anything else opens on top
+     * of it — a refusal fails the task with the stable I10 code and the
+     * tapText never fires (no conversation-open action at all). A screen
+     * with no open chat is the normal fresh start: navigation proceeds, and
+     * [guardReplySend] owns the fail-closed proof at the send seam.
+     */
+    private fun guardReplyConversationOpen(task: AutomationTask, step: AutomationStep.TapText) {
+        val peer = replyPeerOf(task) ?: return
+        if (step.value != peer) return
+        val evidence = ui.imChatEvidence(task.targetPackage, peer) ?: return
+        if (evidence.openPeerName == null && !evidence.chatInputVisible) return
+        when (val verdict = ImReplyBoundary.check(task, evidence)) {
+            is ImReplyBoundary.Verdict.Allow -> Unit
+            is ImReplyBoundary.Verdict.Refuse -> {
+                ui.log(LogLevel.ERROR, verdict.code)
+                throw ExecutorFailure(verdict.code, verdict.detail)
+            }
+        }
+    }
+
+    /**
+     * Fired before the reply task types into the chat input and again before
+     * the send tap — the fail-closed send seam. No evidence, an unresolvable
+     * conversation identity, a drifted conversation, a system/marketing
+     * session, or a missing traceable inbound each refuse with the stable
+     * I10 code: nothing is typed, nothing is sent.
+     */
+    private fun guardReplySend(task: AutomationTask, locatorRef: String) {
+        val peer = replyPeerOf(task) ?: return
+        if (locatorRef != ImReplyTaskShape.CHAT_INPUT_LOCATOR && locatorRef != CHAT_SEND_LOCATOR) return
+        val evidence = ui.imChatEvidence(task.targetPackage, peer)
+            ?: throw ExecutorFailure(
+                ImReplyBoundary.Refusal.CONVERSATION_UNVERIFIED.code,
+                "chat evidence unavailable before reply send; fail closed",
+            )
+        if (ImReplyBoundary.conversationChanged(peer, evidence.openPeerName)) {
+            ui.log(LogLevel.ERROR, ImReplyBoundary.Refusal.TARGET_CHANGED.code)
+            throw ExecutorFailure(
+                ImReplyBoundary.Refusal.TARGET_CHANGED.code,
+                "open conversation drifted from「$peer」to「${evidence.openPeerName}」before send",
+            )
+        }
+        when (val verdict = ImReplyBoundary.check(task, evidence)) {
+            is ImReplyBoundary.Verdict.Allow -> Unit
+            is ImReplyBoundary.Verdict.Refuse -> {
+                ui.log(LogLevel.ERROR, verdict.code)
+                throw ExecutorFailure(verdict.code, verdict.detail)
+            }
+        }
+    }
+
+    /**
+     * B15X last seam (fleet-first-20260916.1): consume one APPROVED album-pick
+     * tap intent by forwarding its fresh admitted bounds center to the
+     * coordinate-tap primitive. The admission sequence (capture -> resample ->
+     * TapAdmissionGate) already happened in locators/AlbumPickDispatcher; the
+     * executor owns the only tap handle. [pickerPackage] is the picker
+     * window's package (the fresh observation frame's package) —
+     * [CoordinateTapPackageGate] plus the accessibility layer keep every
+     * non-approved package rejected. Waiting for the recipe side to call
+     * this with mapped picks (observation tree -> map -> plan -> dispatch).
+     */
+    suspend fun consumeAlbumPick(pickerPackage: String, intent: AlbumPickDispatcher.ApprovedTapIntent) {
+        ui.log(
+            LogLevel.INFO,
+            "ALBUM_PICK_TAP cell=${intent.pick.cellIndex} reason=${intent.admissionReason}",
+        )
+        ui.tapScreenAt(pickerPackage, intent.tapX, intent.tapY)
+    }
+
+    /**
+     * Flushes the current screen's readOrders collection to the §5 reporter,
+     * exactly once per screen. O10 dual-write: the slice1 batch channel above
+     * stays live during the transition, and multi-screen pages additionally
+     * reach the screens port (page summary + parsed rows + partial indices)
+     * for POST /companion/v2/orders/screens.
+     */
     private suspend fun reportPendingOrders(task: AutomationTask) {
         val report = pendingOrderReport ?: return
         pendingOrderReport = null
         orderReporter?.reportOrders(task.taskId, report.direction, report.collected, report.skipped, report.screen)
+        val page = report.page ?: return
+        val summary = report.summary ?: return
+        orderScreensReporter?.reportScreen(
+            taskId = task.taskId,
+            direction = report.direction,
+            page = page,
+            summary = summary,
+            rows = report.rows,
+            partialRowIndices = report.partialRowIndices,
+        )
     }
 
     /**
@@ -915,6 +1136,9 @@ class LocalAutomationExecutor(
         val SHA256 = Regex("^[a-f0-9]{64}$")
         const val TAP_TEXT_MAX_SCROLLS = 10
         const val CARD_SEARCH_POLL_MS = 700L
+
+        // I10: the reply task's send control (verified locator, TargetLocatorRegistry).
+        const val CHAT_SEND_LOCATOR = "xianyu_chat_send"
 
         // Wrong-card defense 1 polling (detail-page title verification).
         const val DETAIL_VERIFY_POLL_MS = 400L
