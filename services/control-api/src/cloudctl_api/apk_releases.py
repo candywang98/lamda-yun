@@ -19,13 +19,19 @@ Invariants implemented here:
   install candidate forced onto them: 409 APK_DEVICE_BUSY.
 - ``requiresUserConfirmation`` is a requirement statement only; no field in
   this API ever guarantees silent installation (SDK flags cannot override).
+- Install receipts (``:report-installed``) are the device's ground truth for
+  the install outcome. Only ``outcome=INSTALLED`` with a non-false
+  ``signatureMatched`` advances ``apk_release_target`` to ``INSTALLED``;
+  FAILED / USER_DECLINED / INTERRUPTED receipts (and a proven signature
+  mismatch) are recorded in the audit trail without advancing the rollout
+  state, so the candidate stays retryable.
 """
 
 from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from cloudctl_domain import (
     Actor,
@@ -114,6 +120,10 @@ class ApkArtifactNotAdmittedError(ValidationError):
     code = "APK_ARTIFACT_NOT_ADMITTED"
 
 
+class ApkReceiptMismatchError(ValidationError):
+    code = "APK_RECEIPT_MISMATCH"
+
+
 # ---------------------------------------------------------------------------
 # Request models (strict: unknown fields are rejected, aliases are camelCase)
 # ---------------------------------------------------------------------------
@@ -183,6 +193,39 @@ class ApkReleaseAssignRequest(_StrictModel):
 
 class ApkDownloadedReport(_StrictModel):
     sha256: str = Field(pattern=r"^[0-9a-fA-F]{64}$")
+
+
+class ApkInstallReceiptReport(_StrictModel):
+    """Device-side install receipt (U11 ``ApkInstallReceipt.toWireJson``).
+
+    The device is the only authority on what the installer did; the server
+    validates the receipt joins the bound device's own candidate (identity
+    fields must match the pinned target + artifact) and never fabricates a
+    success the receipt did not claim.
+    """
+
+    candidate_id: str = Field(alias="candidateId", min_length=1, max_length=36)
+    release_id: str = Field(alias="releaseId", min_length=1, max_length=36)
+    package_name: str = Field(alias="packageName", min_length=1, max_length=255)
+    attempted_version_code: int = Field(alias="attemptedVersionCode", ge=0)
+    outcome: Literal["INSTALLED", "FAILED", "USER_DECLINED", "INTERRUPTED"]
+    installed_version_code: int | None = Field(
+        default=None, alias="installedVersionCode", ge=0
+    )
+    signature_matched: bool | None = Field(default=None, alias="signatureMatched")
+    message: str | None = Field(default=None, max_length=1000)
+    completed_at: str = Field(alias="completedAt", min_length=1, max_length=64)
+
+    @field_validator("completed_at")
+    @classmethod
+    def _iso_instant(cls, value: str) -> str:
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise ValueError("completedAt must be an ISO-8601 instant") from exc
+        if parsed.tzinfo is None:
+            raise ValueError("completedAt must carry a timezone offset or Z")
+        return value
 
 
 # ---------------------------------------------------------------------------
@@ -480,6 +523,103 @@ class ApkReleaseService:
                 "sourceRef": artifact.source_ref,
             }
 
+    async def report_installed(
+        self, current: MobileBindingRow, target_id: str, request: ApkInstallReceiptReport
+    ) -> dict[str, Any]:
+        """Terminal install receipt (U11 seam, WIRE2 wiring).
+
+        Semantics:
+
+        - tenant/device scoped exactly like ``report_downloaded``: a candidate
+          of another device (or tenant, or a nonexistent id) is a plain 404;
+        - the receipt's identity fields must join the pinned target and its
+          artifact, otherwise 422 ``APK_RECEIPT_MISMATCH`` (never a silent
+          re-attribution to a different release/package);
+        - only ``outcome=INSTALLED`` with ``signatureMatched`` not false
+          advances the target to ``INSTALLED`` (the rollout's only terminal
+          state — the status CHECK constraint has no FAILED value; failures
+          keep the candidate retryable at DOWNLOADED/OFFERED);
+        - a replayed success receipt against an already-INSTALLED target is an
+          idempotent no-op 200 (the ``report_downloaded`` precedent: no second
+          audit event);
+        - non-advancing receipts are recorded as ``apk.release.install_receipt``
+          audit events carrying the full receipt payload.
+        """
+        async with self.database.unit_of_work() as session:
+            target = await session.scalar(
+                select(ApkReleaseTargetRow).where(
+                    ApkReleaseTargetRow.id == target_id,
+                    ApkReleaseTargetRow.tenant_id == current.tenant_id,
+                    ApkReleaseTargetRow.device_id == current.device_id,
+                )
+            )
+            if target is None:
+                raise NotFoundError("apk install candidate was not found")
+            release = await session.get(ApkReleaseRow, target.release_id)
+            artifact = await session.get(ApkArtifactRow, release.artifact_id)
+            mismatched = [
+                label
+                for label, claimed, pinned in (
+                    ("candidateId", request.candidate_id, target.id),
+                    ("releaseId", request.release_id, target.release_id),
+                    ("packageName", request.package_name, target.package_name),
+                    ("attemptedVersionCode", request.attempted_version_code, artifact.version_code),
+                )
+                if claimed != pinned
+            ]
+            if mismatched:
+                raise ApkReceiptMismatchError(
+                    f"install receipt does not match the pinned candidate: {mismatched}"
+                )
+            received = _now()
+            receipt = request.model_dump(mode="json", by_alias=True)
+            counts_as_installed = (
+                request.outcome == "INSTALLED" and request.signature_matched is not False
+            )
+            already_installed = target.status == "INSTALLED"
+            if not already_installed:
+                device_actor = Actor(
+                    tenant_id=uuid.UUID(current.tenant_id),
+                    user_id=uuid.UUID(current.device_id),
+                    roles=frozenset(),
+                    mfa=False,
+                    request_id=f"companion:{current.id}",
+                )
+                repository = ControlRepository(session, device_actor)
+                if counts_as_installed:
+                    target.status = "INSTALLED"
+                    target.updated_at = received
+                    repository.audit(
+                        action="apk.release.installed",
+                        resource_type="apk_release_target",
+                        resource_id=target.id,
+                        device_id=current.device_id,
+                        after={
+                            "releaseId": release.id,
+                            "status": "INSTALLED",
+                            "installedVersionCode": request.installed_version_code,
+                            "signatureMatched": request.signature_matched,
+                        },
+                        metadata={"receipt": receipt},
+                    )
+                else:
+                    # FAILED / USER_DECLINED / INTERRUPTED (or a proven signature
+                    # mismatch): evidence only — the candidate stays retryable.
+                    repository.audit(
+                        action="apk.release.install_receipt",
+                        resource_type="apk_release_target",
+                        resource_id=target.id,
+                        device_id=current.device_id,
+                        after={"releaseId": release.id, "status": target.status},
+                        metadata={"receipt": receipt},
+                    )
+            return {
+                "candidateId": target.id,
+                "status": target.status,
+                "outcome": request.outcome,
+                "receivedAt": received.isoformat(),
+            }
+
     # -- shared helpers --------------------------------------------------------
 
     async def _release_with_artifact(
@@ -702,3 +842,10 @@ async def report_candidate_downloaded(
     target_id: str, body: ApkDownloadedReport, current: Binding, releases: Service
 ) -> dict[str, Any]:
     return await releases.report_downloaded(current, target_id, body)
+
+
+@companion_router.post("/candidates/{target_id}:report-installed")
+async def report_candidate_installed(
+    target_id: str, body: ApkInstallReceiptReport, current: Binding, releases: Service
+) -> dict[str, Any]:
+    return await releases.report_installed(current, target_id, body)

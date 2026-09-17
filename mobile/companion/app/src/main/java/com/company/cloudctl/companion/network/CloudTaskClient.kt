@@ -2,10 +2,17 @@ package com.company.cloudctl.companion.network
 
 import com.company.cloudctl.companion.automation.OrderDirection
 import com.company.cloudctl.companion.automation.OrderRowSnapshot
+import com.company.cloudctl.companion.updates.ApkDownloadReportResult
+import com.company.cloudctl.companion.updates.ApkInstallCandidate
+import com.company.cloudctl.companion.updates.ApkInstallReceipt
+import com.company.cloudctl.companion.updates.ApkReleaseClient
+import com.company.cloudctl.companion.updates.ArtifactTooLargeException
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URI
 import java.io.File
+import java.io.IOException
+import java.io.OutputStream
 import com.company.cloudctl.companion.media.MediaManifest
 import com.company.cloudctl.companion.media.MediaManifestParser
 
@@ -29,7 +36,7 @@ class CloudHttpException(val status: Int, val responseBody: String) : IllegalSta
         get() = status == 401 || status == 403
 }
 
-class CloudTaskClient(private val connection: CloudConnection) {
+class CloudTaskClient(private val connection: CloudConnection) : ApkReleaseClient {
     init {
         val uri = URI(connection.baseUrl)
         require(uri.scheme == "https" && uri.host != null && uri.userInfo == null)
@@ -201,6 +208,94 @@ class CloudTaskClient(private val connection: CloudConnection) {
         request(path, JSONObject(payload))
     }
 
+    // -- apk-release/v1 (U10 server / U11 device model, WIRE2 wiring) --------
+
+    /** GET /companion/v2/apk/candidates -> this device's install candidates. */
+    override fun listCandidates(): List<ApkInstallCandidate> {
+        val (status, response) = PinnedHttpsTransport.request(
+            baseUrl = connection.baseUrl,
+            path = buildApkCandidateListCall().path,
+            pin = connection.certificateSha256,
+            method = "GET",
+            headers = mapOf(
+                "Accept" to "application/json",
+                "Authorization" to "Bearer ${connection.bearerToken}",
+            ),
+            body = null,
+            connectTimeoutMs = 10_000,
+            readTimeoutMs = 35_000,
+        )
+        if (status !in 200..299) throw CloudHttpException(status, response)
+        return ApkInstallCandidate.listFrom(response)
+    }
+
+    /**
+     * Streams the APK bytes from the candidate's `sourceRef` (an absolute
+     * https URL) into [sink]. Transport truncations surface as retryable
+     * [IOException]s; a body above [maxBytes] surfaces as the coordinator's
+     * deterministic [ArtifactTooLargeException].
+     */
+    override fun downloadApk(candidate: ApkInstallCandidate, sink: OutputStream, maxBytes: Long): Long {
+        val (base, path) = splitApkSourceRef(candidate.sourceRef)
+        val response = try {
+            PinnedHttpsTransport.requestBytes(
+                base,
+                path,
+                connection.certificateSha256,
+                "GET",
+                mapOf(
+                    "Accept" to "application/octet-stream",
+                    "Authorization" to "Bearer ${connection.bearerToken}",
+                ),
+                null,
+                10_000,
+                60_000,
+                maxBytes,
+            )
+        } catch (error: IllegalArgumentException) {
+            throw mapApkTransferLimit(error, maxBytes)
+        } catch (error: IllegalStateException) {
+            throw mapApkTransferLimit(error, maxBytes)
+        }
+        if (response.status !in 200..299) {
+            // A failing artifact source is a transient download interruption
+            // from the coordinator's point of view: the candidate stays eligible.
+            throw IOException("apk artifact download failed with HTTP ${response.status}")
+        }
+        sink.write(response.body)
+        return response.body.size.toLong()
+    }
+
+    /** POST .../{candidateId}:report-downloaded with the locally verified digest. */
+    override fun reportDownloaded(candidateId: String, sha256: String): ApkDownloadReportResult {
+        val call = buildApkReportDownloadedCall(candidateId, sha256)
+        return try {
+            request(call.path, call.body!!)
+            ApkDownloadReportResult.Accepted
+        } catch (error: CloudHttpException) {
+            parseApkDownloadReport(error.status, error.responseBody)
+        }
+    }
+
+    /**
+     * POST .../{candidateId}:report-installed with [receipt]'s wire payload.
+     * True = stop retrying: the server accepted the receipt (2xx) or proved it
+     * can never accept it (404 — candidate unknown for this binding). False
+     * keeps the receipt in the ledger for the next drain.
+     */
+    override fun reportInstallReceipt(receipt: ApkInstallReceipt): Boolean {
+        val call = buildApkReportInstalledCall(receipt)
+        return try {
+            request(call.path, call.body!!)
+            true
+        } catch (error: CloudHttpException) {
+            parseApkInstallReceiptDelivery(error.status)
+        }
+    }
+
+    private fun mapApkTransferLimit(error: RuntimeException, maxBytes: Long): RuntimeException =
+        if (error.message?.contains("exceeds limit") == true) ArtifactTooLargeException(maxBytes) else error
+
     private fun request(path: String, body: JSONObject): JSONObject? {
         val payload = body.toString().toByteArray(Charsets.UTF_8)
         val (status, response) = PinnedHttpsTransport.request(
@@ -224,6 +319,82 @@ class CloudTaskClient(private val connection: CloudConnection) {
 }
 
 internal data class TaskReleaseRequest(val path: String, val body: JSONObject)
+
+/** Request shape of one apk-release/v1 companion call (WIRE2 golden-test seam). */
+internal data class ApkEndpointCall(val method: String, val path: String, val body: JSONObject?)
+
+/** GET /companion/v2/apk/candidates (apk-release/v1 companion surface). */
+internal fun buildApkCandidateListCall(): ApkEndpointCall =
+    ApkEndpointCall("GET", "/companion/v2/apk/candidates", null)
+
+/**
+ * POST /companion/v2/apk/candidates/{candidateId}:report-downloaded with the
+ * frozen `ApkDownloadedReport` body (services/control-api/.../apk_releases.py):
+ * exactly `{"sha256": "<64 lowercase hex>"}` — nothing else may join.
+ */
+internal fun buildApkReportDownloadedCall(candidateId: String, sha256: String): ApkEndpointCall {
+    require(candidateId.isNotBlank()) { "candidateId must not be blank" }
+    require(Regex("^[0-9a-f]{64}$").matches(sha256)) { "Invalid apk sha256" }
+    return ApkEndpointCall(
+        "POST",
+        "/companion/v2/apk/candidates/$candidateId:report-downloaded",
+        JSONObject().put("sha256", sha256),
+    )
+}
+
+/**
+ * POST /companion/v2/apk/candidates/{candidateId}:report-installed with the
+ * `ApkInstallReceiptReport` body: exactly ApkInstallReceipt.toWireJson()
+ * (candidateId/releaseId/packageName/attemptedVersionCode/outcome/
+ * installedVersionCode/signatureMatched/message/completedAt — the local-only
+ * `delivered` flag must never reach the wire).
+ */
+internal fun buildApkReportInstalledCall(receipt: ApkInstallReceipt): ApkEndpointCall {
+    require(receipt.candidateId.isNotBlank()) { "candidateId must not be blank" }
+    return ApkEndpointCall(
+        "POST",
+        "/companion/v2/apk/candidates/${receipt.candidateId}:report-installed",
+        receipt.toWireJson(),
+    )
+}
+
+/**
+ * Splits an apk candidate `sourceRef` into the (baseUrl, requestPath) pair the
+ * pinned transport expects. Only absolute https URLs are fetchable; anything
+ * else (s3:// etc.) fails closed before a socket is opened.
+ */
+internal fun splitApkSourceRef(sourceRef: String): Pair<String, String> {
+    val uri = URI(sourceRef)
+    require(uri.scheme == "https" && uri.host != null && uri.userInfo == null) {
+        "apk sourceRef must be an absolute https URL"
+    }
+    val base = "${uri.scheme}://${uri.authority}"
+    val path = (uri.rawPath?.takeIf { it.isNotBlank() } ?: "/") +
+        (uri.rawQuery?.let { "?$it" } ?: "")
+    return base to path
+}
+
+/** Maps a report-downloaded HTTP verdict onto the U11 result type. */
+internal fun parseApkDownloadReport(status: Int, body: String): ApkDownloadReportResult {
+    val problem = runCatching { JSONObject(body) }.getOrNull()
+    return when {
+        status in 200..299 -> ApkDownloadReportResult.Accepted
+        status == 422 && problem?.optString("code") == "APK_DOWNLOAD_HASH_MISMATCH" ->
+            ApkDownloadReportResult.HashMismatch(problem.optString("detail"))
+        else -> ApkDownloadReportResult.Error(status, body.take(500))
+    }
+}
+
+/**
+ * Receipt delivery verdict: 2xx accepted; 404 means the server proved this
+ * binding owns no such candidate, so the receipt can never be accepted and is
+ * dropped instead of retried forever; anything else stays retryable.
+ */
+internal fun parseApkInstallReceiptDelivery(status: Int): Boolean = when {
+    status in 200..299 -> true
+    status == 404 -> true
+    else -> false
+}
 
 /** Collection-protocol version of the O10 screens push; the checkpoint binds it (mismatch => new run). */
 internal const val ORDER_SCREENS_SCHEMA_VERSION = 1

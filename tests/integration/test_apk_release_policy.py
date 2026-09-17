@@ -15,6 +15,12 @@ Acceptance map (frozen task card U10):
   test_busy_device_preemption_rejected
 - group 5 (跨租户 404):
   test_release_record_fields_immutability_and_tenant_scoping
+- WIRE2 (U11 seam wiring, :report-installed):
+  test_install_receipt_advances_target_and_replays_idempotently,
+  test_install_receipt_is_scoped_to_the_bound_device,
+  test_failed_receipt_is_recorded_without_advancing,
+  test_signature_mismatch_receipt_is_recorded_but_never_success,
+  test_install_receipt_identity_mismatch_is_rejected
 """
 
 from __future__ import annotations
@@ -199,6 +205,39 @@ async def claim_probe(client: httpx.AsyncClient, auth: dict) -> dict:
     )
     assert response.status_code == 200, response.text
     return response.json()
+
+
+def install_receipt(
+    *,
+    candidate_id: str,
+    release_id: str,
+    package: str = PACKAGE,
+    version_code: int = 83201,
+    outcome: str = "INSTALLED",
+    installed_version_code: int | None = None,
+    signature_matched: bool | None = None,
+    message: str | None = None,
+) -> dict:
+    """WIRE2: mirrors the device-side ApkInstallReceipt.toWireJson() field set."""
+    return {
+        "candidateId": candidate_id,
+        "releaseId": release_id,
+        "packageName": package,
+        "attemptedVersionCode": version_code,
+        "outcome": outcome,
+        "installedVersionCode": installed_version_code,
+        "signatureMatched": signature_matched,
+        "message": message,
+        "completedAt": "2026-09-17T00:00:00Z",
+    }
+
+
+async def report_installed(client: httpx.AsyncClient, auth: dict, candidate_id: str, body: dict):
+    return await client.post(
+        f"/companion/v2/apk/candidates/{candidate_id}:report-installed",
+        headers=auth,
+        json=body,
+    )
 
 
 async def set_task_state(
@@ -562,3 +601,240 @@ async def test_retire_keeps_pins_and_download_hash_verification(api):
         )
         assert len(audits) == 1
         assert audits[0].metadata_json["reason"] == "superseded rollout"
+
+
+# ---------------------------------------------------------------------------
+# WIRE2: :report-installed (U11 receipt seam)
+# ---------------------------------------------------------------------------
+
+
+async def _prepared_candidate(api, *, sha256: str = "7" * 64, version_code: int = 83201):
+    """register -> release -> assign -> enroll -> report-downloaded."""
+    client, _ = api
+    artifact = await register_artifact(client, sha256=sha256, version_code=version_code)
+    release = await create_release(client, artifact["id"])
+    device = await create_device(client, "receipt-device")
+    assigned = await assign(client, release["id"], [device])
+    assert assigned.status_code == 200, assigned.text
+    candidate_id = assigned.json()["targets"][0]["id"]
+    auth = await _enroll(client, device, "receipt-device-instance")
+    confirmed = await client.post(
+        f"/companion/v2/apk/candidates/{candidate_id}:report-downloaded",
+        headers=auth,
+        json={"sha256": artifact["sha256"]},
+    )
+    assert confirmed.status_code == 200, confirmed.text
+    return auth, candidate_id, release, artifact
+
+
+async def test_install_receipt_advances_target_and_replays_idempotently(api):
+    client, app = api
+    auth, candidate_id, release, artifact = await _prepared_candidate(api)
+
+    receipt = install_receipt(
+        candidate_id=candidate_id,
+        release_id=release["id"],
+        version_code=release["versionCode"],
+        installed_version_code=release["versionCode"],
+        signature_matched=True,
+        message="installed",
+    )
+    accepted = await report_installed(client, auth, candidate_id, receipt)
+    assert accepted.status_code == 200, accepted.text
+    body = accepted.json()
+    assert body["candidateId"] == candidate_id
+    assert body["status"] == "INSTALLED"
+    assert body["outcome"] == "INSTALLED"
+    assert body["receivedAt"] is not None
+
+    # The INSTALLED terminal state is no longer offered to the device.
+    items = (await client.get("/companion/v2/apk/candidates", headers=auth)).json()["items"]
+    assert [item["candidateId"] for item in items if item["candidateId"] == candidate_id] == []
+
+    # Idempotent replay of the same receipt: 200, same view, no extra audit.
+    replay = await report_installed(client, auth, candidate_id, receipt)
+    assert replay.status_code == 200
+    assert replay.json()["status"] == "INSTALLED"
+
+    async with app.state.database.unit_of_work() as session:
+        installed = list(
+            await session.scalars(
+                select(AuditEventRow).where(AuditEventRow.action == "apk.release.installed")
+            )
+        )
+        assert len(installed) == 1
+        assert installed[0].resource_id == candidate_id
+        assert installed[0].metadata_json["receipt"]["outcome"] == "INSTALLED"
+        assert installed[0].metadata_json["receipt"]["signatureMatched"] is True
+
+
+async def test_install_receipt_is_scoped_to_the_bound_device(api):
+    client, _ = api
+    auth, candidate_id, release, artifact = await _prepared_candidate(api, sha256="8" * 64)
+    outsider = await create_device(client, "receipt-outsider")
+    outsider_auth = await _enroll(client, outsider, "receipt-outsider-instance")
+
+    receipt = install_receipt(
+        candidate_id=candidate_id,
+        release_id=release["id"],
+        version_code=release["versionCode"],
+    )
+    # Another device's binding never sees this candidate.
+    assert (
+        await report_installed(client, outsider_auth, candidate_id, receipt)
+    ).status_code == 404
+    # Neither does an unknown candidate id.
+    assert (
+        await report_installed(client, auth, str(uuid.uuid4()), receipt)
+    ).status_code == 404
+    # The owner still advances normally afterwards.
+    accepted = await report_installed(client, auth, candidate_id, receipt)
+    assert accepted.status_code == 200
+    assert accepted.json()["status"] == "INSTALLED"
+
+
+async def test_failed_receipt_is_recorded_without_advancing(api):
+    client, app = api
+    auth, candidate_id, release, artifact = await _prepared_candidate(api, sha256="9" * 64)
+
+    failed = install_receipt(
+        candidate_id=candidate_id,
+        release_id=release["id"],
+        version_code=release["versionCode"],
+        outcome="FAILED",
+        installed_version_code=None,
+        message="STATUS_FAILURE_STORAGE",
+    )
+    recorded = await report_installed(client, auth, candidate_id, failed)
+    assert recorded.status_code == 200, recorded.text
+    assert recorded.json()["status"] == "DOWNLOADED"
+    assert recorded.json()["outcome"] == "FAILED"
+
+    # The candidate stays retryable: still listed for the device.
+    items = (await client.get("/companion/v2/apk/candidates", headers=auth)).json()["items"]
+    assert [item["candidateId"] for item in items] == [candidate_id]
+    assert items[0]["status"] == "DOWNLOADED"
+
+    async with app.state.database.unit_of_work() as session:
+        receipts = list(
+            await session.scalars(
+                select(AuditEventRow).where(
+                    AuditEventRow.action == "apk.release.install_receipt"
+                )
+            )
+        )
+        assert len(receipts) == 1
+        assert receipts[0].metadata_json["receipt"]["outcome"] == "FAILED"
+        assert receipts[0].metadata_json["receipt"]["message"] == "STATUS_FAILURE_STORAGE"
+
+    # A later successful retry still advances (failure never wedges the pin).
+    success = install_receipt(
+        candidate_id=candidate_id,
+        release_id=release["id"],
+        version_code=release["versionCode"],
+        installed_version_code=release["versionCode"],
+        signature_matched=True,
+    )
+    accepted = await report_installed(client, auth, candidate_id, success)
+    assert accepted.status_code == 200
+    assert accepted.json()["status"] == "INSTALLED"
+
+
+async def test_signature_mismatch_receipt_is_recorded_but_never_success(api):
+    client, app = api
+    auth, candidate_id, release, artifact = await _prepared_candidate(api, sha256="a" * 64)
+
+    mismatch = install_receipt(
+        candidate_id=candidate_id,
+        release_id=release["id"],
+        version_code=release["versionCode"],
+        installed_version_code=release["versionCode"],
+        signature_matched=False,
+        message="installer signature does not match release",
+    )
+    recorded = await report_installed(client, auth, candidate_id, mismatch)
+    assert recorded.status_code == 200, recorded.text
+    # Recorded in the audit trail ...
+    async with app.state.database.unit_of_work() as session:
+        receipts = list(
+            await session.scalars(
+                select(AuditEventRow).where(
+                    AuditEventRow.action == "apk.release.install_receipt"
+                )
+            )
+        )
+        assert len(receipts) == 1
+        assert receipts[0].metadata_json["receipt"]["signatureMatched"] is False
+    # ... but never counted as an install success.
+    assert recorded.json()["status"] == "DOWNLOADED"
+    items = (await client.get("/companion/v2/apk/candidates", headers=auth)).json()["items"]
+    assert items[0]["status"] == "DOWNLOADED"
+
+    # A receipt with an unknown signature verdict (null) still counts.
+    unverifiable = install_receipt(
+        candidate_id=candidate_id,
+        release_id=release["id"],
+        version_code=release["versionCode"],
+        installed_version_code=release["versionCode"],
+        signature_matched=None,
+    )
+    accepted = await report_installed(client, auth, candidate_id, unverifiable)
+    assert accepted.status_code == 200
+    assert accepted.json()["status"] == "INSTALLED"
+
+
+async def test_install_receipt_identity_mismatch_is_rejected(api):
+    client, app = api
+    auth, candidate_id, release, artifact = await _prepared_candidate(api, sha256="b" * 64)
+
+    wrong_release = install_receipt(
+        candidate_id=candidate_id,
+        release_id=str(uuid.uuid4()),
+        version_code=release["versionCode"],
+    )
+    rejected = await report_installed(client, auth, candidate_id, wrong_release)
+    assert rejected.status_code == 422
+    assert rejected.json()["code"] == "APK_RECEIPT_MISMATCH"
+
+    wrong_version = install_receipt(
+        candidate_id=candidate_id,
+        release_id=release["id"],
+        version_code=release["versionCode"] + 1,
+    )
+    assert (
+        await report_installed(client, auth, candidate_id, wrong_version)
+    ).status_code == 422
+
+    unknown_outcome = install_receipt(
+        candidate_id=candidate_id,
+        release_id=release["id"],
+        version_code=release["versionCode"],
+        outcome="MAYBE",
+    )
+    assert (
+        await report_installed(client, auth, candidate_id, unknown_outcome)
+    ).status_code == 422
+
+    naive_completed_at = install_receipt(
+        candidate_id=candidate_id,
+        release_id=release["id"],
+        version_code=release["versionCode"],
+    ) | {"completedAt": "not-an-instant"}
+    assert (
+        await report_installed(client, auth, candidate_id, naive_completed_at)
+    ).status_code == 422
+
+    # Nothing was mutated by the rejected attempts.
+    items = (await client.get("/companion/v2/apk/candidates", headers=auth)).json()["items"]
+    assert items[0]["status"] == "DOWNLOADED"
+    async with app.state.database.unit_of_work() as session:
+        receipts = list(
+            await session.scalars(
+                select(AuditEventRow).where(
+                    AuditEventRow.action.in_(
+                        ("apk.release.installed", "apk.release.install_receipt")
+                    )
+                )
+            )
+        )
+        assert receipts == []
