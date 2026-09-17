@@ -36,29 +36,38 @@ class CloudCtlInputMethod : InputMethodService() {
 
     override fun onStartInput(attribute: EditorInfo?, restarting: Boolean) {
         super.onStartInput(attribute, restarting)
-        session = ++generation
+        session = gate.onEditorStarted()
         Log.i(TAG, "IME_SESSION_STARTED session=$session restarting=$restarting")
     }
 
     override fun onFinishInput() {
         session = null
+        gate.onEditorFinished()
         Log.i(TAG, "IME_SESSION_FINISHED")
         super.onFinishInput()
     }
 
     companion object {
         private const val TAG = "CloudCtlIme"
-        private var generation = 0L
+        private val gate = ImeSessionGate()
 
         @Volatile
         var active: CloudCtlInputMethod? = null
             private set
 
+        /** Enabled check uses only the public InputMethodManager API. */
         fun isEnabled(context: Context): Boolean {
             val manager = context.getSystemService(InputMethodManager::class.java) ?: return false
             return manager.enabledInputMethodList.any { it.id in ImeAvailability.candidates(context.packageName) }
         }
 
+        /**
+         * Display-only status. Reads the read-allowed Secure default-IME key wrapped in
+         * runCatching, so a hostile OEM settings provider cannot crash the app. The
+         * operative write paths (chatSession/replaceChatText/readChatText/requestCommit)
+         * never consult Secure state: a live IME service bound to the target editor IS
+         * the selection proof, because Android only starts the selected input method.
+         */
         fun isSelected(context: Context): Boolean {
             val selected = runCatching {
                 Settings.Secure.getString(context.contentResolver, Settings.Secure.DEFAULT_INPUT_METHOD)
@@ -70,14 +79,29 @@ class CloudCtlInputMethod : InputMethodService() {
 
         fun hasInputConnection(): Boolean = active?.currentInputConnection != null
 
+        /**
+         * Recoverable UI path when binding fails: opens the PUBLIC system picker so the
+         * user can select this IME. Enabling never writes restricted Settings.Secure
+         * keys, and a framework failure here surfaces false instead of crashing.
+         */
+        fun requestUserSelection(context: Context): Boolean {
+            val manager = context.getSystemService(InputMethodManager::class.java) ?: return false
+            return ImeAvailability.pickerRequest { manager.showInputMethodPicker() }
+        }
+
+        /** Identity of the editor the IME is currently bound to; null without a live editor. */
+        fun currentEditorIdentity(): ImeSessionIdentity.FieldIdentity? =
+            active?.currentInputEditorInfo?.let(ImeSessionIdentity::of)
+
         // Chat calls run on Main, serialized with IME lifecycle callbacks.
         internal fun chatSession(targetPackage: String): Long? {
             check(Looper.myLooper() == Looper.getMainLooper())
             val ime = active ?: return null
-            if (!isSelected(ime) || ime.currentInputEditorInfo == null ||
-                ime.currentInputEditorInfo?.packageName != targetPackage || ime.currentInputConnection == null
-            ) return null
-            return ime.session
+            val editor = ime.currentInputEditorInfo ?: return null
+            if (editor.packageName != targetPackage) return null
+            val bound = ime.session ?: return null
+            if (!gate.admits(bound)) return null
+            return ime.currentInputConnection?.let { bound }
         }
 
         private fun chatConnection(targetPackage: String, session: Long): InputConnection? =
@@ -93,9 +117,22 @@ class CloudCtlInputMethod : InputMethodService() {
             return runCatching { ImeTextReplacement.read(connection) }.getOrNull()
         }
 
-        suspend fun requestCommit(text: String): Boolean = withContext(Dispatchers.Main.immediate) {
+        /**
+         * Description commit. When [pinned] is supplied the live editor must still be
+         * that exact field; a generation or field-identity mismatch refuses the write
+         * instead of replaying text onto whatever happens to be focused now.
+         */
+        suspend fun requestCommit(
+            text: String,
+            pinned: ImeSessionIdentity.FieldIdentity? = null,
+        ): Boolean = withContext(Dispatchers.Main.immediate) {
             val ime = active ?: return@withContext false
-            if (!isSelected(ime) || ime.currentInputEditorInfo == null) return@withContext false
+            val editor = ime.currentInputEditorInfo ?: return@withContext false
+            if (pinned != null && !ImeSessionIdentity.sameField(pinned, ImeSessionIdentity.of(editor))) {
+                return@withContext false
+            }
+            val bound = ime.session ?: return@withContext false
+            if (!gate.admits(bound)) return@withContext false
             val connection = ime.currentInputConnection ?: return@withContext false
             runCatching { ImeTextReplacement.replace(connection, text) }.getOrDefault(false)
         }
