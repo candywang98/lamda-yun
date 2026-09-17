@@ -1469,9 +1469,9 @@
       "risk": "中",
       "device_acceptance": "无；仅软件验证",
       "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
-      "dev_state": "NOT_STARTED",
-      "acceptance_state": "NOT_RUN",
-      "evidence": "artifacts/delivery-20260916/B15/",
+      "dev_state": "SOFTWARE_DONE",
+      "acceptance_state": "SOFTWARE_ACCEPTED",
+      "evidence": "agent/fleet-b15 @ec065fe merged 241de63. Android 753/0 (42 new: StagedMediaPlan/Ledger, AlbumSelection planner, GalleryCleanupPolicy; order-invariant fail-closed, shutter probe gating, atomic writes). Seams for next wave: locators->AlbumPageSnapshot supply, shutter profile registry, advanceAlbumIndex calls.",
       "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
       "read_only_paths": [
         "contracts/**",
@@ -1780,9 +1780,9 @@
       "risk": "中",
       "device_acceptance": "无；仅软件验证",
       "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
-      "dev_state": "NOT_STARTED",
-      "acceptance_state": "NOT_RUN",
-      "evidence": "artifacts/delivery-20260916/B16/",
+      "dev_state": "SOFTWARE_DONE",
+      "acceptance_state": "SOFTWARE_ACCEPTED",
+      "evidence": "agent/fleet-b16 @e72044b merged f2a1d01. Android 753/0 (28 new); validate-recipe-contract.py self-test green, static rejects LOOP_NON_TERMINATING/IRREVERSIBLE_IN_LOOP/HASH_MISMATCH; P14 version-pinning regression green. FLEET-21 investigation delivered: remote-live gesture path (LiveSessionController->remoteTap/remoteSwipe, zero journal) top suspect; DutyController gap FIXED by Root (hasUnfinishedTaskRows guard); commit-branch journal blocked by frozen RecipeCommitAdapterTest semantics (deferred to contract owner); legacy steps payload dual-carry noted as audit blind spot.",
       "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
       "read_only_paths": [
         "contracts/**",
@@ -2194,9 +2194,9 @@
       "risk": "高",
       "device_acceptance": "无；仅软件验证",
       "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
-      "dev_state": "NOT_STARTED",
-      "acceptance_state": "NOT_RUN",
-      "evidence": "artifacts/delivery-20260916/U10/",
+      "dev_state": "SOFTWARE_DONE",
+      "acceptance_state": "SOFTWARE_ACCEPTED",
+      "evidence": "agent/fleet-u10 @531920e merged 901fede. contracts/apk-release/v1 FROZEN @20260917.1; apk_releases.py (11 error codes, tenant-scoped); migration 0025 up/down verified; 7 integration tests; full backend 904 passed/11 skipped after Root openapi regen. Ring rollout via device ring: labels; busy-device 409 incl CLAIMED.",
       "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
       "read_only_paths": [
         "contracts/**",
@@ -4152,6 +4152,11 @@
       "at": "2026-09-17T18:30:00+08:00",
       "by": "root",
       "note": "FLEET-26: B13+B14+C11 parallel wave merged (S01 three isolated worktrees from 5bea804); Root landed B13 executor wiring (FLEET-20) and regenerated openapi.json (baseline drift from A14/B17 regen omission). Backend 897 passed after regen (896+1 contract); Android 681/0; Web 223/223."
+    },
+    {
+      "at": "2026-09-17T20:05:00+08:00",
+      "by": "root",
+      "note": "FLEET-27: B15+B16+U10 parallel wave merged from b571273 (three isolated worktrees). Root landed FLEET-21 quick hardening (duty guard via hasUnfinishedTaskRows) and openapi regen for apk-release/v1. Android 753/0, backend 904 passed, Web 223/223. Deferred: DeviceArbiter REMOTE_LIVE fencing vs unfinished-task rows (needs live-lane owner, cross-contract), commit-step journal vs frozen RecipeCommitAdapterTest semantics. Device-side BLK-001..006 unchanged (user actions)."
     }
   ]
 }
