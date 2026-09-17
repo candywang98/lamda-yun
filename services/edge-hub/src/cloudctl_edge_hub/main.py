@@ -11,6 +11,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from fleet_live_transport import default_registry
+
 from .debug_delivery import DebugDeliveryStore, DebugGrantDelivery
 from .debug_relay import DebugRelay, DebugRelayConfig, EdgeHubDebugTransport, create_debug_server
 from .grpc_service import EdgeControlService
@@ -146,6 +148,12 @@ async def run_server(
         config.client_ca_certificate_path, "client CA certificate"
     )
     hub = EdgeHub(hub_store or SqliteHubStore(config.hub_state_db_path))
+    # L10: explicit fleet live transport adapters (JPEG default / WEBRTC+TURN).
+    live_transports = default_registry()
+    LOGGER.info(
+        "fleet_live_transport kinds=%s",
+        "/".join(a.kind for a in live_transports.adapters()),
+    )
     if debug_delivery_store is not None and debug_delivery_db is not None:
         raise ServerConfigurationError(
             "provide either DebugDeliveryStore or debug delivery database, not both"

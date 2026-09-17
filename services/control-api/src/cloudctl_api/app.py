@@ -22,6 +22,7 @@ from .debug_service import DebugSessionService
 from .dev_seed import seed_development_data
 from .features.schedules import FleetScheduleService
 from .features.schedules.routes import router as fleet_schedule_router
+from .fleet_live import FleetLiveService, fleet_live_router
 from .fleet_orders import FleetOrdersService
 from .fleet_orders import router as fleet_orders_router
 from .im_routes import companion_router as im_companion_router
@@ -259,6 +260,8 @@ def create_app(
     app.include_router(im_companion_router)
     app.include_router(live_operator_router)
     app.include_router(live_companion_router)
+    app.state.fleet_live_service = FleetLiveService(app.state.mobile_task_service)
+    app.include_router(fleet_live_router)
     app.include_router(companion_router)
     app.include_router(apk_release_operator_router)
     app.include_router(apk_release_companion_router)
