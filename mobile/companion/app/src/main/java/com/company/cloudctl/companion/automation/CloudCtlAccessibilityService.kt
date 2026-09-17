@@ -599,6 +599,32 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
             )
         }
 
+    /**
+     * FLEET-20 wait-recovery feed: digest of the active window's visible
+     * business lines (own text/content-desc, depth- and node-capped so a
+     * pathological tree cannot stall the sampler). Hashing goes through the
+     * frozen B12 CanonicalTree.digest so summary comparison keeps canonical
+     * parity; bounds are excluded on purpose — a banner shifting every
+     * bound is NOT page progress.
+     */
+    override fun pageSummary(targetPackage: String): String {
+        val lines = ArrayList<String>(SUMMARY_LINE_CAP)
+        var visited = 0
+        fun visit(node: AccessibilityNodeInfo, depth: Int) {
+            if (depth > SUMMARY_MAX_DEPTH || visited >= SUMMARY_NODE_CAP) return
+            visited += 1
+            if (node.isVisibleToUser) {
+                node.text?.toString()?.trim()?.takeIf { it.isNotEmpty() }
+                    ?.let { if (lines.size < SUMMARY_LINE_CAP) lines += it }
+                node.contentDescription?.toString()?.trim()?.takeIf { it.isNotEmpty() }
+                    ?.let { if (lines.size < SUMMARY_LINE_CAP) lines += it }
+            }
+            for (index in 0 until node.childCount) node.getChild(index)?.let { visit(it, depth + 1) }
+        }
+        rootInActiveWindow?.let { visit(it, 0) }
+        return com.company.cloudctl.companion.observation.CanonicalTree.digest(lines.joinToString("\n"))
+    }
+
     override fun screenSize(targetPackage: String): Pair<Int, Int>? = runCatching {
         // The service-context displayMetrics exclude system bars (device-verified:
         // the frozen 1080x2400 guard failed on a 2340-high metric). Real bounds
@@ -2030,6 +2056,10 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         private const val TAG = "CloudCtlExecutor"
         private const val PREVIEW_MAX_SIDE = 720
         private const val PREVIEW_MAX_BYTES = 380_000
+        // FLEET-20 pageSummary caps: bound the sampler even on pathological trees.
+        private const val SUMMARY_MAX_DEPTH = 30
+        private const val SUMMARY_NODE_CAP = 400
+        private const val SUMMARY_LINE_CAP = 96
         private const val XIANYU_LAUNCHER_ACTIVITY = "com.taobao.fleamarket.home.activity.InitActivity"
         private const val NAV_SETTLE_MS = 800L
         private const val CONVERSATION_SWIPE_MS = 350L

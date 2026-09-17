@@ -66,6 +66,13 @@ interface LocalAutomationUi {
     /** Forced relaunch of the target that lands on its root activity. */
     suspend fun restartTargetApp(targetPackage: String) {}
 
+    // FLEET-20 wait-recovery feed (B13 wiring): a short digest of the currently
+    // visible business page. The constant "" default keeps plain executors
+    // honest — their wait recovery then fails closed on the no-progress budget
+    // instead of trusting an unreadable page.
+
+    fun pageSummary(targetPackage: String): String = ""
+
     // Conversation-list scrolling (im-live slice 2, gap 3): tapText retry support.
 
     /** True when the visible list container can still scroll forward. */
@@ -122,6 +129,13 @@ interface LocalAutomationUi {
 
 private val GATED_PUBLISH_LOCATORS = setOf("xianyu_publish_button", "xhs_publish_button", "dy_publish_button")
 private const val GATED_XIANYU_DELETE_CONFIRM = "xianyu_delete_confirm"
+
+/** FLEET-20: page-arrival anchors eligible for bounded wait recovery. */
+private val WAIT_RECOVERY_LOCATORS = setOf(
+    "xianyu_home_sell",
+    "xianyu_publish_page",
+    "xianyu_publish_success",
+)
 
 /** Container-resolution poll interval while the Flutter order list renders. */
 private const val ORDER_ROW_POLL_MS = 700L
@@ -770,6 +784,11 @@ class LocalAutomationExecutor(
         lastCompleted: AutomationStep? = null,
         lastCompletedIndex: Int = -1,
     ) {
+        var pollsWithoutMatch = 0
+        var recoveryRounds = 0
+        val stallPolls = (WAIT_STALL_RECOVERY_MS / pollMs.coerceAtLeast(1))
+            .toInt()
+            .coerceAtLeast(WAIT_STALL_MIN_POLLS)
         while (true) {
             throwIfControlRequested(control, lastCompleted, lastCompletedIndex)
             ensureWithinTaskDeadline(task, runDeadline)
@@ -791,9 +810,59 @@ class LocalAutomationExecutor(
                 ui.swipeUp()
             }
             if (matches(task, locatorRef, condition)) return
+            // FLEET-20 wiring: a page-arrival wait stalled beyond the stall window
+            // gets ONE bounded recovery round (allowlisted dialog dismiss / BACK
+            // toward the target page, re-sampling after every action). A failed
+            // recovery fails the step closed instead of passively burning the
+            // whole step budget; at most MAX_WAIT_RECOVERY_ROUNDS rounds run,
+            // afterwards polling continues to the normal deadline.
+            if (condition == NodeCondition.EXISTS && locatorRef in WAIT_RECOVERY_LOCATORS) {
+                pollsWithoutMatch += 1
+                if (pollsWithoutMatch >= stallPolls && recoveryRounds < MAX_WAIT_RECOVERY_ROUNDS) {
+                    recoveryRounds += 1
+                    pollsWithoutMatch = 0
+                    ui.log(LogLevel.WARN, "NAV_WAIT_STALLED locator=$locatorRef round=$recoveryRounds")
+                    when (val outcome = recoverStalledWait(task, locatorRef, condition, runDeadline, control)) {
+                        is NavigationReset.WaitRecovery.Recovered ->
+                            if (matches(task, locatorRef, condition)) return
+                        is NavigationReset.WaitRecovery.Failed -> outcome.orThrow()
+                    }
+                }
+            }
             sleep(pollMs)
         }
     }
+
+    /**
+     * FLEET-20: bounded wait-step recovery. [NavigationReset.recoverStalledWait]
+     * owns the loop; this adapter feeds it the executor's cancellation/deadline
+     * checkpoint, the navigation primitives and a page summary sampled through
+     * [LocalAutomationUi.pageSummary] (single conservative epoch: digests are
+     * always comparable, so a stale page can never masquerade as progress).
+     */
+    private suspend fun recoverStalledWait(
+        task: AutomationTask,
+        locatorRef: String,
+        condition: NodeCondition,
+        runDeadline: Long,
+        control: ExecutionControl?,
+    ): NavigationReset.WaitRecovery = NavigationReset(object : NavigationReset.Port {
+        override fun atRootPage() = ui.atRootPage(task.targetPackage)
+        override fun isTargetForeground() = ui.isTargetForeground(task.targetPackage)
+        override suspend fun dismissBlockedDialog() = ui.dismissBlockedDialog(task.targetPackage)
+        override suspend fun goBack() = ui.goBack()
+        override suspend fun relaunch() = ui.restartTargetApp(task.targetPackage)
+        override suspend fun settle(ms: Long) = sleep(ms)
+        override fun checkpoint() {
+            throwIfControlRequested(control)
+            ensureWithinTaskDeadline(task, runDeadline)
+        }
+        override fun event(code: String) = ui.log(LogLevel.WARN, code)
+    }).recoverStalledWait(object : NavigationReset.PageSummarySource {
+        override fun sessionEpoch(): Long = 0L
+        override fun pageDigest(): String = ui.pageSummary(task.targetPackage)
+        override fun isTargetPage(): Boolean = matches(task, locatorRef, condition)
+    })
 
     private suspend fun waitForText(
         task: AutomationTask,
@@ -850,5 +919,11 @@ class LocalAutomationExecutor(
         // Wrong-card defense 1 polling (detail-page title verification).
         const val DETAIL_VERIFY_POLL_MS = 400L
         const val DETAIL_MISMATCH_CONFIRM_POLLS = 2
+
+        // FLEET-20 wait-recovery admission: page-arrival waits stalled this long
+        // get a bounded recovery round; at most two rounds per step.
+        const val WAIT_STALL_RECOVERY_MS = 15_000L
+        const val WAIT_STALL_MIN_POLLS = 10
+        const val MAX_WAIT_RECOVERY_ROUNDS = 2
     }
 }
