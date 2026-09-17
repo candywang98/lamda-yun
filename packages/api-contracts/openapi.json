@@ -1519,6 +1519,200 @@
         "title": "DebugSessionView",
         "type": "object"
       },
+      "DeleteAbortRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Evidence",
+            "type": "string"
+          }
+        },
+        "required": [
+          "evidence"
+        ],
+        "title": "DeleteAbortRequest",
+        "type": "object"
+      },
+      "DeleteApprovalCreateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "accountId": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Accountid",
+            "type": "string"
+          },
+          "deviceId": {
+            "maxLength": 36,
+            "minLength": 1,
+            "title": "Deviceid",
+            "type": "string"
+          },
+          "identityEvidence": {
+            "$ref": "#/components/schemas/DeleteIdentityEvidencePayload"
+          },
+          "validFrom": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Validfrom"
+          },
+          "validUntil": {
+            "format": "date-time",
+            "title": "Validuntil",
+            "type": "string"
+          }
+        },
+        "required": [
+          "deviceId",
+          "accountId",
+          "identityEvidence",
+          "validUntil"
+        ],
+        "title": "DeleteApprovalCreateRequest",
+        "type": "object"
+      },
+      "DeleteIdentityEvidencePayload": {
+        "additionalProperties": false,
+        "properties": {
+          "listingState": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Listingstate"
+          },
+          "platformItemId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Platformitemid"
+          },
+          "price": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price"
+          },
+          "titleContains": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Titlecontains"
+          }
+        },
+        "title": "DeleteIdentityEvidencePayload",
+        "type": "object"
+      },
+      "DeleteIssueConfirmRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "taskId": {
+            "maxLength": 36,
+            "minLength": 1,
+            "title": "Taskid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "taskId"
+        ],
+        "title": "DeleteIssueConfirmRequest",
+        "type": "object"
+      },
+      "DeleteResolveRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "decision": {
+            "enum": [
+              "CONFIRMED_APPLIED",
+              "CONFIRMED_NOT_SUBMITTED"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "evidence": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Evidence",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision",
+          "evidence"
+        ],
+        "title": "DeleteResolveRequest",
+        "type": "object"
+      },
+      "DeleteResultReportRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "approvalId": {
+            "maxLength": 36,
+            "minLength": 1,
+            "title": "Approvalid",
+            "type": "string"
+          },
+          "readback": {
+            "additionalProperties": true,
+            "title": "Readback",
+            "type": "object"
+          },
+          "taskId": {
+            "maxLength": 36,
+            "minLength": 1,
+            "title": "Taskid",
+            "type": "string"
+          },
+          "verdict": {
+            "enum": [
+              "VERIFIED_DELETED",
+              "PENDING_VERIFICATION",
+              "STILL_PRESENT",
+              "INCONCLUSIVE"
+            ],
+            "title": "Verdict",
+            "type": "string"
+          }
+        },
+        "required": [
+          "approvalId",
+          "taskId",
+          "verdict"
+        ],
+        "title": "DeleteResultReportRequest",
+        "type": "object"
+      },
       "DeviceCreate": {
         "properties": {
           "androidVersion": {
@@ -14049,6 +14243,342 @@
         "summary": "Submit Publish",
         "tags": [
           "wechat-publisher"
+        ]
+      }
+    },
+    "/api/v1/xianyu/delete/approvals": {
+      "post": {
+        "operationId": "create_delete_approval_api_v1_xianyu_delete_approvals_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteApprovalCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Delete Approval Api V1 Xianyu Delete Approvals Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Delete Approval",
+        "tags": [
+          "xianyu-delete-evidence"
+        ]
+      }
+    },
+    "/api/v1/xianyu/delete/approvals/{approval_id}": {
+      "get": {
+        "operationId": "get_delete_approval_api_v1_xianyu_delete_approvals__approval_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "approval_id",
+            "required": true,
+            "schema": {
+              "title": "Approval Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Delete Approval Api V1 Xianyu Delete Approvals  Approval Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Delete Approval",
+        "tags": [
+          "xianyu-delete-evidence"
+        ]
+      }
+    },
+    "/api/v1/xianyu/delete/approvals/{approval_id}:abort": {
+      "post": {
+        "operationId": "abort_delete_approval_api_v1_xianyu_delete_approvals__approval_id__abort_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "approval_id",
+            "required": true,
+            "schema": {
+              "title": "Approval Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteAbortRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Abort Delete Approval Api V1 Xianyu Delete Approvals  Approval Id  Abort Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Abort Delete Approval",
+        "tags": [
+          "xianyu-delete-evidence"
+        ]
+      }
+    },
+    "/api/v1/xianyu/delete/approvals/{approval_id}:issue-confirm": {
+      "post": {
+        "operationId": "issue_delete_confirm_api_v1_xianyu_delete_approvals__approval_id__issue_confirm_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "approval_id",
+            "required": true,
+            "schema": {
+              "title": "Approval Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteIssueConfirmRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Issue Delete Confirm Api V1 Xianyu Delete Approvals  Approval Id  Issue Confirm Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Issue Delete Confirm",
+        "tags": [
+          "xianyu-delete-evidence"
+        ]
+      }
+    },
+    "/api/v1/xianyu/delete/approvals/{approval_id}:resolve": {
+      "post": {
+        "operationId": "resolve_delete_approval_api_v1_xianyu_delete_approvals__approval_id__resolve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "approval_id",
+            "required": true,
+            "schema": {
+              "title": "Approval Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteResolveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Resolve Delete Approval Api V1 Xianyu Delete Approvals  Approval Id  Resolve Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resolve Delete Approval",
+        "tags": [
+          "xianyu-delete-evidence"
+        ]
+      }
+    },
+    "/api/v1/xianyu/delete/results": {
+      "post": {
+        "operationId": "report_delete_result_api_v1_xianyu_delete_results_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteResultReportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Report Delete Result Api V1 Xianyu Delete Results Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Report Delete Result",
+        "tags": [
+          "xianyu-delete-evidence"
+        ]
+      }
+    },
+    "/api/v1/xianyu/delete/results/{approval_id}": {
+      "get": {
+        "operationId": "get_delete_result_api_v1_xianyu_delete_results__approval_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "approval_id",
+            "required": true,
+            "schema": {
+              "title": "Approval Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Delete Result Api V1 Xianyu Delete Results  Approval Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Delete Result",
+        "tags": [
+          "xianyu-delete-evidence"
         ]
       }
     },
