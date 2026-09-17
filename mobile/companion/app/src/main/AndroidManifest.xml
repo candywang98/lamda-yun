@@ -9,6 +9,9 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- U11 apk-release/v1 self-update via PackageInstaller sessions (API 26+
+         sideload gate); user confirmation still applies, never a silent grant. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <!-- Android 11+ package visibility: without this, getLaunchIntentForPackage()
          returns null for Idlefish even when the app is installed. -->
@@ -91,6 +94,17 @@
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
                 <action android:name="android.intent.action.USER_UNLOCKED" />
+            </intent-filter>
+        </receiver>
+        <!-- U11 apk-release/v1: PackageInstaller session status receiver. The
+             status IntentSender is an explicit, app-local broadcast; deliveries
+             arriving while no coordinator is attached are journaled on disk. -->
+        <receiver
+            android:name=".updates.ApkInstallReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.company.cloudctl.companion.updates.ACTION_INSTALL_STATUS" />
             </intent-filter>
         </receiver>
     </application>
