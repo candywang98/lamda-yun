@@ -273,4 +273,179 @@ object PublishedCardLocator {
         visit(root)
         return out
     }
+
+    // -------------------------------------------------------------------------
+    // B13 (fleet-first-20260916.1) — action-button-first card interaction.
+    // A direct card action (托管/降价/编辑/诊断/删除/重新上架) prefers the
+    // BUTTON over the card body, but only with a same-card proof: the button
+    // rectangle must sit fully inside the ONE card pinned by the title match.
+    // Full-list wrappers, cross-card parents and multi-label blobs are never
+    // tap targets; every rejection fails closed with a readable reason.
+    // -------------------------------------------------------------------------
+
+    /** Result of [locateActionButton]. */
+    sealed interface ActionOutcome {
+        /**
+         * Exactly one card matched the title and exactly one single-label
+         * button was proven inside it. Tap [buttonBounds] (the button, not
+         * the card center); [cardBounds] is the same-card proof.
+         */
+        data class Button(
+            val buttonBounds: Bounds,
+            val cardBounds: Bounds,
+            val actionLabel: String,
+            val matchedTitleLine: String,
+        ) : ActionOutcome
+
+        /** No visible card under the tab strip carries the title fragment. */
+        data object NotFound : ActionOutcome
+
+        /** Several distinct cards matched the title; a button pick would be a guess. */
+        data class AmbiguousCard(val count: Int, val matchedLines: List<String>) : ActionOutcome
+
+        /** Title matched but no structurally safe card rectangle could be proved. */
+        data class UnverifiedCardBounds(val matchedLines: List<String>) : ActionOutcome
+
+        /** The label resolved to several distinct nodes inside the SAME card (same-name buttons). */
+        data class AmbiguousAction(val count: Int, val locations: List<Bounds>, val reason: String) : ActionOutcome
+
+        /**
+         * Label-matching nodes overlap the card without being inside it — a
+         * full-list wrapper or a parent spanning neighbouring cards. Never a
+         * tap target.
+         */
+        data class CrossCardTarget(val reason: String) : ActionOutcome
+
+        /** Card proven, but no single-label button node exists inside it. */
+        data class NoActionButton(val cardBounds: Bounds, val matchedTitleLine: String, val reason: String) :
+            ActionOutcome
+    }
+
+    /**
+     * Resolve the card exactly like [locate], then the action button inside
+     * that card. The button proof is two-sided:
+     *
+     * - a button candidate is a VISIBLE node whose own text/desc line set is
+     *   exactly `{actionLabel}` — a blob carrying several labels
+     *   (`托管\n降价\n编辑\n诊断`) has its center BETWEEN buttons and is not
+     *   a candidate at all;
+     * - the candidate's bounds must be fully contained in the matched card's
+     *   bounds. Any label match that merely OVERLAPS the card (wrapper
+     *   aggregating several cards, a parent of two adjacent cards) is
+     *   rejected as [ActionOutcome.CrossCardTarget].
+     */
+    fun locateActionButton(
+        scrollables: List<UiNode>,
+        cardAreaTop: Int,
+        titleContains: String,
+        actionLabel: String,
+    ): ActionOutcome {
+        require(actionLabel.isNotBlank()) { "actionLabel must not be blank" }
+        // Step 1: pin the card with the exact locate() machinery.
+        val matches = mutableListOf<Pair<Bounds, String>>()
+        val unverified = mutableListOf<String>()
+        for (scrollable in scrollables) {
+            for (child in scrollable.children) {
+                collectMatches(
+                    node = child,
+                    ancestors = emptyList(),
+                    scrollBounds = scrollable.bounds,
+                    cardAreaTop = cardAreaTop,
+                    titleContains = titleContains,
+                    out = matches,
+                    unverified = unverified,
+                )
+            }
+        }
+        val distinct = collapseNested(matches)
+        val card = when (distinct.size) {
+            0 -> return if (unverified.isEmpty()) ActionOutcome.NotFound
+                else ActionOutcome.UnverifiedCardBounds(unverified.distinct())
+            1 -> distinct.single()
+            else -> return ActionOutcome.AmbiguousCard(distinct.size, distinct.map { it.second })
+        }
+        val cardBounds = card.first
+
+        // Step 2: harvest label-matching nodes over the same visible tree.
+        val inCard = mutableListOf<Pair<Bounds, String>>()
+        val crossCard = mutableListOf<String>()
+        for (scrollable in scrollables) {
+            for (child in scrollable.children) {
+                collectActionButtonCandidates(
+                    node = child,
+                    cardBounds = cardBounds,
+                    actionLabel = actionLabel,
+                    inCard = inCard,
+                    crossCard = crossCard,
+                )
+            }
+        }
+        if (crossCard.isNotEmpty() && inCard.isEmpty()) {
+            return ActionOutcome.CrossCardTarget(
+                "action label '$actionLabel' only matched rectangles overlapping (not inside) the card " +
+                    "${cardBounds.wire()}: ${crossCard.distinct().joinToString("; ")}",
+            )
+        }
+        val buttons = collapseNested(inCard)
+        return when (buttons.size) {
+            0 -> ActionOutcome.NoActionButton(
+                cardBounds = cardBounds,
+                matchedTitleLine = card.second,
+                reason = "no visible node inside card ${cardBounds.wire()} carries the single-line label " +
+                    "'$actionLabel' (multi-label blobs are not buttons)",
+            )
+            1 -> ActionOutcome.Button(
+                buttonBounds = buttons.single().first,
+                cardBounds = cardBounds,
+                actionLabel = actionLabel,
+                matchedTitleLine = card.second,
+            )
+            else -> ActionOutcome.AmbiguousAction(
+                count = buttons.size,
+                locations = buttons.map { it.first },
+                reason = "label '$actionLabel' resolved to ${buttons.size} distinct nodes inside card " +
+                    "${cardBounds.wire()}: ${buttons.joinToString { it.first.wire() }}; " +
+                    "same-name buttons fail closed",
+            )
+        }
+    }
+
+    /**
+     * One button candidate per own-text/desc node whose trimmed line set is
+     * exactly `{actionLabel}`. Nodes overlapping the card without being
+     * contained in it are recorded as cross-card hazards instead.
+     */
+    private fun collectActionButtonCandidates(
+        node: UiNode,
+        cardBounds: Bounds,
+        actionLabel: String,
+        inCard: MutableList<Pair<Bounds, String>>,
+        crossCard: MutableList<String>,
+    ) {
+        if (node.visible) {
+            val ownLines = buildList {
+                node.text?.let { addAll(it.split('\n')) }
+                node.description?.let { addAll(it.split('\n')) }
+            }.map { it.trim() }.filter { it.isNotEmpty() }.distinct()
+            if (ownLines == listOf(actionLabel)) {
+                when {
+                    contains(cardBounds, node.bounds) -> inCard += node.bounds to actionLabel
+                    overlaps(node.bounds, cardBounds) -> crossCard += "node ${node.bounds.wire()} " +
+                        "(lines=${ownLines})"
+                }
+            }
+        }
+        for (child in node.children) {
+            collectActionButtonCandidates(
+                child, cardBounds, actionLabel, inCard, crossCard,
+            )
+        }
+    }
+
+    /** True when the rectangles share at least one point without containment. */
+    private fun overlaps(a: Bounds, b: Bounds): Boolean =
+        a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom
+
+    /** Wire-format rendering for reason strings (left,top,right,bottom). */
+    private fun Bounds.wire(): String = "$left,$top,$right,$bottom"
 }
