@@ -20,6 +20,10 @@ from .db import Database
 from .debug_routes import router as debug_router
 from .debug_service import DebugSessionService
 from .dev_seed import seed_development_data
+from .features.schedules import FleetScheduleService
+from .features.schedules.routes import router as fleet_schedule_router
+from .fleet_orders import FleetOrdersService
+from .fleet_orders import router as fleet_orders_router
 from .im_routes import companion_router as im_companion_router
 from .im_routes import operator_router as im_operator_router
 from .im_service import ImService
@@ -27,8 +31,6 @@ from .live import LiveService
 from .live import companion_router as live_companion_router
 from .live import operator_router as live_operator_router
 from .media_store import ObjectStore, create_object_store
-from .fleet_orders import FleetOrdersService
-from .fleet_orders import router as fleet_orders_router
 from .mobile_routes import companion_router
 from .mobile_routes import operator_router as mobile_operator_router
 from .mobile_service import MobileTaskService
@@ -131,6 +133,8 @@ def create_app(
     )
     app.state.platform_task_service = PlatformTaskService(database, app.state.mobile_task_service)
     app.state.task_schedule_service = TaskScheduleService(database, app.state.platform_task_service)
+    fleet_platform = app.state.platform_task_service
+    app.state.fleet_schedule_service = FleetScheduleService(database, fleet_platform)
     app.state.control_service = ControlService(
         database,
         resolved_settings,
@@ -244,6 +248,7 @@ def create_app(
     app.include_router(mobile_operator_router)
     app.include_router(platform_task_router)
     app.include_router(schedule_router)
+    app.include_router(fleet_schedule_router)
     app.include_router(im_operator_router)
     app.include_router(im_companion_router)
     app.include_router(live_operator_router)
