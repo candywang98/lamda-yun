@@ -1,0 +1,17 @@
+{
+  "contract": "control-plane/v1@20260917.1",
+  "case": "positive-cancel-ack",
+  "branches": [
+    {
+      "branch": "APPLIED",
+      "steps": ["server CANCEL(seq=s)", "device中性化UI(丢弃表单/回退)", "device POST /companion/v2/control/ack {taskId, taskRevision, result: CANCEL_APPLIED}"],
+      "serverState": "CANCELLED"
+    },
+    {
+      "branch": "DEFERRED_RECONCILING",
+      "steps": ["server CANCEL(seq=s)", "device发现UNKNOWN/不可逆已提交", "device ack {result: CANCEL_DEFERRED_RECONCILING, reason}"],
+      "serverState": "RECONCILING(转人工对账，不硬终态)"
+    }
+  ],
+  "invariants": ["ack前CANCEL是desired非done", "服务器终态不得先于ack(DEFERRED分支除外)"]
+}

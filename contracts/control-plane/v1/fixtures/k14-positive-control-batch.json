@@ -1,0 +1,17 @@
+{
+  "contract": "control-plane/v1@20260917.1",
+  "case": "positive-control-batch",
+  "deviceId": "dev-b0644fb5",
+  "request": {"after": 1301, "limit": 50},
+  "response": {
+    "from": 1302,
+    "through": 1307,
+    "highWatermark": 1307,
+    "events": [
+      {"seq": 1302, "taskId": "task-aaa", "taskRevision": 41, "type": "CANCEL", "issuedAt": "2026-09-17T04:30:00Z"},
+      {"seq": 1305, "taskId": "task-bbb", "taskRevision": 7,  "type": "SET_CONFIRM_DEADLINE", "issuedAt": "2026-09-17T04:31:00Z"},
+      {"seq": 1307, "taskId": "task-ccc", "taskRevision": 3,  "type": "ABANDON", "issuedAt": "2026-09-17T04:32:00Z"}
+    ]
+  },
+  "invariants": ["seq全设备单调且每事件唯一", "from>after", "through<=highWatermark", "事件seq与from/through一致"]
+}

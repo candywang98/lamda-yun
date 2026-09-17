@@ -1,0 +1,11 @@
+{
+  "contract": "control-plane/v1@20260917.1",
+  "case": "negative-cursor-too-old",
+  "request": {"after": 42, "limit": 50},
+  "expect": {
+    "status": 410,
+    "code": "CURSOR_TOO_OLD",
+    "snapshotRequired": true,
+    "rule": "control-plane/v1 §2.1: 禁止以空列表假装无变化；retention跨窗必须走snapshot"
+  }
+}

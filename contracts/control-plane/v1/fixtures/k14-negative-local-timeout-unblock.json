@@ -1,0 +1,10 @@
+{
+  "contract": "control-plane/v1@20260917.1",
+  "case": "negative-local-timeout-unblock",
+  "scenario": "本地PAUSED镜像超过任意时长+lease过期+心跳N次",
+  "expect": {
+    "forbidden": ["自动解除PAUSED blocker", "跳过队列头领取新破坏性任务", "删除本地UNKNOWN台账行"],
+    "required": ["转SUSPECT_ORPHANED并告警", "强制control sync", "触发reconcile-snapshot对账", "等待服务器ABANDON/CANCEL权威解除"],
+    "rule": "control-plane/v1 §3: 本地时钟永远不是解除PAUSED/UNKNOWN的依据（D-7）"
+  }
+}

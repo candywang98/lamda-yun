@@ -3880,12 +3880,16 @@
         "python3 scripts/plan_guard.py docs/current/tasks.json"
       ],
       "contract": "按本任务冻结",
-      "dev_state": "NOT_STARTED",
-      "acceptance_state": "NOT_RUN",
+      "dev_state": "SOFTWARE_DONE",
+      "acceptance_state": "SOFTWARE_ACCEPTED",
       "baseline_sha": "51e07a3",
       "evidence": "artifacts/delivery-20260916/K14/",
       "scope_note": "专家评审结论：原(c)+(d)修正为 watermark+cursor+snapshot+server-abandon；(d)降级为可观测性",
-      "risk": "高"
+      "risk": "高",
+      "activation": {
+        "delivered_at": "2026-09-17T04:40:00+08:00",
+        "note": "契约+4fixtures+checker退出码0；依据专家评审D-7；消费者义务已写入"
+      }
     },
     {
       "id": "A14",
