@@ -3936,7 +3936,7 @@
         ".venv/bin/python -m pytest tests/integration/ tests/unit/ -q"
       ],
       "contract": "K14冻结后",
-      "dev_state": "NOT_STARTED",
+      "dev_state": "IN_PROGRESS",
       "acceptance_state": "NOT_RUN",
       "baseline_sha": "51e07a3",
       "evidence": "artifacts/delivery-20260916/A14/",
@@ -3987,7 +3987,7 @@
         "cd mobile/companion && ./gradlew testDebugUnitTest"
       ],
       "contract": "K14冻结后",
-      "dev_state": "NOT_STARTED",
+      "dev_state": "IN_PROGRESS",
       "acceptance_state": "NOT_RUN",
       "baseline_sha": "51e07a3",
       "evidence": "artifacts/delivery-20260916/B17/",
