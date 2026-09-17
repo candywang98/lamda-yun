@@ -46,6 +46,43 @@ class MediaDeliveryTest {
         }
     }
 
+    @Test
+    fun interruptedDownloadLeavesNoHalfFileBehind() {
+        val root = Files.createTempDirectory("cloudctl-media").toFile()
+        try {
+            val payload = "image-bytes".toByteArray()
+            val item = MediaManifestItem("asset-1", "cover.jpg", sha("image-bytes"), payload.size.toLong(), "image/jpeg")
+            val manifest = MediaManifest("delivery-1", listOf(item))
+            val store = MediaDeliveryStore(root)
+
+            // 断下载: the stream dies after a few bytes; nothing may commit.
+            val broken = object : java.io.InputStream() {
+                private var served = 0
+                override fun read(): Int {
+                    if (served >= 4) throw java.io.IOException("connection reset mid-download")
+                    served += 1
+                    return payload[served - 1].toInt()
+                }
+            }
+            assertFailsWith<java.io.IOException> { store.install(manifest, item, broken) }
+
+            // 截断 (early EOF): size mismatch; still nothing commits.
+            assertFailsWith<IllegalArgumentException> {
+                store.install(manifest, item, ByteArrayInputStream(payload.copyOf(4)))
+            }
+
+            assertFalse(File(root, "delivery-1/.cover.jpg.part").exists())
+            assertFalse(File(root, "delivery-1/cover.jpg").exists())
+            assertTrue(root.listFiles()?.flatMap { it.listFiles().orEmpty().toList() }.orEmpty().isEmpty())
+
+            // The delivery is still usable afterwards: a clean retry commits.
+            val target = store.install(manifest, item, ByteArrayInputStream(payload))
+            assertEquals("image-bytes", target.readText())
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
     private fun sha(value: String): String = MessageDigest.getInstance("SHA-256")
         .digest(value.toByteArray())
         .joinToString("") { "%02x".format(it) }
