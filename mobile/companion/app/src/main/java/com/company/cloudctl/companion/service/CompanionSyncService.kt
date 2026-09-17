@@ -34,6 +34,14 @@ import com.company.cloudctl.companion.automation.TargetLocatorRegistry
 import com.company.cloudctl.companion.automation.TaskPausedException
 import com.company.cloudctl.companion.automation.DestructiveClickGate
 import com.company.cloudctl.companion.automation.XianyuMaintenanceLayout
+import com.company.cloudctl.companion.control.CapabilityProbe
+import com.company.cloudctl.companion.control.ControlEvent
+import com.company.cloudctl.companion.control.ControlLoopOrchestrator
+import com.company.cloudctl.companion.control.ControlPlaneJson
+import com.company.cloudctl.companion.control.ControlStateStore
+import com.company.cloudctl.companion.control.ControlSyncClient
+import com.company.cloudctl.companion.control.PinnedControlPlaneTransport
+import com.company.cloudctl.companion.control.SuspectOrphanedPolicy
 import com.company.cloudctl.companion.data.AutomationStore
 import com.company.cloudctl.companion.im.DutyController
 import com.company.cloudctl.companion.im.ImMonitor
@@ -112,6 +120,22 @@ class CompanionSyncService : Service() {
     @Volatile
     private var pendingResume: ResumeCommand? = null
 
+    // B17 control plane: shared between the sync loop (cursor catch-up) and
+    // the presence loop (heartbeat watermark / inline events, §2.3). Built
+    // lazily once a binding exists; [ControlStateStore] owns all durable state.
+    @Volatile
+    private var controlRuntime: ControlRuntime? = null
+    @Volatile
+    private var suspectForceSnapshot = false
+    @Volatile
+    private var suspectActive = false
+
+    private class ControlRuntime(
+        val state: ControlStateStore,
+        val client: ControlSyncClient,
+        val orchestrator: ControlLoopOrchestrator,
+    )
+
     // im-live slice 2, gap 2: corrects placeholder notification bodies with the
     // real conversation text once a reply task leaves the chat page open.
     private val imBodyEnricher = com.company.cloudctl.companion.im.ImBodyEnricher(
@@ -125,6 +149,9 @@ class CompanionSyncService : Service() {
         networkAvailability = NetworkAvailability(this)
         mediaDeliveryCoordinator = MediaDeliveryCoordinator(this)
         store.recoverInterruptedRuns()
+        // B17 startup capability self-check (CAP_*); best-effort, never gates startup.
+        runCatching { runtimeStatus.updateCapabilities(CapabilityProbe.production(this).probe()) }
+            .onFailure { android.util.Log.w("CompanionSync", "Capability probe deferred", it) }
         recipes = RecipeLifecycle(RecipePackageManager(File(filesDir, "recipes"), recipePublicKeys()), store)
         runCatching { recipes.restore() }.onFailure {
             android.util.Log.e("CompanionSync", "Recipe restoration failed", it)
@@ -199,11 +226,34 @@ class CompanionSyncService : Service() {
                     health.temperatureCelsius?.let { healthJson.put("temperatureCelsius", it.toDouble()) }
                     payload.put("health", healthJson)
                     // batteryOptimizationIgnored 字段已从 API schema 中移除
+                    // B17 §2.3: the heartbeat is the control-plane escape channel —
+                    // it carries our cursor + safety barrier out and the server
+                    // watermark (+ ≤2 inline events) back. Frozen contract shape:
+                    // top-level request/response fields.
+                    val control = controlRuntime()
+                    control?.let {
+                        val fields = it.client.heartbeatRequestFields(
+                            it.state.lastAppliedControlSeq(),
+                            currentSafetyBarrier(),
+                        )
+                        payload.put("lastAppliedControlSeq", fields.getLong("lastAppliedControlSeq"))
+                        payload.put("safetyBarrier", fields.getString("safetyBarrier"))
+                    }
                     android.util.Log.d("CompanionSync", "Sending heartbeat payload: $payload")
                     val heartbeat = withContext(Dispatchers.IO) { client.deviceHeartbeat(payload) }
                     android.util.Log.i("CompanionSync", "Heartbeat successful")
                     runtimeStatus.markPresence(true)
                     retryPolicy.reset()
+                    control?.let { runtime ->
+                        val watermark = heartbeat.optLong("controlHighWatermark", -1L)
+                        val inline = parseInlineControlEvents(heartbeat)
+                        if (watermark >= 0 || inline.isNotEmpty()) {
+                            runtime.client.onHeartbeatResponse(
+                                controlHighWatermark = watermark.coerceAtLeast(0),
+                                inlineEvents = inline,
+                            )
+                        }
+                    }
                     ResumeCommand.fromHeartbeat(heartbeat)?.let { pendingResume = it }
                     val grant = PreviewGrant.fromHeartbeat(heartbeat)
                     if (grant != null) {
@@ -284,6 +334,38 @@ class CompanionSyncService : Service() {
         while (scope.isActive) {
             var claimed: ClaimedTask? = null
             try {
+                // B17 control-plane/v1 §0 (frozen invariant): control-plane
+                // synchronization runs FIRST and is never gated by local
+                // execution state, queue state, or accessibility readiness —
+                // a blocked queue head must not delay cancel delivery. The
+                // mirror converges inside the same transactional apply; the
+                // SUSPECT_ORPHANED barrier evaluation follows (§3.3: alert +
+                // forced sync + snapshot reconcile, never a local unblock);
+                // only then do the pre-existing claim gates apply.
+                var claimPermittedByControl = true
+                val control = controlRuntime()
+                if (control != null) {
+                    val forceSnapshot = suspectForceSnapshot
+                    suspectForceSnapshot = false
+                    val pass = runCatching {
+                        withContext(Dispatchers.IO) {
+                            control.orchestrator.runPreClaimPass(forceSnapshot)
+                        }
+                    }.onFailure { error ->
+                        android.util.Log.w("CompanionSync", "Control sync deferred: ${error.message}")
+                    }.getOrNull()
+                    if (pass != null) {
+                        if (!pass.claimPermitted) claimPermittedByControl = false
+                        if (pass.suspect == null) {
+                            if (suspectActive) {
+                                suspectActive = false
+                                runtimeStatus.clearSuspectOrphanedAlert()
+                            }
+                        } else {
+                            suspectActive = true
+                        }
+                    }
+                }
                 val resume = pendingResume
                 if (resume != null) {
                     pendingResume = null
@@ -312,7 +394,9 @@ class CompanionSyncService : Service() {
                     // not stably ready — a claimed task would only be released
                     // again. The instant capture leaves the mid-flight disconnect
                     // window to acquireFreshClaimAccessibility's release path.
-                    if (!store.hasBlockingHead() &&
+                    // B17: an active SUSPECT_ORPHANED signal additionally blocks
+                    // destructive-task claims until the server resolves it.
+                    if (!store.hasBlockingHead() && claimPermittedByControl &&
                         accessibilityRuntimeReadiness().capture() is AccessibilityRuntimeReadiness.Ready<*>
                     ) {
                         claimed = withContext(Dispatchers.IO) { client.claim() }
@@ -1562,6 +1646,57 @@ class CompanionSyncService : Service() {
             bearerToken = token,
             certificateSha256 = value.getString("certificateSha256"),
         ) to value.getString("deviceId")
+    }
+
+    /** B17: lazily builds the shared control-plane runtime once a binding exists. */
+    private fun controlRuntime(): ControlRuntime? {
+        controlRuntime?.let { return it }
+        val configured = loadConnection() ?: return null
+        val state = ControlStateStore(store)
+        val client = ControlSyncClient(PinnedControlPlaneTransport(configured.first), state)
+        val runtime = ControlRuntime(
+            state = state,
+            client = client,
+            orchestrator = ControlLoopOrchestrator(
+                syncClient = client,
+                state = state,
+                pausedHead = { store.pausedHeadInfo() },
+                suspectPolicy = SuspectOrphanedPolicy(),
+                onSuspectOrphaned = { signal ->
+                    // §3.3: alert + forced control sync + snapshot reconcile +
+                    // block destructive claims. Never clears the PAUSED blocker.
+                    android.util.Log.w(
+                        "CompanionSync",
+                        "SUSPECT_ORPHANED task=${signal.taskId} pausedSince=${signal.pausedSince} " +
+                            "controlLag=${signal.controlLag}",
+                    )
+                    runtimeStatus.markSuspectOrphaned(
+                        signal.taskId,
+                        "PAUSED since ${signal.pausedSince}; control watermark lag ${signal.controlLag}; " +
+                            "awaiting server-authoritative resolution",
+                    )
+                    suspectForceSnapshot = true
+                },
+            ),
+        )
+        controlRuntime = runtime
+        return runtime
+    }
+
+    /** §2.3 safetyBarrier: unresolved ledger rows outweigh the suspect alert. */
+    private fun currentSafetyBarrier(): String = when {
+        store.unresolvedControlledActionKeys().isNotEmpty() -> "RECONCILING"
+        suspectActive -> "UNKNOWN"
+        else -> "NONE"
+    }
+
+    private fun parseInlineControlEvents(response: JSONObject): List<ControlEvent> {
+        val array = response.optJSONArray("inlineEvents") ?: return emptyList()
+        return buildList {
+            for (index in 0 until array.length()) {
+                runCatching { add(ControlPlaneJson.parseControlEvent(array.getJSONObject(index))) }
+            }
+        }
     }
 
     private fun createNotificationChannel() {
