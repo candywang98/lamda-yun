@@ -23,4 +23,15 @@ class ImeAvailabilityTest {
         assertFalse(ImeAvailability.listed("com.google.android.inputmethod.latin/.LatinIME", pkg))
         assertFalse(ImeAvailability.listed(null, pkg))
     }
+
+    @Test
+    fun pickerRequestIsTheRecoverableEnablingPath() {
+        // Public system picker only; a framework failure surfaces false, never a crash.
+        var opened = false
+        assertTrue(ImeAvailability.pickerRequest { opened = true })
+        assertTrue(opened)
+        assertFalse(
+            ImeAvailability.pickerRequest { throw IllegalStateException("window lost") },
+        )
+    }
 }
