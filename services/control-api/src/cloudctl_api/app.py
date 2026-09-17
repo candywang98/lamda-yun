@@ -20,6 +20,8 @@ from .db import Database
 from .debug_routes import router as debug_router
 from .debug_service import DebugSessionService
 from .dev_seed import seed_development_data
+from .fleet_orders import FleetOrdersService
+from .fleet_orders import router as fleet_orders_router
 from .im_routes import companion_router as im_companion_router
 from .im_routes import operator_router as im_operator_router
 from .im_service import ImService
@@ -27,8 +29,6 @@ from .live import LiveService
 from .live import companion_router as live_companion_router
 from .live import operator_router as live_operator_router
 from .media_store import ObjectStore, create_object_store
-from .fleet_orders import FleetOrdersService
-from .fleet_orders import router as fleet_orders_router
 from .mobile_routes import companion_router
 from .mobile_routes import operator_router as mobile_operator_router
 from .mobile_service import MobileTaskService
@@ -52,6 +52,7 @@ from .xianyu_maintenance import XianyuMaintenanceService
 from .xianyu_maintenance_routes import router as xianyu_maintenance_router
 from .xianyu_orders import XianyuOrdersService
 from .xianyu_orders_routes import router as xianyu_orders_router
+from .xianyu_publish import xianyu_publish_router
 
 
 def _problem(
@@ -236,6 +237,7 @@ def create_app(
     app.include_router(source_router)
     app.include_router(wechat_router)
     app.include_router(xianyu_maintenance_router)
+    app.include_router(xianyu_publish_router)
     app.include_router(xianyu_orders_router)
     app.include_router(orders_operator_router)
     app.include_router(orders_companion_router)
