@@ -1332,9 +1332,9 @@
       "risk": "中",
       "device_acceptance": "无；仅软件验证",
       "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
-      "dev_state": "NOT_STARTED",
-      "acceptance_state": "NOT_RUN",
-      "evidence": "artifacts/delivery-20260916/B13/",
+      "dev_state": "SOFTWARE_DONE",
+      "acceptance_state": "SOFTWARE_ACCEPTED",
+      "evidence": "agent/fleet-b13 @fac3130 merged 810df24; Root wiring e8b07cd (waitFor 15s stall -> NavigationReset.recoverStalledWait, <=2 rounds/step, NAV_WAIT_* fail-closed; CloudCtlAccessibilityService.pageSummary canonical digest). Android 681 tests / 0 failures (49 new B13 + 3 wiring). FLEET-20 remediation landed; executor-level regression suite green.",
       "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
       "read_only_paths": [
         "contracts/**",
@@ -1404,9 +1404,9 @@
       "risk": "高",
       "device_acceptance": "无；仅软件验证",
       "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
-      "dev_state": "NOT_STARTED",
-      "acceptance_state": "NOT_RUN",
-      "evidence": "artifacts/delivery-20260916/B14/",
+      "dev_state": "SOFTWARE_DONE",
+      "acceptance_state": "SOFTWARE_ACCEPTED",
+      "evidence": "agent/fleet-b14 @b33580bc merged e7219b3. Android 681/0 (40 new: generation gate, field identity, full readback, KeypadEntry, SendAuthorization; fixed real PriceKeypad substring false-pass defect). assembleDebug exit 0; lint not run (time budget).",
       "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
       "read_only_paths": [
         "contracts/**",
@@ -1614,9 +1614,9 @@
       "risk": "中",
       "device_acceptance": "无；仅软件验证",
       "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
-      "dev_state": "NOT_STARTED",
-      "acceptance_state": "NOT_RUN",
-      "evidence": "artifacts/delivery-20260916/C11/",
+      "dev_state": "SOFTWARE_DONE",
+      "acceptance_state": "SOFTWARE_ACCEPTED",
+      "evidence": "agent/fleet-c11 @8284b39 merged 6cc38c7. Web typecheck/test/build exit 0; 223/223 incl. 22 new reconciliation tests. Three-branch only (KEEP_WAITING/CONFIRMED_APPLIED/CONFIRMED_NOT_SUBMITTED), server-authoritative via :mark-unknown/:reconcile; no UNKNOWN-cancel shortcut; 409 conflicts surfaced verbatim.",
       "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
       "read_only_paths": [
         "contracts/**",
@@ -4146,5 +4146,12 @@
       "放弃(d)本地超时解除PAUSED：本地时长与任务有效性无逻辑关系，改为服务器humanConfirmDeadline权威解除+SUSPECT_ORPHANED仅告警",
       "Flutter无障碍树不按Android API分档：改为OEM/build×API×目标App版本×语义能力指纹的capability矩阵"
     ]
-  }
+  },
+  "revision_log": [
+    {
+      "at": "2026-09-17T18:30:00+08:00",
+      "by": "root",
+      "note": "FLEET-26: B13+B14+C11 parallel wave merged (S01 three isolated worktrees from 5bea804); Root landed B13 executor wiring (FLEET-20) and regenerated openapi.json (baseline drift from A14/B17 regen omission). Backend 897 passed after regen (896+1 contract); Android 681/0; Web 223/223."
+    }
+  ]
 }
