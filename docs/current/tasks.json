@@ -3837,6 +3837,158 @@
         "任务特有验证按本任务验收场景落实，记录实际命令与退出码"
       ],
       "activation": "R00核验与R02计划激活后执行；E10需单独选择，不自动进入队列"
+    },
+    {
+      "id": "K14",
+      "name": "冻结设备控制面契约 control-plane/v1（专家评审20260917采纳）",
+      "wave": "W3",
+      "milestone": "M1",
+      "lane": "CTRL",
+      "kind": "GOVERNANCE",
+      "old_ids": [],
+      "packages": [
+        "P08",
+        "P09",
+        "P14"
+      ],
+      "must": [
+        "K10"
+      ],
+      "integration": [],
+      "owned_paths": [
+        "contracts/control-plane/v1/**"
+      ],
+      "required_locks": [
+        "CONTRACT:FLEET"
+      ],
+      "effort_low": 0.5,
+      "effort_high": 1,
+      "implementation": [
+        "设备级单调 deviceControlSeq（非仅per-task revision）+ GET /companion/v2/control?after= 游标端点 + CURSOR_TOO_OLD→reconcile-snapshot 兜底",
+        "heartbeat 携带 lastAppliedControlSeq 上行 + controlHighWatermark/inlineEvents 下行（watermark与catch-up分离）",
+        "客户端 lastAppliedControlSeq 与本地镜像变更同事务持久化；SUSPECT_ORPHANED 仅告警不解除blocker",
+        "服务器侧 humanConfirmDeadline 到期产生 CANCEL/ABANDON（权威解除，禁止本地超时解除）；CANCEL 需 apply/ack，不可安全回退时 CANCEL_DEFERRED_RECONCILING",
+        "task mirror 与 action safety ledger 解耦：服务器终态≠本地UNKNOWN台账可清"
+      ],
+      "acceptance_cases": [
+        "控制面同步永不被本地执行态/无障碍就绪gate（冻结invariant）",
+        "事件retention跨窗后必须能经snapshot收敛",
+        "PAUSED超时只产生告警与强制control sync，绝不自动跳过"
+      ],
+      "acceptance_commands": [
+        "python3 contracts/control-plane/v1/tools/check_fixtures.py",
+        "python3 scripts/plan_guard.py docs/current/tasks.json"
+      ],
+      "contract": "按本任务冻结",
+      "dev_state": "NOT_STARTED",
+      "acceptance_state": "NOT_RUN",
+      "baseline_sha": "51e07a3",
+      "evidence": "artifacts/delivery-20260916/K14/",
+      "scope_note": "专家评审结论：原(c)+(d)修正为 watermark+cursor+snapshot+server-abandon；(d)降级为可观测性",
+      "risk": "高"
+    },
+    {
+      "id": "A14",
+      "name": "服务端控制面热修与身份层D路径（专家评审20260917采纳）",
+      "wave": "W3",
+      "milestone": "M1",
+      "lane": "A",
+      "kind": "DELTA",
+      "old_ids": [],
+      "packages": [
+        "P00",
+        "P02",
+        "P09"
+      ],
+      "must": [
+        "K10"
+      ],
+      "integration": [
+        "K14"
+      ],
+      "owned_paths": [
+        "services/control-api/src/cloudctl_api/mobile_service.py",
+        "services/control-api/src/cloudctl_api/fleet_identity.py",
+        "services/control-api/src/cloudctl_api/auth.py",
+        "tests/integration/test_control_plane_hotfix.py"
+      ],
+      "required_locks": [
+        "API:MOBILE"
+      ],
+      "effort_low": 1,
+      "effort_high": 2,
+      "implementation": [
+        "热修（先行）：deviceHeartbeat 响应携带该设备blocking task的权威 taskId/status/revision，客户端可收敛本地镜像——解除当前死锁类",
+        "K14端点落地：/companion/v2/control 游标 + /companion/v2/reconcile-snapshot",
+        "身份D路径：production模式读取nginx覆写的可信principal头映射tenant/roles（DB映射表），拒绝任何客户端自报身份头；production+DEV_AUTH_BYPASS启动fatal已有(settings.py:80)保持",
+        "每运营者独立BasicAuth账号；uvicorn维持仅loopback"
+      ],
+      "acceptance_cases": [
+        "伪造身份头在production全部401",
+        "heartbeat响应可解死锁（端到端测试：本地PAUSED镜像+服务器终态→自动收敛）",
+        "控制端点不被claim门影响"
+      ],
+      "acceptance_commands": [
+        ".venv/bin/python -m pytest tests/integration/ tests/unit/ -q"
+      ],
+      "contract": "K14冻结后",
+      "dev_state": "NOT_STARTED",
+      "acceptance_state": "NOT_RUN",
+      "baseline_sha": "51e07a3",
+      "evidence": "artifacts/delivery-20260916/A14/",
+      "scope_note": "专家：D方案最低成本真身份；切换顺序见scope-decisions",
+      "risk": "高"
+    },
+    {
+      "id": "B17",
+      "name": "Companion控制同步客户端与能力自检（专家评审20260917采纳）",
+      "wave": "W3",
+      "milestone": "M1",
+      "lane": "B",
+      "kind": "DELTA",
+      "old_ids": [],
+      "packages": [
+        "P07",
+        "P08",
+        "P09"
+      ],
+      "must": [
+        "K14"
+      ],
+      "integration": [
+        "A14"
+      ],
+      "owned_paths": [
+        "mobile/companion/app/src/main/java/com/company/cloudctl/companion/control/**",
+        "mobile/companion/app/src/main/java/com/company/cloudctl/companion/service/CompanionSyncService.kt",
+        "tests/parallel_acceptance/q13/"
+      ],
+      "required_locks": [
+        "APK:CORE"
+      ],
+      "effort_low": 1,
+      "effort_high": 2,
+      "implementation": [
+        "syncLoop重排：heartbeat→controlSync→镜像收敛→安全屏障评估→claim；控制面永不被执行态gate（冻结invariant落地）",
+        "lastAppliedControlSeq与本地状态变更同事务持久化；SUSPECT_ORPHANED告警态",
+        "启动期能力自检 CAP_WRITE_SECURE_SETTINGS/CAP_ACCESSIBILITY_BOUND/CAP_IME_DEFAULT/adb_motion_injection 等，写入fleet会话上报（capability profile替代OEM名分支）",
+        "WSS自配置写入必须合并既有服务列表禁止覆盖；禁用「清空队列」占位按钮或实现真实语义"
+      ],
+      "acceptance_cases": [
+        "本地PAUSED镜像在服务器终态后自动收敛且不重放提交",
+        "force-stop后重启能力自检如实上报并告警",
+        "写入accessibility列表不破坏其他已启用服务"
+      ],
+      "acceptance_commands": [
+        "cd mobile/companion && ./gradlew testDebugUnitTest"
+      ],
+      "contract": "K14冻结后",
+      "dev_state": "NOT_STARTED",
+      "acceptance_state": "NOT_RUN",
+      "baseline_sha": "51e07a3",
+      "evidence": "artifacts/delivery-20260916/B17/",
+      "scope_note": "生产SOP同时修订：禁止 am force-stop Companion（AOSP行为，非ColorOS特有）",
+      "risk": "中"
     }
   ],
   "required_old_ids": [
@@ -3959,5 +4111,14 @@
     "M1": "Q13",
     "M2": "Q15",
     "V1": "Z10"
+  },
+  "revision_20260917_expert_review": {
+    "adopted_at": "2026-09-17T04:20:00+08:00",
+    "source": "外部专家评审（用户提供全文）",
+    "corrections": [
+      "force-stop禁用无障碍是AOSP通用行为而非ColorOS特有——生产SOP禁止force-stop Companion",
+      "放弃(d)本地超时解除PAUSED：本地时长与任务有效性无逻辑关系，改为服务器humanConfirmDeadline权威解除+SUSPECT_ORPHANED仅告警",
+      "Flutter无障碍树不按Android API分档：改为OEM/build×API×目标App版本×语义能力指纹的capability矩阵"
+    ]
   }
 }
