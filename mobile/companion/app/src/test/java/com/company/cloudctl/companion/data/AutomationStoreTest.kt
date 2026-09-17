@@ -384,6 +384,17 @@ class AutomationStoreTest {
         assertFalse(store.hasActiveTask())
     }
 
+    @Test
+    fun `duty guard also yields to queued and blocked rows (FLEET-21)`() {
+        // QUEUED rows own nothing for the claim loop, but a queued task may
+        // start acting at any moment — the stricter duty guard must yield.
+        store.enqueueTask("task-queued", "payload", "lease-q", 0)
+        assertTrue(store.hasUnfinishedTaskRows())
+        assertFalse(store.hasActiveTask())
+        store.finish(store.claimNext()!!.taskId, succeeded = true)
+        assertFalse(store.hasUnfinishedTaskRows())
+    }
+
     private fun taskState(taskId: String): String = store.readableDatabase.rawQuery(
         "SELECT state FROM task_inbox WHERE task_id=?",
         arrayOf(taskId),

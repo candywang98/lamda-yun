@@ -42,7 +42,10 @@ object DutyController {
         val config = ImMonitor.config
         if (!config.enabled || !config.dutyActive()) return
         if (ImMonitorConfig.PLATFORM_XIANYU !in config.platforms) return
-        if (store.hasActiveTask()) return // single writer: running/paused/reconciling tasks own the device; release/start-blocked rows do not
+        // FLEET-21 hardening: the duty guard is stricter than the claim loop's
+        // ownership — queued/start-blocked/release-blocked rows mean a task may
+        // start acting at any moment, so duty must not navigate or tap meanwhile.
+        if (store.hasUnfinishedTaskRows()) return
         val service = CloudCtlAccessibilityService.active ?: return
         if (!busy.compareAndSet(false, true)) return
         scope.launch {

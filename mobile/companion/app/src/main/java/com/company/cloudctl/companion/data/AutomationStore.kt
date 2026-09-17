@@ -433,6 +433,23 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
         ),
     ).use { it.moveToFirst() } || readableDatabase.hasUnresolvedAction()
 
+    /** FLEET-21 duty guard: ANY un-finished inbox row — including QUEUED and the
+     *  START/RELEASE-blocked rows that own nothing for the claim loop — means an
+     *  automation task may act on the device at any moment, so background duty
+     *  navigation/taps must stay out of the target app. */
+    fun hasUnfinishedTaskRows(): Boolean = readableDatabase.rawQuery(
+        "SELECT 1 FROM task_inbox WHERE state IN (?,?,?,?,?,?,?) LIMIT 1",
+        arrayOf(
+            STATE_QUEUED,
+            STATE_RUNNING,
+            STATE_PAUSED,
+            STATE_RESUME_CHECK,
+            STATE_RECONCILING,
+            STATE_START_BLOCKED,
+            STATE_RELEASE_BLOCKED,
+        ),
+    ).use { it.moveToFirst() } || readableDatabase.hasUnresolvedAction()
+
     fun markReleaseBlocked(taskId: String, reason: String): Boolean = transaction {
         if (isReconciling(taskId)) {
             markReconcilingLocked(taskId)
