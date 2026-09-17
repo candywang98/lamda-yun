@@ -1,0 +1,33 @@
+{
+  "contract": "live-capabilities/v1@20260917.1",
+  "case": "negative-input-seq-regression",
+  "doc": {
+    "doc": "input_rejection",
+    "sessionId": "live-0f1e2d3c",
+    "tenantId": "tn-01",
+    "deviceId": "dev-a11",
+    "operatorId": "op-77",
+    "tier": "INTERACTIVE_REMOTE",
+    "sessionState": "REMOTE",
+    "input": {
+      "kind": "swipe",
+      "seq": 56,
+      "frameSeq": 418,
+      "x": 120,
+      "y": 300,
+      "x2": 480,
+      "y2": 300
+    },
+    "code": "INPUT_SEQ_REGRESSION",
+    "inputWatermark": 56,
+    "latestFrameSeq": 420,
+    "rejectedAt": "2026-09-17T09:23:05+08:00",
+    "audited": true
+  },
+  "expect": {
+    "rule": "live-capabilities/v1 §2/§4: input seq 会话内严格单调——seq <= inputWatermark 即重复/回退，丢弃、计数、告警；短窗多次回退 → 服务端断开 REMOTE。帧并不过期（420-418 <= 10），说明是纯水位违例",
+    "status": 422,
+    "code": "INPUT_SEQ_REGRESSION",
+    "executed": false
+  }
+}

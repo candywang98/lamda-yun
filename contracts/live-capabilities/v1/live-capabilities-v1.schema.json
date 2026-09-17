@@ -1,0 +1,434 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cloudctl.example/contracts/live-capabilities/v1/live-capabilities-v1.schema.json",
+  "title": "CloudCtl live session capability tiers and handover documents (live-capabilities/v1@20260917.1)",
+  "description": "Root schema validates a single live document (oneOf: session / input_rejection / handover / terminal). Fixture files wrap it as {contract, case, doc, expect}; validate fixture.doc against this schema. Normative semantics live in README.md.",
+  "oneOf": [
+    { "$ref": "#/$defs/sessionDocument" },
+    { "$ref": "#/$defs/inputRejectionDocument" },
+    { "$ref": "#/$defs/handoverDocument" },
+    { "$ref": "#/$defs/terminalDocument" }
+  ],
+  "$defs": {
+    "tier": {
+      "enum": ["JPEG_PREVIEW", "INTERACTIVE_REMOTE", "WEBRTC"]
+    },
+    "transport": {
+      "enum": ["JPEG_WS", "WEBRTC"]
+    },
+    "sessionStateOpen": {
+      "description": "States an established (non-terminal) session may report.",
+      "enum": ["VIEWING", "REMOTE"]
+    },
+    "errorCode": {
+      "description": "Stable problem+json codes for live-capabilities/v1 (beyond NOT_FOUND / VALIDATION_ERROR / FORBIDDEN from the shared problem envelope).",
+      "enum": [
+        "LIVE_TIER_UNSUPPORTED",
+        "LIVE_INPUT_FORBIDDEN",
+        "INPUT_EXPIRED",
+        "INPUT_SEQ_REGRESSION",
+        "LIVE_RATE_LIMITED",
+        "LIVE_SESSION_TERMINAL",
+        "LIVE_AUTH_REQUIRED",
+        "LIVE_TURN_UNAVAILABLE"
+      ]
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 36
+    },
+    "lease": {
+      "description": "Session binding: one live session = one device_lease row extended to purpose LIVE; epoch strictly monotonic per device lease lineage.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["deviceLeaseId", "epoch", "purpose"],
+      "properties": {
+        "deviceLeaseId": { "$ref": "#/$defs/id" },
+        "epoch": { "type": "integer", "minimum": 1 },
+        "purpose": { "const": "LIVE" }
+      }
+    },
+    "frameGeometry": {
+      "description": "Frame descriptor for coordinate transforms (README §3). Delivered with session capabilities and re-delivered on geometry change (effective from the next frameSeq). safeArea is expressed in device-space pixels (cutout / system bars).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["frameWidth", "frameHeight", "deviceWidth", "deviceHeight", "rotation"],
+      "properties": {
+        "frameWidth": { "type": "integer", "minimum": 1, "maximum": 7680 },
+        "frameHeight": { "type": "integer", "minimum": 1, "maximum": 7680 },
+        "deviceWidth": { "type": "integer", "minimum": 1, "maximum": 7680 },
+        "deviceHeight": { "type": "integer", "minimum": 1, "maximum": 7680 },
+        "rotation": { "enum": [0, 90, 180, 270] },
+        "safeArea": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["left", "top", "right", "bottom"],
+          "properties": {
+            "left": { "type": "integer", "minimum": 0 },
+            "top": { "type": "integer", "minimum": 0 },
+            "right": { "type": "integer", "minimum": 0 },
+            "bottom": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    },
+    "authorization": {
+      "description": "MediaProjection system authorization is required per new session. persistsAcrossReboot is hard-const false for every tier: after device/service reboot the session is terminal and silent resume is forbidden (README §6).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mediaProjectionRequired",
+        "userConfirmedAt",
+        "persistsAcrossReboot",
+        "silentResumeAllowed"
+      ],
+      "properties": {
+        "mediaProjectionRequired": { "const": true },
+        "userConfirmedAt": { "type": "string", "format": "date-time" },
+        "persistsAcrossReboot": { "const": false },
+        "silentResumeAllowed": { "const": false }
+      }
+    },
+    "capabilities": {
+      "description": "Derived capability envelope of the tier. allowsInput / uiLabel / turnRequired are tier-derived constants, not free declarations.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["allowsInput", "uiLabel", "frameDownlink", "turnRequired"],
+          "properties": {
+            "allowsInput": { "const": false },
+            "uiLabel": { "const": "preview" },
+            "frameDownlink": { "const": true },
+            "turnRequired": { "const": false }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["allowsInput", "uiLabel", "frameDownlink", "turnRequired"],
+          "properties": {
+            "allowsInput": { "const": true },
+            "uiLabel": { "const": "interactive" },
+            "frameDownlink": { "const": true },
+            "turnRequired": { "const": false }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["allowsInput", "uiLabel", "frameDownlink", "turnRequired"],
+          "properties": {
+            "allowsInput": { "const": true },
+            "uiLabel": { "const": "interactive-hd" },
+            "frameDownlink": { "const": true },
+            "turnRequired": { "const": true }
+          }
+        }
+      ]
+    },
+    "inputPolicy": {
+      "description": "Input channel policy for input-capable tiers (README §4). Forbidden on JPEG_PREVIEW sessions.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "maxInputRatePerSecond",
+        "ttlExpiryMs",
+        "staleFrameThreshold",
+        "seqRequired",
+        "frameSeqRequired"
+      ],
+      "properties": {
+        "maxInputRatePerSecond": { "type": "integer", "minimum": 1, "maximum": 10 },
+        "ttlExpiryMs": { "type": "integer", "minimum": 500, "maximum": 5000 },
+        "staleFrameThreshold": { "type": "integer", "minimum": 1, "maximum": 30 },
+        "seqRequired": { "const": true },
+        "frameSeqRequired": { "const": true }
+      }
+    },
+    "turnConfig": {
+      "description": "Short-lived TURN credentials and quota; required and only valid on tier WEBRTC (GATE_TURN_DEPLOY / GATE_BANDWIDTH_BUDGET, README §8).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["credentialTtlSeconds", "iceServers", "transportPolicy", "connectionQuota"],
+      "properties": {
+        "credentialTtlSeconds": { "type": "integer", "minimum": 300, "maximum": 3600 },
+        "iceServers": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^(stun|turn|turns):[^\\s]+$"
+          }
+        },
+        "transportPolicy": { "enum": ["all", "relay"] },
+        "connectionQuota": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "sessionDocument": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "doc",
+        "sessionId",
+        "tenantId",
+        "deviceId",
+        "operatorId",
+        "state",
+        "lease",
+        "frameGeometry",
+        "capabilities",
+        "authorization",
+        "establishedAt",
+        "expiresAt",
+        "maxDurationMinutes",
+        "gates"
+      ],
+      "properties": {
+        "doc": { "const": "session" },
+        "sessionId": { "$ref": "#/$defs/id" },
+        "tenantId": { "$ref": "#/$defs/id" },
+        "deviceId": { "$ref": "#/$defs/id" },
+        "operatorId": { "$ref": "#/$defs/id" },
+        "tier": { "$ref": "#/$defs/tier" },
+        "transport": { "$ref": "#/$defs/transport" },
+        "state": { "$ref": "#/$defs/sessionStateOpen" },
+        "lease": { "$ref": "#/$defs/lease" },
+        "frameGeometry": { "$ref": "#/$defs/frameGeometry" },
+        "capabilities": { "$ref": "#/$defs/capabilities" },
+        "inputPolicy": { "$ref": "#/$defs/inputPolicy" },
+        "turn": { "$ref": "#/$defs/turnConfig" },
+        "authorization": { "$ref": "#/$defs/authorization" },
+        "establishedAt": { "type": "string", "format": "date-time" },
+        "expiresAt": { "type": "string", "format": "date-time" },
+        "maxDurationMinutes": { "const": 30 },
+        "gates": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "GATE_LIVE_LEASE",
+              "GATE_MEDIAPROJECTION_AUTH",
+              "GATE_JPEG_TRANSPORT",
+              "GATE_OPERATOR_WRITE",
+              "GATE_INPUT_RATELIMIT",
+              "GATE_TURN_DEPLOY",
+              "GATE_BANDWIDTH_BUDGET",
+              "GATE_SECURITY_REVIEW"
+            ]
+          }
+        }
+      },
+      "allOf": [
+        {
+          "oneOf": [
+            {
+              "description": "JPEG_PREVIEW: read-only observation over the legacy JPEG WS transport; no input channel, no TURN dependency.",
+              "properties": {
+                "tier": { "const": "JPEG_PREVIEW" },
+                "transport": { "const": "JPEG_WS" },
+                "inputPolicy": false,
+                "turn": false,
+                "gates": {
+                  "const": [
+                    "GATE_LIVE_LEASE",
+                    "GATE_MEDIAPROJECTION_AUTH",
+                    "GATE_JPEG_TRANSPORT"
+                  ]
+                }
+              },
+              "required": ["tier", "transport"]
+            },
+            {
+              "description": "INTERACTIVE_REMOTE: control tier over JPEG WS; input channel open under rate limit.",
+              "properties": {
+                "tier": { "const": "INTERACTIVE_REMOTE" },
+                "transport": { "const": "JPEG_WS" },
+                "turn": false,
+                "gates": {
+                  "const": [
+                    "GATE_LIVE_LEASE",
+                    "GATE_MEDIAPROJECTION_AUTH",
+                    "GATE_JPEG_TRANSPORT",
+                    "GATE_OPERATOR_WRITE",
+                    "GATE_INPUT_RATELIMIT"
+                  ]
+                }
+              },
+              "required": ["tier", "transport", "inputPolicy"]
+            },
+            {
+              "description": "WEBRTC: production control tier with independent gates (TURN deploy, bandwidth budget, security review). JPEG_TRANSPORT is not part of its required gate set.",
+              "properties": {
+                "tier": { "const": "WEBRTC" },
+                "transport": { "const": "WEBRTC" },
+                "gates": {
+                  "const": [
+                    "GATE_LIVE_LEASE",
+                    "GATE_MEDIAPROJECTION_AUTH",
+                    "GATE_OPERATOR_WRITE",
+                    "GATE_INPUT_RATELIMIT",
+                    "GATE_TURN_DEPLOY",
+                    "GATE_BANDWIDTH_BUDGET",
+                    "GATE_SECURITY_REVIEW"
+                  ]
+                }
+              },
+              "required": ["tier", "transport", "inputPolicy", "turn"]
+            }
+          ]
+        }
+      ]
+    },
+    "inputRejectionDocument": {
+      "description": "Server rejection record for one input event: never executed, always audited (README §4).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "doc",
+        "sessionId",
+        "tenantId",
+        "deviceId",
+        "operatorId",
+        "tier",
+        "sessionState",
+        "input",
+        "code",
+        "inputWatermark",
+        "latestFrameSeq",
+        "rejectedAt",
+        "audited"
+      ],
+      "properties": {
+        "doc": { "const": "input_rejection" },
+        "sessionId": { "$ref": "#/$defs/id" },
+        "tenantId": { "$ref": "#/$defs/id" },
+        "deviceId": { "$ref": "#/$defs/id" },
+        "operatorId": { "$ref": "#/$defs/id" },
+        "tier": { "$ref": "#/$defs/tier" },
+        "sessionState": { "$ref": "#/$defs/sessionStateOpen" },
+        "input": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "seq", "frameSeq"],
+          "properties": {
+            "kind": { "enum": ["tap", "swipe", "text"] },
+            "seq": { "type": "integer", "minimum": 1 },
+            "frameSeq": { "type": "integer", "minimum": 1 },
+            "x": { "type": "number", "minimum": 0 },
+            "y": { "type": "number", "minimum": 0 },
+            "x2": { "type": "number", "minimum": 0 },
+            "y2": { "type": "number", "minimum": 0 },
+            "text": { "type": "string", "maxLength": 500 }
+          }
+        },
+        "code": {
+          "enum": [
+            "INPUT_EXPIRED",
+            "INPUT_SEQ_REGRESSION",
+            "LIVE_INPUT_FORBIDDEN",
+            "LIVE_RATE_LIMITED"
+          ]
+        },
+        "inputWatermark": { "type": "integer", "minimum": 0 },
+        "latestFrameSeq": { "type": "integer", "minimum": 1 },
+        "rejectedAt": { "type": "string", "format": "date-time" },
+        "audited": { "const": true }
+      }
+    },
+    "handoverDocument": {
+      "description": "REMOTE -> VIEWING handover: queue-eligibility resume semantics, single writer restored immediately, frame downlink uninterrupted (README §5).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "doc",
+        "sessionId",
+        "tenantId",
+        "deviceId",
+        "operatorId",
+        "tier",
+        "from",
+        "to",
+        "affectedTasks",
+        "singleWriterRestored",
+        "frameDownlinkContinues",
+        "releasedAt",
+        "releasedBy",
+        "auditEvent"
+      ],
+      "properties": {
+        "doc": { "const": "handover" },
+        "sessionId": { "$ref": "#/$defs/id" },
+        "tenantId": { "$ref": "#/$defs/id" },
+        "deviceId": { "$ref": "#/$defs/id" },
+        "operatorId": { "$ref": "#/$defs/id" },
+        "tier": { "$ref": "#/$defs/tier" },
+        "from": { "const": "REMOTE" },
+        "to": { "const": "VIEWING" },
+        "affectedTasks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["taskId", "pauseState", "resumeMode"],
+            "properties": {
+              "taskId": { "$ref": "#/$defs/id" },
+              "pauseState": { "const": "PAUSED_WAITING_USER" },
+              "resumeMode": {
+                "enum": ["REQUEUE_AUTO", "CONFIRM_REQUIRED"]
+              }
+            }
+          }
+        },
+        "singleWriterRestored": { "const": true },
+        "frameDownlinkContinues": { "const": true },
+        "releasedAt": { "type": "string", "format": "date-time" },
+        "releasedBy": { "$ref": "#/$defs/id" },
+        "auditEvent": { "const": "live.session.release" }
+      }
+    },
+    "terminalDocument": {
+      "description": "Terminal session notice. resumable is hard-const false: after any terminal cause (incl. DEVICE_REBOOT) a new session requires a new initiation plus a fresh MediaProjection authorization (README §6).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "doc",
+        "sessionId",
+        "tenantId",
+        "deviceId",
+        "state",
+        "cause",
+        "resumable",
+        "reauthorizationRequired",
+        "tokenInvalidated",
+        "closedAt",
+        "auditEvent"
+      ],
+      "properties": {
+        "doc": { "const": "terminal" },
+        "sessionId": { "$ref": "#/$defs/id" },
+        "tenantId": { "$ref": "#/$defs/id" },
+        "deviceId": { "$ref": "#/$defs/id" },
+        "state": { "const": "CLOSED" },
+        "cause": {
+          "enum": [
+            "OPERATOR_STOP",
+            "TIMEOUT_30M",
+            "DISCONNECT_GRACE_EXPIRED",
+            "DEVICE_REBOOT",
+            "PROJECTION_REVOKED",
+            "SERVICE_CRASH",
+            "SERVER_CLOSED"
+          ]
+        },
+        "resumable": { "const": false },
+        "reauthorizationRequired": { "const": true },
+        "tokenInvalidated": { "const": true },
+        "closedAt": { "type": "string", "format": "date-time" },
+        "auditEvent": { "const": "live.session.closed" }
+      }
+    }
+  }
+}

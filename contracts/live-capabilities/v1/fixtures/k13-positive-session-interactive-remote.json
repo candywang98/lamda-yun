@@ -1,0 +1,62 @@
+{
+  "contract": "live-capabilities/v1@20260917.1",
+  "case": "positive-session-interactive-remote",
+  "doc": {
+    "doc": "session",
+    "sessionId": "live-0f1e2d3c",
+    "tenantId": "tn-01",
+    "deviceId": "dev-a11",
+    "operatorId": "op-77",
+    "tier": "INTERACTIVE_REMOTE",
+    "transport": "JPEG_WS",
+    "state": "REMOTE",
+    "lease": {
+      "deviceLeaseId": "dl-9c2f",
+      "epoch": 4,
+      "purpose": "LIVE"
+    },
+    "frameGeometry": {
+      "frameWidth": 720,
+      "frameHeight": 405,
+      "deviceWidth": 1080,
+      "deviceHeight": 1920,
+      "rotation": 90,
+      "safeArea": { "left": 0, "top": 84, "right": 0, "bottom": 0 }
+    },
+    "capabilities": {
+      "allowsInput": true,
+      "uiLabel": "interactive",
+      "frameDownlink": true,
+      "turnRequired": false
+    },
+    "inputPolicy": {
+      "maxInputRatePerSecond": 10,
+      "ttlExpiryMs": 2000,
+      "staleFrameThreshold": 10,
+      "seqRequired": true,
+      "frameSeqRequired": true
+    },
+    "authorization": {
+      "mediaProjectionRequired": true,
+      "userConfirmedAt": "2026-09-17T09:15:00+08:00",
+      "persistsAcrossReboot": false,
+      "silentResumeAllowed": false
+    },
+    "establishedAt": "2026-09-17T09:15:02+08:00",
+    "expiresAt": "2026-09-17T09:45:02+08:00",
+    "maxDurationMinutes": 30,
+    "gates": [
+      "GATE_LIVE_LEASE",
+      "GATE_MEDIAPROJECTION_AUTH",
+      "GATE_JPEG_TRANSPORT",
+      "GATE_OPERATOR_WRITE",
+      "GATE_INPUT_RATELIMIT"
+    ]
+  },
+  "expect": {
+    "rule": "live-capabilities/v1 §1/§8: 控制档走 JPEG 传输即可成立（take-control 后 REMOTE 态），input 通道按 §4 限速与过期规则开放",
+    "allowsInput": true,
+    "turnRequired": false,
+    "q14NotBlockedByUnselectedTransport": true
+  }
+}

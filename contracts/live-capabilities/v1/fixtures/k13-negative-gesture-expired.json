@@ -1,0 +1,31 @@
+{
+  "contract": "live-capabilities/v1@20260917.1",
+  "case": "negative-gesture-expired",
+  "doc": {
+    "doc": "input_rejection",
+    "sessionId": "live-0f1e2d3c",
+    "tenantId": "tn-01",
+    "deviceId": "dev-a11",
+    "operatorId": "op-77",
+    "tier": "INTERACTIVE_REMOTE",
+    "sessionState": "REMOTE",
+    "input": {
+      "kind": "tap",
+      "seq": 57,
+      "frameSeq": 400,
+      "x": 210,
+      "y": 96
+    },
+    "code": "INPUT_EXPIRED",
+    "inputWatermark": 56,
+    "latestFrameSeq": 412,
+    "rejectedAt": "2026-09-17T09:22:41+08:00",
+    "audited": true
+  },
+  "expect": {
+    "rule": "live-capabilities/v1 §4: input 所指帧已过期（latestFrameSeq - frameSeq = 12 > staleFrameThreshold 10，或距该帧下发超 ttlExpiryMs 2000ms）→ 拒收不执行、审计 INPUT_EXPIRED；注意 seq 57 > watermark 56，说明是过期而非回退",
+    "status": 422,
+    "code": "INPUT_EXPIRED",
+    "executed": false
+  }
+}
