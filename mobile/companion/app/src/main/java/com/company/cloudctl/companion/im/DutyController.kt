@@ -20,7 +20,8 @@ import java.util.concurrent.atomic.AtomicLong
  * Duty mode (pa-im slice 2, xianyu only): park the phone on the idlefish message
  * list, diff conversation entries on content changes, open fresh unread
  * conversations, read real bubble text, queue it, and return to the list.
- * Yields whenever a task is pending/running or the config turns it off.
+ * Yields whenever a task is pending/running or the config turns it off —
+ * the yield decision is formalized (and unit-tested) in [DutyWriteArbitration].
  */
 object DutyController {
     private const val TAG = "CloudCtlDuty"
@@ -34,18 +35,32 @@ object DutyController {
     private val lastChange = AtomicLong(0)
     private val knownPeers = HashSet<String>()
 
+    // I10: last arbitration outcome, so the (per-tick) yield/grant decision is
+    // logged once per transition instead of once per poll.
+    private val lastDecisionCode = java.util.concurrent.atomic.AtomicReference<String?>(null)
+
     fun onPageContentChanged(pkg: String) {
         if (pkg == "com.taobao.idlefish") lastChange.set(System.currentTimeMillis())
     }
 
     fun tick(context: android.content.Context, store: AutomationStore) {
-        val config = ImMonitor.config
-        if (!config.enabled || !config.dutyActive()) return
-        if (ImMonitorConfig.PLATFORM_XIANYU !in config.platforms) return
-        // FLEET-21 hardening: the duty guard is stricter than the claim loop's
-        // ownership — queued/start-blocked/release-blocked rows mean a task may
-        // start acting at any moment, so duty must not navigate or tap meanwhile.
-        if (store.hasUnfinishedTaskRows()) return
+        // I10: the write right is decided in one formalized, unit-tested place.
+        // A task session, a remote/edge grant, or ANY un-finished task row
+        // (FLEET-21: queued/start-blocked/release-blocked included) means duty
+        // yields — publishing and duty triggering at the same time leaves the
+        // UI to the automation task alone.
+        val decision = DutyWriteArbitration.decide(
+            ImMonitor.config,
+            DutyWriteArbitration.OwnershipSnapshot.capture(
+                com.company.cloudctl.companion.runtime.DeviceArbiterHolder.get(),
+                store,
+            ),
+        )
+        if (lastDecisionCode.get() != decision.code) {
+            android.util.Log.i(TAG, "DUTY_ARBITRATION code=${decision.code} holder=${decision.holder} detail=${decision.detail}")
+            lastDecisionCode.set(decision.code)
+        }
+        if (!decision.dutyMayWrite) return
         val service = CloudCtlAccessibilityService.active ?: return
         if (!busy.compareAndSet(false, true)) return
         scope.launch {

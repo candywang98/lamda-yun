@@ -74,10 +74,22 @@ data class ImMonitorConfig(
 /**
  * In-memory dedupe + pending queue + live config. The companion loop drains
  * batches; delivery failures never block task execution.
+ *
+ * I10 dedupe contract: an inbound is a retransmission when EITHER its exact
+ * occurrence key (device|platform|peer|second-bucket|text) was seen, OR the
+ * same source identity (platform|peer|text) was already accepted inside
+ * [RETRANSMIT_WINDOW_MS] — the notification path re-posts the same push with a
+ * regenerated timestamp and the duty reader re-reads the same unanswered
+ * bubble with a fabricated now() clock, so the second bucket is never proof of
+ * a fresh message. Retransmissions are dropped before the queue: no second
+ * cloud IN row, no re-armed reply trigger.
  */
 object ImMonitor {
     private const val LRU_LIMIT = 512
     private const val QUEUE_LIMIT = 200
+
+    /** Same source identity re-observed inside this window is a retransmission. */
+    const val RETRANSMIT_WINDOW_MS = 5 * 60_000L
 
     @Volatile
     var config: ImMonitorConfig = ImMonitorConfig()
@@ -97,13 +109,33 @@ object ImMonitor {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Boolean>?): Boolean =
             size > LRU_LIMIT
     }
+    private val recentByText = object : LinkedHashMap<String, Instant>(64, 0.75f, false) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Instant>?): Boolean =
+            size > LRU_LIMIT
+    }
     private val pending = ArrayDeque<ImEvent>()
 
     @Synchronized
     fun accept(deviceId: String, event: ImEvent): Boolean {
         val key = event.dedupeKey(deviceId)
         if (recentKeys.containsKey(key)) return false
+        // I10 retransmission window: identical (platform|peer|text) observed
+        // again inside the window — a re-posted push or a duty re-read — is
+        // never queued twice. Clock base is the event occurrence time: for the
+        // duty reader that is the fabricated now(), so the window follows the
+        // re-read cadence; an old-when notification re-post is already caught
+        // by the exact occurrence key above.
+        val textKey = "${event.platform}|${event.peerKey}|${event.text}"
+        val lastAcceptedAt = recentByText[textKey]
+        val retransmitted = lastAcceptedAt != null &&
+            !event.occurredAt.isBefore(lastAcceptedAt) &&
+            event.occurredAt.toEpochMilli() - lastAcceptedAt.toEpochMilli() < RETRANSMIT_WINDOW_MS
+        if (retransmitted) {
+            recentKeys[key] = true
+            return false
+        }
         recentKeys[key] = true
+        recentByText[textKey] = event.occurredAt
         if (pending.size >= QUEUE_LIMIT) pending.removeFirst()
         pending.addLast(event)
         return true
