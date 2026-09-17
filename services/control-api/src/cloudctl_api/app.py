@@ -27,6 +27,8 @@ from .live import LiveService
 from .live import companion_router as live_companion_router
 from .live import operator_router as live_operator_router
 from .media_store import ObjectStore, create_object_store
+from .fleet_orders import FleetOrdersService
+from .fleet_orders import router as fleet_orders_router
 from .mobile_routes import companion_router
 from .mobile_routes import operator_router as mobile_operator_router
 from .mobile_service import MobileTaskService
@@ -123,6 +125,7 @@ def create_app(
         database, app.state.mobile_task_service
     )
     app.state.orders_service = OrderService(database)
+    app.state.fleet_orders_service = FleetOrdersService(database)
     app.state.xianyu_orders_service = XianyuOrdersService(
         database, app.state.mobile_task_service
     )
@@ -236,6 +239,7 @@ def create_app(
     app.include_router(xianyu_orders_router)
     app.include_router(orders_operator_router)
     app.include_router(orders_companion_router)
+    app.include_router(fleet_orders_router)
     app.include_router(debug_router)
     app.include_router(mobile_operator_router)
     app.include_router(platform_task_router)
