@@ -4,6 +4,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
+import com.company.cloudctl.companion.automation.recipes.RecipeContract
 import org.json.JSONObject
 import java.security.MessageDigest
 
@@ -16,6 +17,17 @@ data class RecipeState(
     val terminal: Boolean,
     val postcondition: String? = null,
     val valueRef: String? = null,
+    /**
+     * B16 bounded runtime (fleet-first-20260916.1): optional per-state budgets
+     * for navigation/wait states. Every field is additive and optional — a
+     * recipe without them keeps the exact P14 behavior. Exhaustion is always
+     * fail-closed: [onExhausted] may only route to FAILED (via the graph's
+     * failure edge) or pause as WAITING_USER; it can never continue.
+     */
+    val maxAttempts: Int? = null,
+    val noProgressBudget: Int? = null,
+    val deadlineMs: Long? = null,
+    val onExhausted: String? = null,
 )
 
 data class RecipePackage(
@@ -40,6 +52,7 @@ class RecipeEngine(
         val root = JSONObject(encoded)
         require(root.getString("apiVersion") == "cloudctl.recipe/v1") { CommandV1Parser.UNSUPPORTED_PROTOCOL }
         require(root.getString("kind") == "LocalRecipePackage") { CommandV1Parser.UNSUPPORTED_RECIPE }
+        rejectForbiddenFields(root)
         val manifest = root.getJSONObject("manifest")
         val graph = root.getJSONObject("graph")
         val hash = manifest.getString("hash")
@@ -54,6 +67,13 @@ class RecipeEngine(
             val item = statesJson.getJSONObject(index)
             val action = item.getString("action")
             require(action in ALLOWED_ACTIONS) { "action is not on the APK whitelist" }
+            val valueRef = item.optString("valueRef").takeIf { !item.isNull("valueRef") && it.isNotBlank() }
+            if (valueRef != null) {
+                require(RecipeContract.VALUE_REF_PATTERN.matches(valueRef)) {
+                    "valueRef must be a short static parameter key"
+                }
+            }
+            val bounds = parseBounds(item, action, graph.getLong("maxDurationMs"))
             val state = RecipeState(
                 stateId = item.getString("stateId"),
                 action = action,
@@ -62,7 +82,11 @@ class RecipeEngine(
                 onFailure = item.optString("onFailure").takeIf { !item.isNull("onFailure") && it.isNotBlank() },
                 terminal = item.optBoolean("terminal"),
                 postcondition = item.optString("postcondition").takeIf { !item.isNull("postcondition") && it.isNotBlank() },
-                valueRef = item.optString("valueRef").takeIf { !item.isNull("valueRef") && it.isNotBlank() },
+                valueRef = valueRef,
+                maxAttempts = bounds.maxAttempts,
+                noProgressBudget = bounds.noProgressBudget,
+                deadlineMs = bounds.deadlineMs,
+                onExhausted = bounds.onExhausted,
             )
             require(!states.containsKey(state.stateId)) { "stateId values must be unique" }
             states[state.stateId] = state
@@ -96,6 +120,70 @@ class RecipeEngine(
             commitActionId = commitId,
         )
     }
+
+    /** Rejects any forbidden key anywhere in the package (signature is provenance, not a sandbox). */
+    private fun rejectForbiddenFields(root: JSONObject) {
+        fun walk(value: Any?, path: String) {
+            when (value) {
+                is JSONObject -> value.keys().asSequence().forEach { key ->
+                    val lowered = key.lowercase()
+                    require(RecipeContract.FORBIDDEN_FIELD_FRAGMENTS.none { it in lowered }) {
+                        "recipe contains forbidden field '$key' at $path"
+                    }
+                    walk(value.get(key), "$path.$key")
+                }
+                is org.json.JSONArray -> for (index in 0 until value.length()) walk(value.get(index), "$path[$index]")
+                else -> Unit
+            }
+        }
+        walk(root, "$")
+    }
+
+    /**
+     * B16: per-state bounds only exist on navigation/wait/media states (the
+     * ones with internal retry loops). A submit/commit state can never carry
+     * them — irreversible actions are single-shot, not retryable.
+     */
+    private fun parseBounds(item: JSONObject, action: String, graphMaxDurationMs: Long): BoundedStateFields {
+        val maxAttempts = optionalInt(item, "maxAttempts")
+        val noProgressBudget = optionalInt(item, "noProgressBudget")
+        val deadlineMs = optionalLong(item, "deadlineMs")
+        val onExhausted = item.optString("onExhausted").takeIf { !item.isNull("onExhausted") && it.isNotBlank() }
+        val bounded = maxAttempts != null || noProgressBudget != null || deadlineMs != null || onExhausted != null
+        if (!bounded) return BoundedStateFields(null, null, null, null)
+        require(action in BOUNDED_ACTIONS) { "bounded retry fields require a wait/navigate/media action" }
+        maxAttempts?.let { require(it in 1..RecipeContract.MAX_WAIT_ATTEMPTS) { "maxAttempts exceeds the cap" } }
+        noProgressBudget?.let {
+            require(it in 1..RecipeContract.MAX_NO_PROGRESS_POLLS) { "noProgressBudget exceeds the cap" }
+            require(maxAttempts == null || it <= maxAttempts) { "noProgressBudget must fit inside maxAttempts" }
+        }
+        deadlineMs?.let {
+            require(it in RecipeContract.MIN_STATE_DEADLINE_MS..graphMaxDurationMs) {
+                "deadlineMs must fit inside the graph budget"
+            }
+        }
+        onExhausted?.let {
+            require(it in RecipeContract.ON_EXHAUSTED_VALUES) { "onExhausted must be FAIL or WAITING_USER" }
+        }
+        return BoundedStateFields(maxAttempts, noProgressBudget, deadlineMs, onExhausted)
+    }
+
+    private fun optionalInt(item: JSONObject, key: String): Int? {
+        if (!item.has(key) || item.isNull(key)) return null
+        return item.getInt(key)
+    }
+
+    private fun optionalLong(item: JSONObject, key: String): Long? {
+        if (!item.has(key) || item.isNull(key)) return null
+        return item.getLong(key)
+    }
+
+    private data class BoundedStateFields(
+        val maxAttempts: Int?,
+        val noProgressBudget: Int?,
+        val deadlineMs: Long?,
+        val onExhausted: String?,
+    )
 
     suspend fun execute(
         recipe: RecipePackage,
@@ -131,34 +219,67 @@ class RecipeEngine(
             if (state.action != "wait") controlCheckpoint()
             if (state.stateId == recipe.commitActionId) {
                 // Never route commit failures through an ordinary graph retry/failure branch.
+                // FLEET-21 note (2026-09-17): the commit strike deliberately emits no step
+                // journal here — the durable action ledger is its audit trail. Emitting a
+                // journal STARTED would need the frozen RecipeCommitAdapterTest contract
+                // ("commit must not emit ordinary success journal") updated first.
                 requireNotNull(commitAction)(state)
                 return "RECONCILING"
             }
             journal(state.stateId, "STARTED")
             var journalState = "SUCCEEDED"
+            val stateDeadline = stateDeadline(state, deadline)
             current = try {
                 if (state.action == "wait") {
-                    waitForLocator(command.targetPackage, state, deadline, controlCheckpoint)
+                    waitForLocator(command.targetPackage, state, stateDeadline, controlCheckpoint)
                 } else {
-                    runAction(command.targetPackage, state, command, deadline, controlCheckpoint)
+                    runAction(command.targetPackage, state, command, stateDeadline, controlCheckpoint)
                 }
                 if (state.terminal || state.onSuccess in TERMINAL) state.onSuccess else state.onSuccess
             } catch (interrupted: ControlCheckpointFailure) {
                 throw interrupted.failure
             } catch (failure: ExecutorFailure) {
-                if (state.action == "wait" && failure.code == "STEP_TIMEOUT") throw failure
-                if (failure.code == "UNKNOWN_PAGE") {
-                    journal(state.stateId, "WAITING_USER")
-                    return "WAITING_USER"
+                if (failure.code == "WAIT_EXHAUSTED" || failure.code == "STATE_DEADLINE") {
+                    if (state.onExhausted == "WAITING_USER") {
+                        journal(state.stateId, "WAITING_USER")
+                        return "WAITING_USER"
+                    }
+                    // Default onExhausted=FAIL: fail closed through the graph's
+                    // failure edge, or terminate hard when none exists.
+                    journalState = "FAILED"
+                    state.onFailure ?: throw failure
+                    state.onFailure
+                } else {
+                    if (state.action == "wait" && failure.code == "STEP_TIMEOUT") throw failure
+                    if (failure.code == "UNKNOWN_PAGE") {
+                        journal(state.stateId, "WAITING_USER")
+                        return "WAITING_USER"
+                    }
+                    journalState = "FAILED"
+                    state.onFailure ?: throw failure
+                    state.onFailure
                 }
-                journalState = "FAILED"
-                state.onFailure ?: throw failure
             }
             journal(state.stateId, journalState)
             if (current in TERMINAL) return current
         }
         return current
     }
+
+    /**
+     * B16: a state-scoped deadline is carved out of the SAME recipe budget —
+     * it never extends it. All internal retries of the state (poll loops,
+     * no-progress waits) share this single instant, so their waits can only
+     * sum up to it (see [BoundedRetryPlan]).
+     */
+    private fun stateDeadline(state: RecipeState, recipeDeadline: Long): Long {
+        val cap = state.deadlineMs ?: return recipeDeadline
+        return minOf(recipeDeadline, elapsedMs() + cap)
+    }
+
+    private fun hasBounds(state: RecipeState): Boolean =
+        state.maxAttempts != null || state.noProgressBudget != null ||
+            state.deadlineMs != null || state.onExhausted != null
 
     private fun resolveResumeStart(recipe: RecipePackage, resumeFromStateId: String?): String {
         if (resumeFromStateId == null) return recipe.startStateId
@@ -184,6 +305,13 @@ class RecipeEngine(
         } catch (failure: IllegalArgumentException) {
             throw ExecutorFailure("LOCATOR_NOT_APPROVED", "Locator is not approved for this target", failure)
         }
+        // B16 bounded wait state: attempts, no-progress budget and the state
+        // deadline all count against the SAME single instant — every retry
+        // sleeps at most (deadline - now), so the internal waits sum to at
+        // most the state budget (proof: BoundedRetryPlan).
+        var attempts = 0
+        var noProgress = 0
+        var lastDigest: String? = null
         while (true) {
             currentCoroutineContext().ensureActive()
             try {
@@ -191,7 +319,15 @@ class RecipeEngine(
             } catch (failure: ExecutorFailure) {
                 throw ControlCheckpointFailure(failure)
             }
-            ensureBeforeDeadline(deadline)
+            ensureBeforeDeadline(deadline, state)
+            val cap = state.maxAttempts
+            if (cap != null && attempts >= cap) {
+                throw ExecutorFailure(
+                    "WAIT_EXHAUSTED",
+                    "wait '${state.stateId}' exhausted its maxAttempts budget of $cap",
+                )
+            }
+            attempts += 1
             // The accessibility service rebinds itself every few minutes under
             // load (4x observed 2026-09-16, ~1s each): a poll landing inside a
             // rebind window must keep polling until the deadline, not fail the
@@ -213,14 +349,40 @@ class RecipeEngine(
             } catch (error: RuntimeException) {
                 null
             }
-            ensureBeforeDeadline(deadline)
+            ensureBeforeDeadline(deadline, state)
             if (node?.visible == true && node.enabled) return
+            val budget = state.noProgressBudget
+            if (budget != null) {
+                val digest = ui.pageSummary(targetPackage)
+                if (digest == lastDigest) {
+                    noProgress += 1
+                    if (noProgress >= budget) {
+                        throw ExecutorFailure(
+                            "WAIT_EXHAUSTED",
+                            "wait '${state.stateId}' exhausted its noProgressBudget of $budget polls",
+                        )
+                    }
+                } else {
+                    noProgress = 0
+                    lastDigest = digest
+                }
+            }
             delay(minOf(WAIT_POLL_MS, deadline - elapsedMs()).coerceAtLeast(1L))
         }
     }
 
-    private fun ensureBeforeDeadline(deadline: Long) {
-        if (elapsedMs() >= deadline) throw ExecutorFailure("STEP_TIMEOUT", "recipe exceeded maxDuration")
+    private fun ensureBeforeDeadline(deadline: Long, state: RecipeState? = null) {
+        if (elapsedMs() >= deadline) {
+            // A state-scoped cap is distinct from the recipe-wide budget so the
+            // caller can route it through the onExhausted semantics.
+            if (state?.deadlineMs != null) {
+                throw ExecutorFailure(
+                    "STATE_DEADLINE",
+                    "state '${state.stateId}' exceeded its deadlineMs budget of ${state.deadlineMs}",
+                )
+            }
+            throw ExecutorFailure("STEP_TIMEOUT", "recipe exceeded maxDuration")
+        }
     }
 
     private suspend fun runAction(
@@ -231,7 +393,21 @@ class RecipeEngine(
         controlCheckpoint: () -> Unit,
     ) {
         when (state.action) {
-            "tap" -> ui.tap(targetPackage, state.locatorRef ?: error("locator required"))
+            "tap" -> {
+                ui.tap(targetPackage, state.locatorRef ?: error("locator required"))
+                // B16: a bounded navigation tap verifies its postcondition inside
+                // the SAME budgets (maxAttempts/noProgress/deadline). Without
+                // bounds the postcondition stays metadata, exactly as in P14.
+                val postcondition = state.postcondition
+                if (postcondition != null && hasBounds(state)) {
+                    waitForLocator(
+                        targetPackage,
+                        state.copy(action = "wait", locatorRef = postcondition),
+                        deadline,
+                        controlCheckpoint,
+                    )
+                }
+            }
             "input" -> {
                 // Graph bytes stay parameter-free: the value is bound at execution
                 // time from CommandV1 parameters through the static valueRef key.
@@ -240,6 +416,12 @@ class RecipeEngine(
                 val raw = command.parameters.opt(key)
                 val value = (raw as? String)?.trim().takeIf { !it.isNullOrBlank() }
                     ?: throw ExecutorFailure("PARAMETER_REQUIRED", "parameter $key is missing or blank")
+                if (value.length > RecipeContract.MAX_INPUT_TEXT_LENGTH) {
+                    throw ExecutorFailure(
+                        "PARAMETER_REJECTED",
+                        "parameter $key exceeds the ${RecipeContract.MAX_INPUT_TEXT_LENGTH}-char cap",
+                    )
+                }
                 ui.replaceText(targetPackage, state.locatorRef ?: error("locator required"), value)
             }
             "media" -> {
@@ -279,6 +461,9 @@ class RecipeEngine(
         const val VERSION = 2
         private const val WAIT_POLL_MS = 250L
         private val ALLOWED_ACTIONS = setOf("tap", "input", "scroll", "extract", "wait", "launch", "media", "log", "checkpoint")
+
+        /** B16: the only actions whose internal retry loops may carry bounded budgets. */
+        private val BOUNDED_ACTIONS = setOf("wait", "tap", "media")
         private val TERMINAL = setOf("SUCCEEDED", "FAILED", "WAITING_USER")
         fun sha256(value: String): String = sha256Bytes(value.toByteArray(Charsets.UTF_8))
 
@@ -286,5 +471,37 @@ class RecipeEngine(
             val digest = MessageDigest.getInstance("SHA-256").digest(value)
             return digest.joinToString("") { "%02x".format(it) }
         }
+    }
+}
+
+/**
+ * B16 bounded-wait budget math. Pure and test-visible: the acceptance proof
+ * that every internal retry wait counts against ONE deadline and the sleeps
+ * cannot sum past it lives in the unit tests over these two functions.
+ */
+object BoundedRetryPlan {
+    /**
+     * Closed-form upper bound for the engine's bounded wait loop: [attempts]
+     * polls of [pollMs] under one hard [deadlineMs]. Every sleep is at most
+     * `min(pollMs, deadline - now)` and the clock only moves forward, so the
+     * total sleep is at most `min(attempts * pollMs, deadlineMs)`.
+     */
+    fun totalSleepUpperBoundMs(attempts: Int, pollMs: Long, deadlineMs: Long): Long =
+        minOf(attempts.toLong() * pollMs, deadlineMs)
+
+    /**
+     * Faithful simulation of RecipeEngine.waitForLocator's sleep schedule:
+     * attempt i sleeps `min(pollMs, remaining)`; the loop ends when the
+     * attempts budget or the deadline is exhausted — whichever comes first.
+     */
+    fun simulatedTotalSleepMs(attempts: Int, pollMs: Long, deadlineMs: Long): Long {
+        require(attempts >= 0 && pollMs >= 0 && deadlineMs >= 0)
+        var slept = 0L
+        var used = 0
+        while (used < attempts && slept < deadlineMs) {
+            slept += minOf(pollMs, deadlineMs - slept)
+            used += 1
+        }
+        return slept
     }
 }
