@@ -272,6 +272,43 @@
         "title": "ApkArtifactCreate",
         "type": "object"
       },
+      "ApkDataSchema": {
+        "additionalProperties": false,
+        "description": "Data schema compatibility window (contract §1.2).",
+        "properties": {
+          "current": {
+            "minimum": 1.0,
+            "title": "Current",
+            "type": "integer"
+          },
+          "minCompatible": {
+            "minimum": 1.0,
+            "title": "Mincompatible",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "minCompatible",
+          "current"
+        ],
+        "title": "ApkDataSchema",
+        "type": "object"
+      },
+      "ApkDownloadedReport": {
+        "additionalProperties": false,
+        "properties": {
+          "sha256": {
+            "pattern": "^[0-9a-fA-F]{64}$",
+            "title": "Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sha256"
+        ],
+        "title": "ApkDownloadedReport",
+        "type": "object"
+      },
       "ApkFinding": {
         "properties": {
           "ruleId": {
@@ -304,6 +341,77 @@
           "title"
         ],
         "title": "ApkFinding",
+        "type": "object"
+      },
+      "ApkReleaseAssignRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "targetDeviceIds": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 64,
+            "minItems": 1,
+            "title": "Targetdeviceids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "targetDeviceIds"
+        ],
+        "title": "ApkReleaseAssignRequest",
+        "type": "object"
+      },
+      "ApkReleaseCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "artifactId": {
+            "maxLength": 36,
+            "minLength": 1,
+            "title": "Artifactid",
+            "type": "string"
+          },
+          "dataSchema": {
+            "$ref": "#/components/schemas/ApkDataSchema"
+          },
+          "minCapability": {
+            "additionalProperties": true,
+            "title": "Mincapability",
+            "type": "object"
+          },
+          "requiresUserConfirmation": {
+            "default": true,
+            "title": "Requiresuserconfirmation",
+            "type": "boolean"
+          },
+          "ring": {
+            "default": "all",
+            "maxLength": 16,
+            "title": "Ring",
+            "type": "string"
+          }
+        },
+        "required": [
+          "artifactId",
+          "dataSchema"
+        ],
+        "title": "ApkReleaseCreate",
+        "type": "object"
+      },
+      "ApkReleaseRetireRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "ApkReleaseRetireRequest",
         "type": "object"
       },
       "ApprovalRequest": {
@@ -6848,6 +6956,222 @@
           }
         },
         "summary": "Register Apk Artifact"
+      }
+    },
+    "/api/v1/apk-releases": {
+      "get": {
+        "operationId": "list_apk_releases_api_v1_apk_releases_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Apk Releases Api V1 Apk Releases Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Apk Releases",
+        "tags": [
+          "apk-releases"
+        ]
+      },
+      "post": {
+        "operationId": "create_apk_release_api_v1_apk_releases_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApkReleaseCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Create Apk Release Api V1 Apk Releases Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Apk Release",
+        "tags": [
+          "apk-releases"
+        ]
+      }
+    },
+    "/api/v1/apk-releases/{release_id}": {
+      "get": {
+        "operationId": "get_apk_release_api_v1_apk_releases__release_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "release_id",
+            "required": true,
+            "schema": {
+              "title": "Release Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Apk Release Api V1 Apk Releases  Release Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Apk Release",
+        "tags": [
+          "apk-releases"
+        ]
+      }
+    },
+    "/api/v1/apk-releases/{release_id}:assign": {
+      "post": {
+        "operationId": "assign_apk_release_api_v1_apk_releases__release_id__assign_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "release_id",
+            "required": true,
+            "schema": {
+              "title": "Release Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApkReleaseAssignRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Assign Apk Release Api V1 Apk Releases  Release Id  Assign Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Assign Apk Release",
+        "tags": [
+          "apk-releases"
+        ]
+      }
+    },
+    "/api/v1/apk-releases/{release_id}:retire": {
+      "post": {
+        "operationId": "retire_apk_release_api_v1_apk_releases__release_id__retire_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "release_id",
+            "required": true,
+            "schema": {
+              "title": "Release Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApkReleaseRetireRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Retire Apk Release Api V1 Apk Releases  Release Id  Retire Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retire Apk Release",
+        "tags": [
+          "apk-releases"
+        ]
       }
     },
     "/api/v1/audit-events": {
@@ -13545,6 +13869,83 @@
         "summary": "Account Status",
         "tags": [
           "mobile-companion"
+        ]
+      }
+    },
+    "/companion/v2/apk/candidates": {
+      "get": {
+        "operationId": "list_install_candidates_companion_v2_apk_candidates_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response List Install Candidates Companion V2 Apk Candidates Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Install Candidates",
+        "tags": [
+          "apk-releases-companion"
+        ]
+      }
+    },
+    "/companion/v2/apk/candidates/{target_id}:report-downloaded": {
+      "post": {
+        "operationId": "report_candidate_downloaded_companion_v2_apk_candidates__target_id__report_downloaded_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "target_id",
+            "required": true,
+            "schema": {
+              "title": "Target Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApkDownloadedReport"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Report Candidate Downloaded Companion V2 Apk Candidates  Target Id  Report Downloaded Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Report Candidate Downloaded",
+        "tags": [
+          "apk-releases-companion"
         ]
       }
     },
