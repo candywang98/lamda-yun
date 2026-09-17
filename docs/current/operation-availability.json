@@ -1,0 +1,856 @@
+{
+  "schema_version": "operation-availability/v1",
+  "plan_id": "fleet-first-20260916.1",
+  "task": "X12",
+  "generated_at": "2026-09-17T23:16:57+08:00",
+  "source_of_truth": "services/control-api/src/cloudctl_api/operation_catalog.py (XY_AVAILABILITY_LEDGER); this document is the machine-readable twin — tests/contracts/test_operation_availability_delta.py asserts entry-level parity",
+  "baseline": {
+    "branch": "integration/p14-20260909",
+    "commit": "f200318b44e78c978f244b6ac24e0ddecf11b60e",
+    "ledger_branch": "agent/fleet-x12",
+    "basis": "仓库代码内注册基线（46 OperationDefinition / 31 xy-tasks 注册），未重读旧计划 Excel"
+  },
+  "state_semantics": {
+    "ENABLED": "注册且已有可用的生产执行通道（当前仅 xy-tasks-01，open-only 铸币+mobile 派发）",
+    "PENDING": "在范围内，缺前置：CommandV1 生产通道 / T102 真机核查 / 敏感类证据三件套（预算上限、对象授权、钉版平台入口证据）",
+    "POLICY_BLOCKED": "生产政策禁用（仓库规则7：鱼币/好评互动类）；证据补齐也不能翻转，仅新政策裁决可解",
+    "OUT_OF_SCOPE": "范围变更裁决：共享服务页（归属其它 lane）或纯教程页，永不作为 xy 设备操作开启"
+  },
+  "state_counts": {
+    "ENABLED": 1,
+    "OUT_OF_SCOPE": 6,
+    "PENDING": 20,
+    "POLICY_BLOCKED": 4
+  },
+  "ref_scheme": "task_refs 引用 docs/current/tasks.json 任务与旧计划核查任务：X12=本台账 owner；X10(P30,P32,P34,P36,P38,P39)=删除专项；X11(P29,P31,P33,P35,P37)=维护操作执行；T102=xy-tasks-02/07 真机可用性核查；A05=已部署发布铸币通道。package_refs 一律为 P 包编号，policy-blocked 行引用全部设备包（P29..P39）以表达各通道都须保持禁用",
+  "entries": [
+    {
+      "catalog_id": "xy-tasks-01",
+      "title": "发布商品",
+      "operation_key": "xianyu.listing.publish",
+      "state": "ENABLED",
+      "reason": "Deployed open-only publish lane: CommandV1 xianyu.publish_listing.v1 is a PRODUCTION_ALIASES mint target and the mobile task dispatch lane executes it; result identity stays open-only (reached_confirmation_point + evidence ref).",
+      "task_refs": [
+        "A05",
+        "X11",
+        "X12"
+      ],
+      "package_refs": [
+        "P29",
+        "P31",
+        "P33",
+        "P35",
+        "P37"
+      ],
+      "enable_requires": [],
+      "sensitive_discipline": null
+    },
+    {
+      "catalog_id": "xy-tasks-02",
+      "title": "发布帖子",
+      "operation_key": "xianyu.publish_post",
+      "state": "PENDING",
+      "reason": "T102 real-device verification required (field-map xy-tasks-02 AVAILABILITY_PENDING): the Xianyu surface for this action must be verified on authorized hardware before any executor can be declared.",
+      "task_refs": [
+        "X11",
+        "T102",
+        "X12"
+      ],
+      "package_refs": [
+        "P29",
+        "P31",
+        "P33",
+        "P35",
+        "P37"
+      ],
+      "enable_requires": [
+        "t102_verification",
+        "command_v1_lane"
+      ],
+      "sensitive_discipline": null
+    },
+    {
+      "catalog_id": "xy-tasks-03",
+      "title": "擦亮商品",
+      "operation_key": "xianyu.polish_goods",
+      "state": "PENDING",
+      "reason": "No production CommandV1 type exists for this action (K05 frozen closed CommandType enum); minting stays fail-closed until an executor command type is delivered and five-way synced per platform-recipe/v1 §2.",
+      "task_refs": [
+        "X11",
+        "X12"
+      ],
+      "package_refs": [
+        "P29",
+        "P31",
+        "P33",
+        "P35",
+        "P37"
+      ],
+      "enable_requires": [
+        "command_v1_lane"
+      ],
+      "sensitive_discipline": null
+    },
+    {
+      "catalog_id": "xy-tasks-04",
+      "title": "上架商品",
+      "operation_key": "xianyu.shelf_up",
+      "state": "PENDING",
+      "reason": "No production CommandV1 type exists for this action (K05 frozen closed CommandType enum); minting stays fail-closed until an executor command type is delivered and five-way synced per platform-recipe/v1 §2.",
+      "task_refs": [
+        "X11",
+        "X12"
+      ],
+      "package_refs": [
+        "P29",
+        "P31",
+        "P33",
+        "P35",
+        "P37"
+      ],
+      "enable_requires": [
+        "command_v1_lane"
+      ],
+      "sensitive_discipline": null
+    },
+    {
+      "catalog_id": "xy-tasks-05",
+      "title": "下架商品",
+      "operation_key": "xianyu.shelf_down",
+      "state": "PENDING",
+      "reason": "No production CommandV1 type exists for this action (K05 frozen closed CommandType enum); minting stays fail-closed until an executor command type is delivered and five-way synced per platform-recipe/v1 §2.",
+      "task_refs": [
+        "X11",
+        "X12"
+      ],
+      "package_refs": [
+        "P29",
+        "P31",
+        "P33",
+        "P35",
+        "P37"
+      ],
+      "enable_requires": [
+        "command_v1_lane"
+      ],
+      "sensitive_discipline": null
+    },
+    {
+      "catalog_id": "xy-tasks-06",
+      "title": "删除商品",
+      "operation_key": "xianyu.delete_goods",
+      "state": "PENDING",
+      "reason": "No production CommandV1 type exists for this action (K05 frozen closed CommandType enum); minting stays fail-closed until an executor command type is delivered and five-way synced per platform-recipe/v1 §2.",
+      "task_refs": [
+        "X10",
+        "X12"
+      ],
+      "package_refs": [
+        "P30",
+        "P32",
+        "P34",
+        "P36",
+        "P38",
+        "P39"
+      ],
+      "enable_requires": [
+        "command_v1_lane"
+      ],
+      "sensitive_discipline": null
+    },
+    {
+      "catalog_id": "xy-tasks-07",
+      "title": "删除帖子",
+      "operation_key": "xianyu.delete_post",
+      "state": "PENDING",
+      "reason": "T102 real-device verification required (field-map xy-tasks-07 AVAILABILITY_PENDING): the Xianyu surface for this action must be verified on authorized hardware before any executor can be declared.",
+      "task_refs": [
+        "X10",
+        "T102",
+        "X12"
+      ],
+      "package_refs": [
+        "P30",
+        "P32",
+        "P34",
+        "P36",
+        "P38",
+        "P39"
+      ],
+      "enable_requires": [
+        "t102_verification",
+        "command_v1_lane"
+      ],
+      "sensitive_discipline": null
+    },
+    {
+      "catalog_id": "xy-tasks-08",
+      "title": "绑定闲鱼",
+      "operation_key": "xianyu.bind_account",
+      "state": "PENDING",
+      "reason": "No production CommandV1 type exists for this action (K05 frozen closed CommandType enum); minting stays fail-closed until an executor command type is delivered and five-way synced per platform-recipe/v1 §2.",
+      "task_refs": [
+        "X11",
+        "X12"
+      ],
+      "package_refs": [
+        "P29",
+        "P31",
+        "P33",
+        "P35",
+        "P37"
+      ],
+      "enable_requires": [
+        "command_v1_lane"
+      ],
+      "sensitive_discipline": null
+    },
+    {
+      "catalog_id": "xy-tasks-09",
+      "title": "签到鱼币",
+      "operation_key": "xianyu.checkin_coins",
+      "state": "POLICY_BLOCKED",
+      "reason": "Production policy blocks this feature (BLOCKED_FEATURE_IDS: coin/review engagement actions are prohibited, repository rule 7); catalogued for inventory only and the feature stays blocked even though the operation contract is registered. X12 sensitive category (coin spend / promotion / review / message deletion): budget cap, target authorization, and pinned-version platform entry evidence are unverified; the row stays disabled until all three are recorded.",
+      "task_refs": [
+        "X12"
+      ],
+      "package_refs": [
+        "P29",
+        "P30",
+        "P31",
+        "P32",
+        "P33",
+        "P34",
+        "P35",
+        "P36",
+        "P37",
+        "P38",
+        "P39"
+      ],
+      "enable_requires": [],
+      "sensitive_discipline": {
+        "budget_cap": "N/A — the daily check-in accrues coins and has no spend knob; no coin-spend budget is approved for this tenant.",
+        "target_authorization": "Own bound account only (device-enrolled member identity; DEVICE_MAINTAIN permission plus approval risk gate).",
+        "platform_entry_evidence": "unverified — the Xianyu coin check-in entry must be captured on the pinned app version (7.18.92) on authorized hardware."
+      }
+    },
+    {
+      "catalog_id": "xy-tasks-10",
+      "title": "鱼币抵扣",
+      "operation_key": "xianyu.coin_discount",
+      "state": "POLICY_BLOCKED",
+      "reason": "Production policy blocks this feature (BLOCKED_FEATURE_IDS: coin/review engagement actions are prohibited, repository rule 7); catalogued for inventory only and the feature stays blocked even though the operation contract is registered. X12 sensitive category (coin spend / promotion / review / message deletion): budget cap, target authorization, and pinned-version platform entry evidence are unverified; the row stays disabled until all three are recorded.",
+      "task_refs": [
+        "X12"
+      ],
+      "package_refs": [
+        "P29",
+        "P30",
+        "P31",
+        "P32",
+        "P33",
+        "P34",
+        "P35",
+        "P36",
+        "P37",
+        "P38",
+        "P39"
+      ],
+      "enable_requires": [],
+      "sensitive_discipline": {
+        "budget_cap": "None approved — deduction tiers are closed Literals (dikouType: order_fees/postage) but no tenant coin-spend budget exists.",
+        "target_authorization": "dikouTarget closed Literal (all_eligible/manually_selected); only orders owned by the bound account.",
+        "platform_entry_evidence": "unverified — the deduction-offer surface has not been captured on the pinned app version (7.18.92)."
+      }
+    },
+    {
+      "catalog_id": "xy-tasks-11",
+      "title": "鱼币推广",
+      "operation_key": "xianyu.coin_promote",
+      "state": "POLICY_BLOCKED",
+      "reason": "Production policy blocks this feature (BLOCKED_FEATURE_IDS: coin/review engagement actions are prohibited, repository rule 7); catalogued for inventory only and the feature stays blocked even though the operation contract is registered. X12 sensitive category (coin spend / promotion / review / message deletion): budget cap, target authorization, and pinned-version platform entry evidence are unverified; the row stays disabled until all three are recorded.",
+      "task_refs": [
+        "X12"
+      ],
+      "package_refs": [
+        "P29",
+        "P30",
+        "P31",
+        "P32",
+        "P33",
+        "P34",
+        "P35",
+        "P36",
+        "P37",
+        "P38",
+        "P39"
+      ],
+      "enable_requires": [],
+      "sensitive_discipline": {
+        "budget_cap": "None approved — promotion packages are closed Literals (coins_60/coins_120/coins_300/coins_600) but no per-tenant promotion budget or ceiling is registered.",
+        "target_authorization": "promoteItem closed Literal (manually_selected/recently_listed); promotion may only target the bound account's own listings.",
+        "platform_entry_evidence": "unverified — the promotion purchase flow has not been captured on the pinned app version (7.18.92)."
+      }
+    },
+    {
+      "catalog_id": "xy-tasks-12",
+      "title": "一键小刀",
+      "operation_key": "xianyu.bargain",
+      "state": "PENDING",
+      "reason": "No production CommandV1 type exists for this action (K05 frozen closed CommandType enum); minting stays fail-closed until an executor command type is delivered and five-way synced per platform-recipe/v1 §2.",
+      "task_refs": [
+        "X11",
+        "X12"
+      ],
+      "package_refs": [
+        "P29",
+        "P31",
+        "P33",
+        "P35",
+        "P37"
+      ],
+      "enable_requires": [
+        "command_v1_lane"
+      ],
+      "sensitive_discipline": null
+    },
+    {
+      "catalog_id": "xy-tasks-13",
+      "title": "一键降价",
+      "operation_key": "xianyu.price_cut",
+      "state": "PENDING",
+      "reason": "No production CommandV1 type exists for this action (K05 frozen closed CommandType enum); minting stays fail-closed until an executor command type is delivered and five-way synced per platform-recipe/v1 §2.",
+      "task_refs": [
+        "X11",
+        "X12"
+      ],
+      "package_refs": [
+        "P29",
+        "P31",
+        "P33",
+        "P35",
+        "P37"
+      ],
+      "enable_requires": [
+        "command_v1_lane"
+      ],
+      "sensitive_discipline": null
+    },
+    {
+      "catalog_id": "xy-tasks-14",
+      "title": "一键好评",
+      "operation_key": "xianyu.review",
+      "state": "POLICY_BLOCKED",
+      "reason": "Production policy blocks this feature (BLOCKED_FEATURE_IDS: coin/review engagement actions are prohibited, repository rule 7); catalogued for inventory only and the feature stays blocked even though the operation contract is registered. X12 sensitive category (coin spend / promotion / review / message deletion): budget cap, target authorization, and pinned-version platform entry evidence are unverified; the row stays disabled until all three are recorded.",
+      "task_refs": [
+        "X12"
+      ],
+      "package_refs": [
+        "P29",
+        "P30",
+        "P31",
+        "P32",
+        "P33",
+        "P34",
+        "P35",
+        "P36",
+        "P37",
+        "P38",
+        "P39"
+      ],
+      "enable_requires": [],
+      "sensitive_discipline": {
+        "budget_cap": "None approved — no review-volume cap is registered.",
+        "target_authorization": "reviewTarget closed Literal (recent_buyers/all_unreviewed); requires a buyer relationship with the bound account.",
+        "platform_entry_evidence": "unverified — the review composition/post surface has not been captured on the pinned app version (7.18.92)."
+      }
+    },
+    {
+      "catalog_id": "xy-tasks-15",
+      "title": "重启闲鱼",
+      "operation_key": "xianyu.restart_app",
+      "state": "PENDING",
+      "reason": "No production CommandV1 type exists for this action (K05 frozen closed CommandType enum); minting stays fail-closed until an executor command type is delivered and five-way synced per platform-recipe/v1 §2.",
+      "task_refs": [
+        "X11",
+        "X12"
+      ],
+      "package_refs": [
+        "P29",
+        "P31",
+        "P33",
+        "P35",
+        "P37"
+      ],
+      "enable_requires": [
+        "command_v1_lane"
+      ],
+      "sensitive_discipline": null
+    },
+    {
+      "catalog_id": "xy-tasks-16",
+      "title": "删除动态",
+      "operation_key": "xianyu.delete_feed",
+      "state": "PENDING",
+      "reason": "No production CommandV1 type exists for this action (K05 frozen closed CommandType enum); minting stays fail-closed until an executor command type is delivered and five-way synced per platform-recipe/v1 §2. X12 sensitive category (coin spend / promotion / review / message deletion): budget cap, target authorization, and pinned-version platform entry evidence are unverified; the row stays disabled until all three are recorded.",
+      "task_refs": [
+        "X10",
+        "X12"
+      ],
+      "package_refs": [
+        "P30",
+        "P32",
+        "P34",
+        "P36",
+        "P38",
+        "P39"
+      ],
+      "enable_requires": [
+        "command_v1_lane",
+        "target_authorization",
+        "platform_entry_evidence",
+        "budget_cap"
+      ],
+      "sensitive_discipline": {
+        "budget_cap": "quantity is bounded to 1..100 per run; no recurring-volume budget is approved.",
+        "target_authorization": "Own-account feed items only; no third-party content.",
+        "platform_entry_evidence": "unverified — the feed deletion surface has not been captured on the pinned app version (7.18.92)."
+      }
+    },
+    {
+      "catalog_id": "xy-tasks-17",
+      "title": "删除消息",
+      "operation_key": "xianyu.delete_message",
+      "state": "PENDING",
+      "reason": "No production CommandV1 type exists for this action (K05 frozen closed CommandType enum); minting stays fail-closed until an executor command type is delivered and five-way synced per platform-recipe/v1 §2. X12 sensitive category (coin spend / promotion / review / message deletion): budget cap, target authorization, and pinned-version platform entry evidence are unverified; the row stays disabled until all three are recorded.",
+      "task_refs": [
+        "X10",
+        "X12"
+      ],
+      "package_refs": [
+        "P30",
+        "P32",
+        "P34",
+        "P36",
+        "P38",
+        "P39"
+      ],
+      "enable_requires": [
+        "command_v1_lane",
+        "target_authorization",
+        "platform_entry_evidence"
+      ],
+      "sensitive_discipline": {
+        "budget_cap": "N/A — action-scoped (messageAction: clear_all/older_than_7_days), no volume knob; a per-run confirmation is still required.",
+        "target_authorization": "Own chat messages only; the messageAction closed Literal must match the declared scope.",
+        "platform_entry_evidence": "unverified — the chat message deletion surface has not been captured on the pinned app version (7.18.92)."
+      }
+    },
+    {
+      "catalog_id": "xy-tasks-18",
+      "title": "删除留言",
+      "operation_key": "xianyu.delete_comment",
+      "state": "PENDING",
+      "reason": "No production CommandV1 type exists for this action (K05 frozen closed CommandType enum); minting stays fail-closed until an executor command type is delivered and five-way synced per platform-recipe/v1 §2. X12 sensitive category (coin spend / promotion / review / message deletion): budget cap, target authorization, and pinned-version platform entry evidence are unverified; the row stays disabled until all three are recorded.",
+      "task_refs": [
+        "X10",
+        "X12"
+      ],
+      "package_refs": [
+        "P30",
+        "P32",
+        "P34",
+        "P36",
+        "P38",
+        "P39"
+      ],
+      "enable_requires": [
+        "command_v1_lane",
+        "target_authorization",
+        "platform_entry_evidence",
+        "budget_cap"
+      ],
+      "sensitive_discipline": {
+        "budget_cap": "quantity is bounded to 1..100 per run; no recurring-volume budget is approved.",
+        "target_authorization": "Comments on the bound account's own listings only.",
+        "platform_entry_evidence": "unverified — the comment deletion surface has not been captured on the pinned app version (7.18.92)."
+      }
+    },
+    {
+      "catalog_id": "xy-tasks-19",
+      "title": "草稿上架",
+      "operation_key": "xianyu.draft_publish",
+      "state": "PENDING",
+      "reason": "No production CommandV1 type exists for this action (K05 frozen closed CommandType enum); minting stays fail-closed until an executor command type is delivered and five-way synced per platform-recipe/v1 §2.",
+      "task_refs": [
+        "X11",
+        "X12"
+      ],
+      "package_refs": [
+        "P29",
+        "P31",
+        "P33",
+        "P35",
+        "P37"
+      ],
+      "enable_requires": [
+        "command_v1_lane"
+      ],
+      "sensitive_discipline": null
+    },
+    {
+      "catalog_id": "xy-tasks-20",
+      "title": "编辑重发",
+      "operation_key": "xianyu.reedit",
+      "state": "PENDING",
+      "reason": "No production CommandV1 type exists for this action (K05 frozen closed CommandType enum); minting stays fail-closed until an executor command type is delivered and five-way synced per platform-recipe/v1 §2.",
+      "task_refs": [
+        "X11",
+        "X12"
+      ],
+      "package_refs": [
+        "P29",
+        "P31",
+        "P33",
+        "P35",
+        "P37"
+      ],
+      "enable_requires": [
+        "command_v1_lane"
+      ],
+      "sensitive_discipline": null
+    },
+    {
+      "catalog_id": "xy-tasks-21",
+      "title": "托管无忧卖",
+      "operation_key": "xianyu.wuyoumai",
+      "state": "PENDING",
+      "reason": "No production CommandV1 type exists for this action (K05 frozen closed CommandType enum); minting stays fail-closed until an executor command type is delivered and five-way synced per platform-recipe/v1 §2.",
+      "task_refs": [
+        "X11",
+        "X12"
+      ],
+      "package_refs": [
+        "P29",
+        "P31",
+        "P33",
+        "P35",
+        "P37"
+      ],
+      "enable_requires": [
+        "command_v1_lane"
+      ],
+      "sensitive_discipline": null
+    },
+    {
+      "catalog_id": "xy-tasks-22",
+      "title": "快速编辑重发",
+      "operation_key": "xianyu.fast_reedit",
+      "state": "PENDING",
+      "reason": "No production CommandV1 type exists for this action (K05 frozen closed CommandType enum); minting stays fail-closed until an executor command type is delivered and five-way synced per platform-recipe/v1 §2.",
+      "task_refs": [
+        "X11",
+        "X12"
+      ],
+      "package_refs": [
+        "P29",
+        "P31",
+        "P33",
+        "P35",
+        "P37"
+      ],
+      "enable_requires": [
+        "command_v1_lane"
+      ],
+      "sensitive_discipline": null
+    },
+    {
+      "catalog_id": "xy-tasks-23",
+      "title": "快速下架商品",
+      "operation_key": "xianyu.fast_shelf_down",
+      "state": "PENDING",
+      "reason": "No production CommandV1 type exists for this action (K05 frozen closed CommandType enum); minting stays fail-closed until an executor command type is delivered and five-way synced per platform-recipe/v1 §2.",
+      "task_refs": [
+        "X11",
+        "X12"
+      ],
+      "package_refs": [
+        "P29",
+        "P31",
+        "P33",
+        "P35",
+        "P37"
+      ],
+      "enable_requires": [
+        "command_v1_lane"
+      ],
+      "sensitive_discipline": null
+    },
+    {
+      "catalog_id": "xy-tasks-24",
+      "title": "采集宝贝信息",
+      "operation_key": "xianyu.collect_listings",
+      "state": "PENDING",
+      "reason": "No production CommandV1 type exists for this action (K05 frozen closed CommandType enum); minting stays fail-closed until an executor command type is delivered and five-way synced per platform-recipe/v1 §2.",
+      "task_refs": [
+        "X11",
+        "X12"
+      ],
+      "package_refs": [
+        "P29",
+        "P31",
+        "P33",
+        "P35",
+        "P37"
+      ],
+      "enable_requires": [
+        "command_v1_lane"
+      ],
+      "sensitive_discipline": null
+    },
+    {
+      "catalog_id": "xy-tasks-25",
+      "title": "通用地址池",
+      "operation_key": "xianyu.shared.generic_address_pool",
+      "state": "OUT_OF_SCOPE",
+      "reason": "Scope change recorded by X12: the xy-tasks generic address-pool page only consumes the shared address-pool service owned by the product-editor/assets lanes; this row will never mint a xy device operation.",
+      "task_refs": [
+        "X12"
+      ],
+      "package_refs": [
+        "P46",
+        "P49"
+      ],
+      "enable_requires": [],
+      "sensitive_discipline": null
+    },
+    {
+      "catalog_id": "xy-tasks-26",
+      "title": "设备地址池",
+      "operation_key": "xianyu.shared.device_address_pool",
+      "state": "OUT_OF_SCOPE",
+      "reason": "Scope change recorded by X12: the xy-tasks per-device address-pool page only consumes the shared address-pool service owned by the product-editor/assets lanes; this row will never mint a xy device operation.",
+      "task_refs": [
+        "X12"
+      ],
+      "package_refs": [
+        "P46",
+        "P49"
+      ],
+      "enable_requires": [],
+      "sensitive_discipline": null
+    },
+    {
+      "catalog_id": "xy-tasks-27",
+      "title": "描述池",
+      "operation_key": "xianyu.shared.description_pool",
+      "state": "OUT_OF_SCOPE",
+      "reason": "Scope change recorded by X12: the description-pool contract is owned by the product-editor/assets lanes; this row only registers the xy-tasks page's use of that shared service.",
+      "task_refs": [
+        "X12"
+      ],
+      "package_refs": [
+        "P46",
+        "P49"
+      ],
+      "enable_requires": [],
+      "sensitive_discipline": null
+    },
+    {
+      "catalog_id": "xy-tasks-28",
+      "title": "标签池",
+      "operation_key": "xianyu.shared.tag_pool",
+      "state": "OUT_OF_SCOPE",
+      "reason": "Scope change recorded by X12: the tag-pool contract is owned by the product-editor/assets lanes; this row only registers the xy-tasks page's use of that shared service.",
+      "task_refs": [
+        "X12"
+      ],
+      "package_refs": [
+        "P46",
+        "P49"
+      ],
+      "enable_requires": [],
+      "sensitive_discipline": null
+    },
+    {
+      "catalog_id": "xy-tasks-29",
+      "title": "图片水印",
+      "operation_key": "xianyu.shared.watermark",
+      "state": "OUT_OF_SCOPE",
+      "reason": "Scope change recorded by X12: the watermark render contract is owned by the watermarks.preview.render lane; this row only registers the xy-tasks page's use of that shared service.",
+      "task_refs": [
+        "X12"
+      ],
+      "package_refs": [
+        "P46",
+        "P49"
+      ],
+      "enable_requires": [],
+      "sensitive_discipline": null
+    },
+    {
+      "catalog_id": "xy-tasks-30",
+      "title": "违禁词检测",
+      "operation_key": "content.forbidden_words.scan",
+      "state": "PENDING",
+      "reason": "Server-side scan lane is not wired to an operations executor yet; the works.revision.validate lane carries the deployed validation contract.",
+      "task_refs": [
+        "X12"
+      ],
+      "package_refs": [
+        "P46"
+      ],
+      "enable_requires": [
+        "scan_executor_wiring"
+      ],
+      "sensitive_discipline": null
+    },
+    {
+      "catalog_id": "xy-tasks-31",
+      "title": "视频操作教程",
+      "operation_key": "xianyu.guide.videos",
+      "state": "OUT_OF_SCOPE",
+      "reason": "Scope change recorded by X12: guide-only tutorial inventory with no execution semantics; registered for 31-action parity, never an executor target.",
+      "task_refs": [
+        "X12"
+      ],
+      "package_refs": [
+        "P46",
+        "P49"
+      ],
+      "enable_requires": [],
+      "sensitive_discipline": null
+    }
+  ],
+  "scope_adjudications": [
+    {
+      "topic": "SKU 多规格发布（multi-SKU listing publish）",
+      "decision": "keep_blocked",
+      "record": "K12 §6 冻结未证实能力台账：SKU/多规格发布为 PENDING_VERIFICATION，旧 APK A 级参考不构成当前支持；Recipe/命令注册表不得声明 SUPPORTED。本台账内 xy-tasks-01 仅发布文本商品（XianyuListingPublishParameters 无 SKU 字段），SKU 面保持不点亮；翻转需逐项真机回读证据 + 新的范围裁决。",
+      "evidence_required": [
+        "钉版 App 版本上 SKU 编辑器的真机回读证据",
+        "Recipe 注册表声明复核（不得声明 SUPPORTED）"
+      ],
+      "task_refs": [
+        "K12",
+        "X12"
+      ],
+      "package_refs": [
+        "P29",
+        "P31",
+        "P33",
+        "P35",
+        "P37",
+        "P49"
+      ]
+    },
+    {
+      "topic": "拍卖宝贝（auction listing 出价/设置）",
+      "decision": "keep_blocked",
+      "record": "K12 §6：拍卖出价/设置为 PENDING_VERIFICATION。product-editor-02（拍卖宝贝）当前为 ui_only/unmapped，31 项 xy-tasks 注册中无任何拍卖动作行。V1 不接受；未来接受需新的范围裁决记录。",
+      "evidence_required": [
+        "拍卖出价/设置页面的真机回读证据",
+        "新增拍卖动作的目录注册与裁决记录"
+      ],
+      "task_refs": [
+        "K12",
+        "X12"
+      ],
+      "package_refs": [
+        "P29",
+        "P31",
+        "P33",
+        "P35",
+        "P37",
+        "P49"
+      ]
+    },
+    {
+      "topic": "会玩（闲鱼社区内容/帖子频道）",
+      "decision": "scope_change",
+      "record": "D-5 冻结 V1 平台面为闲鱼商品；社区内容范围外。且钉版闲鱼 7.18.92 已取消会玩帖子首页展示（docs/compatibility/yuyou-assistant-qa.md），无稳定入口可自动化。旧 APK 的会玩能力不移植、不补实现。xy-tasks-02 发布帖子（鱼圈帖子）维持 PENDING 等 T102，不因会玩裁决改变。",
+      "evidence_required": [],
+      "task_refs": [
+        "X12"
+      ],
+      "package_refs": [
+        "P49"
+      ]
+    },
+    {
+      "topic": "拼多多/其它平台页面（K12 §6 未证实类）",
+      "decision": "keep_blocked",
+      "record": "K12 §6：拼多多/其它平台页面为 PENDING_VERIFICATION，旧 APK A 级参考不算当前支持；须逐项真机证据后才可改 SUPPORTED。",
+      "evidence_required": [
+        "各平台页面的真机回读证据",
+        "验收记录须附平台真实回读证据"
+      ],
+      "task_refs": [
+        "K12",
+        "X12"
+      ],
+      "package_refs": [
+        "P49"
+      ]
+    },
+    {
+      "topic": "额外平台（转转/淘宝/多多/孔网/阿里巴巴/微商相册等电商平台）",
+      "decision": "scope_change",
+      "record": "D-5 冻结 V1 平台恰为四个：闲鱼商品、小红书图文、抖音视频、微信公众号文章。转转等其余平台范围外：collection-01..12 解析类特性为 BLOCKED_FEATURE_IDS；zz-tasks 仅 zz-tasks-01 映射到校验门（publish_plans.snapshot.validate），zz-tasks-06/07（转转养号/流量模式）与 red-tasks-03/04（小红书养号/搜索养号）为 POLICY_BLOCKED，均不因旧 APK 存在能力而补实现。",
+      "evidence_required": [],
+      "task_refs": [
+        "X12"
+      ],
+      "package_refs": [
+        "P29",
+        "P31",
+        "P33",
+        "P35",
+        "P37",
+        "P49"
+      ]
+    },
+    {
+      "topic": "小红书图文（D-5 四平台之一）",
+      "decision": "accept",
+      "record": "D-5 范围内且已有生产通道：xiaohongshu.publish_note.v1 为 PRODUCTION_ALIASES 铸币目标（A05 open-only lane），red-tasks-01 页面契约已注册。养号类（red-tasks-03/04）维持 POLICY_BLOCKED，不在接受范围。",
+      "evidence_required": [],
+      "task_refs": [
+        "A05",
+        "X12"
+      ],
+      "package_refs": [
+        "P29",
+        "P31",
+        "P33",
+        "P35",
+        "P37"
+      ]
+    },
+    {
+      "topic": "抖音视频 / 微信公众号文章（D-5 四平台之三、四）",
+      "decision": "accept",
+      "record": "D-5 范围内：抖音视频缺口由 F15 专项承接（不属 31 项 xy-tasks 目录）；微信公众号文章走服务端 WeChatPublisherService lane。接受记录不等于已点亮：各自状态以所属 lane 的注册与验收为准。",
+      "evidence_required": [],
+      "task_refs": [
+        "F15",
+        "X12"
+      ],
+      "package_refs": [
+        "P29",
+        "P31",
+        "P33",
+        "P35",
+        "P37",
+        "P39",
+        "P46",
+        "P49"
+      ]
+    }
+  ],
+  "policy_notes": [
+    "旧 APK 含养号/互助/流量/任意消息等能力：政策口径保持禁用（POLICY_BLOCKED），不补实现、不移植（X12 任务卡第2条）。",
+    "鱼币消耗/推广/好评/删消息类逐项列出预算上限、对象授权要求、钉版平台入口证据字段；未证实一律暂禁（PENDING/POLICY_BLOCKED），不得标成功（X12 任务卡第3条）。",
+    "注册≠已开启：本台账 31 行中仅 1 行 ENABLED；'全部点亮'不构成本任务完成态（X12 验收卡）。"
+  ]
+}
