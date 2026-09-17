@@ -1,5 +1,8 @@
 package com.company.cloudctl.companion.network
 
+import com.company.cloudctl.companion.automation.OrderDirection
+import com.company.cloudctl.companion.automation.OrderRowSnapshot
+import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URI
 import java.io.File
@@ -116,6 +119,18 @@ class CloudTaskClient(private val connection: CloudConnection) {
         return request("/companion/v2/orders/batch", payload) ?: JSONObject()
     }
 
+    /**
+     * O10 (fleet-first-20260916.1) per-screen page push: run/account-bound
+     * page summary + rows. A 201/200 body carries
+     * {"accepted","updated","duplicates","screen","replayed","checkpoint"};
+     * binding violations (account/version/run/screen-gap) surface as
+     * CloudHttpException(409, detail). Build the body with
+     * [buildOrdersScreenPayload].
+     */
+    fun sendOrdersScreen(payload: JSONObject): JSONObject {
+        return request("/companion/v2/orders/screens", payload) ?: JSONObject()
+    }
+
     fun uploadPreview(payload: JSONObject): JSONObject {
         return request("/companion/v2/devices/preview", payload) ?: JSONObject()
     }
@@ -209,6 +224,58 @@ class CloudTaskClient(private val connection: CloudConnection) {
 }
 
 internal data class TaskReleaseRequest(val path: String, val body: JSONObject)
+
+/** Collection-protocol version of the O10 screens push; the checkpoint binds it (mismatch => new run). */
+internal const val ORDER_SCREENS_SCHEMA_VERSION = 1
+
+/**
+ * O10 (fleet-first-20260916.1) request body for POST /companion/v2/orders/screens.
+ * The field set is FROZEN against the backend request model
+ * services/control-api/src/cloudctl_api/fleet_orders.py::FleetOrderScreenIn
+ * (extra="forbid"): runKey/accountKey/schemaVersion/screen/direction/rows/
+ * partialRows/collectedAt — nothing else may join. Row items mirror the
+ * slice1 /orders/batch row shape (OrderIn) exactly. Unlike the batch, an
+ * empty rows list is legal: it records an empty page (empty_page flag).
+ */
+internal fun buildOrdersScreenPayload(
+    runKey: String,
+    accountKey: String,
+    schemaVersion: Int,
+    direction: OrderDirection,
+    screen: Int,
+    rows: List<OrderRowSnapshot>,
+    partialRowIndices: List<Int>,
+    collectedAt: String,
+): JSONObject {
+    require(runKey.isNotBlank()) { "runKey must not be blank" }
+    require(accountKey.isNotBlank()) { "accountKey must not be blank" }
+    require(schemaVersion in 1..99) { "schemaVersion is outside the backend range" }
+    require(screen in 1..50) { "screen is outside the backend range" }
+    require(rows.size <= 20) { "screen rows exceed the backend batch limit" }
+    require(partialRowIndices.size <= 50) { "partialRows exceed the backend limit" }
+    val items = JSONArray()
+    rows.forEach { row ->
+        val item = JSONObject()
+            .put("direction", row.direction.name)
+            .put("order_key", row.orderKey.trim().take(128))
+        row.itemTitle?.trim()?.takeIf { it.isNotBlank() }?.let { item.put("item_title", it.take(512)) }
+        row.buyerName?.trim()?.takeIf { it.isNotBlank() }?.let { item.put("buyer_name", it.take(128)) }
+        row.amountCents?.takeIf { it > 0 }?.let { item.put("amount_cents", it) }
+        row.statusText?.trim()?.takeIf { it.isNotBlank() }?.let { item.put("status_text", it.take(64)) }
+        row.occurredAt?.takeIf { it.isNotBlank() }?.let { item.put("occurred_at", it) }
+        if (row.rawLines.isNotEmpty()) item.put("raw", JSONObject().put("lines", JSONArray(row.rawLines)))
+        items.put(item)
+    }
+    return JSONObject()
+        .put("runKey", runKey.take(128))
+        .put("accountKey", accountKey.take(128))
+        .put("schemaVersion", schemaVersion)
+        .put("screen", screen)
+        .put("direction", direction.name)
+        .put("rows", items)
+        .put("partialRows", JSONArray(partialRowIndices))
+        .put("collectedAt", collectedAt.take(64))
+}
 
 internal fun buildTaskReleaseRequest(taskId: String, leaseId: String, reason: String): TaskReleaseRequest {
     require(taskId.isNotBlank()) { "taskId must not be blank" }

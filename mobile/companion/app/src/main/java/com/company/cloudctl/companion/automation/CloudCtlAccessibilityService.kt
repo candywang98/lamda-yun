@@ -233,11 +233,18 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         commitGate: CommitGate? = null,
         destructiveGate: DestructiveClickGate? = null,
         orderReporter: OrderReporter? = null,
+        orderScreensReporter: OrderScreensReporter? = null,
         journal: (AutomationStep, String) -> Unit,
     ) {
         if (active !== this) throw ExecutorFailure("ACCESSIBILITY_NOT_ACTIVE", "Accessibility service is not active")
         launchTargetApp(task.targetPackage, writer = UiWriter.TASK)
-        LocalAutomationExecutor(this, commitGate = commitGate, destructiveGate = destructiveGate, orderReporter = orderReporter)
+        LocalAutomationExecutor(
+            this,
+            commitGate = commitGate,
+            destructiveGate = destructiveGate,
+            orderReporter = orderReporter,
+            orderScreensReporter = orderScreensReporter,
+        )
             .execute(task, control, startAfterIndex, journal)
     }
 
@@ -531,6 +538,71 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
     }
 
     /**
+     * I10 reply-boundary evidence (fleet-first-20260916.1): what the open chat
+     * page verifiably shows right now. The chat input's visibility comes from
+     * the verified locator; the traceable-trigger feed is any plausible
+     * inbound bubble on the page (the task does not carry the triggering
+     * text, so the honest provable fact is "an inbound from the peer's page
+     * is visible"); the conversation identity comes from [chatHeaderPeerName].
+     * Unreadable states return null/blank fields — the boundary refuses on
+     * them, never assumes the best.
+     */
+    override fun imChatEvidence(
+        targetPackage: String,
+        expectedPeer: String?,
+    ): com.company.cloudctl.companion.im.ImReplyBoundary.ChatEvidence? {
+        if (targetPackage != TargetLocatorRegistry.XIANYU_PACKAGE) return null
+        return runCatching {
+            val chatInputVisible = resolveUniqueNode(
+                targetPackage,
+                com.company.cloudctl.companion.im.ImReplyTaskShape.CHAT_INPUT_LOCATOR,
+            )?.isVisibleToUser == true
+            val inboundVisible = chatBubbles(targetPackage).any { it.inbound && it.plausible() }
+            com.company.cloudctl.companion.im.ImReplyBoundary.ChatEvidence(
+                openPeerName = chatHeaderPeerName(targetPackage, expectedPeer, chatInputVisible),
+                chatInputVisible = chatInputVisible,
+                triggeringInboundVisible = inboundVisible,
+            )
+        }.getOrNull()
+    }
+
+    /**
+     * Resolves the OPEN chat page's conversation identity from its header
+     * band: the visible short lines OUTSIDE the scrollable message list and
+     * entirely above its top edge. When the band literally carries
+     * [expectedPeer], that is the identity; a band with exactly one distinct
+     * candidate resolves to it; anything else (no band, several distinct
+     * candidates) is unresolvable and returns null — the boundary then
+     * refuses REPLY_CONVERSATION_UNVERIFIED instead of guessing. Structural
+     * chrome (返回/更多/消息/发送) never becomes an identity.
+     * Survey-pending: the exact header shape is calibrated on device;
+     * ambiguity keeps failing closed.
+     */
+    private fun chatHeaderPeerName(targetPackage: String, expectedPeer: String?, chatInputVisible: Boolean): String? {
+        if (!chatInputVisible) return null
+        val listBounds = Rect()
+        val listTop = findScrollableContainer(targetPackage)?.let { container ->
+            container.getBoundsInScreen(listBounds)
+            listBounds.top
+        } ?: return null
+        val candidates = mutableListOf<Pair<Int, String>>() // (top, line)
+        fun visit(node: AccessibilityNodeInfo) {
+            val line = (node.text?.toString() ?: node.contentDescription?.toString() ?: "").trim()
+            if (node.isVisibleToUser && line.isNotEmpty() && line.length <= 64 && line !in CHAT_HEADER_CHROME) {
+                val bounds = Rect()
+                node.getBoundsInScreen(bounds)
+                if (bounds.height() > 0 && bounds.bottom <= listTop) candidates += bounds.top to line
+            }
+            for (index in 0 until node.childCount) node.getChild(index)?.let(::visit)
+        }
+        allRoots().filter { it.packageName?.toString() == targetPackage }.forEach { visit(it) }
+        val values = candidates.sortedBy { it.first }.map { it.second }
+        val expected = expectedPeer?.trim()?.takeIf { it.isNotEmpty() }
+        if (expected != null && values.any { it == expected }) return expected
+        return values.distinct().singleOrNull()
+    }
+
+    /**
      * Reveal older conversation content (backward=true) or return to the newest
      * (backward=false) by swiping inside the conversation list's own bounds.
      *
@@ -635,13 +707,27 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
     }.getOrNull()
 
     override suspend fun tapScreenAt(targetPackage: String, x: Int, y: Int) {
-        demandWrite(UiWriter.TASK, UiWriteKind.TAP, detail = "coordinate tap $x,$y")
-        // Structured maintenance coordinates (xianyu only): one dispatchGesture
-        // path, bounds-checked against the live screen, no fallback click.
-        if (targetPackage != TargetLocatorRegistry.XIANYU_PACKAGE) {
+        demandWrite(UiWriter.TASK, UiWriteKind.TAP, detail = "coordinate tap $targetPackage $x,$y")
+        // Structured maintenance coordinates stay xianyu-only; B15X
+        // (fleet-first-20260916.1) widens the coordinate path to the AOSP
+        // system gallery pickers through the frozen package gate — every
+        // other target keeps the hard rejection.
+        if (!CoordinateTapPackageGate.approves(targetPackage)) {
             throw ExecutorFailure("COORDINATE_TAP_REJECTED", "Coordinate taps are not approved for this target")
         }
-        ensureReady(targetPackage)
+        if (targetPackage == TargetLocatorRegistry.XIANYU_PACKAGE) {
+            // One dispatchGesture path, bounds-checked against the live
+            // screen, no fallback click.
+            ensureReady(targetPackage)
+        } else if (allRoots().none { it.packageName?.toString() == targetPackage }) {
+            // The album picker is an overlay window beside the task target
+            // (ensureReady's foreground contract cannot apply): it must at
+            // least own a live accessibility root, or the tap fails closed.
+            throw ExecutorFailure(
+                "COORDINATE_TAP_REJECTED",
+                "Approved picker package owns no live window; coordinate tap fails closed",
+            )
+        }
         val metrics = resources.displayMetrics
         if (x !in 0 until metrics.widthPixels || y !in 0 until metrics.heightPixels) {
             throw ExecutorFailure("COORDINATE_OUT_OF_BOUNDS", "Coordinate tap left the guarded screen")
@@ -2074,6 +2160,10 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         private const val CARD_BOUNDS_REQUERY_SETTLE_MS = 150L
         private const val DUTY_NAV_ANCHOR_RETRY_MS = 500L
         private const val DUTY_NAV_MESSAGES_TAB_LOCATOR = "xianyu_messages_tab"
+
+        // I10 chat-header identity resolution: structural chrome lines that can
+        // never be a conversation identity (surveyed xianyu chat page chrome).
+        private val CHAT_HEADER_CHROME = setOf("返回", "更多", "消息", "发送")
         private val generationCounter = java.util.concurrent.atomic.AtomicLong()
         private val gestureEvidenceCounter = java.util.concurrent.atomic.AtomicLong()
 

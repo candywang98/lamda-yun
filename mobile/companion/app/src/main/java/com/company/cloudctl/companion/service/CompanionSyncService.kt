@@ -26,7 +26,11 @@ import com.company.cloudctl.companion.automation.CloudCtlAccessibilityService
 import com.company.cloudctl.companion.automation.CommandV1
 import com.company.cloudctl.companion.automation.ExecutionControl
 import com.company.cloudctl.companion.automation.ExecutorFailure
+import com.company.cloudctl.companion.automation.OrderDirection
 import com.company.cloudctl.companion.automation.OrderReporter
+import com.company.cloudctl.companion.automation.OrderScreensReporter
+import com.company.cloudctl.companion.features.xianyu.orders.OrderCheckpoint
+import com.company.cloudctl.companion.features.xianyu.orders.OrderPageReading
 import com.company.cloudctl.companion.automation.RecipeEngine
 import com.company.cloudctl.companion.automation.RecipePackage
 import com.company.cloudctl.companion.automation.ResumeValidator
@@ -56,6 +60,8 @@ import com.company.cloudctl.companion.network.CloudHttpException
 import com.company.cloudctl.companion.network.CloudTaskClient
 import com.company.cloudctl.companion.network.TaskHeartbeat
 import com.company.cloudctl.companion.network.buildOrdersBatchPayload
+import com.company.cloudctl.companion.network.buildOrdersScreenPayload
+import com.company.cloudctl.companion.network.ORDER_SCREENS_SCHEMA_VERSION
 import com.company.cloudctl.companion.network.parseOrdersBatchResponse
 import com.company.cloudctl.companion.network.PreviewGrant
 import com.company.cloudctl.companion.network.ResumeCommand
@@ -597,6 +603,11 @@ class CompanionSyncService : Service() {
         val commitGate = buildStepsPublishGate(service, task)
         val destructiveGate = buildMaintenanceDestructiveGate(service, task)
         val orderReporter = if (task.steps.any { it is AutomationStep.ReadOrders }) orderReporterFor(client) else null
+        val orderScreensReporter = if (task.steps.any { it is AutomationStep.ReadOrders }) {
+            orderScreensReporterFor(client, pending, task)
+        } else {
+            null
+        }
         var taskWriteSession: TaskSession? = null
         var releaseBoundary = ReleaseBoundary.COMPLETED
         try {
@@ -646,6 +657,7 @@ class CompanionSyncService : Service() {
                             service.execute(
                                 task, control, startAfterIndex = -1, commitGate = commitGate,
                                 destructiveGate = destructiveGate, orderReporter = orderReporter,
+                                orderScreensReporter = orderScreensReporter,
                             ) { step, state ->
                                 val stepIndex = task.steps.indexOf(step)
                                 currentStep.set(stepIndex)
@@ -763,6 +775,11 @@ class CompanionSyncService : Service() {
         val commitGate = buildStepsPublishGate(service, task)
         val destructiveGate = buildMaintenanceDestructiveGate(service, task)
         val orderReporter = if (task.steps.any { it is AutomationStep.ReadOrders }) orderReporterFor(client) else null
+        val orderScreensReporter = if (task.steps.any { it is AutomationStep.ReadOrders }) {
+            orderScreensReporterFor(client, pending, task)
+        } else {
+            null
+        }
         val checkpoint = store.latestCheckpoint(task.taskId)
         if (checkpoint == null) {
             persistPaused(task.taskId, pending, TaskPausedException(null, -1, "resume checkpoint missing"))
@@ -806,6 +823,7 @@ class CompanionSyncService : Service() {
                         service.execute(
                             task, control, startAfterIndex, commitGate = commitGate,
                             destructiveGate = destructiveGate, orderReporter = orderReporter,
+                            orderScreensReporter = orderScreensReporter,
                         ) { step, state ->
                             val stepIndex = task.steps.indexOf(step)
                             currentStep.set(stepIndex)
@@ -1245,6 +1263,106 @@ class CompanionSyncService : Service() {
             )
         } catch (error: Exception) {
             android.util.Log.w("CompanionSync", "orders batch upload deferred task=$taskId: ${error.message}")
+        }
+    }
+
+    /**
+     * O10 dual-write (fleet-first-20260916.1): per-screen page payload for
+     * POST /companion/v2/orders/screens. runKey = the claim's task id (an
+     * offline replay of the same screen stays idempotent server-side);
+     * accountKey = the claimed payload's accountId, degrading to device
+     * attribution when the claim carries no account; schemaVersion frozen at
+     * [ORDER_SCREENS_SCHEMA_VERSION]. After a successful push the
+     * OrderCheckpoint advances (account/schema/device/direction-bound via
+     * bindsTo) and persists in the lightweight orders-checkpoint prefs — the
+     * same SharedPreferences mechanism the binding store already uses; a
+     * decode failure or refused binding starts fresh from screen 1
+     * (fail-closed, never a guessed position). Push failures mirror the
+     * slice1 batch channel: logged, never task-fatal.
+     */
+    private fun orderScreensReporterFor(
+        client: CloudTaskClient,
+        pending: PendingTask,
+        task: AutomationTask,
+    ): OrderScreensReporter {
+        val accountKey = runCatching {
+            JSONObject(pending.payload).optString("accountId").takeIf { it.isNotBlank() }
+        }.getOrNull() ?: task.deviceId
+        return OrderScreensReporter { taskId, direction, page, summary, rows, partialRowIndices ->
+            try {
+                val payload = buildOrdersScreenPayload(
+                    runKey = taskId,
+                    accountKey = accountKey,
+                    schemaVersion = ORDER_SCREENS_SCHEMA_VERSION,
+                    direction = direction,
+                    screen = page.screen,
+                    rows = rows,
+                    partialRowIndices = partialRowIndices,
+                    collectedAt = summary.collectedAt,
+                )
+                val response = withContext(Dispatchers.IO) { client.sendOrdersScreen(payload) }
+                advanceAndPersistOrderCheckpoint(task, direction, page, accountKey)
+                android.util.Log.i(
+                    "CompanionSync",
+                    "orders screen task=$taskId direction=$direction screen=${page.screen} " +
+                        "accepted=${response.optInt("accepted", -1)} updated=${response.optInt("updated", -1)} " +
+                        "duplicates=${response.optInt("duplicates", -1)} replayed=${response.optBoolean("replayed", false)}",
+                )
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (rejected: CloudHttpException) {
+                // 409 carries the checkpoint binding verdict (account/version/
+                // run/screen-gap) — keep the body for diagnosis.
+                android.util.Log.w(
+                    "CompanionSync",
+                    "orders screen push rejected task=$taskId screen=${page.screen} " +
+                        "status=${rejected.status} body=${rejected.responseBody.take(500)}",
+                )
+            } catch (error: Exception) {
+                android.util.Log.w(
+                    "CompanionSync",
+                    "orders screen push deferred task=$taskId screen=${page.screen}: ${error.message}",
+                )
+            }
+        }
+    }
+
+    /** O10 checkpoint feed: advance the direction-bound checkpoint after a successful screen push. */
+    private fun advanceAndPersistOrderCheckpoint(
+        task: AutomationTask,
+        direction: OrderDirection,
+        page: OrderPageReading,
+        accountKey: String,
+    ) {
+        runCatching {
+            val prefs = getSharedPreferences("cloudctl_orders_checkpoint", MODE_PRIVATE)
+            val prior = prefs.getString(direction.name, null)?.let { OrderCheckpoint.decode(it) }
+            // Only a checkpoint that binds to THIS account/schema/device/
+            // direction/run may resume; anything else (new run, switched
+            // account, version bump) restarts from this run's own screen 1.
+            val resumable = prior?.takeIf {
+                it.bindsTo(
+                    accountKey, ORDER_SCREENS_SCHEMA_VERSION, task.deviceId, direction, task.taskId,
+                ) is OrderCheckpoint.BindResult.Resume
+            }
+            val base = resumable ?: OrderCheckpoint(
+                accountKey = accountKey,
+                schemaVersion = ORDER_SCREENS_SCHEMA_VERSION,
+                deviceKey = task.deviceId,
+                direction = direction,
+                runKey = task.taskId,
+                lastScreen = 0,
+                seenKeyCount = 0,
+            )
+            val advanced = base.advance(page.screen, page.newKeyCount)
+            prefs.edit().putString(direction.name, advanced.encode()).apply()
+            android.util.Log.i(
+                "CompanionSync",
+                "orders checkpoint direction=$direction run=${task.taskId.take(16)} " +
+                    "lastScreen=${advanced.lastScreen} seenKeys=${advanced.seenKeyCount}",
+            )
+        }.onFailure {
+            android.util.Log.w("CompanionSync", "orders checkpoint persist deferred: ${it.message}")
         }
     }
 
