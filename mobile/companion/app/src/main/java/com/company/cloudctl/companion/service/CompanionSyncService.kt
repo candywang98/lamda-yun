@@ -74,6 +74,16 @@ import com.company.cloudctl.companion.runtime.ReleaseBoundary
 import com.company.cloudctl.companion.runtime.TaskSession
 import com.company.cloudctl.companion.runtime.UiWriter
 import com.company.cloudctl.companion.security.SecretStore
+import com.company.cloudctl.companion.updates.AndroidDeviceStatePort
+import com.company.cloudctl.companion.updates.AndroidPackageInstallerPort
+import com.company.cloudctl.companion.updates.ApkInstallReceiver
+import com.company.cloudctl.companion.updates.ApkInstallStatusBus
+import com.company.cloudctl.companion.updates.ApkUpdateCoordinator
+import com.company.cloudctl.companion.updates.ApkVerdict
+import com.company.cloudctl.companion.updates.ArtifactTransfer
+import com.company.cloudctl.companion.updates.CompanionApkInstallGate
+import com.company.cloudctl.companion.updates.CompanionApkUpdateDriver
+import com.company.cloudctl.companion.updates.FileApkUpdateLedger
 import com.company.cloudctl.companion.updates.RecipePackageManager
 import com.company.cloudctl.companion.updates.RecipeLifecycle
 import com.company.cloudctl.companion.updates.RecipeDownload
@@ -142,6 +152,22 @@ class CompanionSyncService : Service() {
         val orchestrator: ControlLoopOrchestrator,
     )
 
+    // WIRE2 (fleet-first-20260916.1): apk-release/v1 install coordinator.
+    // Built lazily like [controlRuntime] once a binding exists; the driver
+    // serializes ledger access between this loop (IO) and PackageInstaller
+    // status deliveries (main thread, via [ApkInstallStatusBus]).
+    @Volatile
+    private var apkRuntime: ApkRuntime? = null
+
+    /** Claim-intake lever flipped by the install gate — true only inside an install window. */
+    @Volatile
+    private var installWindowClaimSuspension = false
+
+    private var lastApkTickAt = 0L
+    private var lastPresenceOk = false
+
+    private class ApkRuntime(val driver: CompanionApkUpdateDriver)
+
     // im-live slice 2, gap 2: corrects placeholder notification bodies with the
     // real conversation text once a reply task leaves the chat page open.
     private val imBodyEnricher = com.company.cloudctl.companion.im.ImBodyEnricher(
@@ -190,6 +216,7 @@ class CompanionSyncService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
+        ApkInstallStatusBus.detach()
         scope.cancel()
         store.close()
         super.onDestroy()
@@ -250,6 +277,21 @@ class CompanionSyncService : Service() {
                     android.util.Log.i("CompanionSync", "Heartbeat successful")
                     runtimeStatus.markPresence(true)
                     retryPolicy.reset()
+                    // WIRE2 (U11 task requirement 4): the first heartbeat after a
+                    // disconnect re-reports every undelivered install receipt.
+                    // The device heartbeat model is extra=forbid server-side, so
+                    // the fuller statusReport() block cannot join this payload
+                    // until the server grows the field (see WIRE2 handover); the
+                    // receipts themselves converge through :report-installed.
+                    if (!lastPresenceOk) {
+                        lastPresenceOk = true
+                        runCatching {
+                            val runtime = apkRuntime() ?: return@runCatching
+                            withContext(Dispatchers.IO) { runtime.driver.onReconnected() }
+                        }.onFailure {
+                            android.util.Log.w("CompanionSync", "APK receipt re-report deferred: ${it.message}")
+                        }
+                    }
                     control?.let { runtime ->
                         val watermark = heartbeat.optLong("controlHighWatermark", -1L)
                         val inline = parseInlineControlEvents(heartbeat)
@@ -270,21 +312,25 @@ class CompanionSyncService : Service() {
                 } else {
                     android.util.Log.w("CompanionSync", "Network not validated, skipping heartbeat")
                     runtimeStatus.markPresence(false)
+                    lastPresenceOk = false
                 }
                 delay(DEVICE_HEARTBEAT_INTERVAL_MILLIS)
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: CloudHttpException) {
                 android.util.Log.e("CompanionSync", "HTTP error in heartbeat: ${error.message}, status: ${error.status}, body: ${error.responseBody}, auth rejected: ${error.authenticationRejected}")
+                lastPresenceOk = false
                 runtimeStatus.markPresence(false)
                 if (error.authenticationRejected) return
                 delay(retryPolicy.nextDelayMillis())
             } catch (error: IOException) {
                 android.util.Log.e("CompanionSync", "IO error in heartbeat: ${error.message}")
+                lastPresenceOk = false
                 runtimeStatus.markPresence(false)
                 delay(retryPolicy.nextDelayMillis())
             } catch (error: Exception) {
                 android.util.Log.e("CompanionSync", "Unexpected error in heartbeat: ${error.message}", error)
+                lastPresenceOk = false
                 runtimeStatus.markPresence(false)
                 delay(retryPolicy.nextDelayMillis())
             }
@@ -381,6 +427,10 @@ class CompanionSyncService : Service() {
                 runCatching { recipes.activatePending() }.onFailure {
                     android.util.Log.e("CompanionSync", "Recipe activation deferred", it)
                 }
+                // WIRE2: apk-release/v1 update tick (poll -> install window ->
+                // receipt drain), rate-limited; best-effort like recipe sync.
+                runCatching { apkSyncTick() }
+                    .onFailure { android.util.Log.w("CompanionSync", "APK update tick deferred: ${it.message}") }
                 if (networkAvailability.isValidated()) {
                     try {
                         val executor = ControlledActionExecutor(store, PinnedControlledActionLedger(configured.first))
@@ -402,7 +452,10 @@ class CompanionSyncService : Service() {
                     // window to acquireFreshClaimAccessibility's release path.
                     // B17: an active SUSPECT_ORPHANED signal additionally blocks
                     // destructive-task claims until the server resolves it.
+                    // WIRE2: claim intake is suspended for the install window
+                    // (gate discipline: suspend, never force-stop anything).
                     if (!store.hasBlockingHead() && claimPermittedByControl &&
+                        !installWindowClaimSuspension &&
                         accessibilityRuntimeReadiness().capture() is AccessibilityRuntimeReadiness.Ready<*>
                     ) {
                         claimed = withContext(Dispatchers.IO) { client.claim() }
@@ -1808,6 +1861,59 @@ class CompanionSyncService : Service() {
         else -> "NONE"
     }
 
+    /**
+     * WIRE2: lazily builds the apk-release/v1 update runtime once a binding
+     * exists. The ledger + verified artifacts live under filesDir/apk-updates
+     * (U11 [ApkInstallReceiver.ledgerRoot]); the install gate reads the
+     * AutomationStore signals directly and only ever suspends claim intake.
+     */
+    private fun apkRuntime(): ApkRuntime? {
+        apkRuntime?.let { return it }
+        val configured = loadConnection() ?: return null
+        val ledgerRoot = ApkInstallReceiver.ledgerRoot(this)
+        val coordinator = ApkUpdateCoordinator(
+            client = CloudTaskClient(configured.first),
+            transfer = ArtifactTransfer(ledgerRoot),
+            ledger = FileApkUpdateLedger(ledgerRoot),
+            installer = AndroidPackageInstallerPort(this),
+            gate = CompanionApkInstallGate(
+                unfinishedTaskRows = { store.hasUnfinishedTaskRows() },
+                pendingCriticalReports = {
+                    store.pendingEvents().isNotEmpty() || store.pendingControlAcks().isNotEmpty()
+                },
+                suspendClaim = { installWindowClaimSuspension = true },
+                resumeClaim = { installWindowClaimSuspension = false },
+            ),
+            device = AndroidDeviceStatePort(this),
+        )
+        val runtime = ApkRuntime(CompanionApkUpdateDriver(coordinator))
+        // U11 status bus: PackageInstaller deliveries of THIS process route
+        // straight into the coordinator; the receiver journals them to the
+        // ledger whenever no runtime is attached (process death, reboot).
+        ApkInstallStatusBus.attach { sessionId, outcome, message ->
+            runtime.driver.onInstallerStatus(sessionId, outcome, message)
+        }
+        apkRuntime = runtime
+        return runtime
+    }
+
+    /** WIRE2: rate-limited apk update tick on the sync loop; runs on IO. */
+    private suspend fun apkSyncTick() {
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (now - lastApkTickAt < APK_UPDATE_TICK_INTERVAL_MILLIS) return
+        lastApkTickAt = now
+        val runtime = apkRuntime() ?: return
+        val report = withContext(Dispatchers.IO) { runtime.driver.tick() }
+        if (report.verdict !is ApkVerdict.Idle || report.recoveryReceipts.isNotEmpty()) {
+            android.util.Log.i(
+                "CompanionSync",
+                "apk update tick verdict=${report.verdict.javaClass.simpleName} " +
+                    "decision=${report.decision.javaClass.simpleName} " +
+                    "recovery=${report.recoveryReceipts.size} delivered=${report.deliveredReceipts.size}",
+            )
+        }
+    }
+
     private fun parseInlineControlEvents(response: JSONObject): List<ControlEvent> {
         val array = response.optJSONArray("inlineEvents") ?: return emptyList()
         return buildList {
@@ -1834,6 +1940,8 @@ class CompanionSyncService : Service() {
         const val OUTBOX_POLL_INTERVAL_MILLIS = 1_000L
         const val ACCESSIBILITY_RUNTIME_WAIT_MILLIS = 3_000L
         const val ACCESSIBILITY_RUNTIME_POLL_MILLIS = 100L
+        // WIRE2: candidate poll + receipt drain cadence on the sync loop.
+        const val APK_UPDATE_TICK_INTERVAL_MILLIS = 60_000L
         // Two attempts keep the worst-case window (2 x 45s transport timeout +
         // 1s backoff) inside the 60s task lease; attempt 3 would already race
         // lease expiry into LEASE_FENCED.
