@@ -2196,7 +2196,7 @@
       "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
       "dev_state": "SOFTWARE_DONE",
       "acceptance_state": "SOFTWARE_ACCEPTED",
-      "evidence": "agent/fleet-u10 @531920e merged 901fede. contracts/apk-release/v1 FROZEN @20260917.1; apk_releases.py (11 error codes, tenant-scoped); migration 0025 up/down verified; 7 integration tests; full backend 904 passed/11 skipped after Root openapi regen. Ring rollout via device ring: labels; busy-device 409 incl CLAIMED.",
+      "evidence": "agent/fleet-u10 @531920e merged 901fede. contracts/apk-release/v1 FROZEN @20260917.1; apk_releases.py (11 error codes, tenant-scoped); migration 0025 up/down verified; 7 integration tests; full backend 904 passed/11 skipped after Root openapi regen. Ring rollout via device ring: labels; busy-device 409 incl CLAIMED. WIRE2 merged f93cf4e: :report-installed endpoint (receipt four-tuple join, INSTALLED-only advance, idempotent, APK_RECEIPT_MISMATCH 422), ApkReleaseClient in CloudTaskClient, CompanionApkWiring (gate adapters + claim suspension + status bus + 60s apkSyncTick + reconnect drain). Open gaps: APK artifact proxy download route (s3 sourceRef fail-closed today), heartbeat apkUpdate field suggestion, contract patch text proposed.",
       "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
       "read_only_paths": [
         "contracts/**",
@@ -2263,7 +2263,7 @@
       "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
       "dev_state": "SOFTWARE_DONE",
       "acceptance_state": "SOFTWARE_ACCEPTED",
-      "evidence": "agent/fleet-u11 @15cb0f3 merged 61093d5. ArtifactTransfer atomic staging (APK sha256 / Recipe canonical-hash layered), PackageInstaller tri-state + journal-based reboot recovery (AWAITING_USER_ACTION survives restart), install gate (unfinished task rows + critical report drain + claim suspension, no self force-stop), statusReport for reconnect, rollback = higher-versionCode accepted / downgrade parked manual. Android 949/0 (29 new). GAP FOUND: U10 has no :report-installed endpoint — receipt persisted locally until endpoint exists. Seams: CloudTaskClient adapter (ApkReleaseClient iface), gate adapters to AutomationStore, status bus attach.",
+      "evidence": "agent/fleet-u11 @15cb0f3 merged 61093d5. ArtifactTransfer atomic staging (APK sha256 / Recipe canonical-hash layered), PackageInstaller tri-state + journal-based reboot recovery (AWAITING_USER_ACTION survives restart), install gate (unfinished task rows + critical report drain + claim suspension, no self force-stop), statusReport for reconnect, rollback = higher-versionCode accepted / downgrade parked manual. Android 949/0 (29 new). GAP FOUND: U10 has no :report-installed endpoint — receipt persisted locally until endpoint exists. Seams: CloudTaskClient adapter (ApkReleaseClient iface), gate adapters to AutomationStore, status bus attach. WIRE2 closed the receipt loop: driver drains persisted receipts via :report-installed; 404=terminal-discard, else retry.",
       "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
       "read_only_paths": [
         "contracts/**",
@@ -2466,9 +2466,9 @@
       "risk": "高",
       "device_acceptance": "无；仅软件验证",
       "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
-      "dev_state": "NOT_STARTED",
-      "acceptance_state": "NOT_RUN",
-      "evidence": "artifacts/delivery-20260916/L10/",
+      "dev_state": "SOFTWARE_DONE",
+      "acceptance_state": "SOFTWARE_ACCEPTED",
+      "evidence": "agent/fleet-l10 @52941af merged 44410b8. fleet_live.py: LIVE/REMOTE lease rows on device_lease (cross-process single-writer proven with two app instances on real Postgres), JPEG adapter zero-TURN, WebRTC adapter with short-TTL coturn credentials + connection caps (503 LIVE_TURN_UNAVAILABLE not downgraded), disconnect -> VIEWING downgrade + sweep CLOSED + token dead (410), input watermark rules per K13. slice1 untouched. 44 tests. NOT_TESTED_LOCALLY: real ICE/TURN connectivity, DTLS/SRTP. Seams: WS frame/input relay hookup, edge-hub wheel packaging decision, RBAC gate.",
       "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
       "read_only_paths": [
         "contracts/**",
@@ -2971,9 +2971,9 @@
       "risk": "高",
       "device_acceptance": "有副作用的维护逐件授权",
       "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
-      "dev_state": "NOT_STARTED",
-      "acceptance_state": "NOT_RUN",
-      "evidence": "artifacts/delivery-20260916/X11/",
+      "dev_state": "SOFTWARE_DONE",
+      "acceptance_state": "SOFTWARE_ACCEPTED",
+      "evidence": "agent/fleet-x11 @9400223 merged 3cc6dae. Per-target subtasks + approval evidence (no firstMore loop), price reduction with amount/percent mutual exclusion + anchor/identity/readback sequence, relist requires explicit OLD_OBJECT_REMOVAL approval, four independent stop conditions with distinct codes, independent outcome kinds (POLISHED/DELISTED/PRICE_REDUCED/RELISTED); X10 ledger parity tests. Android 1012/0 (48 new), 13 integration tests. Seams: ledgers in-memory pending persistence, automation event feed.",
       "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
       "read_only_paths": [
         "contracts/**",
@@ -3051,9 +3051,9 @@
       "risk": "高",
       "device_acceptance": "无；仅软件验证",
       "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
-      "dev_state": "NOT_STARTED",
-      "acceptance_state": "NOT_RUN",
-      "evidence": "artifacts/delivery-20260916/X12/",
+      "dev_state": "SOFTWARE_DONE",
+      "acceptance_state": "SOFTWARE_ACCEPTED",
+      "evidence": "agent/fleet-x12 @283a551 merged c7a4cae. XY_AVAILABILITY_LEDGER four states derived from registration data with import-time drift guards; distribution 1 ENABLED / 20 PENDING / 4 POLICY_BLOCKED / 6 OUT_OF_SCOPE across 31 ops; 7 scope rulings (SKU/auction keep-blocked, huiwan out-of-scope, extra platforms split keep-blocked/scope-change/accept) each with P-package refs; reason surfaces via existing features() field (zero schema change, openapi stayed green); alias/unknown/drift rejections tested. 10 contract tests.",
       "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
       "read_only_paths": [
         "contracts/**",
@@ -4172,6 +4172,11 @@
       "at": "2026-09-18T00:05:00+08:00",
       "by": "root",
       "note": "FLEET-30: K13+X10+U11 parallel wave merged from 44d49ef. Android 949/0, backend 962 passed (openapi regen 530 lines), Web 246/246. K13 executed under R02 de-facto-satisfied rationale (Provenance in contract). Registered seams (not blockers): U10 :report-installed endpoint + CloudTaskClient ApkReleaseClient adapter + gate adapters (next wave candidate WIRE2); X10 automation event adapter; P10 adapter pending from FLEET-29. Five waves total: 15 tasks + 2 wiring items merged. User-side BLK-001..010 unchanged."
+    },
+    {
+      "at": "2026-09-18T01:35:00+08:00",
+      "by": "root",
+      "note": "FLEET-31: WIRE2+X11+X12+L10 four-lane wave merged from f200318 (write sets fully disjoint). Android 1012/0, backend 1034 passed (openapi regen 858+/53-), Web 246/246. Six waves total: 18 tasks + 3 wiring items merged; NOT_STARTED down to ~15 (L11/L12/U12/F10-F16/Q14-Q16/Z10/R01/R02). Registered seams: APK artifact proxy route (blocks fleet-wide APK rollout until built), heartbeat apkUpdate field, WS relay hookup for fleet-live, edge-hub wheel packaging, RBAC gate. User-side BLK-001..010 unchanged."
     }
   ]
 }
