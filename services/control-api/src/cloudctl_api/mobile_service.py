@@ -5,8 +5,9 @@ import hashlib
 import json
 import secrets
 import uuid
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, Literal
 
 from cloudctl_domain import (
     Actor,
@@ -17,6 +18,7 @@ from cloudctl_domain import (
     ValidationError,
     require_permissions,
 )
+from pydantic import Field
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
@@ -40,11 +42,15 @@ from .db import (
 from .fleet_identity import (
     AccountBusyError,
     AuthorizationEnvelopeStaleError,
+    ControlSeqInvalidError,
+    CursorTooOldError,
     IneligibleCapabilityError,
     ReconcileRequiredError,
     account_write_conflict,
     active_session,
     capability_shortfall,
+    compose_device_control_seqs,
+    control_wire_type,
     device_online,
     evaluate_executable,
     lease_envelope_stale,
@@ -55,11 +61,29 @@ from .fleet_identity import (
     task_write_effect,
 )
 from .media_store import ObjectStore
-from .mobile_schemas import DevicePreviewUpload, MobileDeviceHeartbeat, MobileTaskCreate
+from .mobile_schemas import (
+    DevicePreviewUpload,
+    MobileDeviceHeartbeat,
+    MobileTaskCreate,
+    StrictModel,
+)
 from .xianyu_publish import build_text_publish_task
 
 ACTIVE_STATES = ("CLAIMED", "RUNNING")
 TERMINAL_BUSINESS_STATES = frozenset({"SUCCEEDED", "FAILED", "CANCELLED", "EXPIRED"})
+# Business states that block new claims for the device (A12 claim guard) and
+# double as the control-plane "blocking task" set (control-plane/v1 §2.3
+# hotfix: heartbeat carries the authoritative blocking task state).
+BLOCKING_BUSINESS_STATES = frozenset(
+    {
+        "PAUSE_REQUESTED",
+        "PAUSED_WAITING_USER",
+        "RESUME_CHECK",
+        "CANCEL_REQUESTED",
+        "WAITING_MATERIALS",
+        "RECONCILING",
+    }
+)
 COMPANION_PACKAGE = "com.company.cloudctl.companion"
 # fleet-identity/v1 §7: version string of the frozen steps command registry
 # (STEPS_SHAPES + maintenance/orders shapes in mobile_actions). Bump only when
@@ -99,6 +123,213 @@ def _digest(kind: str, value: str) -> str:
 
 def _canonical(value: object) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+
+
+# ---------------------------------------------------------------------------
+# control-plane/v1 §2.3 hotfix — device heartbeat extensions (A14)
+# ---------------------------------------------------------------------------
+
+
+class MobileDeviceHeartbeatV2(MobileDeviceHeartbeat):
+    """deviceHeartbeat with the optional control-plane/v1 §2.3 fields.
+
+    Legacy clients omit both fields (they default to ``None``); a client that
+    persists ``lastAppliedControlSeq`` in the same local transaction as its
+    mirror updates gets the watermark + inline events escape channel, and a
+    client whose local safety ledger is not clean reports the barrier so the
+    server-side fleet view reflects the cautious state.
+    """
+
+    last_applied_control_seq: int | None = Field(
+        default=None, alias="lastAppliedControlSeq", ge=0
+    )
+    safety_barrier: Literal["NONE", "UNKNOWN", "RECONCILING"] | None = Field(
+        default=None, alias="safetyBarrier"
+    )
+
+
+class CompanionControlAckRequest(StrictModel):
+    """control-plane/v1 §4 — device acknowledgement of a desired CANCEL.
+
+    ``CANCEL_APPLIED``: the device neutralized the UI (discarded forms,
+    exited confirm pages, rolled back navigation) and the server converges
+    the task to CANCELLED. ``CANCEL_DEFERRED_RECONCILING``: the device could
+    not safely roll back (open UNKNOWN / irreversible commit already sent)
+    and the server must keep the task RECONCILING for manual reconciliation.
+    """
+
+    task_id: str = Field(alias="taskId", min_length=1, max_length=36)
+    task_revision: int | None = Field(default=None, alias="taskRevision", ge=1)
+    result: Literal["CANCEL_APPLIED", "CANCEL_DEFERRED_RECONCILING"]
+    reason: str | None = Field(default=None, max_length=500)
+
+
+# Control kinds this service may append through the A12 control-event header
+# (superset of the ack outcomes; platform_tasks keeps the full closed set).
+ACK_CONTROL_EVENT_KINDS = frozenset({"CANCELLED", "CANCEL_DEFERRED_RECONCILING"})
+MAX_INLINE_CONTROL_EVENTS = 2
+CONTROL_SNAPSHOT_TASK_LIMIT = 200
+
+
+@dataclass(frozen=True)
+class DeviceControlEntry:
+    """One derived device-level control event (control-plane/v1 §1/§2.1)."""
+
+    seq: int
+    task_id: str
+    task_revision: int
+    wire_type: str
+    issued_at: str
+    reason: str
+
+
+def _normalized_business_state(row: MobileTaskRow) -> str:
+    state = row.business_state or RUNNER_TO_BUSINESS.get(row.status, row.status)
+    # task-schedule/v1 D4: legacy single-L rows stay readable; new writes are
+    # double-L CANCELLED only.
+    return "CANCELLED" if state == "CANCELED" else state
+
+
+def _control_header(row: MobileTaskRow) -> dict[str, Any]:
+    return (row.steps or [{}])[0] or {}
+
+
+def _append_control_event(
+    row: MobileTaskRow, kind: str, reason: str, actor: str, now: datetime
+) -> int:
+    """Append one persistent control event on the task's steps header.
+
+    Mirrors platform_tasks._record_control_event (same header keys, same
+    per-task monotonic ``controlRevision``, same 50-event retention) so the
+    A12 per-task stream and the A14 device aggregation stay one format. The
+    kind vocabulary here is A14's ack outcomes only.
+    """
+    assert kind in ACK_CONTROL_EVENT_KINDS
+    header = dict(_control_header(row))
+    events = list(header.get("controlEvents") or [])
+    revision = int(header.get("controlRevision") or 0) + 1
+    events.append(
+        {
+            "revision": revision,
+            "event": kind,
+            "reason": (reason or "")[:160],
+            "actor": (actor or "")[:128],
+            "issuedAt": now.isoformat(),
+        }
+    )
+    header["controlRevision"] = revision
+    header["controlEvents"] = events[-50:]
+    row.steps = [header, *(row.steps[1:] if row.steps else [])]
+    return revision
+
+
+def _audit_companion_control(
+    session: Any, row: MobileTaskRow, *, action: str, revision: int, extra: dict[str, Any]
+) -> None:
+    session.add(
+        AuditEventRow(
+            id=str(uuid.uuid4()),
+            tenant_id=row.tenant_id,
+            actor_type="companion",
+            actor_id="companion",
+            action=f"platform.task.{action}",
+            resource_type="mobile_task",
+            resource_id=row.id,
+            request_id=str(uuid.uuid4()),
+            device_id=row.device_id,
+            result="SUCCEEDED",
+            metadata_json={
+                "taskId": row.id,
+                "controlRevision": revision,
+                "businessState": row.business_state,
+                **extra,
+            },
+            occurred_at=_now(),
+        )
+    )
+
+
+async def _release_task_occupation(
+    session: Any, row: MobileTaskRow, now: datetime
+) -> bool:
+    """Release the device's AUTO occupation owned by this task's workflow.
+
+    Thin lazy wrapper over platform_tasks._release_occupation (platform_tasks
+    imports this module, so the import must stay function-local).
+    """
+    from .platform_tasks import _release_occupation
+
+    return await _release_occupation(session, row, now)
+
+
+async def _settle_task_reply_delivery(
+    session: Any, task_id: str, business_state: str
+) -> None:
+    """Forward a terminal task state to the bound IM reply OUT message."""
+    from .im_service import settle_reply_delivery
+
+    await settle_reply_delivery(session, task_id, business_state)
+
+
+async def _device_control_entries(
+    session: Any, tenant_id: str, device_id: str
+) -> list[DeviceControlEntry]:
+    """Derive the device-level control event stream (control-plane/v1 §1).
+
+    Aggregates the A12 per-task control events persisted on every task row of
+    the device, orders them by ``(issuedAt, taskId, taskRevision)`` and
+    composes the monotone ``deviceControlSeq`` per fleet_identity.
+    """
+    rows = list(
+        await session.scalars(
+            select(MobileTaskRow).where(
+                MobileTaskRow.tenant_id == tenant_id,
+                MobileTaskRow.device_id == device_id,
+            )
+        )
+    )
+    collected: list[tuple[datetime, str, int, dict[str, Any]]] = []
+    for row in rows:
+        for entry in _control_header(row).get("controlEvents") or []:
+            if not isinstance(entry, dict):
+                continue
+            try:
+                issued = datetime.fromisoformat(str(entry.get("issuedAt")))
+            except (TypeError, ValueError):
+                # Defensive: an unparseable legacy stamp must not break the
+                # whole control plane; the snapshot channel still converges.
+                continue
+            collected.append(
+                (
+                    _aware(issued),
+                    row.id,
+                    int(entry.get("revision") or 0),
+                    entry,
+                )
+            )
+    collected.sort(key=lambda item: (item[0], item[1], item[2]))
+    seqs = compose_device_control_seqs([(item[0], item[1], item[2]) for item in collected])
+    return [
+        DeviceControlEntry(
+            seq=seq,
+            task_id=task_id,
+            task_revision=revision,
+            wire_type=control_wire_type(str(entry.get("event") or "")),
+            issued_at=str(entry.get("issuedAt") or ""),
+            reason=str(entry.get("reason") or ""),
+        )
+        for seq, (issued, task_id, revision, entry) in zip(seqs, collected, strict=True)
+    ]
+
+
+def _control_event_view(entry: DeviceControlEntry) -> dict[str, Any]:
+    return {
+        "seq": entry.seq,
+        "taskId": entry.task_id,
+        "taskRevision": entry.task_revision,
+        "type": entry.wire_type,
+        "issuedAt": entry.issued_at,
+    }
 
 
 class MobileTaskService:
@@ -621,7 +852,7 @@ class MobileTaskService:
         ]
 
     async def device_heartbeat(
-        self, binding: MobileBindingRow, body: MobileDeviceHeartbeat
+        self, binding: MobileBindingRow, body: MobileDeviceHeartbeatV2
     ) -> dict[str, Any]:
         now = _now()
         async with self.database.unit_of_work() as session:
@@ -644,6 +875,11 @@ class MobileTaskService:
             capabilities["capabilitiesVersion"] = int(capabilities.get("capabilitiesVersion") or 0) + 1
             if body.battery_optimization_ignored is not None:
                 capabilities["batteryOptimizationIgnored"] = body.battery_optimization_ignored
+            if body.safety_barrier is not None:
+                # control-plane/v1 §2.3: the client's local safety barrier is
+                # transport-reported state (like runnerState), surfaced for
+                # the fleet view; it never gates the control plane itself.
+                capabilities["safetyBarrier"] = body.safety_barrier
             if body.health is not None:
                 health = body.health.model_dump(mode="json", by_alias=True)
                 network = health.get("network")
@@ -698,7 +934,249 @@ class MobileTaskService:
                     "controlMode": resume.control_mode or "AUTO",
                     "businessState": resume.business_state,
                 }
+            # control-plane/v1 §2.3 hotfix (A14, D-7): the heartbeat always
+            # carries the authoritative control watermark, the device's
+            # blocking task, and up to 2 inline control events. This channel
+            # is never gated by local execution state, queue state or
+            # accessibility readiness (§0), so a device that cannot claim
+            # still learns about cancels.
+            entries = await _device_control_entries(
+                session, stored.tenant_id, stored.device_id
+            )
+            payload["controlHighWatermark"] = entries[-1].seq if entries else 0
+            if body.last_applied_control_seq is None:
+                inline = entries[-MAX_INLINE_CONTROL_EVENTS:]
+            else:
+                inline = [
+                    entry
+                    for entry in entries
+                    if entry.seq > body.last_applied_control_seq
+                ][-MAX_INLINE_CONTROL_EVENTS:]
+            payload["inlineEvents"] = [_control_event_view(entry) for entry in inline]
+            blocking = await session.scalar(
+                select(MobileTaskRow)
+                .where(
+                    MobileTaskRow.tenant_id == stored.tenant_id,
+                    MobileTaskRow.device_id == stored.device_id,
+                    MobileTaskRow.business_state.in_(BLOCKING_BUSINESS_STATES),
+                )
+                .order_by(MobileTaskRow.created_at)
+            )
+            payload["blockingTask"] = (
+                {
+                    "taskId": blocking.id,
+                    "status": _normalized_business_state(blocking),
+                    "taskRevision": int(
+                        _control_header(blocking).get("controlRevision") or 0
+                    ),
+                }
+                if blocking is not None
+                else None
+            )
             return payload
+
+    async def control_pull(
+        self, binding: MobileBindingRow, after: int, limit: int
+    ) -> dict[str, Any]:
+        """control-plane/v1 §2.1 — authoritative cursor catch-up channel.
+
+        Device-credential authenticated (binding token), never gated by claim
+        state. A cursor that precedes the retention floor (events compacted
+        by the per-task 50-event retention) raises 410 CURSOR_TOO_OLD instead
+        of returning an empty page that would pretend nothing changed.
+        """
+        if after < 0:
+            raise ControlSeqInvalidError(
+                "after must be a non-negative deviceControlSeq"
+            )
+        async with self.database.unit_of_work() as session:
+            entries = await _device_control_entries(
+                session, binding.tenant_id, binding.device_id
+            )
+        if entries:
+            floor = entries[0].seq
+            if after < floor:
+                raise CursorTooOldError(
+                    "control cursor precedes the device retention floor; "
+                    "converge via the reconcile snapshot",
+                    fields={"snapshotRequired": "true"},
+                )
+        elif after > 0:
+            # Every control event of this device has been compacted away.
+            raise CursorTooOldError(
+                "device control events have been compacted; converge via the "
+                "reconcile snapshot",
+                fields={"snapshotRequired": "true"},
+            )
+        page = [entry for entry in entries if entry.seq > after][:limit]
+        return {
+            "from": page[0].seq if page else after + 1,
+            "through": page[-1].seq if page else after,
+            "highWatermark": entries[-1].seq if entries else 0,
+            "events": [_control_event_view(entry) for entry in page],
+        }
+
+    async def reconcile_snapshot(self, binding: MobileBindingRow) -> dict[str, Any]:
+        """control-plane/v1 §2.2 — authoritative snapshot (final convergence).
+
+        Events are the accelerator; this snapshot is the convergence
+        guarantee: whatever history was missed, the client mirrors the
+        server's current truth. Task mirror state and the action safety
+        ledger stay decoupled (§3.4): ``ledgerBlocks`` reflects open UNKNOWN
+        rows that keep blocking dangerous operations regardless of the task
+        state.
+        """
+        async with self.database.unit_of_work() as session:
+            entries = await _device_control_entries(
+                session, binding.tenant_id, binding.device_id
+            )
+            rows = list(
+                (
+                    await session.scalars(
+                        select(MobileTaskRow)
+                        .where(
+                            MobileTaskRow.tenant_id == binding.tenant_id,
+                            MobileTaskRow.device_id == binding.device_id,
+                        )
+                        .order_by(MobileTaskRow.created_at.desc())
+                        .limit(CONTROL_SNAPSHOT_TASK_LIMIT)
+                    )
+                ).all()
+            )
+            open_unknown = (
+                await session.scalars(
+                    select(MobileActionCommitRow.task_id).where(
+                        MobileActionCommitRow.tenant_id == binding.tenant_id,
+                        MobileActionCommitRow.device_id == binding.device_id,
+                        MobileActionCommitRow.status == "UNKNOWN",
+                        MobileActionCommitRow.resolved_at.is_(None),
+                    )
+                )
+            ).all()
+        ledger_blocked = set(open_unknown)
+        return {
+            "controlHighWatermark": entries[-1].seq if entries else 0,
+            "tasks": [
+                {
+                    "taskId": row.id,
+                    "status": row.status,
+                    "businessState": _normalized_business_state(row),
+                    "taskRevision": int(_control_header(row).get("controlRevision") or 0),
+                    "terminal": _normalized_business_state(row)
+                    in TERMINAL_BUSINESS_STATES,
+                    "ledgerBlocks": row.id in ledger_blocked,
+                }
+                for row in rows
+            ],
+        }
+
+    async def control_ack(
+        self, binding: MobileBindingRow, body: CompanionControlAckRequest
+    ) -> dict[str, Any]:
+        """control-plane/v1 §4 — CANCEL apply/ack semantics (A14).
+
+        Until this ack arrives, a CANCEL is desired rather than done: the
+        server must not settle ahead of the device, or a stale on-screen form
+        stays a live source of deferred side effects. Two branches:
+
+        - ``CANCEL_APPLIED``: device neutralized the UI → server converges
+          the task to CANCELLED (terminal), releasing the AUTO occupation.
+        - ``CANCEL_DEFERRED_RECONCILING``: device could not safely roll back
+          (UNKNOWN / irreversible commit already sent) → server keeps the
+          task RECONCILING for manual reconciliation, never a hard terminal.
+        """
+        now = _now()
+        async with self.database.unit_of_work() as session:
+            task = await session.get(MobileTaskRow, body.task_id, with_for_update=True)
+            self._validate_owned_task(task, binding)
+            assert task is not None
+            state = _normalized_business_state(task)
+            revision = int(_control_header(task).get("controlRevision") or 0)
+            if state in TERMINAL_BUSINESS_STATES and state != "CANCELLED":
+                raise ConflictError("terminal platform task cannot be cancel-acked")
+            if body.result == "CANCEL_APPLIED":
+                if state == "CANCELLED":
+                    # Idempotent replay of an already-applied cancel ack: the
+                    # retry carries the revision the device saw, which the
+                    # first ack has already superseded — replay, do not 409.
+                    return self._ack_view(task, revision, "CANCEL_APPLIED", True)
+                if body.task_revision is not None and body.task_revision != revision:
+                    # A stale ack (cancel superseded by a later control
+                    # decision) must not settle the task under an outdated view.
+                    raise ConflictError("cancel ack task revision does not match")
+                if state == "RECONCILING":
+                    raise ConflictError(
+                        "uncertain result must be reconciled before cancel acknowledgement"
+                    )
+                if state != "CANCEL_REQUESTED":
+                    raise ConflictError(
+                        "cancel acknowledgement requires a pending CANCEL"
+                    )
+                task.status = "FAILED"
+                task.business_state = "CANCELLED"
+                task.error_code = "CANCELLED"
+                task.detail = body.reason or "cancel applied by device"
+                task.completed_at = now
+                task.lease_id = None
+                task.lease_expires_at = None
+                occupation_released = await _release_task_occupation(session, task, now)
+                revision = _append_control_event(
+                    task,
+                    "CANCELLED",
+                    body.reason or "cancel applied by device",
+                    "companion",
+                    now,
+                )
+                _audit_companion_control(
+                    session,
+                    task,
+                    action="cancel_acked",
+                    revision=revision,
+                    extra={"occupationReleased": occupation_released},
+                )
+                await _settle_task_reply_delivery(session, task.id, "CANCELLED")
+                return self._ack_view(task, revision, "CANCEL_APPLIED", True)
+            # CANCEL_DEFERRED_RECONCILING
+            if state == "RECONCILING":
+                # Idempotent replay: the deferred branch stays RECONCILING.
+                return self._ack_view(task, revision, "CANCEL_DEFERRED_RECONCILING", False)
+            if body.task_revision is not None and body.task_revision != revision:
+                raise ConflictError("cancel ack task revision does not match")
+            if state == "CANCELLED":
+                raise ConflictError("cancelled task cannot defer a cancel ack")
+            if state != "CANCEL_REQUESTED":
+                raise ConflictError(
+                    "cancel acknowledgement requires a pending CANCEL"
+                )
+            task.business_state = "RECONCILING"
+            task.stall_reason = (body.reason or "cancel deferred by device")[:160]
+            revision = _append_control_event(
+                task,
+                "CANCEL_DEFERRED_RECONCILING",
+                body.reason or "cancel deferred by device",
+                "companion",
+                now,
+            )
+            _audit_companion_control(
+                session,
+                task,
+                action="cancel_deferred_reconciling",
+                revision=revision,
+                extra={"reason": (body.reason or "")[:160]},
+            )
+            return self._ack_view(task, revision, "CANCEL_DEFERRED_RECONCILING", False)
+
+    @staticmethod
+    def _ack_view(
+        row: MobileTaskRow, revision: int, result: str, terminal: bool
+    ) -> dict[str, Any]:
+        return {
+            "taskId": row.id,
+            "taskRevision": revision,
+            "businessState": _normalized_business_state(row),
+            "result": result,
+            "terminal": terminal,
+        }
 
     async def create_task(
         self, actor: Actor, key: str, body: MobileTaskCreate
@@ -948,16 +1426,7 @@ class MobileTaskService:
                 .where(
                     MobileTaskRow.tenant_id == binding.tenant_id,
                     MobileTaskRow.device_id == binding.device_id,
-                    MobileTaskRow.business_state.in_(
-                        {
-                            "PAUSE_REQUESTED",
-                            "PAUSED_WAITING_USER",
-                            "RESUME_CHECK",
-                            "CANCEL_REQUESTED",
-                            "WAITING_MATERIALS",
-                            "RECONCILING",
-                        }
-                    ),
+                    MobileTaskRow.business_state.in_(BLOCKING_BUSINESS_STATES),
                 )
                 .order_by(MobileTaskRow.created_at)
             )
