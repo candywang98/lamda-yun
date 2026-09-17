@@ -1,0 +1,37 @@
+{
+  "contract": "live-capabilities/v1@20260917.1",
+  "case": "positive-handover-remote-to-viewing",
+  "doc": {
+    "doc": "handover",
+    "sessionId": "live-0f1e2d3c",
+    "tenantId": "tn-01",
+    "deviceId": "dev-a11",
+    "operatorId": "op-77",
+    "tier": "INTERACTIVE_REMOTE",
+    "from": "REMOTE",
+    "to": "VIEWING",
+    "affectedTasks": [
+      {
+        "taskId": "mt-3301",
+        "pauseState": "PAUSED_WAITING_USER",
+        "resumeMode": "REQUEUE_AUTO"
+      },
+      {
+        "taskId": "mt-3302",
+        "pauseState": "PAUSED_WAITING_USER",
+        "resumeMode": "CONFIRM_REQUIRED"
+      }
+    ],
+    "singleWriterRestored": true,
+    "frameDownlinkContinues": true,
+    "releasedAt": "2026-09-17T09:31:10+08:00",
+    "releasedBy": "op-77",
+    "auditEvent": "live.session.release"
+  },
+  "expect": {
+    "rule": "live-capabilities/v1 §5: 交还即恢复排队资格——普通暂停任务 REQUEUE_AUTO 回队列；破坏性确认窗口（UNKNOWN 等）必须人工确认后才恢复，禁止自动恢复 RUNNING",
+    "singleWriterRestored": true,
+    "frameDownlinkContinues": true,
+    "destructiveWindowNeedsHumanConfirm": true
+  }
+}

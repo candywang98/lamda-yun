@@ -1,0 +1,71 @@
+{
+  "contract": "live-capabilities/v1@20260917.1",
+  "case": "positive-session-webrtc",
+  "doc": {
+    "doc": "session",
+    "sessionId": "live-7b8a9c0d",
+    "tenantId": "tn-01",
+    "deviceId": "dev-a12",
+    "operatorId": "op-78",
+    "tier": "WEBRTC",
+    "transport": "WEBRTC",
+    "state": "REMOTE",
+    "lease": {
+      "deviceLeaseId": "dl-31d4",
+      "epoch": 2,
+      "purpose": "LIVE"
+    },
+    "frameGeometry": {
+      "frameWidth": 1080,
+      "frameHeight": 1920,
+      "deviceWidth": 1080,
+      "deviceHeight": 1920,
+      "rotation": 0
+    },
+    "capabilities": {
+      "allowsInput": true,
+      "uiLabel": "interactive-hd",
+      "frameDownlink": true,
+      "turnRequired": true
+    },
+    "inputPolicy": {
+      "maxInputRatePerSecond": 10,
+      "ttlExpiryMs": 2000,
+      "staleFrameThreshold": 10,
+      "seqRequired": true,
+      "frameSeqRequired": true
+    },
+    "turn": {
+      "credentialTtlSeconds": 600,
+      "iceServers": [
+        "stun:stun.cloudctl.example:3478",
+        "turns:turn.cloudctl.example:5349"
+      ],
+      "transportPolicy": "relay",
+      "connectionQuota": 2
+    },
+    "authorization": {
+      "mediaProjectionRequired": true,
+      "userConfirmedAt": "2026-09-17T10:02:00+08:00",
+      "persistsAcrossReboot": false,
+      "silentResumeAllowed": false
+    },
+    "establishedAt": "2026-09-17T10:02:03+08:00",
+    "expiresAt": "2026-09-17T10:32:03+08:00",
+    "maxDurationMinutes": 30,
+    "gates": [
+      "GATE_LIVE_LEASE",
+      "GATE_MEDIAPROJECTION_AUTH",
+      "GATE_OPERATOR_WRITE",
+      "GATE_INPUT_RATELIMIT",
+      "GATE_TURN_DEPLOY",
+      "GATE_BANDWIDTH_BUDGET",
+      "GATE_SECURITY_REVIEW"
+    ]
+  },
+  "expect": {
+    "rule": "live-capabilities/v1 §8: WebRTC 生产档独立门（TURN 部署/带宽预算/安全审全过才可对生产租户开放）；本档成立与否不阻塞 JPEG 档与 Q14 验收",
+    "independentProductionGate": true,
+    "notRequiredForQ14": true
+  }
+}
