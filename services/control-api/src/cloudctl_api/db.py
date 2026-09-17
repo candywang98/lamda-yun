@@ -464,6 +464,73 @@ class ApkArtifactRow(Base, TimestampMixin):
     __table_args__ = (UniqueConstraint("tenant_id", "sha256"),)
 
 
+class ApkReleaseRow(Base, TimestampMixin):
+    """apk-release/v1 (U10): one immutable rollout record per admitted artifact.
+
+    ``(tenant_id, artifact_id)`` is unique — a published artifact can never be
+    overwritten; gating changes require a new artifact + new release. Retiring
+    only flips ``status`` and never touches device pins.
+    """
+
+    __tablename__ = "apk_release"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(36), index=True, nullable=False)
+    artifact_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("apk_artifact.id"), nullable=False
+    )
+    ring: Mapped[str] = mapped_column(String(16), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    min_capability: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+    data_schema: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    requires_user_confirmation: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    released_by: Mapped[str] = mapped_column(String(36), nullable=False)
+    retired_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    retired_by: Mapped[str | None] = mapped_column(String(36))
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "artifact_id", name="uq_apk_release_artifact"),
+        CheckConstraint("ring IN ('canary','early','all')", name="ck_apk_release_ring"),
+        CheckConstraint("status IN ('ACTIVE','RETIRED')", name="ck_apk_release_status"),
+    )
+
+
+class ApkReleaseTargetRow(Base, TimestampMixin):
+    """apk-release/v1 (U10): per-device install candidate pinned to a release.
+
+    Survives release retirement (retire never touches targets). The partial
+    unique index keeps at most one OFFERED candidate per device and package.
+    """
+
+    __tablename__ = "apk_release_target"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(36), index=True, nullable=False)
+    release_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("apk_release.id"), index=True, nullable=False
+    )
+    device_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("device.id"), index=True, nullable=False
+    )
+    package_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    requires_user_confirmation: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    assigned_by: Mapped[str] = mapped_column(String(36), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "device_id", "release_id", name="uq_apk_release_target"),
+        CheckConstraint(
+            "status IN ('OFFERED','DOWNLOADED','INSTALLED')",
+            name="ck_apk_release_target_status",
+        ),
+        Index(
+            "uq_apk_release_target_offered",
+            "device_id",
+            "package_name",
+            unique=True,
+            postgresql_where=text("status = 'OFFERED'"),
+            sqlite_where=text("status = 'OFFERED'"),
+        ),
+    )
+
+
 class PublishPlanRow(Base, TimestampMixin):
     __tablename__ = "publish_plan"
     id: Mapped[str] = mapped_column(String(36), primary_key=True)

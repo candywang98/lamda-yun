@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cloudctl.example/contracts/apk-release/v1/apk-release-v1.schema.json",
+  "title": "CloudCtl APK release record and install candidate (apk-release/v1@20260917.1)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "artifactId",
+    "packageName",
+    "versionCode",
+    "versionName",
+    "sha256",
+    "signatureDigest",
+    "ring",
+    "status",
+    "minCapability",
+    "dataSchema",
+    "requiresUserConfirmation",
+    "releasedBy",
+    "releasedAt"
+  ],
+  "properties": {
+    "id": { "$ref": "#/$defs/id" },
+    "artifactId": { "$ref": "#/$defs/id" },
+    "packageName": { "$ref": "#/$defs/packageName" },
+    "versionCode": { "type": "integer", "minimum": 0 },
+    "versionName": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "sha256": { "$ref": "#/$defs/sha256" },
+    "signatureDigest": { "$ref": "#/$defs/sha256" },
+    "ring": { "$ref": "#/$defs/ring" },
+    "status": { "enum": ["ACTIVE", "RETIRED"] },
+    "minCapability": { "$ref": "#/$defs/minCapability" },
+    "dataSchema": { "$ref": "#/$defs/dataSchema" },
+    "requiresUserConfirmation": { "type": "boolean" },
+    "releasedBy": { "$ref": "#/$defs/id" },
+    "releasedAt": { "type": "string", "format": "date-time" },
+    "retiredAt": { "type": ["null", "string"], "format": "date-time" },
+    "retiredBy": { "type": ["null", "string"], "maxLength": 36 }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 36
+    },
+    "packageName": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 255,
+      "pattern": "^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "ring": {
+      "enum": ["canary", "early", "all"]
+    },
+    "minCapability": {
+      "description": "Minimum device capability required before an install candidate is offered. Empty object means no requirement beyond APK admission.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sdkInt": { "type": "integer", "minimum": 21 },
+        "abis": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": ["arm64-v8a", "armeabi-v7a", "x86", "x86_64"]
+          }
+        }
+      }
+    },
+    "dataSchema": {
+      "description": "Data schema compatibility window carried by the release. A device reporting a dataSchemaVersions[packageName] older than minCompatible is not offered the candidate.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minCompatible", "current"],
+      "properties": {
+        "minCompatible": { "type": "integer", "minimum": 1 },
+        "current": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "installCandidate": {
+      "description": "Payload handed to the Companion for a device-pinned release target. requiresUserConfirmation is a requirement statement, never a silent-install guarantee.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidateId",
+        "releaseId",
+        "releaseStatus",
+        "status",
+        "packageName",
+        "versionCode",
+        "versionName",
+        "sha256",
+        "signatureDigest",
+        "sourceRef",
+        "ring",
+        "dataSchema",
+        "requiresUserConfirmation",
+        "assignedAt"
+      ],
+      "properties": {
+        "candidateId": { "$ref": "#/$defs/id" },
+        "releaseId": { "$ref": "#/$defs/id" },
+        "releaseStatus": { "enum": ["ACTIVE", "RETIRED"] },
+        "status": { "enum": ["OFFERED", "DOWNLOADED", "INSTALLED"] },
+        "packageName": { "$ref": "#/$defs/packageName" },
+        "versionCode": { "type": "integer", "minimum": 0 },
+        "versionName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "signatureDigest": { "$ref": "#/$defs/sha256" },
+        "sourceRef": {
+          "type": "string",
+          "pattern": "^(https|oci|s3)://[^\\s/?#]+$"
+        },
+        "ring": { "$ref": "#/$defs/ring" },
+        "dataSchema": { "$ref": "#/$defs/dataSchema" },
+        "requiresUserConfirmation": { "type": "boolean" },
+        "assignedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "errorCode": {
+      "description": "Stable problem+json codes for apk-release/v1 (beyond NOT_FOUND / VALIDATION_ERROR / FORBIDDEN from the shared problem envelope).",
+      "enum": [
+        "APK_RELEASE_EXISTS",
+        "APK_RELEASE_RETIRED",
+        "APK_CANDIDATE_EXISTS",
+        "APK_CANDIDATE_STATE",
+        "APK_DEVICE_BUSY",
+        "APK_RING_MISMATCH",
+        "APK_CAPABILITY_INSUFFICIENT",
+        "APK_VERSION_DOWNGRADE",
+        "APK_SCHEMA_INCOMPATIBLE",
+        "APK_DOWNLOAD_HASH_MISMATCH",
+        "APK_ARTIFACT_NOT_ADMITTED"
+      ]
+    }
+  }
+}

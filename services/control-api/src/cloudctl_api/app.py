@@ -13,6 +13,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 
+from .apk_releases import companion_router as apk_release_companion_router
+from .apk_releases import operator_router as apk_release_operator_router
 from .auth import OidcJwtVerifier
 from .db import Database
 from .debug_routes import router as debug_router
@@ -243,6 +245,8 @@ def create_app(
     app.include_router(live_operator_router)
     app.include_router(live_companion_router)
     app.include_router(companion_router)
+    app.include_router(apk_release_operator_router)
+    app.include_router(apk_release_companion_router)
     return app
 
 
