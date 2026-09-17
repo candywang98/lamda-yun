@@ -343,6 +343,96 @@
         "title": "ApkFinding",
         "type": "object"
       },
+      "ApkInstallReceiptReport": {
+        "additionalProperties": false,
+        "description": "Device-side install receipt (U11 ``ApkInstallReceipt.toWireJson``).\n\nThe device is the only authority on what the installer did; the server\nvalidates the receipt joins the bound device's own candidate (identity\nfields must match the pinned target + artifact) and never fabricates a\nsuccess the receipt did not claim.",
+        "properties": {
+          "attemptedVersionCode": {
+            "minimum": 0.0,
+            "title": "Attemptedversioncode",
+            "type": "integer"
+          },
+          "candidateId": {
+            "maxLength": 36,
+            "minLength": 1,
+            "title": "Candidateid",
+            "type": "string"
+          },
+          "completedAt": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Completedat",
+            "type": "string"
+          },
+          "installedVersionCode": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Installedversioncode"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "outcome": {
+            "enum": [
+              "INSTALLED",
+              "FAILED",
+              "USER_DECLINED",
+              "INTERRUPTED"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "packageName": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Packagename",
+            "type": "string"
+          },
+          "releaseId": {
+            "maxLength": 36,
+            "minLength": 1,
+            "title": "Releaseid",
+            "type": "string"
+          },
+          "signatureMatched": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signaturematched"
+          }
+        },
+        "required": [
+          "candidateId",
+          "releaseId",
+          "packageName",
+          "attemptedVersionCode",
+          "outcome",
+          "completedAt"
+        ],
+        "title": "ApkInstallReceiptReport",
+        "type": "object"
+      },
       "ApkReleaseAssignRequest": {
         "additionalProperties": false,
         "properties": {
@@ -1899,6 +1989,170 @@
           "action"
         ],
         "title": "FindStep",
+        "type": "object"
+      },
+      "FleetLiveAckRequest": {
+        "properties": {
+          "confirmedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmedat"
+          },
+          "granted": {
+            "title": "Granted",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "granted"
+        ],
+        "title": "FleetLiveAckRequest",
+        "type": "object"
+      },
+      "FleetLiveDisconnectRequest": {
+        "properties": {
+          "who": {
+            "pattern": "^(operator|companion)$",
+            "title": "Who",
+            "type": "string"
+          }
+        },
+        "required": [
+          "who"
+        ],
+        "title": "FleetLiveDisconnectRequest",
+        "type": "object"
+      },
+      "FleetLiveEstablishRequest": {
+        "properties": {
+          "tier": {
+            "title": "Tier",
+            "type": "string"
+          },
+          "transport": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transport"
+          }
+        },
+        "required": [
+          "tier"
+        ],
+        "title": "FleetLiveEstablishRequest",
+        "type": "object"
+      },
+      "FleetLiveInputRequest": {
+        "properties": {
+          "epoch": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Epoch"
+          },
+          "frameSeq": {
+            "minimum": 1.0,
+            "title": "Frameseq",
+            "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "tap",
+              "swipe",
+              "text"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "seq": {
+            "minimum": 1.0,
+            "title": "Seq",
+            "type": "integer"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          },
+          "x": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "X"
+          },
+          "x2": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "X2"
+          },
+          "y": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Y"
+          },
+          "y2": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Y2"
+          }
+        },
+        "required": [
+          "kind",
+          "seq",
+          "frameSeq"
+        ],
+        "title": "FleetLiveInputRequest",
         "type": "object"
       },
       "FleetOrderScreenIn": {
@@ -9600,6 +9854,449 @@
         ]
       }
     },
+    "/api/v1/live/devices/{device_id}/sessions": {
+      "post": {
+        "operationId": "establish_fleet_live_session_api_v1_live_devices__device_id__sessions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FleetLiveEstablishRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Establish Fleet Live Session Api V1 Live Devices  Device Id  Sessions Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Establish Fleet Live Session",
+        "tags": [
+          "fleet-live"
+        ]
+      }
+    },
+    "/api/v1/live/devices/{device_id}/sessions/{sid}/input": {
+      "post": {
+        "operationId": "fleet_live_input_api_v1_live_devices__device_id__sessions__sid__input_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "title": "Device Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "title": "Sid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Live-Session-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Live-Session-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FleetLiveInputRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Fleet Live Input Api V1 Live Devices  Device Id  Sessions  Sid  Input Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Fleet Live Input",
+        "tags": [
+          "fleet-live"
+        ]
+      }
+    },
+    "/api/v1/live/sessions/{sid}": {
+      "get": {
+        "operationId": "fleet_live_session_status_api_v1_live_sessions__sid__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "title": "Sid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Live-Session-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Live-Session-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Fleet Live Session Status Api V1 Live Sessions  Sid  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Fleet Live Session Status",
+        "tags": [
+          "fleet-live"
+        ]
+      }
+    },
+    "/api/v1/live/sessions/{sid}/disconnect": {
+      "post": {
+        "operationId": "fleet_live_disconnect_api_v1_live_sessions__sid__disconnect_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "title": "Sid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Live-Session-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Live-Session-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FleetLiveDisconnectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Fleet Live Disconnect Api V1 Live Sessions  Sid  Disconnect Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Fleet Live Disconnect",
+        "tags": [
+          "fleet-live"
+        ]
+      }
+    },
+    "/api/v1/live/sessions/{sid}:release": {
+      "post": {
+        "operationId": "fleet_live_release_api_v1_live_sessions__sid__release_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "title": "Sid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Live-Session-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Live-Session-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Fleet Live Release Api V1 Live Sessions  Sid  Release Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Fleet Live Release",
+        "tags": [
+          "fleet-live"
+        ]
+      }
+    },
+    "/api/v1/live/sessions/{sid}:stop": {
+      "post": {
+        "operationId": "fleet_live_stop_api_v1_live_sessions__sid__stop_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "title": "Sid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Live-Session-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Live-Session-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Fleet Live Stop Api V1 Live Sessions  Sid  Stop Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Fleet Live Stop",
+        "tags": [
+          "fleet-live"
+        ]
+      }
+    },
+    "/api/v1/live/sessions/{sid}:take-control": {
+      "post": {
+        "operationId": "fleet_live_take_control_api_v1_live_sessions__sid__take_control_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "title": "Sid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Live-Session-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Live-Session-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Fleet Live Take Control Api V1 Live Sessions  Sid  Take Control Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Fleet Live Take Control",
+        "tags": [
+          "fleet-live"
+        ]
+      }
+    },
     "/api/v1/media-groups": {
       "get": {
         "operationId": "list_media_groups_api_v1_media_groups_get",
@@ -15197,6 +15894,60 @@
         ]
       }
     },
+    "/companion/v2/apk/candidates/{target_id}:report-installed": {
+      "post": {
+        "operationId": "report_candidate_installed_companion_v2_apk_candidates__target_id__report_installed_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "target_id",
+            "required": true,
+            "schema": {
+              "title": "Target Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApkInstallReceiptReport"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Report Candidate Installed Companion V2 Apk Candidates  Target Id  Report Installed Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Report Candidate Installed",
+        "tags": [
+          "apk-releases-companion"
+        ]
+      }
+    },
     "/companion/v2/binding": {
       "delete": {
         "operationId": "unbind_companion_v2_binding_delete",
@@ -15434,6 +16185,60 @@
         "summary": "Enroll",
         "tags": [
           "mobile-companion"
+        ]
+      }
+    },
+    "/companion/v2/fleet-live/{sid}/ack": {
+      "post": {
+        "operationId": "fleet_live_ack_companion_v2_fleet_live__sid__ack_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "title": "Sid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FleetLiveAckRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Fleet Live Ack Companion V2 Fleet Live  Sid  Ack Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Fleet Live Ack",
+        "tags": [
+          "fleet-live"
         ]
       }
     },
