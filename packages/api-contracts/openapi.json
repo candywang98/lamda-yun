@@ -1707,6 +1707,81 @@
         "title": "FindStep",
         "type": "object"
       },
+      "FleetOrderScreenIn": {
+        "additionalProperties": false,
+        "description": "One collected screen pushed per read (O10 §2 page summary + rows).",
+        "properties": {
+          "accountKey": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Accountkey",
+            "type": "string"
+          },
+          "collectedAt": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Collectedat"
+          },
+          "direction": {
+            "enum": [
+              "SOLD",
+              "BOUGHT"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "partialRows": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 50,
+            "title": "Partialrows",
+            "type": "array"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/OrderIn"
+            },
+            "maxItems": 20,
+            "title": "Rows",
+            "type": "array"
+          },
+          "runKey": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Runkey",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "maximum": 99.0,
+            "minimum": 1.0,
+            "title": "Schemaversion",
+            "type": "integer"
+          },
+          "screen": {
+            "maximum": 50.0,
+            "minimum": 1.0,
+            "title": "Screen",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "runKey",
+          "accountKey",
+          "schemaVersion",
+          "screen",
+          "direction"
+        ],
+        "title": "FleetOrderScreenIn",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -8635,6 +8710,141 @@
         "summary": "Poll Events"
       }
     },
+    "/api/v1/fleet/orders/history": {
+      "get": {
+        "operationId": "fleet_order_history_api_v1_fleet_orders_history_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "device_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 36,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Device Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "direction",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "SOLD",
+                    "BOUGHT"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Direction"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status_text",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status Text"
+            }
+          },
+          {
+            "in": "query",
+            "name": "account_key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Account Key"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 256,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Fleet Order History Api V1 Fleet Orders History Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Fleet Order History",
+        "tags": [
+          "fleet-orders-operator"
+        ]
+      }
+    },
     "/api/v1/im/config": {
       "get": {
         "operationId": "get_im_config_api_v1_im_config_get",
@@ -14382,6 +14592,97 @@
         "summary": "Push Orders",
         "tags": [
           "orders-companion"
+        ]
+      }
+    },
+    "/companion/v2/orders/checkpoint": {
+      "get": {
+        "operationId": "get_order_checkpoint_companion_v2_orders_checkpoint_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "direction",
+            "required": true,
+            "schema": {
+              "enum": [
+                "SOLD",
+                "BOUGHT"
+              ],
+              "title": "Direction",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Order Checkpoint Companion V2 Orders Checkpoint Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Order Checkpoint",
+        "tags": [
+          "fleet-orders-companion"
+        ]
+      }
+    },
+    "/companion/v2/orders/screens": {
+      "post": {
+        "operationId": "push_order_screen_companion_v2_orders_screens_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FleetOrderScreenIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Push Order Screen Companion V2 Orders Screens Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Push Order Screen",
+        "tags": [
+          "fleet-orders-companion"
         ]
       }
     },
