@@ -50,6 +50,8 @@ from .source_routes import router as source_router
 from .wechat_client import WeChatTransport
 from .wechat_routes import router as wechat_router
 from .wechat_service import WeChatPublisherService
+from .xianyu_delete_evidence import XianyuDeleteEvidenceService
+from .xianyu_delete_evidence import router as xianyu_delete_evidence_router
 from .xianyu_maintenance import XianyuMaintenanceService
 from .xianyu_maintenance_routes import router as xianyu_maintenance_router
 from .xianyu_orders import XianyuOrdersService
@@ -127,6 +129,7 @@ def create_app(
     app.state.xianyu_maintenance_service = XianyuMaintenanceService(
         database, app.state.mobile_task_service
     )
+    app.state.xianyu_delete_evidence_service = XianyuDeleteEvidenceService(database)
     app.state.orders_service = OrderService(database)
     app.state.fleet_orders_service = FleetOrdersService(database)
     app.state.xianyu_orders_service = XianyuOrdersService(
@@ -241,6 +244,7 @@ def create_app(
     app.include_router(source_router)
     app.include_router(wechat_router)
     app.include_router(xianyu_maintenance_router)
+    app.include_router(xianyu_delete_evidence_router)
     app.include_router(xianyu_publish_router)
     app.include_router(xianyu_orders_router)
     app.include_router(orders_operator_router)
