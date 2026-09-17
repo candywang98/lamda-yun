@@ -1,0 +1,29 @@
+{
+  "protocol": "cloudctl.recipe-fixture/v1",
+  "fixtureId": "xianyu-publish-open-only.happy-path",
+  "targetPackage": "com.taobao.idlefish",
+  "frames": [
+    {
+      "digest": "home",
+      "nodes": { "xianyu_home_sell": [true, true] }
+    },
+    {
+      "digest": "sell-menu",
+      "nodes": { "xianyu_publish_entry": [true, true] }
+    },
+    {
+      "digest": "publish-form",
+      "nodes": {
+        "xianyu_publish_page": [true, true],
+        "xianyu_description": [true, true, "描述一下"]
+      }
+    },
+    {
+      "digest": "publish-form-filled",
+      "nodes": {
+        "xianyu_publish_page": [true, true],
+        "xianyu_description": [true, true, "自用闲置好书"]
+      }
+    }
+  ]
+}

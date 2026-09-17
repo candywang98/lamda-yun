@@ -1,0 +1,66 @@
+{
+  "protocol": "cloudctl.recipe-template/v1",
+  "templateId": "xianyu-publish-open-only.dev",
+  "recipeId": "recipe-xianyu-publish-dev-3",
+  "version": "0.1.0",
+  "platform": "xianyu",
+  "app": "com.taobao.idlefish",
+  "commandTypes": ["xianyu.publish_listing.v1"],
+  "minEngineVersion": 1,
+  "pages": [
+    { "pageId": "home", "anchors": ["xianyu_home_sell"] },
+    { "pageId": "sell-menu", "anchors": ["xianyu_publish_entry"] },
+    { "pageId": "publish-form", "anchors": ["xianyu_publish_page"] }
+  ],
+  "steps": [
+    {
+      "stepId": "wait-home",
+      "action": "wait",
+      "page": "home",
+      "locatorRef": "xianyu_home_sell",
+      "bounds": { "maxAttempts": 8, "noProgressBudget": 4, "deadlineMs": 20000, "onExhausted": "FAIL" }
+    },
+    {
+      "stepId": "open-sell",
+      "action": "navigate",
+      "page": "home",
+      "locatorRef": "xianyu_home_sell",
+      "postcondition": "xianyu_publish_entry",
+      "bounds": { "maxAttempts": 3, "deadlineMs": 10000, "onExhausted": "FAIL" }
+    },
+    {
+      "stepId": "wait-menu",
+      "action": "wait",
+      "page": "sell-menu",
+      "locatorRef": "xianyu_publish_entry",
+      "bounds": { "maxAttempts": 8, "deadlineMs": 20000, "onExhausted": "FAIL" }
+    },
+    {
+      "stepId": "open-publish",
+      "action": "navigate",
+      "page": "sell-menu",
+      "locatorRef": "xianyu_publish_entry",
+      "postcondition": "xianyu_publish_page",
+      "bounds": { "maxAttempts": 3, "deadlineMs": 10000, "onExhausted": "FAIL" }
+    },
+    {
+      "stepId": "await-form",
+      "action": "wait",
+      "page": "publish-form",
+      "locatorRef": "xianyu_publish_page",
+      "bounds": { "maxAttempts": 8, "deadlineMs": 20000, "onExhausted": "WAITING_USER" }
+    },
+    {
+      "stepId": "fill-description",
+      "action": "input",
+      "page": "publish-form",
+      "locatorRef": "xianyu_description",
+      "valueRef": "listingBody"
+    },
+    {
+      "stepId": "await-confirm",
+      "action": "checkpoint",
+      "page": "publish-form"
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "specId": "recipe-contract-spec",
+  "specVersion": "2026-09-17.1",
+  "protocol": "cloudctl.recipe/v1",
+  "kind": "LocalRecipePackage",
+  "notes": "Single source of truth (B16 single-source dual-out): scripts/validate-recipe-contract.py derives its accepted schema from this file, and the Kotlin goldens (RecipeContract + RecipeContractGoldenTest) must match it value-for-value. A signature proves provenance, NEVER sandboxing: every rule below is enforced by static validation and engine parse regardless of signature state.",
+  "actions": {
+    "whitelist": ["tap", "input", "scroll", "extract", "wait", "launch", "media", "log", "checkpoint"],
+    "parameterCaps": {
+      "maxWaitAttempts": 80,
+      "maxNoProgressPolls": 80,
+      "minStateDeadlineMs": 1000,
+      "maxInputTextLength": 1024,
+      "maxValueRefLength": 64,
+      "maxMediaAssets": 49,
+      "maxStates": 64,
+      "maxStateIdLength": 128
+    }
+  },
+  "graph": {
+    "maxIterations": [1, 200],
+    "maxDurationMs": [1000, 900000]
+  },
+  "wait": {
+    "onExhaustedValues": ["FAIL", "WAITING_USER"],
+    "pollIntervalMs": 250
+  },
+  "forbiddenFieldFragments": ["eval", "shell", "javascript", "script", "bytecode", "dex", "frida", "argv", "payload", "exec", "runtime", "expression"],
+  "loopPolicy": {
+    "requireTerminalReachable": true,
+    "forbidIrreversibleActionsInLoops": true,
+    "irreversibleLocators": ["xianyu_publish_button", "xhs_publish_button", "dy_publish_button", "xianyu_delete_confirm"],
+    "boundedCycleMaxIterations": 200
+  },
+  "templateProtocol": "cloudctl.recipe-template/v1",
+  "templateActions": ["navigate", "wait", "input", "media", "checkpoint"],
+  "templateForbiddenActions": ["submit", "shell", "eval", "js", "tapPublish"],
+  "pinnedRecipes": {
+    "recipe-device-probe-1": "901f795b2512891cd5ee08162626d0ad6a1c92ad9d7b922516c626f9d6f155b4",
+    "recipe-xianyu-collect-1": "d567f2b8ea3f338af9360c5befc7124770ae92d17e932cb7b03cd6e3f2d4b4b3",
+    "recipe-xianyu-publish-1": "a2331b8076dd28cd34f574f359b7e549ebef1f0ebd060bff2fad0ab410a84c0f",
+    "recipe-xianyu-publish-2": "becbe9d861b1f25335808f37593598d2a537d30839d9bd38059cb708442f5dcb",
+    "recipe-xhs-note-1": "b1bdc6f334d2cea210c544183ff999244dfe4fe052b621d6aff6ddb9f495fda4"
+  }
+}
