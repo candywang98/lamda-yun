@@ -9,8 +9,18 @@ import android.provider.MediaStore
 import java.io.File
 import java.security.MessageDigest
 
+/** What a gallery upsert actually did, with the row's device-side identity. */
+data class GalleryExportOutcome(
+    val uri: Uri,
+    val mimeType: String,
+    /** MediaStore canonical file path (DATA column) when resolvable. */
+    val canonicalPath: String?,
+    val decision: GalleryUpsert.Decision,
+    val origin: GalleryOrigin,
+)
+
 class MediaGalleryExporter(private val resolver: ContentResolver) {
-    fun export(file: File, item: MediaManifestItem): Uri {
+    fun export(file: File, item: MediaManifestItem): GalleryExportOutcome {
         val collection = when {
             item.contentType.startsWith("image/") -> MediaStore.Images.Media.EXTERNAL_CONTENT_URI
             item.contentType.startsWith("video/") -> MediaStore.Video.Media.EXTERNAL_CONTENT_URI
@@ -22,7 +32,7 @@ class MediaGalleryExporter(private val resolver: ContentResolver) {
         // MediaStore appends the canonical extension for the MIME type when the
         // display name lacks one, so the query must address the stored name or it
         // never matches and every export inserts a fresh copy (verified on device).
-        val displayName = displayNameFor(item)
+        val displayName = GalleryNaming.displayNameFor(item.fileName, item.contentType)
         val contentSha256 = sha256Of(file)
         val existing = queryExisting(collection, displayName, file.length())
         android.util.Log.i(
@@ -30,33 +40,27 @@ class MediaGalleryExporter(private val resolver: ContentResolver) {
             "gallery upsert name=$displayName existing=${existing.size} " +
                 "decision=${GalleryUpsert.decide(existing, contentSha256, file.length())::class.simpleName}",
         )
-        return when (val decision = GalleryUpsert.decide(existing, contentSha256, file.length())) {
+        val decision = GalleryUpsert.decide(existing, contentSha256, file.length())
+        val uri = when (decision) {
             is GalleryUpsert.Decision.Reuse -> {
                 touchDates(collection, decision.row.id)
                 rowUri(collection, decision.row.id)
             }
             is GalleryUpsert.Decision.Overwrite -> {
-                val uri = rowUri(collection, decision.row.id)
-                rewrite(uri, file)
+                val target = rowUri(collection, decision.row.id)
+                rewrite(target, file)
                 touchDates(collection, decision.row.id)
-                uri
+                target
             }
             GalleryUpsert.Decision.Insert -> insertNew(collection, file, item, displayName)
         }
-    }
-
-    private fun displayNameFor(item: MediaManifestItem): String {
-        if (item.fileName.contains('.')) return item.fileName
-        val extension = when (item.contentType) {
-            "image/jpeg" -> ".jpg"
-            "image/png" -> ".png"
-            "image/webp" -> ".webp"
-            "image/gif" -> ".gif"
-            "video/mp4" -> ".mp4"
-            "video/webm" -> ".webm"
-            else -> ""
-        }
-        return item.fileName + extension
+        return GalleryExportOutcome(
+            uri = uri,
+            mimeType = item.contentType,
+            canonicalPath = canonicalPathOf(uri),
+            decision = decision,
+            origin = GalleryOrigin.from(decision),
+        )
     }
 
     fun delete(uri: Uri): Int = resolver.delete(uri, null, null)
@@ -110,6 +114,13 @@ class MediaGalleryExporter(private val resolver: ContentResolver) {
         }
         runCatching { resolver.update(rowUri(collection, id), values, null, null) }
     }
+
+    /** Best-effort canonical path (DATA column) for the ledger record. */
+    private fun canonicalPathOf(uri: Uri): String? = runCatching {
+        resolver.query(uri, arrayOf(MediaStore.MediaColumns.DATA), null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) cursor.getString(0) else null
+        }
+    }.getOrNull()
 
     private fun queryExisting(
         collection: Uri,
