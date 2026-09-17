@@ -3936,12 +3936,20 @@
         ".venv/bin/python -m pytest tests/integration/ tests/unit/ -q"
       ],
       "contract": "K14冻结后",
-      "dev_state": "IN_PROGRESS",
-      "acceptance_state": "NOT_RUN",
+      "dev_state": "SOFTWARE_DONE",
+      "acceptance_state": "SOFTWARE_ACCEPTED",
       "baseline_sha": "51e07a3",
       "evidence": "artifacts/delivery-20260916/A14/",
       "scope_note": "专家：D方案最低成本真身份；切换顺序见scope-decisions",
-      "risk": "高"
+      "risk": "高",
+      "activation": {
+        "delivered_at": "2026-09-17T11:30:00+08:00",
+        "branch": "agent/fleet-a14",
+        "commit": "bdabcf0",
+        "review": "控制器审查：路径零越界；heartbeat热修(controlHighWatermark/blockingTask/inlineEvents)+/control游标410+/reconcile-snapshot+/control/ack两分支+production principal身份(伪造头401优先)；seq读取时派生(epoch_ms*1024+名次)免新表；657过9跳",
+        "merged": "integration 52ab325(A14)/a75b736(B17)；同SHA终验：后端657过9跳、Android 590/0",
+        "pending": "A14:humanConfirmDeadline生成+nginx生产配置+user_account预供(部署窗口)；B17:真机端点联调随下个APK发版"
+      }
     },
     {
       "id": "B17",
@@ -3987,12 +3995,20 @@
         "cd mobile/companion && ./gradlew testDebugUnitTest"
       ],
       "contract": "K14冻结后",
-      "dev_state": "IN_PROGRESS",
-      "acceptance_state": "NOT_RUN",
+      "dev_state": "SOFTWARE_DONE",
+      "acceptance_state": "SOFTWARE_ACCEPTED",
       "baseline_sha": "51e07a3",
       "evidence": "artifacts/delivery-20260916/B17/",
       "scope_note": "生产SOP同时修订：禁止 am force-stop Companion（AOSP行为，非ColorOS特有）",
-      "risk": "中"
+      "risk": "中",
+      "activation": {
+        "delivered_at": "2026-09-17T11:30:00+08:00",
+        "branch": "agent/fleet-b17",
+        "commit": "b9d1869",
+        "review": "控制器审查：路径零越界；control包8文件+同事务lastAppliedControlSeq+控制面无条件先行+CAP_能力自检+WSS合并写(默认关闭)；590过(新增41)",
+        "merged": "integration 52ab325(A14)/a75b736(B17)；同SHA终验：后端657过9跳、Android 590/0",
+        "pending": "A14:humanConfirmDeadline生成+nginx生产配置+user_account预供(部署窗口)；B17:真机端点联调随下个APK发版"
+      }
     }
   ],
   "required_old_ids": [
