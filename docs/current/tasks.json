@@ -1471,7 +1471,7 @@
       "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
       "dev_state": "SOFTWARE_DONE",
       "acceptance_state": "SOFTWARE_ACCEPTED",
-      "evidence": "agent/fleet-b15 @ec065fe merged 241de63. Android 753/0 (42 new: StagedMediaPlan/Ledger, AlbumSelection planner, GalleryCleanupPolicy; order-invariant fail-closed, shutter probe gating, atomic writes). Seams for next wave: locators->AlbumPageSnapshot supply, shutter profile registry, advanceAlbumIndex calls. B15X seam wave merged f385319: AlbumPageMapper (ObservedNode->AlbumPageSnapshot, honest nulls, depth/node caps), AlbumPickDispatcher (TapAdmissionGate-gated approved tap intents), AlbumShutterProfileRegistry (probe-gated verification); 25 tests. Remaining Root wiring: dispatcher->ui.tapScreenAt + gallery package allowlist in CloudCtlAccessibilityService.tapScreenAt.",
+      "evidence": "agent/fleet-b15 @ec065fe merged 241de63. Android 753/0 (42 new: StagedMediaPlan/Ledger, AlbumSelection planner, GalleryCleanupPolicy; order-invariant fail-closed, shutter probe gating, atomic writes). Seams for next wave: locators->AlbumPageSnapshot supply, shutter profile registry, advanceAlbumIndex calls. B15X seam wave merged f385319: AlbumPageMapper (ObservedNode->AlbumPageSnapshot, honest nulls, depth/node caps), AlbumPickDispatcher (TapAdmissionGate-gated approved tap intents), AlbumShutterProfileRegistry (probe-gated verification); 25 tests. Remaining Root wiring: dispatcher->ui.tapScreenAt + gallery package allowlist in CloudCtlAccessibilityService.tapScreenAt. WIRE merged d6c9587: consumeAlbumPick -> tapScreenAt with CoordinateTapPackageGate (xianyu + com.android.gallery3d/gallery); consumeAlbumPick awaits recipe-side caller.",
       "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
       "read_only_paths": [
         "contracts/**",
@@ -1870,9 +1870,9 @@
       "risk": "高",
       "device_acceptance": "逐件明确授权测试商品；先仅填表停在发布前",
       "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
-      "dev_state": "NOT_STARTED",
-      "acceptance_state": "NOT_RUN",
-      "evidence": "artifacts/delivery-20260916/P10/",
+      "dev_state": "SOFTWARE_DONE",
+      "acceptance_state": "SOFTWARE_ACCEPTED",
+      "evidence": "agent/fleet-p10 @d44869d merged 838fb7d. PublishCompletionBoundary four-boundary model (Android judge + server mirror, AUTO_FILL_HUMAN_PRICE default = production semantics, evidence can only downgrade), PublishOrchestrator step primitives (menu settle/crop-return/input proof/required fields/WAITING_USER), PublishTargetLedger serial advance (succeeded never redone); xianyu_publish.py field-level 422 with errors[]{field,loc,code}, migration 0027. Android 879/0, backend 948 passed. Seams: event-translation adapter for ClaimedTaskInterpreter/RecipeEngine, device ledger persistence, fail-report propagation to target state.",
       "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
       "read_only_paths": [
         "contracts/**",
@@ -1949,7 +1949,7 @@
       "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
       "dev_state": "SOFTWARE_DONE",
       "acceptance_state": "SOFTWARE_ACCEPTED",
-      "evidence": "agent/fleet-i10 @eebb289 merged 5853870. DutyWriteArbitration (formalized frozen-order decision, reuse not rewrite), ImReplyBoundary (WRONG_CONVERSATION/CHAT_TARGET_CHANGED/HARASSMENT_SESSION fail-closed), NoiseProfile+SOURCE layer, ImMonitor 5-min retransmit window; zero backend route changes (reused settle_reply_delivery). 8 integration tests incl. cancel-consistency via real A14 flow. Seams: ImReplyBoundary check() call in CompanionSyncService.runNext before send steps; noise calibration cloud delivery needs im config contract extension; web modules not yet mounted in ImInboxView.",
+      "evidence": "agent/fleet-i10 @eebb289 merged 5853870. DutyWriteArbitration (formalized frozen-order decision, reuse not rewrite), ImReplyBoundary (WRONG_CONVERSATION/CHAT_TARGET_CHANGED/HARASSMENT_SESSION fail-closed), NoiseProfile+SOURCE layer, ImMonitor 5-min retransmit window; zero backend route changes (reused settle_reply_delivery). 8 integration tests incl. cancel-consistency via real A14 flow. Seams: ImReplyBoundary check() call in CompanionSyncService.runNext before send steps; noise calibration cloud delivery needs im config contract extension; web modules not yet mounted in ImInboxView. WIRE merged d6c9587: ImReplyBoundary.check wired into executor conversation-open and send seams (covers resume path), imChatEvidence from chat locators + header peer (heuristic until device calibration).",
       "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
       "read_only_paths": [
         "contracts/**",
@@ -2027,7 +2027,7 @@
       "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
       "dev_state": "SOFTWARE_DONE",
       "acceptance_state": "SOFTWARE_ACCEPTED",
-      "evidence": "agent/fleet-o10 @ee02fe3 merged 15b4d3d. features/xianyu/orders (OrderDedupe REAL_ID/MISSING_ID, OrderPagination cursor+3-stop scroll policy, OrderCheckpoint 5-tuple binding, OrderHistoryWindow); fleet_orders.py (screens push + checkpoint guard + tenant-scoped history); migration 0026; Web orders history view. Android 833/0, backend 922 passed, Web 246/246. Seams for next wave: executor readOrders wiring to registry/scroll-policy + screens payload, checkpoint persistence location.",
+      "evidence": "agent/fleet-o10 @ee02fe3 merged 15b4d3d. features/xianyu/orders (OrderDedupe REAL_ID/MISSING_ID, OrderPagination cursor+3-stop scroll policy, OrderCheckpoint 5-tuple binding, OrderHistoryWindow); fleet_orders.py (screens push + checkpoint guard + tenant-scoped history); migration 0026; Web orders history view. Android 833/0, backend 922 passed, Web 246/246. Seams for next wave: executor readOrders wiring to registry/scroll-policy + screens payload, checkpoint persistence location. WIRE merged d6c9587: executor wired to OrderSeenRegistry/OrderScrollPolicy (3-stop before journal), screens payload dual-write (batch retained), checkpoint persisted SharedPreferences bound 5-tuple; payload golden == FleetOrderScreenIn.",
       "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
       "read_only_paths": [
         "contracts/**",
@@ -3270,9 +3270,9 @@
       "risk": "中",
       "device_acceptance": "无；仅软件验证",
       "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
-      "dev_state": "NOT_STARTED",
-      "acceptance_state": "NOT_RUN",
-      "evidence": "artifacts/delivery-20260916/F12/",
+      "dev_state": "SOFTWARE_DONE",
+      "acceptance_state": "SOFTWARE_ACCEPTED",
+      "evidence": "agent/fleet-f12 @7285e16 merged 870b05c (app.py conflict resolved both imports; migration renumbered 0028, down_revision fixed to 0027). Mint via PlatformTaskService.create with A04 fire_key (byte-identical formula, cross-path replay proven), dynamic grid-point catch-up (COALESCE_LATEST/SKIP) replacing fixed 30-min window, DST spring/fold/hourly-repeat goldens, template snapshot pinning, cancel stops future only + returns mintedTaskIds, offline device terminal ERROR no migration. 16 targeted tests. Deferred decisions: legacy :enable can revive manual :fire (freeze needs owner call), ERROR terminal has no auto-retry, worker ControlPlane credentials unconfigured (InMemory backend parity with release line).",
       "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
       "read_only_paths": [
         "contracts/**",
@@ -4162,6 +4162,11 @@
       "at": "2026-09-17T21:20:00+08:00",
       "by": "root",
       "note": "FLEET-28: O10+I10+B15X parallel wave merged from da8d5ed. Android 833/0, backend 922 passed (openapi regen for fleet-orders), Web 37 files/246 tests, build green. Registered seams (not blockers): order executor wiring, ImReplyBoundary runNext hookup + noise calibration contract, album dispatcher tapScreenAt allowlist. User-side BLK-001..006 unchanged."
+    },
+    {
+      "at": "2026-09-17T22:45:00+08:00",
+      "by": "root",
+      "note": "FLEET-29: P10+F12+WIRE parallel wave merged from 9992212. Android 879/0, backend 948 passed (openapi regen 508 lines), Web 246/246 unchanged. Migration chain renumbered (F12 0028, single alembic head). Three FLEET-28 seams now wired (orders/IM/album). New deferred-decision items: F12 legacy :fire freeze + ERROR retry policy (registered Excel BLK-010); K13 deferred next wave with R02-prerequisite governance note. User-side BLK-001..006 unchanged."
     }
   ]
 }
