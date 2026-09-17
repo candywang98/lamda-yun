@@ -4,17 +4,18 @@ import uuid
 from typing import Annotated, Any, cast
 
 from cloudctl_domain import Actor, AuthenticationError
-from fastapi import APIRouter, Depends, Header, Request, Response, status
+from fastapi import APIRouter, Depends, Header, Query, Request, Response, status
+from fastapi.responses import JSONResponse
 
 from .auth import current_actor
 from .db import MobileBindingRow
+from .fleet_identity import CursorTooOldError
 from .mobile_actions import IntentRequest, MobileActionService, OutcomeRequest
 from .mobile_schemas import (
     DevicePreviewSessionCreate,
     DevicePreviewUpload,
     MobileClaimRequest,
     MobileDeviceCreate,
-    MobileDeviceHeartbeat,
     MobileEnrollmentCreate,
     MobileEnrollRequest,
     MobileHeartbeat,
@@ -26,7 +27,11 @@ from .mobile_schemas import (
     MobileTaskFailure,
     MobileTaskRelease,
 )
-from .mobile_service import MobileTaskService
+from .mobile_service import (
+    CompanionControlAckRequest,
+    MobileDeviceHeartbeatV2,
+    MobileTaskService,
+)
 
 operator_router = APIRouter(prefix="/api/v1/mobile", tags=["mobile-tasks"])
 companion_router = APIRouter(prefix="/companion/v2", tags=["mobile-companion"])
@@ -146,9 +151,45 @@ async def enroll(body: MobileEnrollRequest, mobile: Service) -> dict[str, Any]:
 
 @companion_router.post("/devices/heartbeat")
 async def device_heartbeat(
-    body: MobileDeviceHeartbeat, current: Binding, mobile: Service
+    body: MobileDeviceHeartbeatV2, current: Binding, mobile: Service
 ) -> dict[str, Any]:
     return await mobile.device_heartbeat(current, body)
+
+
+@companion_router.get("/control")
+async def control_pull(
+    after: int,
+    current: Binding,
+    mobile: Service,
+    limit: Annotated[int, Query(ge=1, le=50)] = 50,
+) -> Any:
+    # control-plane/v1 §2.1: 410 CURSOR_TOO_OLD carries snapshotRequired so
+    # the client converges through the snapshot channel instead of treating
+    # the compacted window as "no changes".
+    try:
+        return await mobile.control_pull(current, after, limit)
+    except CursorTooOldError as exc:
+        return JSONResponse(
+            status_code=410,
+            content={
+                "code": "CURSOR_TOO_OLD",
+                "snapshotRequired": True,
+                "detail": exc.detail,
+            },
+            media_type="application/problem+json",
+        )
+
+
+@companion_router.get("/reconcile-snapshot")
+async def reconcile_snapshot(current: Binding, mobile: Service) -> dict[str, Any]:
+    return await mobile.reconcile_snapshot(current)
+
+
+@companion_router.post("/control/ack")
+async def control_ack(
+    body: CompanionControlAckRequest, current: Binding, mobile: Service
+) -> dict[str, Any]:
+    return await mobile.control_ack(current, body)
 
 
 @companion_router.get("/accounts/status")

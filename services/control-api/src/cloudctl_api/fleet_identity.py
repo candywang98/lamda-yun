@@ -557,3 +557,114 @@ def lease_envelope_stale(
     ):
         return True
     return False
+
+
+# ---------------------------------------------------------------------------
+# control-plane/v1 (K14 @20260917.1, FROZEN) — device control surface
+# ---------------------------------------------------------------------------
+# Contract: contracts/control-plane/v1/control-plane-v1.md. The device control
+# plane upgrades A12's per-task control events (persisted on each task row's
+# steps header with a per-task ``controlRevision``) into a *device-level*
+# cursor stream. The deviceControlSeq is **derived, not minted**: control
+# events already carry an ``issuedAt`` stamp written inside the settling
+# transaction, so a stable, unique, monotone per-device sequence is composed
+# from ``(issuedAt, taskId, taskRevision)`` — no new table, no migration
+# (A14 scope decision). Per-task ``controlRevision`` remains the task-row
+# validation cursor (task-schedule/v1); deviceControlSeq never replaces it.
+
+CONTROL_PLANE_CONTRACT = "control-plane/v1@20260917.1"
+
+# Wire types for the control-plane event stream (§1/§4). A12 control kinds are
+# persisted server-side; the device stream maps them onto the frozen
+# control-plane/v1 vocabulary:
+# - "CANCEL_REQUESTED" → CANCEL: the §4 *desired* cancel on a live executor
+#   (device must neutralize UI and ack via POST /companion/v2/control/ack).
+# - settled outcomes (CANCELLED / RECONCILED_* / CANCEL_ACKED) → TERMINAL:
+#   mirror convergence only, no ack required.
+# - "CANCEL_DEFERRED_RECONCILING" (A14) keeps its §4 ack-result name.
+CONTROL_WIRE_TYPES: dict[str, str] = {
+    "CANCEL_REQUESTED": "CANCEL",
+    "CANCELLED": "TERMINAL",
+    "CANCEL_ACKED": "TERMINAL",
+    "CANCEL_DEFERRED_RECONCILING": "CANCEL_DEFERRED_RECONCILING",
+    "PAUSE_REQUESTED": "PAUSE_REQUESTED",
+    "PAUSE_ACKED": "PAUSE_ACKED",
+    "PAUSE_ACKED_RECONCILING": "PAUSE_ACKED_RECONCILING",
+    "RESUMED": "RESUME",
+    "MARKED_UNKNOWN": "MARKED_UNKNOWN",
+    "RECONCILED_APPLIED": "TERMINAL",
+    "RECONCILED_NOT_SUBMITTED": "TERMINAL",
+    "RECONCILED_KEEP_WAITING": "RECONCILED_KEEP_WAITING",
+}
+
+# Tie width for the composed deviceControlSeq (see compose_device_control_seqs).
+# A single millisecond can carry at most this many control events on one
+# device before the sequence space of that millisecond overflows; control
+# events are operator/dispatch-scale (HTTP + transaction per event), so 1024
+# same-millisecond events on one device is beyond any realistic burst.
+CONTROL_SEQ_TIE_WIDTH = 1024
+
+_UNIX_EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
+
+
+def control_event_epoch_ms(issued_at: datetime) -> int:
+    """Exact integer milliseconds since the Unix epoch (no float rounding)."""
+    moment = _aware(issued_at)
+    return (moment - _UNIX_EPOCH) // timedelta(milliseconds=1)
+
+
+def compose_device_control_seqs(
+    entries: list[tuple[datetime, str, int]],
+) -> list[int]:
+    """Compose the device-level monotone ``deviceControlSeq`` stream.
+
+    Input: ``(issuedAt, taskId, taskRevision)`` for every live control event
+    of one device, **sorted** by that tuple. Output: one unique, strictly
+    increasing seq per entry, in the same order:
+
+    ``seq = issuedAt_epoch_ms * CONTROL_SEQ_TIE_WIDTH + tie_rank``
+
+    Properties (contract §1/§6 fixture invariants):
+    - unique per event and monotone across the whole device (ms dominates);
+    - gaps are allowed (the frozen fixture itself shows 1302/1305/1307);
+    - pruning the oldest per-task events (A12 keeps the last 50 per task)
+      only *raises* the retention floor — a seq value is never reused, so a
+      client cursor can never silently skip a newer event;
+    - two events minted within the same millisecond are ordered
+      deterministically by ``(taskId, taskRevision)``; per-task ordering is
+      always preserved because taskRevision participates in the sort key.
+    """
+    seqs: list[int] = []
+    previous_ms: int | None = None
+    rank = 0
+    for issued_at, _task_id, _revision in entries:
+        epoch_ms = control_event_epoch_ms(issued_at)
+        if epoch_ms != previous_ms:
+            previous_ms = epoch_ms
+            rank = 0
+        seqs.append(epoch_ms * CONTROL_SEQ_TIE_WIDTH + rank)
+        rank += 1
+    return seqs
+
+
+def control_wire_type(kind: str) -> str:
+    """Map a persisted control kind onto the control-plane/v1 wire type."""
+    return CONTROL_WIRE_TYPES.get(kind, kind)
+
+
+class CursorTooOldError(ConflictError):
+    """control-plane/v1 §2.1/§5: the cursor precedes the retention floor.
+
+    Raised instead of returning an empty list pretending nothing changed; the
+    client must converge through the reconcile snapshot instead.
+    """
+
+    code = "CURSOR_TOO_OLD"
+    status = 410
+
+
+class ControlSeqInvalidError(ValidationError):
+    """control-plane/v1 §5: malformed deviceControlSeq cursor."""
+
+    code = "CONTROL_SEQ_INVALID"
+    status = 422

@@ -15,8 +15,26 @@ from fastapi import Depends, Request
 from jwt import PyJWTError
 from pydantic import BaseModel, Field
 from pydantic import ValidationError as PydanticValidationError
+from sqlalchemy import select
 
+from .db import UserRow
 from .settings import Settings, get_settings
+
+# ---------------------------------------------------------------------------
+# Identity "D path" (scope-decisions D-6/D-10, A14)
+# ---------------------------------------------------------------------------
+# Production trusts exactly one nginx-overwritten identity header and maps it
+# to a provisioned user row; everything a client could self-report about its
+# identity is rejected outright in production. The nginx layer terminates
+# HTTP BasicAuth (or, later, Authelia/Dex OIDC) on the edge and overwrites
+# ``X-CloudCtl-Principal``; uvicorn stays loopback-only. The OIDC bearer path
+# remains available and unchanged — the principal header is an additional
+# production mode, not a replacement (D-10 rollout order: server-side mapping
+# first, OIDC federation once the mapping path runs stable).
+
+PRINCIPAL_HEADER = "X-CloudCtl-Principal"
+PRINCIPAL_ISSUER = "cloudctl-principal-nginx"
+SELF_REPORTED_IDENTITY_HEADERS = ("X-Tenant-Id", "X-User-Id", "X-Roles", "X-MFA")
 
 
 class OidcClaims(BaseModel):
@@ -208,6 +226,56 @@ def _development_claims(request: Request) -> OidcClaims:
         raise ForbiddenError("invalid development identity headers") from exc
 
 
+async def _production_principal_claims(request: Request, principal: str) -> OidcClaims:
+    """Map a trusted nginx principal onto a provisioned user row (D path).
+
+    The principal is only meaningful when the edge proxy overwrote it after
+    authenticating the caller; the mapping is server-side (``user_account``:
+    tenant, roles, disabled flag) so a client can never influence tenant or
+    role assignment. Unknown or disabled principals are plain 401s.
+    """
+    database = getattr(request.app.state, "database", None)
+    if database is None:
+        raise AuthenticationError("principal identity mapping is unavailable")
+    if len(principal) > 255:
+        raise AuthenticationError("principal is not provisioned")
+    async with database.unit_of_work() as session:
+        row = await session.scalar(
+            select(UserRow).where(
+                UserRow.oidc_subject == principal,
+                UserRow.disabled.is_(False),
+            )
+        )
+    if row is None:
+        raise AuthenticationError("principal is not provisioned")
+    try:
+        return OidcClaims(
+            sub=row.oidc_subject,
+            tenant_id=uuid.UUID(row.tenant_id),
+            user_id=uuid.UUID(row.id),
+            roles=[Role(role) for role in row.roles or [] if role],
+            # The edge terminated authentication (HTTP BasicAuth for now);
+            # the D-10 OIDC federation phase carries real MFA claims.
+            mfa=True,
+            iss=PRINCIPAL_ISSUER,
+            aud="cloudctl-api",
+            exp=2**31 - 1,
+        )
+    except (ValueError, PydanticValidationError) as exc:
+        raise AuthenticationError("provisioned principal has an invalid identity") from exc
+
+
+async def _bearer_claims(request: Request) -> OidcClaims:
+    authorization = request.headers.get("Authorization", "")
+    parts = authorization.split()
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        raise AuthenticationError("bearer authentication is required")
+    verifier: OidcJwtVerifier | None = getattr(request.app.state, "oidc_verifier", None)
+    if verifier is None:
+        raise AuthenticationError("OIDC verifier is not configured")
+    return await verifier.verify(parts[1])
+
+
 async def current_actor(
     request: Request,
     settings: Settings = Depends(get_settings),
@@ -216,15 +284,27 @@ async def current_actor(
         if settings.env not in {"development", "test"}:
             raise ForbiddenError("development authentication bypass is disabled")
         claims = _development_claims(request)
+    elif settings.env == "production":
+        # Identity D path (A14): a client may never self-report identity in
+        # production — those headers are stripped by the edge, so their mere
+        # presence is a spoofing attempt and fails closed with 401.
+        forged = sorted(
+            name
+            for name in SELF_REPORTED_IDENTITY_HEADERS
+            if request.headers.get(name, "").strip()
+        )
+        if forged:
+            raise AuthenticationError(
+                "client self-reported identity headers are rejected in "
+                f"production: {', '.join(forged)}"
+            )
+        principal = request.headers.get(PRINCIPAL_HEADER, "").strip()
+        if principal:
+            claims = await _production_principal_claims(request, principal)
+        else:
+            claims = await _bearer_claims(request)
     else:
-        authorization = request.headers.get("Authorization", "")
-        parts = authorization.split()
-        if len(parts) != 2 or parts[0].lower() != "bearer":
-            raise AuthenticationError("bearer authentication is required")
-        verifier: OidcJwtVerifier | None = getattr(request.app.state, "oidc_verifier", None)
-        if verifier is None:
-            raise AuthenticationError("OIDC verifier is not configured")
-        claims = await verifier.verify(parts[1])
+        claims = await _bearer_claims(request)
     return Actor(
         tenant_id=claims.tenant_id,
         user_id=claims.user_id,
