@@ -2119,14 +2119,18 @@
       "issues": [
         "ISS-05",
         "FLEET-20-wait-home无主动回首页恢复",
-        "FLEET-21-执行路径存在不落journal旁路待根因"
+        "FLEET-21-执行路径存在不落journal旁路待根因",
+        "FLEET-22-deadlock-e2e-passed",
+        "FLEET-23-B-draft-blocked-xianyu-login",
+        "FLEET-24-生产工作台独立CloudCtl登录(nginx注入开发身份头)",
+        "FLEET-25-专家采纳：A机用户测试文案受控真发，未登录机跳过，本轮0改动"
       ],
       "risk": "高",
       "device_acceptance": "5台授权真机；副作用动作另列逐项授权",
       "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
       "dev_state": "SOFTWARE_DONE",
       "acceptance_state": "NOT_RUN",
-      "evidence": "artifacts/delivery-20260916/Q13/ （matrix-progress.md FLEET-17~21：150/150安全往返、E机故障隔离、A机订单同步、A机发布草稿确认点、真实商品Notion Business ¥199上架在售；余B机草稿）",
+      "evidence": "artifacts/delivery-20260916/Q13/ （matrix-progress.md FLEET-17~25：150/150安全往返、E机故障隔离、A机订单同步、发布草稿确认点、真实商品Notion ¥199在售、死锁E2E dbaf3763通过、B机跳过(闲鱼未登录)、生产工作台CloudCtl独立登录、专家结论本轮0改动只做A机受控真发）",
       "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
       "read_only_paths": [
         "contracts/**",
@@ -3941,7 +3945,7 @@
       "dev_state": "SOFTWARE_DONE",
       "acceptance_state": "SOFTWARE_ACCEPTED",
       "baseline_sha": "51e07a3",
-      "evidence": "artifacts/delivery-20260916/A14/",
+      "evidence": "artifacts/delivery-20260916/A14/   ; E2E FLEET-22 dbaf3763 PAUSE→CANCELLED 1s SERVER_TERMINAL, probe 0ebe2805 SUCCEEDED",
       "scope_note": "专家：D方案最低成本真身份；切换顺序见scope-decisions",
       "risk": "高",
       "activation": {
@@ -4000,7 +4004,7 @@
       "dev_state": "SOFTWARE_DONE",
       "acceptance_state": "SOFTWARE_ACCEPTED",
       "baseline_sha": "51e07a3",
-      "evidence": "artifacts/delivery-20260916/B17/",
+      "evidence": "artifacts/delivery-20260916/B17/   ; E2E FLEET-22 dbaf3763 PAUSE→CANCELLED 1s SERVER_TERMINAL, probe 0ebe2805 SUCCEEDED",
       "scope_note": "生产SOP同时修订：禁止 am force-stop Companion（AOSP行为，非ColorOS特有）",
       "risk": "中",
       "activation": {
