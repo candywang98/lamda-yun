@@ -1471,7 +1471,7 @@
       "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
       "dev_state": "SOFTWARE_DONE",
       "acceptance_state": "SOFTWARE_ACCEPTED",
-      "evidence": "agent/fleet-b15 @ec065fe merged 241de63. Android 753/0 (42 new: StagedMediaPlan/Ledger, AlbumSelection planner, GalleryCleanupPolicy; order-invariant fail-closed, shutter probe gating, atomic writes). Seams for next wave: locators->AlbumPageSnapshot supply, shutter profile registry, advanceAlbumIndex calls.",
+      "evidence": "agent/fleet-b15 @ec065fe merged 241de63. Android 753/0 (42 new: StagedMediaPlan/Ledger, AlbumSelection planner, GalleryCleanupPolicy; order-invariant fail-closed, shutter probe gating, atomic writes). Seams for next wave: locators->AlbumPageSnapshot supply, shutter profile registry, advanceAlbumIndex calls. B15X seam wave merged f385319: AlbumPageMapper (ObservedNode->AlbumPageSnapshot, honest nulls, depth/node caps), AlbumPickDispatcher (TapAdmissionGate-gated approved tap intents), AlbumShutterProfileRegistry (probe-gated verification); 25 tests. Remaining Root wiring: dispatcher->ui.tapScreenAt + gallery package allowlist in CloudCtlAccessibilityService.tapScreenAt.",
       "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
       "read_only_paths": [
         "contracts/**",
@@ -1947,9 +1947,9 @@
       "risk": "高",
       "device_acceptance": "授权测试会话；发送前核对收件人及内容",
       "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
-      "dev_state": "NOT_STARTED",
-      "acceptance_state": "NOT_RUN",
-      "evidence": "artifacts/delivery-20260916/I10/",
+      "dev_state": "SOFTWARE_DONE",
+      "acceptance_state": "SOFTWARE_ACCEPTED",
+      "evidence": "agent/fleet-i10 @eebb289 merged 5853870. DutyWriteArbitration (formalized frozen-order decision, reuse not rewrite), ImReplyBoundary (WRONG_CONVERSATION/CHAT_TARGET_CHANGED/HARASSMENT_SESSION fail-closed), NoiseProfile+SOURCE layer, ImMonitor 5-min retransmit window; zero backend route changes (reused settle_reply_delivery). 8 integration tests incl. cancel-consistency via real A14 flow. Seams: ImReplyBoundary check() call in CompanionSyncService.runNext before send steps; noise calibration cloud delivery needs im config contract extension; web modules not yet mounted in ImInboxView.",
       "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
       "read_only_paths": [
         "contracts/**",
@@ -2025,9 +2025,9 @@
       "risk": "中",
       "device_acceptance": "无；仅软件验证",
       "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
-      "dev_state": "NOT_STARTED",
-      "acceptance_state": "NOT_RUN",
-      "evidence": "artifacts/delivery-20260916/O10/",
+      "dev_state": "SOFTWARE_DONE",
+      "acceptance_state": "SOFTWARE_ACCEPTED",
+      "evidence": "agent/fleet-o10 @ee02fe3 merged 15b4d3d. features/xianyu/orders (OrderDedupe REAL_ID/MISSING_ID, OrderPagination cursor+3-stop scroll policy, OrderCheckpoint 5-tuple binding, OrderHistoryWindow); fleet_orders.py (screens push + checkpoint guard + tenant-scoped history); migration 0026; Web orders history view. Android 833/0, backend 922 passed, Web 246/246. Seams for next wave: executor readOrders wiring to registry/scroll-policy + screens payload, checkpoint persistence location.",
       "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
       "read_only_paths": [
         "contracts/**",
@@ -4157,6 +4157,11 @@
       "at": "2026-09-17T20:05:00+08:00",
       "by": "root",
       "note": "FLEET-27: B15+B16+U10 parallel wave merged from b571273 (three isolated worktrees). Root landed FLEET-21 quick hardening (duty guard via hasUnfinishedTaskRows) and openapi regen for apk-release/v1. Android 753/0, backend 904 passed, Web 223/223. Deferred: DeviceArbiter REMOTE_LIVE fencing vs unfinished-task rows (needs live-lane owner, cross-contract), commit-step journal vs frozen RecipeCommitAdapterTest semantics. Device-side BLK-001..006 unchanged (user actions)."
+    },
+    {
+      "at": "2026-09-17T21:20:00+08:00",
+      "by": "root",
+      "note": "FLEET-28: O10+I10+B15X parallel wave merged from da8d5ed. Android 833/0, backend 922 passed (openapi regen for fleet-orders), Web 37 files/246 tests, build green. Registered seams (not blockers): order executor wiring, ImReplyBoundary runNext hookup + noise calibration contract, album dispatcher tapScreenAt allowlist. User-side BLK-001..006 unchanged."
     }
   ]
 }
