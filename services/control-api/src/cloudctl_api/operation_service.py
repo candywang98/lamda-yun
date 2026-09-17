@@ -35,6 +35,7 @@ from .operation_catalog import (
     FEATURE_DEFINITIONS,
     FEATURE_IDS_BY_OPERATION,
     FEATURE_OPERATION_MAP,
+    XY_LEDGER_BY_OPERATION_KEY,
     FeatureDefinition,
     OperationDefinition,
 )
@@ -156,6 +157,22 @@ class OperationService:
                 if definition is not None
                 else feature.execution_state
             )
+            # X12 four-state availability ledger: for the 31 xy-tasks actions
+            # the UI-facing reason carries the ledger state and the precise
+            # blocker ("[PENDING] ...", "[POLICY_BLOCKED] ...", ...) instead
+            # of the generic per-state text. Schema untouched: the state rides
+            # the existing `reason` response field.
+            ledger = (
+                XY_LEDGER_BY_OPERATION_KEY.get(feature.operation_key)
+                if feature.operation_key is not None
+                else None
+            )
+            if executor_available:
+                reason = "A deployed, policy-restricted executor is available for this operation."
+            elif ledger is not None:
+                reason = f"[{ledger.state}] {ledger.reason}"
+            else:
+                reason = feature.reason
             result.append(
                 {
                     "featureId": feature.id,
@@ -172,11 +189,7 @@ class OperationService:
                     "authorized": authorized,
                     "allowed": authorized and executor_available,
                     "executable": authorized and executor_available,
-                    "reason": (
-                        "A deployed, policy-restricted executor is available for this operation."
-                        if executor_available
-                        else feature.reason
-                    ),
+                    "reason": reason,
                 }
             )
         return result

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Literal
 
@@ -1015,6 +1016,435 @@ BLOCKED_FEATURE_IDS = frozenset(
         "red-tasks-04",
     }
 )
+
+# ---------------------------------------------------------------------------
+# X12 (fleet-first-20260916.1, task card "31项操作目录的范围和可用性收口"):
+# four-state availability ledger for the 31 xy-tasks actions. Registration in
+# XY_TASK_DEFINITIONS is inventory, never an enablement: every action carries
+# exactly one ledger state with a reason that is surfaced to the UI through
+# the /api/v1/operations/features `reason` field (prefixed "[STATE] ...").
+#
+# States (derived from the registrations — never hand-set per row):
+#   ENABLED        a deployed production lane can execute it today
+#                  (xy-tasks-01 only; cross-checked against
+#                  operation_runtime.BUILTIN_OPERATION_KEYS by tests).
+#   PENDING        in scope, missing a prerequisite: production CommandV1
+#                  lane, T102 real-device verification, and/or the sensitive
+#                  evidence discipline (budget cap / target authorization /
+#                  pinned-version platform entry evidence).
+#   POLICY_BLOCKED production policy prohibits the feature (repository rule
+#                  7: coin/review engagement). Evidence can never flip this;
+#                  only a recorded policy decision can.
+#   OUT_OF_SCOPE   adjudicated scope change (shared-service pages owned by
+#                  other lanes, guide-only inventory): never an executor
+#                  target for the xy device lane.
+#
+# The machine-readable twin of this ledger is
+# docs/current/operation-availability.json (single-sourced here; the contract
+# test asserts byte-level parity of the entries).
+# ---------------------------------------------------------------------------
+
+LedgerState = Literal["ENABLED", "PENDING", "POLICY_BLOCKED", "OUT_OF_SCOPE"]
+LEDGER_STATES: tuple[str, ...] = ("ENABLED", "PENDING", "POLICY_BLOCKED", "OUT_OF_SCOPE")
+
+# Evidence keys a PENDING row may require before an ENABLED transition is even
+# considered (see evaluate_ledger_transition; the deployed executor gate is
+# always evaluated independently and additionally).
+LEDGER_EVIDENCE_KEYS = frozenset(
+    {
+        "command_v1_lane",
+        "t102_verification",
+        "budget_cap",
+        "target_authorization",
+        "platform_entry_evidence",
+        "scan_executor_wiring",
+    }
+)
+
+# xy-tasks rows adjudicated out of scope for the xy device lane (X12): the
+# shared pool/watermark contracts are owned by the product-editor/assets
+# lanes, and the video tutorial page is guide-only inventory.
+XY_OUT_OF_SCOPE_IDS = frozenset(
+    {
+        "xy-tasks-25",
+        "xy-tasks-26",
+        "xy-tasks-27",
+        "xy-tasks-28",
+        "xy-tasks-29",
+        "xy-tasks-31",
+    }
+)
+
+# X12 task card: coin spend, promotion, review, and message-deletion class
+# actions carry the sensitive discipline (budget cap / target authorization /
+# pinned-version platform entry evidence). Unverified rows stay disabled.
+XY_SENSITIVE_IDS = frozenset(
+    {
+        "xy-tasks-09",
+        "xy-tasks-10",
+        "xy-tasks-11",
+        "xy-tasks-14",
+        "xy-tasks-16",
+        "xy-tasks-17",
+        "xy-tasks-18",
+    }
+)
+
+XY_POLICY_BLOCKED_IDS = frozenset(
+    catalog_id for catalog_id in XY_TASK_CATALOG_IDS if catalog_id in BLOCKED_FEATURE_IDS
+)
+
+# Task/package references (docs/current/tasks.json, plan fleet-first-20260916.1):
+# X11 维护操作按身份逐件执行 → P29,P31,P33,P35,P37; X10 P09删除专项 →
+# P30,P32,P34,P36,P38,P39; P46 integration lane; P49 platform-scope
+# verification package. Policy-blocked rows cite every device lane because all
+# of them must keep the capability disabled.
+_X11_PACKAGES = ("P29", "P31", "P33", "P35", "P37")
+_X10_PACKAGES = ("P30", "P32", "P34", "P36", "P38", "P39")
+_ALL_DEVICE_PACKAGES = tuple(f"P{index:02d}" for index in range(29, 40))
+_SHARED_SERVICE_PACKAGES = ("P46", "P49")
+
+_LEDGER_ENABLED_REASON = (
+    "Deployed open-only publish lane: CommandV1 xianyu.publish_listing.v1 is a "
+    "PRODUCTION_ALIASES mint target and the mobile task dispatch lane executes it; "
+    "result identity stays open-only (reached_confirmation_point + evidence ref)."
+)
+_LEDGER_OUT_OF_SCOPE_REASONS = {
+    "xy-tasks-25": (
+        "Scope change recorded by X12: the xy-tasks generic address-pool page only "
+        "consumes the shared address-pool service owned by the product-editor/assets "
+        "lanes; this row will never mint a xy device operation."
+    ),
+    "xy-tasks-26": (
+        "Scope change recorded by X12: the xy-tasks per-device address-pool page only "
+        "consumes the shared address-pool service owned by the product-editor/assets "
+        "lanes; this row will never mint a xy device operation."
+    ),
+    "xy-tasks-27": (
+        "Scope change recorded by X12: the description-pool contract is owned by the "
+        "product-editor/assets lanes; this row only registers the xy-tasks page's use "
+        "of that shared service."
+    ),
+    "xy-tasks-28": (
+        "Scope change recorded by X12: the tag-pool contract is owned by the "
+        "product-editor/assets lanes; this row only registers the xy-tasks page's use "
+        "of that shared service."
+    ),
+    "xy-tasks-29": (
+        "Scope change recorded by X12: the watermark render contract is owned by the "
+        "watermarks.preview.render lane; this row only registers the xy-tasks page's "
+        "use of that shared service."
+    ),
+    "xy-tasks-31": (
+        "Scope change recorded by X12: guide-only tutorial inventory with no execution "
+        "semantics; registered for 31-action parity, never an executor target."
+    ),
+}
+_LEDGER_SENSITIVE_ADDENDUM = (
+    " X12 sensitive category (coin spend / promotion / review / message deletion): "
+    "budget cap, target authorization, and pinned-version platform entry evidence "
+    "are unverified; the row stays disabled until all three are recorded."
+)
+
+
+@dataclass(frozen=True, slots=True)
+class SensitiveDiscipline:
+    """X12 evidence discipline for engagement/deletion-class actions."""
+
+    budget_cap: str
+    target_authorization: str
+    platform_entry_evidence: str
+
+
+@dataclass(frozen=True, slots=True)
+class AvailabilityLedgerEntry:
+    """One xy-tasks action in the X12 four-state availability ledger."""
+
+    catalog_id: str
+    operation_key: str
+    title: str
+    state: LedgerState
+    reason: str
+    task_refs: tuple[str, ...]
+    package_refs: tuple[str, ...]
+    enable_requires: tuple[str, ...]
+    sensitive: SensitiveDiscipline | None = None
+
+
+_LEDGER_SENSITIVE: dict[str, SensitiveDiscipline] = {
+    "xy-tasks-09": SensitiveDiscipline(
+        budget_cap=(
+            "N/A — the daily check-in accrues coins and has no spend knob; no "
+            "coin-spend budget is approved for this tenant."
+        ),
+        target_authorization=(
+            "Own bound account only (device-enrolled member identity; "
+            "DEVICE_MAINTAIN permission plus approval risk gate)."
+        ),
+        platform_entry_evidence=(
+            "unverified — the Xianyu coin check-in entry must be captured on the "
+            "pinned app version (7.18.92) on authorized hardware."
+        ),
+    ),
+    "xy-tasks-10": SensitiveDiscipline(
+        budget_cap=(
+            "None approved — deduction tiers are closed Literals (dikouType: "
+            "order_fees/postage) but no tenant coin-spend budget exists."
+        ),
+        target_authorization=(
+            "dikouTarget closed Literal (all_eligible/manually_selected); only "
+            "orders owned by the bound account."
+        ),
+        platform_entry_evidence=(
+            "unverified — the deduction-offer surface has not been captured on the "
+            "pinned app version (7.18.92)."
+        ),
+    ),
+    "xy-tasks-11": SensitiveDiscipline(
+        budget_cap=(
+            "None approved — promotion packages are closed Literals "
+            "(coins_60/coins_120/coins_300/coins_600) but no per-tenant promotion "
+            "budget or ceiling is registered."
+        ),
+        target_authorization=(
+            "promoteItem closed Literal (manually_selected/recently_listed); "
+            "promotion may only target the bound account's own listings."
+        ),
+        platform_entry_evidence=(
+            "unverified — the promotion purchase flow has not been captured on the "
+            "pinned app version (7.18.92)."
+        ),
+    ),
+    "xy-tasks-14": SensitiveDiscipline(
+        budget_cap=(
+            "None approved — no review-volume cap is registered."
+        ),
+        target_authorization=(
+            "reviewTarget closed Literal (recent_buyers/all_unreviewed); requires a "
+            "buyer relationship with the bound account."
+        ),
+        platform_entry_evidence=(
+            "unverified — the review composition/post surface has not been captured "
+            "on the pinned app version (7.18.92)."
+        ),
+    ),
+    "xy-tasks-16": SensitiveDiscipline(
+        budget_cap=(
+            "quantity is bounded to 1..100 per run; no recurring-volume budget is "
+            "approved."
+        ),
+        target_authorization=(
+            "Own-account feed items only; no third-party content."
+        ),
+        platform_entry_evidence=(
+            "unverified — the feed deletion surface has not been captured on the "
+            "pinned app version (7.18.92)."
+        ),
+    ),
+    "xy-tasks-17": SensitiveDiscipline(
+        budget_cap=(
+            "N/A — action-scoped (messageAction: clear_all/older_than_7_days), no "
+            "volume knob; a per-run confirmation is still required."
+        ),
+        target_authorization=(
+            "Own chat messages only; the messageAction closed Literal must match the "
+            "declared scope."
+        ),
+        platform_entry_evidence=(
+            "unverified — the chat message deletion surface has not been captured on "
+            "the pinned app version (7.18.92)."
+        ),
+    ),
+    "xy-tasks-18": SensitiveDiscipline(
+        budget_cap=(
+            "quantity is bounded to 1..100 per run; no recurring-volume budget is "
+            "approved."
+        ),
+        target_authorization=(
+            "Comments on the bound account's own listings only."
+        ),
+        platform_entry_evidence=(
+            "unverified — the comment deletion surface has not been captured on the "
+            "pinned app version (7.18.92)."
+        ),
+    ),
+}
+
+_XY_TITLES = (
+    "发布商品",
+    "发布帖子",
+    "擦亮商品",
+    "上架商品",
+    "下架商品",
+    "删除商品",
+    "删除帖子",
+    "绑定闲鱼",
+    "签到鱼币",
+    "鱼币抵扣",
+    "鱼币推广",
+    "一键小刀",
+    "一键降价",
+    "一键好评",
+    "重启闲鱼",
+    "删除动态",
+    "删除消息",
+    "删除留言",
+    "草稿上架",
+    "编辑重发",
+    "托管无忧卖",
+    "快速编辑重发",
+    "快速下架商品",
+    "采集宝贝信息",
+    "通用地址池",
+    "设备地址池",
+    "描述池",
+    "标签池",
+    "图片水印",
+    "违禁词检测",
+    "视频操作教程",
+)
+
+_DELETION_IDS = frozenset(
+    {"xy-tasks-06", "xy-tasks-07", "xy-tasks-16", "xy-tasks-17", "xy-tasks-18"}
+)
+
+
+def _ledger_refs(catalog_id: str) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    if catalog_id in XY_POLICY_BLOCKED_IDS:
+        return ("X12",), _ALL_DEVICE_PACKAGES
+    if catalog_id in XY_OUT_OF_SCOPE_IDS:
+        return ("X12",), _SHARED_SERVICE_PACKAGES
+    if catalog_id == "xy-tasks-30":
+        return ("X12",), ("P46",)
+    if catalog_id == "xy-tasks-01":
+        # The deployed lane is the A05 open-only mint + mobile dispatch lane.
+        return ("A05", "X11", "X12"), _X11_PACKAGES
+    tasks = ["X12"]
+    if catalog_id in XY_PENDING_DEVICE_VERIFICATION_IDS:
+        tasks.insert(0, "T102")
+    tasks.insert(0, "X10" if catalog_id in _DELETION_IDS else "X11")
+    packages = _X10_PACKAGES if catalog_id in _DELETION_IDS else _X11_PACKAGES
+    return tuple(tasks), packages
+
+
+def _ledger_enable_requires(catalog_id: str) -> tuple[str, ...]:
+    state = _ledger_state(catalog_id)
+    if state in {"POLICY_BLOCKED", "OUT_OF_SCOPE", "ENABLED"}:
+        return ()
+    requires = ["command_v1_lane"]
+    if catalog_id in XY_PENDING_DEVICE_VERIFICATION_IDS:
+        requires.insert(0, "t102_verification")
+    if catalog_id == "xy-tasks-30":
+        requires = ["scan_executor_wiring"]
+    elif catalog_id in XY_SENSITIVE_IDS:
+        requires.append("target_authorization")
+        requires.append("platform_entry_evidence")
+        if catalog_id in {"xy-tasks-16", "xy-tasks-18"}:
+            requires.append("budget_cap")
+    return tuple(requires)
+
+
+def _ledger_state(catalog_id: str) -> LedgerState:
+    if catalog_id in XY_POLICY_BLOCKED_IDS:
+        return "POLICY_BLOCKED"
+    if catalog_id in XY_OUT_OF_SCOPE_IDS:
+        return "OUT_OF_SCOPE"
+    if BY_CATALOG_ID[catalog_id].availability == "executable":
+        return "ENABLED"
+    return "PENDING"
+
+
+def _build_ledger() -> dict[str, AvailabilityLedgerEntry]:
+    ledger: dict[str, AvailabilityLedgerEntry] = {}
+    for index, catalog_id in enumerate(XY_TASK_CATALOG_IDS):
+        definition = BY_CATALOG_ID[catalog_id]
+        state = _ledger_state(catalog_id)
+        if state == "ENABLED":
+            reason = _LEDGER_ENABLED_REASON
+        elif state == "OUT_OF_SCOPE":
+            reason = _LEDGER_OUT_OF_SCOPE_REASONS[catalog_id]
+        else:
+            reason = definition.prerequisite
+            if catalog_id in XY_SENSITIVE_IDS:
+                reason = f"{reason}{_LEDGER_SENSITIVE_ADDENDUM}"
+        task_refs, package_refs = _ledger_refs(catalog_id)
+        ledger[catalog_id] = AvailabilityLedgerEntry(
+            catalog_id=catalog_id,
+            operation_key=definition.key,
+            title=_XY_TITLES[index],
+            state=state,
+            reason=reason,
+            task_refs=task_refs,
+            package_refs=package_refs,
+            enable_requires=_ledger_enable_requires(catalog_id),
+            sensitive=_LEDGER_SENSITIVE.get(catalog_id),
+        )
+    return ledger
+
+
+XY_AVAILABILITY_LEDGER: dict[str, AvailabilityLedgerEntry] = _build_ledger()
+XY_LEDGER_BY_OPERATION_KEY: dict[str, AvailabilityLedgerEntry] = {
+    entry.operation_key: entry for entry in XY_AVAILABILITY_LEDGER.values()
+}
+
+# Import-time drift guards: the ledger must stay derivable from the
+# registrations and the frozen policy sets, and every row must cite the
+# ledger-owning task and at least one P package.
+if set(XY_AVAILABILITY_LEDGER) != set(XY_TASK_CATALOG_IDS):
+    raise ValueError("the X12 availability ledger must cover xy-tasks-01..31 exactly once")
+for _catalog_id, _entry in XY_AVAILABILITY_LEDGER.items():
+    if _entry.state not in LEDGER_STATES:
+        raise ValueError(f"ledger entry {_catalog_id} has an unknown state")
+    if _entry.state == "ENABLED" and BY_CATALOG_ID[_catalog_id].availability != "executable":
+        raise ValueError(
+            f"ledger entry {_catalog_id} is ENABLED without an executable registration"
+        )
+    if _entry.state == "POLICY_BLOCKED" and _catalog_id not in BLOCKED_FEATURE_IDS:
+        raise ValueError(f"ledger entry {_catalog_id} is POLICY_BLOCKED without the feature block")
+    if _entry.state == "OUT_OF_SCOPE" and _catalog_id not in XY_OUT_OF_SCOPE_IDS:
+        raise ValueError(f"ledger entry {_catalog_id} is OUT_OF_SCOPE without the adjudication")
+    if _catalog_id in XY_SENSITIVE_IDS and _entry.state == "ENABLED":
+        raise ValueError(f"sensitive ledger entry {_catalog_id} may never be ENABLED")
+    if not _entry.enable_requires and _entry.state == "PENDING":
+        raise ValueError(f"PENDING ledger entry {_catalog_id} must declare what is missing")
+    if _entry.enable_requires and _entry.state != "PENDING":
+        raise ValueError(f"non-PENDING ledger entry {_catalog_id} must not declare evidence keys")
+    unknown_keys = set(_entry.enable_requires) - LEDGER_EVIDENCE_KEYS
+    if unknown_keys:
+        raise ValueError(
+            f"ledger entry {_catalog_id} declares unknown evidence keys: {unknown_keys}"
+        )
+    if "X12" not in _entry.task_refs or not _entry.package_refs:
+        raise ValueError(f"ledger entry {_catalog_id} must reference task X12 and a P package")
+    if _catalog_id in XY_SENSITIVE_IDS and _entry.sensitive is None:
+        raise ValueError(f"sensitive ledger entry {_catalog_id} must carry the discipline record")
+
+
+def evaluate_ledger_transition(
+    entry: AvailabilityLedgerEntry,
+    evidence: Mapping[str, bool],
+    *,
+    executor_available: bool,
+) -> LedgerState:
+    """X12 transition gate: PENDING → ENABLED requires BOTH closed lanes.
+
+    A PENDING row may only flip to ENABLED when every ``enable_requires``
+    evidence key is provided AND a deployed executor exists for the action.
+    POLICY_BLOCKED and OUT_OF_SCOPE rows are terminal for evidence: a policy
+    decision or a new scope adjudication is required, never more evidence.
+    Called with no evidence (the default everywhere) every PENDING row stays
+    PENDING, which is why "registration" can never silently mean "enabled".
+    """
+    if entry.state == "POLICY_BLOCKED":
+        return "POLICY_BLOCKED"
+    if entry.state == "OUT_OF_SCOPE":
+        return "OUT_OF_SCOPE"
+    if entry.state == "ENABLED":
+        return "ENABLED"
+    missing = [key for key in entry.enable_requires if not evidence.get(key)]
+    if missing or not executor_available:
+        return "PENDING"
+    return "ENABLED"
 
 GUIDE_TERMS = frozenset({"介绍", "问题", "工具", "日志", "公告", "教程"})
 TABLE_TERMS = frozenset({"列表", "队列", "订单", "明细", "变化", "反馈"})
