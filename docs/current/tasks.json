@@ -2333,9 +2333,9 @@
       "risk": "高",
       "device_acceptance": "测试设备升级需设备所有者授权",
       "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
-      "dev_state": "NOT_STARTED",
-      "acceptance_state": "NOT_RUN",
-      "evidence": "artifacts/delivery-20260916/U12/",
+      "dev_state": "SOFTWARE_DONE",
+      "acceptance_state": "SOFTWARE_ACCEPTED",
+      "evidence": "agent/fleet-u12 @e2d409e merged e46aaa4. tests/integration/test_fleet_rollout.py (canary→early→all, canary failure stops expansion, dual-version pin, retire/schema containment, manual install gate, PAUSED/UNKNOWN pins survive withdraw, recipe version pin); docs/runbooks/fleet-rollout.md. sqlite+postgres parametrize. Full backend 1048 passed / 11 skipped. Seams: APK artifact proxy still blocks fleet-wide download; real-device canary not run (Q15).",
       "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
       "read_only_paths": [
         "contracts/**",
@@ -2536,9 +2536,9 @@
       "risk": "中",
       "device_acceptance": "无；仅软件验证",
       "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
-      "dev_state": "NOT_STARTED",
-      "acceptance_state": "NOT_RUN",
-      "evidence": "artifacts/delivery-20260916/L11/",
+      "dev_state": "SOFTWARE_DONE",
+      "acceptance_state": "SOFTWARE_ACCEPTED",
+      "evidence": "agent/fleet-l11 @5c19d29 merged 0330635. ProjectionGrantRegistry (one confirmation/session, single-use consume, revoke terminal, rotation is resize not reauth); FrameGeometry K13 inverse 0/90/180/270 golden + round-trip; FrameLedger watermark+TTL; RemoteInputGate: REMOTE+seq+freshness+unfinished-rows+safe-area+arbiter epoch, metadata-only audit. live 39/0; full Android 1048/0. Manifest unchanged. Seams: CloudCtlAccessibilityService.remoteTap still token-less (BLK-008 leftover); checkForSession unfinishedTaskRows defaults false until store wiring; WS seq/geometry relay still L10 seam.",
       "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
       "read_only_paths": [
         "contracts/**",
@@ -2604,9 +2604,9 @@
       "risk": "中",
       "device_acceptance": "无；仅软件验证",
       "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
-      "dev_state": "NOT_STARTED",
-      "acceptance_state": "NOT_RUN",
-      "evidence": "artifacts/delivery-20260916/L12/",
+      "dev_state": "SOFTWARE_DONE",
+      "acceptance_state": "SOFTWARE_ACCEPTED",
+      "evidence": "agent/fleet-l12 @2862fb9 merged 0b463f2. LiveFleetPanelView honest tier labels (JPEG_PREVIEW read-only / INTERACTIVE_REMOTE / WEBRTC); viewportPointToFrame letterbox+rotation (never serializes device coords); handover confirm+localStorage ack; stale-frame/TTL fail-closed. 27 new tests; web 273/273. Seams: companion now emits seq+geometry (L11) but L10 WS relay may still be slice1 {t:frame,jpeg} until hookup; Q14 real-device SIM still blocked.",
       "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
       "read_only_paths": [
         "contracts/**",
@@ -4177,6 +4177,11 @@
       "at": "2026-09-18T01:35:00+08:00",
       "by": "root",
       "note": "FLEET-31: WIRE2+X11+X12+L10 four-lane wave merged from f200318 (write sets fully disjoint). Android 1012/0, backend 1034 passed (openapi regen 858+/53-), Web 246/246. Six waves total: 18 tasks + 3 wiring items merged; NOT_STARTED down to ~15 (L11/L12/U12/F10-F16/Q14-Q16/Z10/R01/R02). Registered seams: APK artifact proxy route (blocks fleet-wide APK rollout until built), heartbeat apkUpdate field, WS relay hookup for fleet-live, edge-hub wheel packaging, RBAC gate. User-side BLK-001..010 unchanged."
+    },
+    {
+      "at": "2026-09-18T16:35:00+08:00",
+      "by": "root",
+      "note": "FLEET-32: L12+U12+L11 seventh-wave merge from aa3d120 (write sets disjoint: web live / tests+runbook / android live). Android 1048/0, backend 1048 passed / 11 skipped (no openapi regen), Web 273/273. Seven waves total: 21 tasks + 3 wiring items; remaining NOT_STARTED ~12 software/device (F10-F16/Q14-Q16/Z10/R01/R02/D11/E10). L11 device-side gate closes FLEET-21 zero-journal path; BLK-008 leftover is accessibility sink still token-less + DeviceArbiter legacy null/null allow. Seams: WS seq/geometry relay, APK artifact proxy, checkForSession unfinishedTaskRows default false. User-side BLK-001..010 unchanged."
     }
   ]
 }
