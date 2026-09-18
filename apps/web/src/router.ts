@@ -11,6 +11,7 @@ import { findOperation } from '@/data/operations-catalog'
 import { fleetRoutes } from '@/features/fleet'
 import { ordersHistoryRoutes } from '@/features/orders'
 import { reconciliationRoutes } from '@/features/reconciliation'
+import { liveFleetRoutes } from '@/features/live'
 
 const deviceList = '/operations/system-home/system-home-02'
 const taskQueue = '/operations/task-queue/task-queue-01'
@@ -60,6 +61,6 @@ export const operationRoutes: RouteRecordRaw[] = [
 
 export const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
-  routes: [...coreRoutes, ...operationRoutes, ...fleetRoutes, ...reconciliationRoutes, ...ordersHistoryRoutes],
+  routes: [...coreRoutes, ...operationRoutes, ...fleetRoutes, ...reconciliationRoutes, ...ordersHistoryRoutes, ...liveFleetRoutes],
   scrollBehavior: () => ({ top: 0 }),
 })
