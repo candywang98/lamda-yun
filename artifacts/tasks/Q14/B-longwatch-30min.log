@@ -1,0 +1,39 @@
+=== longwatch start 20:30:14 sid=fd348cc6-878b-416d-95ad-9dd9e48e9661
+20:30:14 STATE VIEWING
+20:30:22 NEW-GEOM 720x1476@r0 seq=28
+20:32:29 NO-FRAME-30s last_seq=42
+20:33:29 NO-FRAME-30s last_seq=44
+20:34:30 NO-FRAME-30s last_seq=46
+20:36:29 NO-FRAME-30s last_seq=52
+20:37:29 NO-FRAME-30s last_seq=54
+20:38:29 NO-FRAME-30s last_seq=56
+20:38:38 progress frames=30 last_seq=57
+20:39:29 NO-FRAME-30s last_seq=58
+20:40:29 NO-FRAME-30s last_seq=60
+20:41:29 NO-FRAME-30s last_seq=62
+20:42:29 NO-FRAME-30s last_seq=64
+20:43:29 NO-FRAME-30s last_seq=66
+20:44:29 NO-FRAME-30s last_seq=68
+20:45:29 NO-FRAME-30s last_seq=70
+20:46:29 NO-FRAME-30s last_seq=72
+20:47:29 NO-FRAME-30s last_seq=74
+20:48:28 NO-FRAME-30s last_seq=76
+20:49:29 NO-FRAME-30s last_seq=78
+20:50:29 NO-FRAME-30s last_seq=81
+20:51:29 NO-FRAME-30s last_seq=83
+20:52:30 NO-FRAME-30s last_seq=85
+20:52:58 progress frames=60 last_seq=87
+20:53:28 NO-FRAME-30s last_seq=87
+20:54:29 NO-FRAME-30s last_seq=89
+20:54:59 NO-FRAME-30s last_seq=89
+20:55:29 NO-FRAME-30s last_seq=89
+20:55:59 NO-FRAME-30s last_seq=89
+20:56:29 NO-FRAME-30s last_seq=89
+20:56:59 NO-FRAME-30s last_seq=89
+20:57:29 NO-FRAME-30s last_seq=89
+20:57:59 NO-FRAME-30s last_seq=89
+20:58:29 NO-FRAME-30s last_seq=89
+20:58:59 NO-FRAME-30s last_seq=89
+20:59:29 NO-FRAME-30s last_seq=89
+20:59:59 NO-FRAME-30s last_seq=89
+21:00:29 NO-FRAME-30s last_seq=89
