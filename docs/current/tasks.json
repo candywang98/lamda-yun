@@ -2,7 +2,9 @@
   "schema_version": 1,
   "plan_id": "fleet-first-20260916.1",
   "baseline_sha": "4af3698c6f31f041c957a490a48adaeb71ca5ef1",
-  "authority": "CANDIDATE_NOT_ACTIVATED",
+  "authority": "ACTIVATED",
+  "activated_at": "2026-09-16T22:59:24+08:00",
+  "activated_by": "R02 @bf6529b；2026-09-20 补记状态翻转与 WAIT_CONTRACT 重算（见 docs/current/README.md R02 补记）",
   "source_scope": "single-sheet audit + selected code + user APK/QA; R02 imports remaining workbook acceptance",
   "max_writers": 3,
   "tasks": [
@@ -206,9 +208,9 @@
       "risk": "中",
       "device_acceptance": "无；仅软件验证",
       "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
-      "dev_state": "NOT_STARTED",
-      "acceptance_state": "NOT_RUN",
-      "evidence": "artifacts/delivery-20260916/R02/",
+      "dev_state": "SOFTWARE_DONE",
+      "acceptance_state": "SOFTWARE_ACCEPTED",
+      "evidence": "激活主体 @bf6529b（2026-09-16）：两份旧Excel全表导出+SHA256、61旧项/50P包覆盖、旧P14队列HISTORICAL、plan_guard双DAG拓扑校验通过（53节点/67开发边/138验收边，无缺ID无自引用）。2026-09-20补记收口：22个WAIT_CONTRACT候选全部重算（artifacts/tasks/R02/wait-contract-recompute.csv，22/22映射、34行承接、写域与资源锁全部重新登记，无一缺锁；合同通过不自动放行）；authority翻转为ACTIVATED并补activated_at。plan_guard复验exit 0。",
       "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
       "read_only_paths": [
         "contracts/**",

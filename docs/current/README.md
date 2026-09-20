@@ -18,6 +18,16 @@
 | 范围冲突登记 | 仅 S03（抖音/公众号/XHS视频口径）与 P27（XHS视频），已在交付包登记，待逐项裁决 |
 | 旧 P14 队列 | `docs/phase1/multi-agent-work-items.json` 标记 HISTORICAL，不再是全局 authority |
 
+## R02 补记（2026-09-20）：状态翻转与 WAIT_CONTRACT 重算
+
+- `tasks.json` 的 `authority` 由 `CANDIDATE_NOT_ACTIVATED` 翻转为 `ACTIVATED`（激活事实以 @bf6529b 为准，补记 `activated_at`）。
+- 22 个 WAIT_CONTRACT 候选（多智能体版 01_任务总表：A01/A06/A07/A08/A12/B03/B04/B06/B07/B10/B13/C01/C02/C03/C04/C05/C06/C07/C10/D02/D03/D04）全部重算：
+  22/22 映射到新任务（34 行承接，A06/A07/A08 各承接于 F10/F11/F13 等多任务），承接任务的 `owned_paths` 写域与
+  `required_locks` 资源锁全部重新登记，**无一缺锁**。逐条裁决见
+  `artifacts/tasks/R02/wait-contract-recompute.csv`：合同通过不自动放行，按新计划写域/资源检查重新执行。
+- `plan_guard.py` 复验 exit 0：development DAG（53 节点/67 边）与 acceptance union DAG（53 节点/138 边）拓扑有效，
+  61 旧项 / 50 P 包全覆盖。
+
 ## 状态口径
 
 `dev_state`：NOT_STARTED / IN_PROGRESS / SOFTWARE_DONE。
