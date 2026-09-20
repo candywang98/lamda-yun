@@ -13,7 +13,7 @@ export interface ScheduleDraft {
   startDeadlineMinutes: number
 }
 
-const props = withDefaults(
+withDefaults(
   defineProps<{
     accountLabel?: string
     deviceCount?: number

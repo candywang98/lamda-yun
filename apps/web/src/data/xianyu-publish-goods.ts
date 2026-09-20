@@ -2,7 +2,6 @@ import {
   persistJson,
   readJson,
   recordTask,
-  type XianyuApp,
   type XianyuSchedule,
 } from './xianyu-task-devices'
 

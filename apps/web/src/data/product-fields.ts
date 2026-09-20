@@ -100,7 +100,9 @@ export function parseAttributes(raw: JsonObject | undefined | null): ProductAttr
 }
 
 export function attributesPayload(attributes: ProductAttributes): JsonObject {
-  const { images, videoUrl, ...rest } = attributes
+  const { images: _omittedImages, videoUrl: _omittedVideoUrl, ...rest } = attributes
+  void _omittedImages
+  void _omittedVideoUrl
   return {
     ...rest,
     images: attributes.imageAssetIds,

@@ -4,7 +4,6 @@ import { useRoute } from 'vue-router'
 import {
   AlertTriangle,
   CheckCircle2,
-  ChevronRight,
   Download,
   FileAudio2,
   FileImage,
@@ -13,8 +12,6 @@ import {
   ListChecks,
   Play,
   Search,
-  ShieldCheck,
-  ShieldX,
   X,
 } from 'lucide-vue-next'
 import PageHeader from '@/components/PageHeader.vue'
@@ -41,7 +38,7 @@ import XiaohongshuNurtureView from '@/views/XiaohongshuNurtureView.vue'
 import type { XianyuSimpleKind } from '@/data/xianyu-simple-tasks'
 import { extraKindByOperationId } from '@/data/xianyu-extra-tasks'
 import StatusBadge from '@/components/StatusBadge.vue'
-import { findOperation, isRetiredOperation, operationModules, operationPath, riskLabel } from '@/data/operations-catalog'
+import { findOperation, isRetiredOperation } from '@/data/operations-catalog'
 import { workbenchActions, workbenchColumns, workbenchKind } from '@/data/operation-workbenches'
 import { initialPageParameters, type OperationPageField } from '@/data/operation-page-profiles'
 import { buildOperationParameters } from '@/data/operation-parameters'
@@ -85,7 +82,6 @@ const operation = computed(() => {
   if (!matchedOperation) throw new Error(`Unvalidated operation route: ${String(route.params.moduleId)}/${String(route.params.operationId)}`)
   return matchedOperation
 })
-const currentModule = computed(() => operationModules.find((module) => module.id === operation.value.moduleId) ?? operationModules[0])
 const search = ref('')
 const statusFilter = ref('全部状态')
 const deviceFilter = ref('全部设备')
@@ -184,7 +180,7 @@ const rows = computed<OperationRow[]>(() => {
       group: product.category,
       device: product.spuCode,
       owner: `库存 ${product.stock}`,
-      status: product.status as any,
+      status: product.status as OperationRow['status'],
       updatedAt: formatDate(product.updatedAt ?? product.createdAt),
     }))
   }
@@ -267,9 +263,6 @@ const disabledReason = computed(() => {
   if (connection.value === 'unavailable') return 'Control API 未配置或连接失败，生产操作已关闭'
   return undefined
 })
-const riskTone = computed(() => ({ standard: 'notice-info', approval: '', blocked: 'notice-danger' }[operation.value.risk]))
-const modeLabel = computed(() => ({ guide: '教程与说明', table: '列表工作台', form: '任务表单', assets: '资产管理', insight: '分析看板', settings: '配置中心' }[operation.value.mode]))
-const pagePurpose = computed(() => operation.value.pageProfile.purpose.split(/原页面要点[:：]/, 1)[0].trim())
 const kind = computed(() => workbenchKind(operation.value))
 const isDeviceList = computed(() => kind.value === 'device-list')
 const isPostEditor = computed(() => operation.value.id === 'post-management-01')

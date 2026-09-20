@@ -186,7 +186,6 @@ const copy = computed(() => {
   return table[props.kind]
 })
 
-const showBothApps = computed(() => props.kind !== 'restart')
 const showInterval = computed(() => Boolean(copy.value.intervalLabel))
 
 function restore() {

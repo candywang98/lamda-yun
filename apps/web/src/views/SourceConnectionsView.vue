@@ -1,11 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
-import type {
-  SourceConnectionResponse,
-  SyncRunResponse,
-  SyncErrorResponse,
-} from '@cloudctl/api-contracts'
 import { AlertCircle, Check, Clock, Database, RefreshCw, X } from 'lucide-vue-next'
 import PageHeader from '@/components/PageHeader.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
@@ -76,12 +71,6 @@ function connectionStatusClass(status: string): string {
   return 'text-gray-500'
 }
 
-function syncStatusClass(status: string): string {
-  if (status === 'COMPLETED') return 'text-green-600'
-  if (status === 'FAILED') return 'text-red-600'
-  if (status === 'RUNNING') return 'text-blue-600'
-  return 'text-gray-500'
-}
 </script>
 
 <template>
