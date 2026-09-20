@@ -2041,6 +2041,63 @@
         "title": "FindStep",
         "type": "object"
       },
+      "FleetListingScreenIn": {
+        "additionalProperties": false,
+        "properties": {
+          "collected_at": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Collected At"
+          },
+          "partial_rows": {
+            "default": 0,
+            "maximum": 60.0,
+            "minimum": 0.0,
+            "title": "Partial Rows",
+            "type": "integer"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/ListingRowIn"
+            },
+            "maxItems": 60,
+            "title": "Rows",
+            "type": "array"
+          },
+          "run_key": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Run Key",
+            "type": "string"
+          },
+          "schema_version": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "screen": {
+            "maximum": 200.0,
+            "minimum": 1.0,
+            "title": "Screen",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "schema_version",
+          "run_key",
+          "screen"
+        ],
+        "title": "FleetListingScreenIn",
+        "type": "object"
+      },
       "FleetLiveAckRequest": {
         "properties": {
           "confirmedAt": {
@@ -2577,6 +2634,70 @@
           "ownerWorkflowId"
         ],
         "title": "LeaseRequest",
+        "type": "object"
+      },
+      "ListingRowIn": {
+        "additionalProperties": false,
+        "properties": {
+          "item_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Item Key",
+            "type": "string"
+          },
+          "price_cents": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Cents"
+          },
+          "price_text": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Text"
+          },
+          "status_text": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status Text"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "item_key"
+        ],
+        "title": "ListingRowIn",
         "type": "object"
       },
       "LiveAckRequest": {
@@ -9746,6 +9867,87 @@
         ]
       }
     },
+    "/api/v1/fleet/listings/history": {
+      "get": {
+        "operationId": "fleet_listing_history_api_v1_fleet_listings_history_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "device_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 36,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Device Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 16,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Fleet Listing History Api V1 Fleet Listings History Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Fleet Listing History",
+        "tags": [
+          "fleet-listings"
+        ]
+      }
+    },
     "/api/v1/fleet/orders/history": {
       "get": {
         "operationId": "fleet_order_history_api_v1_fleet_orders_history_get",
@@ -16761,6 +16963,49 @@
         "summary": "Fleet Live Ack",
         "tags": [
           "fleet-live"
+        ]
+      }
+    },
+    "/companion/v2/fleet/listings/screens": {
+      "post": {
+        "operationId": "push_listing_screen_companion_v2_fleet_listings_screens_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FleetListingScreenIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Push Listing Screen Companion V2 Fleet Listings Screens Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Push Listing Screen",
+        "tags": [
+          "fleet-listings"
         ]
       }
     },

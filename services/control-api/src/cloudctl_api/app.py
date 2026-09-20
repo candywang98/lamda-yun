@@ -27,6 +27,8 @@ from .features.media_assets.routes import router as media_assets_router
 from .features.schedules import FleetScheduleService
 from .features.schedules.routes import router as fleet_schedule_router
 from .fleet_live import FleetLiveService, fleet_live_router
+from .fleet_listings import FleetListingsService
+from .fleet_listings import router as fleet_listings_router
 from .fleet_orders import FleetOrdersService
 from .fleet_orders import router as fleet_orders_router
 from .im_routes import companion_router as im_companion_router
@@ -139,6 +141,7 @@ def create_app(
     app.state.xianyu_delete_evidence_service = XianyuDeleteEvidenceService(database)
     app.state.orders_service = OrderService(database)
     app.state.fleet_orders_service = FleetOrdersService(database)
+    app.state.fleet_listings_service = FleetListingsService(database)
     app.state.xianyu_orders_service = XianyuOrdersService(
         database, app.state.mobile_task_service
     )
@@ -259,6 +262,7 @@ def create_app(
     app.include_router(orders_operator_router)
     app.include_router(orders_companion_router)
     app.include_router(fleet_orders_router)
+    app.include_router(fleet_listings_router)
     app.include_router(debug_router)
     app.include_router(mobile_operator_router)
     app.include_router(platform_task_router)

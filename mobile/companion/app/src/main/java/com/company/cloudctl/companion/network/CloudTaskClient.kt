@@ -138,6 +138,16 @@ class CloudTaskClient(private val connection: CloudConnection) : ApkReleaseClien
         return request("/companion/v2/orders/screens", payload) ?: JSONObject()
     }
 
+    /**
+     * P43/P44 (listing-collect/20260920.1) per-screen listing push:
+     * identity dedupe-upsert + change-triggered history on the server.
+     * A 201/200 body carries {"accepted","updated","duplicates","screen",
+     * "replayed"}; validation failures surface as CloudHttpException(422).
+     */
+    fun sendListingsScreen(payload: JSONObject): JSONObject {
+        return request("/companion/v2/fleet/listings/screens", payload) ?: JSONObject()
+    }
+
     fun uploadPreview(payload: JSONObject): JSONObject {
         return request("/companion/v2/devices/preview", payload) ?: JSONObject()
     }

@@ -8,10 +8,14 @@ import {
   deviceLabel,
   emptyListingCollectConfig,
   loadListingCollectConfig,
-  recordListingCollectTask,
   saveListingCollectConfig,
   type ListingCollectDevice,
 } from '@/data/listing-info-collect'
+import {
+  dispatchListingCollectTask,
+  listFleetListings,
+  type FleetListingItem,
+} from '@/features/fleet/listings-api'
 
 const router = useRouter()
 const form = reactive(emptyListingCollectConfig())
@@ -68,7 +72,22 @@ function saveConfig() {
   successMessage.value = '配置已保存到当前浏览器'
 }
 
-function createTask() {
+const listingResults = ref<FleetListingItem[]>([])
+const listingTotal = ref(0)
+const dispatching = ref(false)
+
+async function loadListings() {
+  try {
+    const result = await listFleetListings({ limit: 50 })
+    listingResults.value = result.items
+    listingTotal.value = result.total
+  } catch (error) {
+    listingResults.value = []
+    listingTotal.value = 0
+  }
+}
+
+async function createTask() {
   errorMessage.value = ''
   successMessage.value = ''
   if (form.deviceIds.length === 0) {
@@ -76,14 +95,27 @@ function createTask() {
     return
   }
   saveListingCollectConfig(form)
-  recordListingCollectTask(form)
-  successMessage.value = `已保存采集计划，覆盖 ${selectedDevices.value.length} 台设备。不会登录闲鱼抓取曝光浏览数据。采集结果可在统计分析 → 宝贝流量变化查看。`
+  dispatching.value = true
+  try {
+    const dispatched: string[] = []
+    for (const device of selectedDevices.value) {
+      const key = `listing-collect-${device.id}-${new Date().toISOString().slice(0, 10)}`
+      const { taskId } = await dispatchListingCollectTask({ deviceId: device.id, idempotencyKey: key })
+      dispatched.push(taskId)
+    }
+    successMessage.value = `已向 ${dispatched.length} 台设备派发只读采集任务（taskId: ${dispatched.join('、')}）。采集结果见下方列表。`
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : String(error)
+  } finally {
+    dispatching.value = false
+  }
 }
 
 onMounted(async () => {
   Object.assign(form, loadListingCollectConfig())
   await loadDevices()
   form.deviceIds = form.deviceIds.filter((id) => devices.value.some((item) => item.id === id))
+  await loadListings()
 })
 </script>
 
@@ -130,6 +162,23 @@ onMounted(async () => {
         <li>请勿发布相同标题的宝贝，相同标题的宝贝系统仅统计一个</li>
         <li>仅当设备在线时，才能创建定时执行任务和每天重复执行的任务</li>
       </ol>
+    </div>
+      <div v-if="listingResults.length > 0 || listingTotal > 0" class="card">
+      <h2>采集结果（最新 {{ listingTotal }} 条）</h2>
+      <table class="table">
+        <thead>
+          <tr><th>宝贝</th><th>价格</th><th>状态</th><th>快照数</th><th>最近采集</th></tr>
+        </thead>
+        <tbody>
+          <tr v-for="item in listingResults" :key="item.itemKey">
+            <td>{{ item.title ?? item.itemKey }}</td>
+            <td>{{ item.priceText ?? (item.priceCents !== null ? (item.priceCents / 100).toFixed(2) : '—') }}</td>
+            <td>{{ item.statusText ?? '—' }}</td>
+            <td>{{ item.snapshotCount }}</td>
+            <td>{{ item.lastSeenAt?.replace('T', ' ').slice(0, 19) ?? '—' }}</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   </section>
 </template>
