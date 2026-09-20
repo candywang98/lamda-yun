@@ -504,6 +504,36 @@
         "title": "ApkReleaseRetireRequest",
         "type": "object"
       },
+      "AppRestartStep": {
+        "additionalProperties": false,
+        "description": "P35: standard-permission soft restart (CLEAR_TASK relaunch, no force-stop).",
+        "properties": {
+          "action": {
+            "const": "app.restart",
+            "title": "Action",
+            "type": "string"
+          },
+          "stepId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Stepid",
+            "type": "string"
+          },
+          "timeoutMs": {
+            "default": 30000,
+            "maximum": 120000.0,
+            "minimum": 1000.0,
+            "title": "Timeoutms",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "stepId",
+          "action"
+        ],
+        "title": "AppRestartStep",
+        "type": "object"
+      },
       "ApprovalRequest": {
         "properties": {
           "decision": {
@@ -3810,6 +3840,7 @@
             "items": {
               "discriminator": {
                 "mapping": {
+                  "app.restart": "#/components/schemas/AppRestartStep",
                   "run.log": "#/components/schemas/LogStep",
                   "ui.assert": "#/components/schemas/AssertStep",
                   "ui.assertBadge": "#/components/schemas/AssertBadgeStep",
@@ -3860,6 +3891,9 @@
                 },
                 {
                   "$ref": "#/components/schemas/TapCardByTitleStep"
+                },
+                {
+                  "$ref": "#/components/schemas/AppRestartStep"
                 },
                 {
                   "$ref": "#/components/schemas/CollectListingsStep"

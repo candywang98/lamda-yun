@@ -452,6 +452,14 @@ class LocalAutomationExecutor(
             is AutomationStep.ReadOrders -> executeReadOrders(task, step, runDeadline)
             is AutomationStep.SwipeUp -> executeSwipeUp(task, step, runDeadline)
             is AutomationStep.CollectListings -> executeCollectListings(task, step, runDeadline)
+            is AutomationStep.AppRestart -> {
+                if (task.targetPackage != TargetLocatorRegistry.XIANYU_PACKAGE) {
+                    throw ExecutorFailure("TARGET_PACKAGE_REJECTED", "app.restart is approved for xianyu only")
+                }
+                ui.ensureReady(task.targetPackage)
+                ui.restartTargetApp(task.targetPackage)
+                ui.log(LogLevel.INFO, "APP_RESTARTED package=${task.targetPackage}")
+            }
             is AutomationStep.TapCardByTitle -> executeTapCardByTitle(
                 task, step, runDeadline, control, lastCompleted, lastCompletedIndex,
             )

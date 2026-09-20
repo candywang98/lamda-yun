@@ -236,6 +236,21 @@ class TapCardByTitleStep(StrictModel):
         return value
 
 
+class AppRestartStep(StrictModel):
+    """P35: standard-permission soft restart (CLEAR_TASK relaunch, no force-stop)."""
+
+    step_id: str = Field(alias="stepId", min_length=1, max_length=128)
+    action: Literal["app.restart"]
+    timeout_ms: int = Field(default=30_000, alias="timeoutMs", ge=1_000, le=120_000)
+
+    @field_validator("step_id")
+    @classmethod
+    def valid_step_id(cls, value: str) -> str:
+        if not STEP_ID_PATTERN.fullmatch(value):
+            raise ValueError("stepId is invalid")
+        return value
+
+
 class CollectListingsStep(StrictModel):
     """Collect the whole 在卖 tab of 我发布的 (xy-tasks-24, listing-collect).
 
@@ -292,6 +307,7 @@ MobileStep = Annotated[
     | ReadOrdersStep
     | SwipeUpStep
     | TapCardByTitleStep
+    | AppRestartStep
     | CollectListingsStep
     | AssertStep
     | LogStep,

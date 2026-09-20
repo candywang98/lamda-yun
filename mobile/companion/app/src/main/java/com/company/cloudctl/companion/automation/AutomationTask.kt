@@ -139,6 +139,12 @@ sealed interface AutomationStep {
      * listings reporter. The only gestures are popup dismiss and the list's
      * own scroll action; a card tap never happens.
      */
+    /** P35 标准权限软重启：CLEAR_TASK 重建目标 App 根任务（非 force-stop）。 */
+    data class AppRestart(
+        override val stepId: String,
+        override val timeoutMs: Long,
+    ) : AutomationStep
+
     data class CollectListings(
         override val stepId: String,
         override val timeoutMs: Long,
@@ -321,6 +327,10 @@ object AutomationTaskParser {
                 require(tab == XianyuMaintenanceLayout.Tab.ONSALE ||
                     tab == XianyuMaintenanceLayout.Tab.DELISTED) { "tapCardByTitle tab must be onsale or delisted" }
                 AutomationStep.TapCardByTitle(stepId, timeout, tab, title)
+            }
+            "app.restart" -> {
+                requireKeys(value, common)
+                AutomationStep.AppRestart(stepId, timeout)
             }
             "ui.collectListings" -> {
                 val keys = common + setOf("tab", "maxScreens")
