@@ -732,6 +732,49 @@
         "title": "BatchOperationCreate",
         "type": "object"
       },
+      "CollectListingsStep": {
+        "additionalProperties": false,
+        "description": "Collect the whole 在卖 tab of 我发布的 (xy-tasks-24, listing-collect).\n\nOne action runs the full loop on the companion: dismiss the entry popups,\nread every visible card's content-desc, push the parsed rows per screen,\nsemantic-scroll, and stop at the 「所有宝贝加载完成」 anchor (or the\nmaxScreens bound). Read-only: the only gestures are popup dismiss and the\nlist's own scroll action — never a card tap.",
+        "properties": {
+          "action": {
+            "const": "ui.collectListings",
+            "title": "Action",
+            "type": "string"
+          },
+          "maxScreens": {
+            "default": 40,
+            "maximum": 40.0,
+            "minimum": 1.0,
+            "title": "Maxscreens",
+            "type": "integer"
+          },
+          "stepId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Stepid",
+            "type": "string"
+          },
+          "tab": {
+            "const": "onsale",
+            "default": "onsale",
+            "title": "Tab",
+            "type": "string"
+          },
+          "timeoutMs": {
+            "default": 600000,
+            "maximum": 900000.0,
+            "minimum": 1000.0,
+            "title": "Timeoutms",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "stepId",
+          "action"
+        ],
+        "title": "CollectListingsStep",
+        "type": "object"
+      },
       "CommitIntentCreate": {
         "properties": {
           "beforeCommitEvidenceId": {
@@ -3770,6 +3813,7 @@
                   "run.log": "#/components/schemas/LogStep",
                   "ui.assert": "#/components/schemas/AssertStep",
                   "ui.assertBadge": "#/components/schemas/AssertBadgeStep",
+                  "ui.collectListings": "#/components/schemas/CollectListingsStep",
                   "ui.find": "#/components/schemas/FindStep",
                   "ui.input": "#/components/schemas/InputStep",
                   "ui.readOrders": "#/components/schemas/ReadOrdersStep",
@@ -3816,6 +3860,9 @@
                 },
                 {
                   "$ref": "#/components/schemas/TapCardByTitleStep"
+                },
+                {
+                  "$ref": "#/components/schemas/CollectListingsStep"
                 },
                 {
                   "$ref": "#/components/schemas/AssertStep"

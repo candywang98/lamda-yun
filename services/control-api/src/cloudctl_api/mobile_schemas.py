@@ -236,6 +236,30 @@ class TapCardByTitleStep(StrictModel):
         return value
 
 
+class CollectListingsStep(StrictModel):
+    """Collect the whole 在卖 tab of 我发布的 (xy-tasks-24, listing-collect).
+
+    One action runs the full loop on the companion: dismiss the entry popups,
+    read every visible card's content-desc, push the parsed rows per screen,
+    semantic-scroll, and stop at the 「所有宝贝加载完成」 anchor (or the
+    maxScreens bound). Read-only: the only gestures are popup dismiss and the
+    list's own scroll action — never a card tap.
+    """
+
+    step_id: str = Field(alias="stepId", min_length=1, max_length=128)
+    action: Literal["ui.collectListings"]
+    tab: Literal["onsale"] = "onsale"
+    max_screens: int = Field(default=40, alias="maxScreens", ge=1, le=40)
+    timeout_ms: int = Field(default=600_000, alias="timeoutMs", ge=1_000, le=900_000)
+
+    @field_validator("step_id")
+    @classmethod
+    def valid_step_id(cls, value: str) -> str:
+        if not STEP_ID_PATTERN.fullmatch(value):
+            raise ValueError("stepId is invalid")
+        return value
+
+
 class AssertStep(LocatorStep):
     action: Literal["ui.assert"]
     predicate: Literal["EXISTS", "NOT_EXISTS", "ENABLED"]
@@ -268,6 +292,7 @@ MobileStep = Annotated[
     | ReadOrdersStep
     | SwipeUpStep
     | TapCardByTitleStep
+    | CollectListingsStep
     | AssertStep
     | LogStep,
     Field(discriminator="action"),

@@ -234,6 +234,7 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         destructiveGate: DestructiveClickGate? = null,
         orderReporter: OrderReporter? = null,
         orderScreensReporter: OrderScreensReporter? = null,
+        listingScreensReporter: ListingScreensReporter? = null,
         journal: (AutomationStep, String) -> Unit,
     ) {
         if (active !== this) throw ExecutorFailure("ACCESSIBILITY_NOT_ACTIVE", "Accessibility service is not active")
@@ -243,6 +244,7 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
             commitGate = commitGate,
             destructiveGate = destructiveGate,
             orderReporter = orderReporter,
+            listingScreensReporter = listingScreensReporter,
             orderScreensReporter = orderScreensReporter,
         )
             .execute(task, control, startAfterIndex, journal)
@@ -1089,6 +1091,181 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
      * nodes are kept (U+200B price fragments legitimately repeat shapes).
      * At most [maxRows] rows are returned; zero rows is a successful empty read.
      */
+    /**
+     * xy-tasks-24 listing collection (listing-collect/20260920.2): the
+     * content-desc of every visible published-list card on the current
+     * screen, below the live tab strip. Cards are the direct children of the
+     * outermost scrollable; a card's desc carries the whole row (营销前缀 /
+     * 按钮行 / 标题 / 曝光N / 浏览N / 想要N / ¥拆碎段), parsed upstream by
+     * ListingReading. Read-only: no gesture happens here.
+     */
+    override fun readListingCardDescs(targetPackage: String, maxCards: Int): List<String> {
+        val tabNode = resolveUniqueNode(targetPackage, "xianyu_pub_tab_onsale")
+            ?: throw ExecutorFailure("LIST_TAB_NOT_FOUND", "Published tab 'xianyu_pub_tab_onsale' is not visible")
+        val tabBounds = Rect()
+        tabNode.getBoundsInScreen(tabBounds)
+        val scrollables = mutableListOf<AccessibilityNodeInfo>()
+        fun harvest(root: AccessibilityNodeInfo) {
+            for (index in 0 until root.childCount) {
+                val child = root.getChild(index) ?: continue
+                if (child.isVisibleToUser && child.isScrollable) scrollables += child else harvest(child)
+            }
+        }
+        allRoots().filter { it.packageName?.toString() == targetPackage }.forEach(::harvest)
+        if (scrollables.isEmpty()) {
+            throw ExecutorFailure("SCROLL_CONTAINER_MISSING", "No visible scrollable list on this page")
+        }
+        // Card descs ride on DEEP descendants of the scrollable (not direct
+        // children — device-verified 2026-09-20 dump). Walk the whole subtree,
+        // keep qualifying nodes, then drop any node fully contained in an
+        // already-kept node (a parent view often repeats the card desc).
+        data class Candidate(val desc: String, val bounds: PublishedCardLocator.Bounds)
+        val candidates = mutableListOf<Candidate>()
+        fun walk(node: PublishedCardLocator.UiNode) {
+            val desc = node.description?.trim().orEmpty()
+            if (node.visible && node.bounds.top >= tabBounds.bottom && desc.isNotEmpty() &&
+                (desc.contains("曝光") || desc.contains("浏览") || desc.contains("想要"))
+            ) {
+                candidates += Candidate(desc, node.bounds)
+            }
+            for (child in node.children) walk(child)
+        }
+        for (scrollable in scrollables) {
+            walk(snapshotCardTree(scrollable))
+        }
+        candidates.sortByDescending {
+            (it.bounds.right - it.bounds.left) * (it.bounds.bottom - it.bounds.top)
+        }
+        val descs = mutableListOf<String>()
+        val keptRects = mutableListOf<PublishedCardLocator.Bounds>()
+        for (candidate in candidates) {
+            if (descs.size >= maxCards) break
+            val b = candidate.bounds
+            val contained = keptRects.any { k ->
+                b.left >= k.left && b.top >= k.top && b.right <= k.right && b.bottom <= k.bottom
+            }
+            if (!contained) {
+                descs += candidate.desc
+                keptRects += b
+            }
+        }
+        return descs
+    }
+
+    /**
+     * Semantic scroll of the published list (maintenance-verified: the
+     * Flutter list honours ACTION_SCROLL_FORWARD, not gestural strokes).
+     * The page nests several scrollables (outer page scroller, promo strip,
+     * card list); the CARD LIST is the one starting below the tab strip —
+     * pick the scrollable with the LARGEST top bound (deepest list), and
+     * fall back to the others only when it reports its edge.
+     */
+    override suspend fun scrollListingPage(targetPackage: String): Boolean {
+        val scrollables = mutableListOf<AccessibilityNodeInfo>()
+        fun harvest(root: AccessibilityNodeInfo) {
+            for (index in 0 until root.childCount) {
+                val child = root.getChild(index) ?: continue
+                if (child.isVisibleToUser && child.isScrollable) scrollables += child else harvest(child)
+            }
+        }
+        allRoots().filter { it.packageName?.toString() == targetPackage }.forEach(::harvest)
+        val ordered = scrollables.sortedByDescending { node ->
+            val rect = Rect()
+            node.getBoundsInScreen(rect)
+            rect.top
+        }
+        // The card list honours the bounded in-container gesture (the orders
+        // line's device-verified primitive) much more reliably than the
+        // semantic scroll action, which reports its edge after one screen.
+        val listRect = Rect()
+        ordered.firstOrNull()?.getBoundsInScreen(listRect)
+        if (!listRect.isEmpty) {
+            val stroke = OrderSwipeGeometry.oneScreenSwipe(
+                OrderSwipeGeometry.Bounds(listRect.left, listRect.top, listRect.right, listRect.bottom),
+            )
+            if (stroke != null) {
+                val completed = dispatchStroke(
+                    stroke.startX, stroke.startY, stroke.endX, stroke.endY, ORDERS_SWIPE_DURATION_MS,
+                )
+                delay(LISTING_SCROLL_SETTLE_MS)
+                if (completed) return true
+            }
+        }
+        var scrolled = false
+        for (candidate in ordered) {
+            if (candidate.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)) {
+                scrolled = true
+                break
+            }
+        }
+        delay(LISTING_SCROLL_SETTLE_MS)
+        return scrolled
+    }
+
+    /** The xianyu end-of-list anchor (竞品情报: 「所有宝贝加载完成」). */
+    override fun hasListingEndAnchor(targetPackage: String): Boolean {
+        for (root in allRoots()) {
+            if (root.packageName?.toString() != targetPackage) continue
+            val found = root.findAccessibilityNodeInfosByText("所有宝贝加载完成")
+            if (found.any { it.isVisibleToUser }) return true
+        }
+        return false
+    }
+
+    /**
+     * Dismiss the 我发布的 entry popups by their live tree nodes — the
+     * 「今日曝光」 guide (我知道啦) and the 无忧卖 promo close. Read-only
+     * page rule: only these two named dismissals ever click; anything else
+     * is left untouched. Returns true when a popup was dismissed.
+     */
+    override suspend fun dismissListingPopups(targetPackage: String): Boolean {
+        var dismissed = false
+        for (root in allRoots()) {
+            if (root.packageName?.toString() != targetPackage) continue
+            for (label in LISTING_POPUP_DISMISS_LABELS) {
+                val nodes = root.findAccessibilityNodeInfosByText(label)
+                val target = nodes.firstOrNull { it.isVisibleToUser } ?: continue
+                var clickNode: AccessibilityNodeInfo? = target
+                // Flutter buttons are often non-clickable themselves; the
+                // nearest clickable ancestor (or the node itself) may still
+                // accept the semantic click.
+                while (clickNode != null && !clickNode.isClickable) {
+                    clickNode = clickNode.parent
+                }
+                val clicked = clickNode?.performAction(AccessibilityNodeInfo.ACTION_CLICK) == true ||
+                    target.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                if (clicked) {
+                    dismissed = true
+                    delay(LISTING_POPUP_SETTLE_MS)
+                    continue
+                }
+                // The 今日曝光 guide button has NO semantic node (its text
+                // only rides inside the overlay container's content-desc), so
+                // the semantic click cannot land. Fallback: the button sits at
+                // the BOTTOM band of that overlay container — a single tap on
+                // the container's bottom-center (bounds-RELATIVE, resolution
+                // independent) dismisses it on every device. Only this
+                // overlay's own bounds are ever tapped.
+                val bounds = Rect()
+                target.getBoundsInScreen(bounds)
+                if (!bounds.isEmpty) {
+                    val tapX = bounds.centerX().toFloat()
+                    val tapY = (bounds.bottom - bounds.height() * LISTING_POPUP_TAP_BOTTOM_RATIO)
+                    // A zero-length stroke IS the tap primitive here (the
+                    // dispatch path is the same gated stroke the executor
+                    // uses; zero length = press-and-release in place).
+                    val gestureDone = dispatchStroke(tapX, tapY, tapX, tapY, LISTING_POPUP_TAP_MS)
+                    if (gestureDone) {
+                        dismissed = true
+                        delay(LISTING_POPUP_SETTLE_MS)
+                    }
+                }
+            }
+        }
+        return dismissed
+    }
+
+
     override fun readOrderRows(targetPackage: String, locatorRef: String, maxRows: Int): List<List<String>> {
         val container = resolveUniqueNode(targetPackage, locatorRef)
             ?: throw ExecutorFailure("LOCATOR_NOT_FOUND", "Approved locator was not found")
@@ -2153,6 +2330,11 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         // + 250ms settle so the Flutter list inertia lands before the next read.
         private const val ORDERS_SWIPE_DURATION_MS = 500L
         private const val ORDERS_SWIPE_SETTLE_MS = 250L
+        private const val LISTING_SCROLL_SETTLE_MS = 900L
+        private val LISTING_POPUP_DISMISS_LABELS = listOf("我知道啦")
+        private const val LISTING_POPUP_TAP_BOTTOM_RATIO = 0.08f
+        private const val LISTING_POPUP_SETTLE_MS = 900L
+        private const val LISTING_POPUP_TAP_MS = 80L
         private const val DUTY_NAV_ANCHOR_ATTEMPTS = 3
         /** Max list scrolls to bring a title-matched card fully into the viewport. */
         private const val CARD_SCROLL_ATTEMPTS = 5

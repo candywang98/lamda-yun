@@ -28,6 +28,7 @@ import com.company.cloudctl.companion.automation.CommandV1
 import com.company.cloudctl.companion.automation.ExecutionControl
 import com.company.cloudctl.companion.automation.ExecutorFailure
 import com.company.cloudctl.companion.automation.OrderDirection
+import com.company.cloudctl.companion.automation.ListingScreensReporter
 import com.company.cloudctl.companion.automation.OrderReporter
 import com.company.cloudctl.companion.automation.OrderScreensReporter
 import com.company.cloudctl.companion.features.xianyu.orders.OrderCheckpoint
@@ -672,6 +673,11 @@ class CompanionSyncService : Service() {
         } else {
             null
         }
+        val listingScreensReporter = if (task.steps.any { it is AutomationStep.CollectListings }) {
+            listingScreensReporterFor(client)
+        } else {
+            null
+        }
         var taskWriteSession: TaskSession? = null
         var releaseBoundary = ReleaseBoundary.COMPLETED
         try {
@@ -722,6 +728,7 @@ class CompanionSyncService : Service() {
                                 task, control, startAfterIndex = -1, commitGate = commitGate,
                                 destructiveGate = destructiveGate, orderReporter = orderReporter,
                                 orderScreensReporter = orderScreensReporter,
+                                listingScreensReporter = listingScreensReporter,
                             ) { step, state ->
                                 val stepIndex = task.steps.indexOf(step)
                                 currentStep.set(stepIndex)
@@ -844,6 +851,11 @@ class CompanionSyncService : Service() {
         } else {
             null
         }
+        val listingScreensReporter = if (task.steps.any { it is AutomationStep.CollectListings }) {
+            listingScreensReporterFor(client)
+        } else {
+            null
+        }
         val checkpoint = store.latestCheckpoint(task.taskId)
         if (checkpoint == null) {
             persistPaused(task.taskId, pending, TaskPausedException(null, -1, "resume checkpoint missing"))
@@ -888,6 +900,7 @@ class CompanionSyncService : Service() {
                             task, control, startAfterIndex, commitGate = commitGate,
                             destructiveGate = destructiveGate, orderReporter = orderReporter,
                             orderScreensReporter = orderScreensReporter,
+                            listingScreensReporter = listingScreensReporter,
                         ) { step, state ->
                             val stepIndex = task.steps.indexOf(step)
                             currentStep.set(stepIndex)
@@ -1344,6 +1357,54 @@ class CompanionSyncService : Service() {
      * (fail-closed, never a guessed position). Push failures mirror the
      * slice1 batch channel: logged, never task-fatal.
      */
+    private fun listingScreensReporterFor(client: CloudTaskClient): ListingScreensReporter =
+        ListingScreensReporter { runKey, screen, rows, skipped ->
+            if (rows.isEmpty()) {
+                android.util.Log.i(
+                    "CompanionSync",
+                    "listings screen push skipped run=$runKey screen=$screen rows=0 skipped=${skipped.size}",
+                )
+                return@ListingScreensReporter
+            }
+            val rowArray = org.json.JSONArray()
+            for (row in rows) {
+                rowArray.put(
+                    org.json.JSONObject()
+                        .put("item_key", row.itemKey)
+                        .put("title", row.title)
+                        .put("price_cents", row.priceCents)
+                        .put("price_text", row.priceText)
+                        .put("status_text", row.statusText)
+                        .put("exposure_count", row.exposureCount)
+                        .put("views_count", row.viewsCount)
+                        .put("wants_count", row.wantsCount),
+                )
+            }
+            val payload = org.json.JSONObject()
+                .put("schema_version", "listing-collect/20260920.2")
+                .put("run_key", runKey)
+                .put("screen", screen)
+                .put("collected_at", java.time.Instant.now().toString())
+                .put("rows", rowArray)
+                .put("partial_rows", skipped.size)
+            try {
+                val response = withContext(Dispatchers.IO) { client.sendListingsScreen(payload) }
+                android.util.Log.i(
+                    "CompanionSync",
+                    "listings screen push run=$runKey screen=$screen " +
+                        "accepted=${response.optInt("accepted")} updated=${response.optInt("updated")} " +
+                        "duplicates=${response.optInt("duplicates")} replayed=${response.optBoolean("replayed")}",
+                )
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                // Upload failures never fail the read-only collection run;
+                // later screens continue and the server-side screen guard
+                // keeps replays idempotent.
+                android.util.Log.w("CompanionSync", "listings screen push deferred run=$runKey screen=$screen: ${error.message}")
+            }
+        }
+
     private fun orderScreensReporterFor(
         client: CloudTaskClient,
         pending: PendingTask,

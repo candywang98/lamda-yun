@@ -130,6 +130,20 @@ sealed interface AutomationStep {
         val tab: XianyuMaintenanceLayout.Tab,
         val titleContains: String,
     ) : AutomationStep
+
+    /**
+     * xy-tasks-24 listing collection (listing-collect/20260920.2): run the
+     * whole read-only loop on the 在卖 tab of 我发布的 — popup dismissal,
+     * per-screen card reads, semantic scrolling and the
+     * 「所有宝贝加载完成」 end anchor, with per-screen pushes through the
+     * listings reporter. The only gestures are popup dismiss and the list's
+     * own scroll action; a card tap never happens.
+     */
+    data class CollectListings(
+        override val stepId: String,
+        override val timeoutMs: Long,
+        val maxScreens: Int,
+    ) : AutomationStep
 }
 
 enum class NodeCondition { EXISTS, NOT_EXISTS, ENABLED }
@@ -201,7 +215,11 @@ object AutomationTaskParser {
         val action = value.getString("action")
         val common = setOf("stepId", "action", "timeoutMs")
         val stepId = id(value.getString("stepId"))
-        val timeout = value.getLong("timeoutMs").also { require(it in 100..60_000) }
+        // collectListings runs the whole multi-screen loop inside one step,
+        // so its window is the task-scale bound (backend schema allows 900s).
+        val timeout = value.getLong("timeoutMs").also {
+            require(it in 100..if (action == "ui.collectListings") 900_000L else 60_000L)
+        }
         return when (action) {
             "ui.find" -> AutomationStep.Find(stepId, timeout, locator(value, common + "locatorRef"))
             "ui.tapText" -> {
@@ -303,6 +321,17 @@ object AutomationTaskParser {
                 require(tab == XianyuMaintenanceLayout.Tab.ONSALE ||
                     tab == XianyuMaintenanceLayout.Tab.DELISTED) { "tapCardByTitle tab must be onsale or delisted" }
                 AutomationStep.TapCardByTitle(stepId, timeout, tab, title)
+            }
+            "ui.collectListings" -> {
+                val keys = common + setOf("tab", "maxScreens")
+                requireKeys(value, keys)
+                val tab = tabOf(value.getString("tab"))
+                require(tab == XianyuMaintenanceLayout.Tab.ONSALE) { "collectListings tab must be onsale" }
+                AutomationStep.CollectListings(
+                    stepId,
+                    timeout,
+                    value.getInt("maxScreens").also { require(it in 1..40) { "collectListings maxScreens is invalid" } },
+                )
             }
             "run.log" -> {
                 val keys = common + setOf("level", "messageCode")

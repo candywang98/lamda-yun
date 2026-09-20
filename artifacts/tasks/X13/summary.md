@@ -32,3 +32,15 @@
 - 身份键：保持 title|price 组合键；同标题同价多品统计合并为已知限制（竞品同缺陷且更弱——纯title）；真实商品ID锚定为后续差异点（REAL_ID字段已预留）
 - 曝光口径：单品曝光=卡片「曝光」字段（非店级「今日曝光」）
 - 执行器规格：滚动终止锚点=「所有宝贝加载完成」文案出现（或达屏数上限）
+
+## 2026-09-21 凌晨：执行器全循环真机验收（功能流程完成）
+
+### 全链路（一次任务派发 → 156 商品入库）
+- 后端 CollectListingsStep schema（ui.collectListings, tab=onsale, maxScreens≤40, timeout≤900s）+ OpenAPI 重导
+- companion：AutomationStep.CollectListings + 解析（超时上限按动作分级 900s）+ executeCollectListings（弹窗处理→逐屏读→parseCard→上报→手势滚动→「所有宝贝加载完成」锚点/NO_NEW×2/SCROLL_EDGE 三重终止）+ ListingScreensReporter→sendListingsScreen
+- 修三个真机缺陷：①卡片 desc 在 scrollable 深层后代（全后代遍历+包含去重）②语义滚动一屏即 edge（改订单线验证过的容器内 bounded 手势）③600s 超时超 60s 全局上限（分级）
+- 真机终验（A机 6d407e21）：38 屏 156 身份，任务 SUCCEEDED；生产 DB fleet_listing=156、快照 179、屏记 43；榜首《父与子全集》曝光407/浏览12/想要1
+- 156 vs 在卖186 差额=同标题同价多副本的组合键合并（已知限制，与竞品缺陷同类；REAL_ID 锚定为后续差异点）
+
+### 验证
+- 后端 28 过（platform_tasks+fleet_listings）+ ruff 绿 + vue-tsc 绿；Web 派发步骤已接真实动作序列（tap profile→tap my_published→wait tab→collectListings）

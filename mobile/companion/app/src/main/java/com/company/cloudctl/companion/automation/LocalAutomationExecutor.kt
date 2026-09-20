@@ -125,6 +125,23 @@ interface LocalAutomationUi {
         error("swipeUpWithin is not supported by this executor")
     }
 
+    // xy-tasks-24 (listing-collect/20260920.2): the four published-list
+    // primitives. Card descs are read-only; the only gestures the collect
+    // loop may perform are the popup dismissal and the list's own semantic
+    // scroll action.
+
+    fun readListingCardDescs(targetPackage: String, maxCards: Int): List<String> =
+        error("readListingCardDescs is not supported by this executor")
+
+    suspend fun scrollListingPage(targetPackage: String): Boolean =
+        error("scrollListingPage is not supported by this executor")
+
+    fun hasListingEndAnchor(targetPackage: String): Boolean =
+        error("hasListingEndAnchor is not supported by this executor")
+
+    suspend fun dismissListingPopups(targetPackage: String): Boolean =
+        error("dismissListingPopups is not supported by this executor")
+
     // I10 reply boundary feed (fleet-first-20260916.1): what the open chat
     // page verifiably shows at a conversation-level decision point — the open
     // conversation's identity ([expectedPeer] resolves first when the header
@@ -159,6 +176,7 @@ private val WAIT_RECOVERY_LOCATORS = setOf(
 
 /** Container-resolution poll interval while the Flutter order list renders. */
 private const val ORDER_ROW_POLL_MS = 700L
+        private const val LISTING_SETTLE_MS = 1200L
 
 /**
  * O10 page-report port (fleet-first-20260916.1): one call per collected
@@ -169,6 +187,16 @@ private const val ORDER_ROW_POLL_MS = 700L
  * (runKey/accountKey/schemaVersion come from the task context there) and
  * advances the OrderCheckpoint.
  */
+/** xy-tasks-24 (listing-collect/20260920.2): one parsed screen per call. */
+fun interface ListingScreensReporter {
+    suspend fun reportScreen(
+        taskId: String,
+        screen: Int,
+        rows: List<ListingRowSnapshot>,
+        skippedRowReasons: List<String>,
+    )
+}
+
 fun interface OrderScreensReporter {
     suspend fun reportScreen(
         taskId: String,
@@ -219,6 +247,7 @@ class LocalAutomationExecutor(
     private val destructiveGate: DestructiveClickGate? = null,
     private val orderReporter: OrderReporter? = null,
     private val orderScreensReporter: OrderScreensReporter? = null,
+    private val listingScreensReporter: ListingScreensReporter? = null,
 ) {
     /** Badge baselines (tab locator -> count at the strike) captured during one run. */
     private val badgeBaselines = mutableMapOf<String, Int>()
@@ -422,6 +451,7 @@ class LocalAutomationExecutor(
             is AutomationStep.AssertBadge -> awaitBadgeAssertion(task, step, runDeadline)
             is AutomationStep.ReadOrders -> executeReadOrders(task, step, runDeadline)
             is AutomationStep.SwipeUp -> executeSwipeUp(task, step, runDeadline)
+            is AutomationStep.CollectListings -> executeCollectListings(task, step, runDeadline)
             is AutomationStep.TapCardByTitle -> executeTapCardByTitle(
                 task, step, runDeadline, control, lastCompleted, lastCompletedIndex,
             )
@@ -644,6 +674,101 @@ class LocalAutomationExecutor(
             "ALBUM_PICK_TAP cell=${intent.pick.cellIndex} reason=${intent.admissionReason}",
         )
         ui.tapScreenAt(pickerPackage, intent.tapX, intent.tapY)
+    }
+
+    /**
+     * xy-tasks-24 (listing-collect/20260920.2): the whole 在卖 collection
+     * loop — dismiss entry popups, read every visible card desc, parse with
+     * ListingReading, push the parsed rows per screen, semantic-scroll, and
+     * stop at the 「所有宝贝加载完成」 anchor, the maxScreens bound, or two
+     * consecutive screens with zero NEW item keys (list end without anchor).
+     * Read-only: the only gestures are popup dismissal and the list's own
+     * scroll action. Empty first screen fails closed with
+     * LISTING_POPUP_BLOCKED when a popup label is visible instead — never a
+     * blind coordinate tap.
+     */
+    private suspend fun executeCollectListings(task: AutomationTask, step: AutomationStep.CollectListings, runDeadline: Long) {
+        if (task.targetPackage != TargetLocatorRegistry.XIANYU_PACKAGE) {
+            throw ExecutorFailure("TARGET_PACKAGE_REJECTED", "collectListings is approved for xianyu only")
+        }
+        ui.ensureReady(task.targetPackage)
+        val runKey = "listing-${task.taskId.takeLast(12)}"
+        val seenKeys = HashSet<String>()
+        var screen = 0
+        var emptyNewScreens = 0
+        var firstScreenTries = 0
+        while (screen < step.maxScreens && elapsedMs() < runDeadline) {
+            // Popup first: an entry popup hides the cards from the tree.
+            if (ui.dismissListingPopups(task.targetPackage)) {
+                sleep(LISTING_SETTLE_MS)
+            }
+            val descs = try {
+                ui.readListingCardDescs(task.targetPackage, 30)
+            } catch (failure: ExecutorFailure) {
+                if ((failure.code == "LIST_TAB_NOT_FOUND" || failure.code == "SCROLL_CONTAINER_MISSING") &&
+                    elapsedMs() < runDeadline
+                ) {
+                    sleep(LISTING_SETTLE_MS)
+                    continue
+                }
+                throw failure
+            }
+            if (descs.isEmpty() && screen == 0) {
+                // Flutter renders the list after the tab settles; the entry
+                // popup may also take a moment to clear. Retry the first
+                // screen within the step window before failing closed.
+                firstScreenTries += 1
+                if (firstScreenTries < 6 && elapsedMs() < runDeadline) {
+                    sleep(LISTING_SETTLE_MS)
+                    continue
+                }
+                throw ExecutorFailure(
+                    "LISTING_FIRST_SCREEN_EMPTY",
+                    "No cards visible on the first screen after retries (popup or wrong page); failing closed",
+                )
+            }
+            screen += 1
+            val parsed = mutableListOf<ListingRowSnapshot>()
+            val skipped = mutableListOf<String>()
+            for (desc in descs) {
+                when (val outcome = ListingReading.parseCard(desc)) {
+                    is ListingRowParseOutcome.Parsed -> parsed += ListingRowSnapshot(
+                        itemKey = outcome.itemKey,
+                        title = outcome.title,
+                        priceCents = outcome.priceCents,
+                        priceText = outcome.priceText,
+                        statusText = outcome.statusText,
+                        exposureCount = outcome.exposureCount,
+                        viewsCount = outcome.viewsCount,
+                        wantsCount = outcome.wantsCount,
+                        rawLines = desc.split("\n"),
+                    )
+                    is ListingRowParseOutcome.Skipped -> skipped += outcome.reason
+                }
+            }
+            listingScreensReporter?.reportScreen(runKey, screen, parsed, skipped)
+            val newKeys = parsed.count { seenKeys.add(it.itemKey) }
+            ui.log(LogLevel.INFO, "LISTING_SCREEN screen=$screen cards=${parsed.size} new=$newKeys skipped=${skipped.size}")
+            if (ui.hasListingEndAnchor(task.targetPackage)) {
+                ui.log(LogLevel.INFO, "LISTING_END_ANCHOR_REACHED")
+                break
+            }
+            if (newKeys == 0) {
+                emptyNewScreens += 1
+                if (emptyNewScreens >= 2) {
+                    ui.log(LogLevel.INFO, "LISTING_NO_NEW_STOP")
+                    break
+                }
+            } else {
+                emptyNewScreens = 0
+            }
+            val scrolled = ui.scrollListingPage(task.targetPackage)
+            if (!scrolled) {
+                ui.log(LogLevel.INFO, "LISTING_SCROLL_EDGE")
+                break
+            }
+        }
+        ui.log(LogLevel.INFO, "LISTING_DONE screens=$screen identities=${seenKeys.size}")
     }
 
     /**
