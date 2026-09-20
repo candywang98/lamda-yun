@@ -20,6 +20,20 @@ import javax.net.ssl.X509TrustManager
 internal object PinnedHttpsTransport {
     data class Response(val status: Int, val headers: Map<String, String>, val body: ByteArray)
 
+    /**
+     * BLK-014 fix: mainland carriers poison the sslip.io wildcard DNS
+     * (verified 2026-09-20: hijack IPs 39.156.138.208 / 183.201.86.123 served
+     * small-key fake certs -> "Signature length smaller than digest" during
+     * the TLS handshake, BEFORE the pin check). The fleet control plane host
+     * therefore connects by its literal IP; SNI/Host/cert-pin stay on the
+     * domain so the Let's Encrypt certificate and pin remain valid.
+     */
+    private const val PRODUCTION_HOST = "43.133.243.154.sslip.io"
+    private const val PRODUCTION_IP = "43.133.243.154"
+
+    private fun connectAddress(host: String): String =
+        if (host == PRODUCTION_HOST) PRODUCTION_IP else host
+
     fun request(
         baseUrl: String,
         path: String,
@@ -52,7 +66,7 @@ internal object PinnedHttpsTransport {
         val socket = pinnedContext(pin).socketFactory.createSocket() as SSLSocket
         try {
             socket.soTimeout = readTimeoutMs
-            socket.connect(InetSocketAddress(host, port), connectTimeoutMs)
+            socket.connect(InetSocketAddress(connectAddress(host), port), connectTimeoutMs)
             socket.sslParameters = SSLParameters().apply {
                 serverNames = listOf(SNIHostName(host))
                 endpointIdentificationAlgorithm = null
@@ -87,7 +101,7 @@ internal object PinnedHttpsTransport {
         val socket = pinnedContext(pin).socketFactory.createSocket() as SSLSocket
         try {
             socket.soTimeout = readTimeoutMs
-            socket.connect(InetSocketAddress(host, port), connectTimeoutMs)
+            socket.connect(InetSocketAddress(connectAddress(host), port), connectTimeoutMs)
             socket.sslParameters = SSLParameters().apply {
                 serverNames = listOf(SNIHostName(host))
                 endpointIdentificationAlgorithm = null

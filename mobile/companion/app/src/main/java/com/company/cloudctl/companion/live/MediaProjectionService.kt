@@ -236,12 +236,11 @@ class MediaProjectionService : Service() {
     }
 
     private fun currentRotation(): Int {
-        val display: Display? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            this.display
-        } else {
-            @Suppress("DEPRECATION")
-            (getSystemService(Context.WINDOW_SERVICE) as android.view.WindowManager).defaultDisplay
-        }
+        // Q14 real-device fix (Android 12): Context.getDisplay() throws
+        // UnsupportedOperationException from a non-visual Service context —
+        // read the default display through DisplayManager instead.
+        val display: Display? =
+            getSystemService(DisplayManager::class.java).getDisplay(android.view.Display.DEFAULT_DISPLAY)
         @Suppress("DEPRECATION")
         return when (display?.rotation) {
             android.view.Surface.ROTATION_90 -> 90

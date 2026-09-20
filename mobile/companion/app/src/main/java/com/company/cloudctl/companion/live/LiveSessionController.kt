@@ -63,6 +63,17 @@ class LiveSessionController(
     )
     private val client = OkHttpClient.Builder()
         .pingInterval(20, TimeUnit.SECONDS)
+        // BLK-014 fix: same DNS-poisoning immunity as PinnedHttpsTransport —
+        // resolve the fleet control-plane host to its literal IP, keep SNI on
+        // the domain so the pinned certificate still validates.
+        .dns(object : okhttp3.Dns {
+            override fun lookup(hostname: String): List<java.net.InetAddress> =
+                if (hostname == "43.133.243.154.sslip.io") {
+                    listOf(java.net.InetAddress.getByName("43.133.243.154"))
+                } else {
+                    okhttp3.Dns.SYSTEM.lookup(hostname)
+                }
+        })
         .sslSocketFactory(
             PinnedHttpsTransport.pinnedSocketFactory(connection.certificateSha256),
             com.company.cloudctl.companion.network.PinnedTrustManager(connection.certificateSha256),
