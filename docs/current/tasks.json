@@ -3200,9 +3200,9 @@
       "risk": "中",
       "device_acceptance": "无；仅软件验证",
       "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
-      "dev_state": "NOT_STARTED",
-      "acceptance_state": "NOT_RUN",
-      "evidence": "artifacts/delivery-20260916/F11/",
+      "dev_state": "SOFTWARE_DONE",
+      "acceptance_state": "SOFTWARE_ACCEPTED",
+      "evidence": "agent/fleet-f11 @657b6a3 merged 862e71a. /api/v1/content-io namespace: import defaults to dry-run with row-precise IMPORT/SKIP_EXISTING/ERROR (in-file duplicate spuCode marks all implicated rows with positions), apply=true writes only valid rows and never overwrites existing spuCode; same importKey replays first applied result, keyless re-import imports nothing new; CSV export tenant-scoped QUOTE_ALL with formula-injection neutralization (=+-@/tab/CR) and clean re-import round-trip; immutable paginated revision history over audit trail (apply-path entries carry full field snapshot; later edits append without rewriting; cross-tenant 404). Legacy /products:import untouched. XHS video metadata left to R00 ruling per task card. 3 new backend tests + 17 regression; worktree full backend 1051/11 skipped; web 8 new, full 39 files/281 tests, vue-tsc/build/scoped eslint/ruff green; strict OpenAPI equality + contracts build green on merged tree (7/7 with F10); GUI desktop+mobile evidence artifacts/tasks/F11/. Staging/device not tested.",
       "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
       "read_only_paths": [
         "contracts/**",
