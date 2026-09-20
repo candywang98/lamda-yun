@@ -9,6 +9,7 @@ import OrdersView from '@/views/OrdersView.vue'
 import RecipeVersionsView from '@/views/RecipeVersionsView.vue'
 import { findOperation } from '@/data/operations-catalog'
 import { fleetRoutes } from '@/features/fleet'
+import { operationFormRoutes } from '@/features/operations'
 import { ordersHistoryRoutes } from '@/features/orders'
 import { reconciliationRoutes } from '@/features/reconciliation'
 import { liveFleetRoutes } from '@/features/live'
@@ -61,6 +62,6 @@ export const operationRoutes: RouteRecordRaw[] = [
 
 export const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
-  routes: [...coreRoutes, ...operationRoutes, ...fleetRoutes, ...reconciliationRoutes, ...ordersHistoryRoutes, ...liveFleetRoutes],
+  routes: [...coreRoutes, ...operationRoutes, ...fleetRoutes, ...reconciliationRoutes, ...ordersHistoryRoutes, ...liveFleetRoutes, ...operationFormRoutes],
   scrollBehavior: () => ({ top: 0 }),
 })
