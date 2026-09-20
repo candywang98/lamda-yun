@@ -20,6 +20,8 @@ from .db import Database
 from .debug_routes import router as debug_router
 from .debug_service import DebugSessionService
 from .dev_seed import seed_development_data
+from .features.content_io import ContentIOService
+from .features.content_io.routes import router as content_io_router
 from .features.schedules import FleetScheduleService
 from .features.schedules.routes import router as fleet_schedule_router
 from .fleet_live import FleetLiveService, fleet_live_router
@@ -126,6 +128,7 @@ def create_app(
         object_store if object_store is not None else create_object_store(resolved_settings)
     )
     app.state.object_store = resolved_object_store
+    app.state.content_io_service = ContentIOService(database)
     app.state.mobile_task_service = MobileTaskService(database, resolved_object_store)
     app.state.xianyu_maintenance_service = XianyuMaintenanceService(
         database, app.state.mobile_task_service
@@ -241,6 +244,7 @@ def create_app(
         return {"status": "ok", "repositoryMode": resolved_settings.repository_mode}
 
     app.include_router(router)
+    app.include_router(content_io_router)
     app.include_router(operation_router)
     app.include_router(source_router)
     app.include_router(wechat_router)
