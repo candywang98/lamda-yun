@@ -1,0 +1,24 @@
+companion binding ok
+PASS  S1 discovery 404 without session  HTTP 404
+PASS  S1 operator open session  e36518f1-64fa-498d-8cdc-63879bf6f151
+PASS  S1 discovery returns session  {"sessionId": "e36518f1-64fa-498d-8cdc-63879bf6f151", "deviceId": "4aabc387-6e4b-4b59-a525-b1c119ec7f5b", "state": "VIEW
+PASS  S1 ack denial closes session  {'ok': True, 'sessionId': 'e36518f1-64fa-498d-8cdc-63879bf6f151', 'state': 'CLOSED'}
+PASS  S1 discovery 404 after denial  HTTP 404
+PASS  S1 ack requires companion auth  HTTP 401
+PASS  S1 ack granted accepted  {'ok': True, 'sessionId': 'ff5824d1-4a20-42ac-a1cf-e54706b3d7d6', 'state': 'VIEWING'}
+PASS  S1 operator WS hello VIEWING  {'t': 'state', 'state': 'VIEWING'}
+PASS  S1 frames relayed >=4 with monotonic seq  seqs=[1, 2, 3, 4, 5]
+PASS  S1 relayed payloads are JPEG  
+PASS  S2 take-control VIEWING->REMOTE  {'sessionId': 'ff5824d1-4a20-42ac-a1cf-e54706b3d7d6', 'deviceId': '4aabc387-6e4b-4b59-a525-b1c119ec7f5b', 'state': 'REMOTE', 'ageSeconds': 0, 'remainingSeconds': 1800}
+PASS  S2 operator link gets REMOTE  {'t': 'state', 'state': 'REMOTE'}
+PASS  S2 companion link gets REMOTE (WIRE3 push)  {'t': 'state', 'state': 'REMOTE'}
+PASS  S2 remote tap reaches companion  {'t': 'input', 'kind': 'tap', 'seq': 1, 'x': 0.5, 'y': 0.5}
+PASS  S2 stale seq demotes to VIEWING  {'t': 'state', 'state': 'VIEWING'}
+PASS  S2 release REMOTE->VIEWING  {'sessionId': 'ff5824d1-4a20-42ac-a1cf-e54706b3d7d6', 'deviceId': '4aabc387-6e4b-4b59-a525-b1c119ec7f5b', 'state': 'VIEWING', 'ageSeconds': 0, 'remainingSeconds': 1800}
+PASS  S2 companion link gets VIEWING  {'t': 'state', 'state': 'VIEWING'}
+PASS  S3 duplicate open refused  HTTP 409
+PASS  S3 stop closes  {'sessionId': 'ff5824d1-4a20-42ac-a1cf-e54706b3d7d6', 'deviceId': '4aabc387-6e4b-4b59-a525-b1c119ec7f5b', 'state': 'CLOSED', 'ageSeconds': 0, 'remainingSeconds': 1800}
+PASS  S3 companion link gets CLOSED (WIRE3 push)  {'t': 'state', 'state': 'CLOSED'}
+PASS  S3 discovery 404 after stop  HTTP 404
+
+21/21 checks passed
