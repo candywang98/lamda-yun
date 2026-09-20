@@ -2788,6 +2788,49 @@
         "title": "MediaGroupUpdate",
         "type": "object"
       },
+      "MediaPoolFreezeRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "maximum": 49.0,
+            "minimum": 1.0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "groupId": {
+            "maxLength": 36,
+            "minLength": 1,
+            "title": "Groupid",
+            "type": "string"
+          },
+          "seed": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seed"
+          },
+          "taskKey": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Taskkey",
+            "type": "string"
+          }
+        },
+        "required": [
+          "taskKey",
+          "groupId",
+          "count"
+        ],
+        "title": "MediaPoolFreezeRequest",
+        "type": "object"
+      },
       "MediaTaxonomyUpdate": {
         "properties": {
           "groupIds": {
@@ -5816,6 +5859,45 @@
         "title": "PublishPlanCreate",
         "type": "object"
       },
+      "PublishPreflightRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "accountId": {
+            "maxLength": 36,
+            "minLength": 1,
+            "title": "Accountid",
+            "type": "string"
+          },
+          "deviceId": {
+            "maxLength": 36,
+            "minLength": 1,
+            "title": "Deviceid",
+            "type": "string"
+          },
+          "platform": {
+            "enum": [
+              "xianyu",
+              "xiaohongshu"
+            ],
+            "title": "Platform",
+            "type": "string"
+          },
+          "productId": {
+            "maxLength": 36,
+            "minLength": 1,
+            "title": "Productid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "productId",
+          "accountId",
+          "deviceId",
+          "platform"
+        ],
+        "title": "PublishPreflightRequest",
+        "type": "object"
+      },
       "ReadOrdersStep": {
         "additionalProperties": false,
         "description": "Read order rows from the current xianyu order list screen.\n\nContract order-sync/20260915.1 §5: exactly one per task, direction SOLD or\nBOUGHT, maxRows 1..10, locatorRef points at the list container locator\n(xianyu_orders_container; the registry entry is unverified/fail-closed on\nthe device until the real-device survey flips it).",
@@ -7028,6 +7110,68 @@
           "condition"
         ],
         "title": "WaitStep",
+        "type": "object"
+      },
+      "WatermarkRenderRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "fontSize": {
+            "default": 32,
+            "maximum": 256.0,
+            "minimum": 8.0,
+            "title": "Fontsize",
+            "type": "integer"
+          },
+          "margin": {
+            "default": 24,
+            "maximum": 2048.0,
+            "minimum": 0.0,
+            "title": "Margin",
+            "type": "integer"
+          },
+          "opacity": {
+            "default": 70,
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Opacity",
+            "type": "integer"
+          },
+          "position": {
+            "default": "bottom_right",
+            "enum": [
+              "top_left",
+              "top_right",
+              "center",
+              "bottom_left",
+              "bottom_right"
+            ],
+            "title": "Position",
+            "type": "string"
+          },
+          "ruleVersionId": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ruleversionid"
+          },
+          "text": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "WatermarkRenderRequest",
         "type": "object"
       },
       "WechatAccountCreate": {
@@ -10294,6 +10438,146 @@
         "summary": "Fleet Live Take Control",
         "tags": [
           "fleet-live"
+        ]
+      }
+    },
+    "/api/v1/media-assets/pools:freeze": {
+      "post": {
+        "operationId": "freeze_pool_api_v1_media_assets_pools_freeze_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaPoolFreezeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Freeze Pool Api V1 Media Assets Pools Freeze Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Freeze Pool",
+        "tags": [
+          "media-assets"
+        ]
+      }
+    },
+    "/api/v1/media-assets/publish:preflight": {
+      "post": {
+        "operationId": "publish_preflight_api_v1_media_assets_publish_preflight_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublishPreflightRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Publish Preflight Api V1 Media Assets Publish Preflight Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Publish Preflight",
+        "tags": [
+          "media-assets"
+        ]
+      }
+    },
+    "/api/v1/media-assets/{source_asset_id}/watermark:render": {
+      "post": {
+        "operationId": "render_watermark_api_v1_media_assets__source_asset_id__watermark_render_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_asset_id",
+            "required": true,
+            "schema": {
+              "title": "Source Asset Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WatermarkRenderRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Render Watermark Api V1 Media Assets  Source Asset Id  Watermark Render Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Render Watermark",
+        "tags": [
+          "media-assets"
         ]
       }
     },

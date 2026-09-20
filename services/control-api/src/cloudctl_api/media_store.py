@@ -47,6 +47,8 @@ class ObjectStore(Protocol):
 
     async def get(self, object_key: str) -> DownloadedObject | None: ...
 
+    def put(self, object_key: str, content: bytes, content_type: str) -> None: ...
+
 
 class InMemoryObjectStore:
     def __init__(self) -> None:
@@ -235,6 +237,15 @@ class S3ObjectStore:
         return DownloadedObject(
             content=bytes(content),
             content_type=str(response.get("ContentType") or "application/octet-stream"),
+        )
+
+    def put(self, object_key: str, content: bytes, content_type: str) -> None:
+        self.client.put_object(
+            Bucket=self.bucket,
+            Key=object_key,
+            Body=content,
+            ContentType=content_type,
+            ChecksumAlgorithm="SHA256",
         )
 
 
