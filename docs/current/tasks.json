@@ -3361,9 +3361,9 @@
       "risk": "中",
       "device_acceptance": "无；仅软件验证",
       "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
-      "dev_state": "NOT_STARTED",
-      "acceptance_state": "NOT_RUN",
-      "evidence": "artifacts/delivery-20260916/F13/",
+      "dev_state": "SOFTWARE_DONE",
+      "acceptance_state": "SOFTWARE_ACCEPTED",
+      "evidence": "agent/fleet-f13 @acdd76f merged bd11663. /business-operations thin form workbench generated from operation catalog (15 modules, 130+ entries; pageProfile fields -> controls; OperationsView untouched); frozen visible snapshot with six-field canonical sha256 byte-identical to backend canonical_hash (precomputed constant embedded in test); real mint via /operations/tasks + :batch with Idempotency-Key and returned requestSha256 equality check; partial failures listed per target with errorCode/detail; availability four states with backend reason passthrough ([STATE] prefix precedence), OUT_OF_SCOPE never falls back to a sample op, mock mode never mints. Fixed previously-dead untypechecked business-operation.ts and wired it. 11 new web tests; full web 39 files/284 + build + vue-tsc + scoped eslint green; Playwright e2e fleet-business.spec 2/2 exit 0 against local vite (no staging exists: NOT_TESTED_AGAINST_STAGING); GUI desktop+mobile evidence artifacts/tasks/F13/. 17 lineage packages given a unified form surface, not individually endorsed here.",
       "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
       "read_only_paths": [
         "contracts/**",
