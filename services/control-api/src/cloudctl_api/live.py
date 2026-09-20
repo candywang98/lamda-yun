@@ -290,9 +290,19 @@ def _service(request: Request) -> LiveService:
     return service
 
 
+def _service_ws(websocket: WebSocket) -> LiveService:
+    # WIRE3: a WebSocket route has no Request in scope, so the request-typed
+    # dependency above would be called without arguments (HTTP 500) — the WS
+    # endpoints need their own app-state accessor.
+    service = websocket.app.state.live_service
+    assert isinstance(service, LiveService)
+    return service
+
+
 
 
 ServiceDep = Annotated[LiveService, Depends(_service)]
+WsServiceDep = Annotated[LiveService, Depends(_service_ws)]
 ActorDep = Annotated[Actor, Depends(current_actor)]
 
 
@@ -327,7 +337,7 @@ async def stop(sid: str, actor: ActorDep, live_service: ServiceDep) -> dict[str,
 async def operator_stream(
     sid: str,
     websocket: WebSocket,
-    live_service: ServiceDep,
+    live_service: WsServiceDep,
 ) -> None:
     await websocket.accept()
     live = live_service.sessions.get(sid)
@@ -354,7 +364,7 @@ async def operator_stream(
 async def companion_stream(
     sid: str,
     websocket: WebSocket,
-    live_service: ServiceDep,
+    live_service: WsServiceDep,
 ) -> None:
     # Companion auth: the binding token is validated on the first frame exchange
     # via /ack before any input flows; the WS itself is device-scoped by sid.
