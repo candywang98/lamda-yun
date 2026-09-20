@@ -3127,9 +3127,9 @@
       "risk": "中",
       "device_acceptance": "无；仅软件验证",
       "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
-      "dev_state": "NOT_STARTED",
-      "acceptance_state": "NOT_RUN",
-      "evidence": "artifacts/delivery-20260916/F10/",
+      "dev_state": "SOFTWARE_DONE",
+      "acceptance_state": "SOFTWARE_ACCEPTED",
+      "evidence": "agent/fleet-f10 @ebfb9d5 merged 64cd5ad. Real deterministic PNG watermark derivative (EXIF transpose, 40MP ceiling, render+store off event loop; preview sha == publish derivative sha; digest reuse bound to source), taskKey-frozen media pool with audit-metadata replay surviving group membership changes (409 on key reuse with different request), read-only explainable publish preflight PASS/WARNING/BLOCKED (no task mint, platform task list unchanged); /media-assets web workbench fail-closed, no mock fallback. Backend full suite 1051 passed/11 skipped incl. 3 new F10 tests (Chinese watermark covered); web 39 files/280 tests; vue-tsc, vite build, scoped eslint, ruff, strict OpenAPI equality + contracts build green; GUI desktop 1440 + mobile 390 evidence in artifacts/tasks/F10/. Staging/device not tested; repo-wide web eslint pre-existing debt unchanged (19 errors in untouched files).",
       "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
       "read_only_paths": [
         "contracts/**",
