@@ -3441,9 +3441,9 @@
       "risk": "高",
       "device_acceptance": "授权测试内容逐条确认",
       "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
-      "dev_state": "NOT_STARTED",
-      "acceptance_state": "NOT_RUN",
-      "evidence": "artifacts/delivery-20260916/F14/",
+      "dev_state": "SOFTWARE_DONE",
+      "acceptance_state": "SOFTWARE_ACCEPTED",
+      "evidence": "d280796。companion features/xhs/publish 四件套：草稿策略(未知旧草稿永不自动删除,默认WAITING_USER)、有界返回(NAV_BOUNDED_EXIT)、图文V1步骤原语(复用8.50.1实测定位+B14/B15证明语义)、计划器(顺序冻结/空图超18重复拒绝/视频VIDEO_PENDING_R00显式拒绝)——11项kotlin.test全绿(gradle BUILD SUCCESSFUL,XML核对)。后端图文V1最少一图校验(命令层)+test_xhs_publish_delta.py 7过(空图/19图/videoAssetIds/draftPolicy均422报字段名;铸造层顺序透传)。draftPolicy参数面登记BLK-012(三层契约裁决)。真机侧:五机已连,A机就绪(XHS8.50.1+抖音39.6.0),华为C机闲鱼已登录+授权账号在册(BLK-005 C侧解除,BLK-006无障碍生效链路仍卡),vivo D机未登录且静默开无障碍被系统拒绝(BLK-013)。真机图文发布与草稿弹窗实测待授权窗口,本切片不声明真机业务验收。",
       "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
       "read_only_paths": [
         "contracts/**",
