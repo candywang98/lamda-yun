@@ -136,9 +136,9 @@
       "risk": "中",
       "device_acceptance": "无；仅软件验证",
       "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
-      "dev_state": "NOT_STARTED",
-      "acceptance_state": "NOT_RUN",
-      "evidence": "artifacts/delivery-20260916/R01/",
+      "dev_state": "SOFTWARE_DONE",
+      "acceptance_state": "SOFTWARE_ACCEPTED",
+      "evidence": "主体 @781b2d0（2026-09-16，已合入）：清理脚本 dry-run+apply（QUARANTINED_CACHE_ONLY 记录、kotlin 错误缓存移出工作区并留 sha256 台账）、旧计划归档 docs/archive/2026-09-16、project-plans README 标注唯一活跃源、专家评审稿登记为 yuyou-assistant-qa 最新修订。2026-09-20 收口验收：snapshot-manifest 7/7 哈希一致（活跃2+归档5）；隔离文件确认不在工作区；project-plans 与 current README 相对链接零断链；构建入口完好（后端1061/11跳、web 299/299+build）。附加 hygiene 提交清零全仓 web eslint 19 存量错误（余218条非阻断警告如实保留）。迁移/锁文件/Gradle wrapper/未结案台账/签名密钥/真实证据未删除。",
       "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
       "read_only_paths": [
         "contracts/**",
