@@ -218,7 +218,20 @@ def _append_control_event(
         }
     )
     header["controlRevision"] = revision
-    header["controlEvents"] = events[-50:]
+    # D11：与 platform_tasks._retain_control_events 同口径——一般事件压到
+    # 最近 50 条，但 UNKNOWN/对账裁决证据永不因压缩丢失。
+    protected = [
+        event
+        for event in events[:-50]
+        if event.get("event")
+        in {
+            "MARKED_UNKNOWN",
+            "RECONCILED_APPLIED",
+            "RECONCILED_NOT_SUBMITTED",
+            "RECONCILED_KEEP_WAITING",
+        }
+    ]
+    header["controlEvents"] = (protected + events[-50:]) if protected else events[-50:]
     row.steps = [header, *(row.steps[1:] if row.steps else [])]
     return revision
 

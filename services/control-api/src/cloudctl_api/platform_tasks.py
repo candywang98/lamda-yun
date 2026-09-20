@@ -246,6 +246,29 @@ CONTROL_EVENT_KINDS = frozenset(
     }
 )
 
+# D11：UNKNOWN 证据不随一般 retention 过期——对账标记与其三种裁决是
+# 不确定结果唯一的持久证据，压缩时永不丢弃。
+PROTECTED_CONTROL_EVENT_KINDS = frozenset(
+    {
+        "MARKED_UNKNOWN",
+        "RECONCILED_APPLIED",
+        "RECONCILED_NOT_SUBMITTED",
+        "RECONCILED_KEEP_WAITING",
+    }
+)
+
+
+def _retain_control_events(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Keep the newest MAX_CONTROL_EVENTS entries plus every protected event."""
+    retained = events[-MAX_CONTROL_EVENTS:]
+    protected = [
+        event
+        for event in events[:-MAX_CONTROL_EVENTS]
+        if event.get("event") in PROTECTED_CONTROL_EVENT_KINDS
+    ]
+    return protected + retained if protected else retained
+
+
 
 def _record_control_event(
     row: MobileTaskRow, kind: str, reason: str, actor: str, now: datetime
@@ -265,7 +288,7 @@ def _record_control_event(
         }
     )
     header[CONTROL_REVISION_HEADER_KEY] = revision
-    header[CONTROL_EVENTS_HEADER_KEY] = events[-MAX_CONTROL_EVENTS:]
+    header[CONTROL_EVENTS_HEADER_KEY] = _retain_control_events(events)
     row.steps = [header, *(row.steps[1:] if row.steps else [])]
     return revision
 
