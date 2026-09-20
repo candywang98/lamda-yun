@@ -1248,8 +1248,10 @@ class MobileTaskService:
         from .mobile_actions import (
             uses_maintenance_step_actions,
             uses_orders_step_actions,
+            uses_review_step_actions,
             validate_maintenance_steps,
             validate_orders_steps,
+            validate_review_steps,
         )
 
         command_type: str | None = None
@@ -1259,6 +1261,10 @@ class MobileTaskService:
             # Order collection steps (ui.readOrders) are accepted only in the
             # frozen read-only collect shape (order-sync/20260915.1 §5).
             command_type = validate_orders_steps(body.target_package, document["steps"])
+        elif uses_review_step_actions(document["steps"]):
+            # P34 auto-review steps (xianyu.reviewOrders) are accepted only in
+            # the frozen review shape (xy-review/20260921).
+            command_type = validate_review_steps(body.target_package, document["steps"])
         digest = hashlib.sha256(_canonical(document).encode()).hexdigest()
         now = _now()
         try:

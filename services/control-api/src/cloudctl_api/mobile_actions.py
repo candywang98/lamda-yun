@@ -501,10 +501,24 @@ ORDERS_ENTRY_LOCATORS = {
 ORDERS_PROFILE_NAV = "xianyu_profile_tab"
 ORDERS_LOG_CODE = "XIANYU_COLLECT_ORDERS_DONE"
 ORDERS_MAX_SCREENS = 3
+# P34 auto-review frozen shape (xy-review/20260921): navigate to the 待评价
+# tab of 我卖出的, run exactly one xianyu.reviewOrders loop step (the
+# companion owns the per-order 去评价 -> 好评 -> comment -> evidence ->
+# submit/dry-run-stop cycle), capture screenshot evidence, close with
+# run.log. The step's dryRun flag (default true) is the task-level write
+# gate: a dry run fills and screenshots the editor but never taps 提交评价.
+REVIEW_COMMAND_TYPE = "xianyu.review_orders.steps.v1"
+REVIEW_STEP_ACTION = "xianyu.reviewOrders"
+REVIEW_NAVIGATION = (
+    "xianyu_profile_tab",
+    "xianyu_order_list_sold",
+    "xianyu_orders_tab_pending",
+)
+REVIEW_LOG_CODE = "XIANYU_REVIEW_DONE"
 # Steps tasks validated against a frozen step shape carry no recipe pin; the
 # claim path must not try to resolve a builtin recipe package for them.
 UNPINNED_STEPS_COMMANDS = MAINTENANCE_COMMAND_TYPES | frozenset(
-    {ORDERS_COMMAND_TYPE, ORDERS_COMMAND_TYPE_V2}
+    {ORDERS_COMMAND_TYPE, ORDERS_COMMAND_TYPE_V2, REVIEW_COMMAND_TYPE}
 )
 
 
@@ -625,6 +639,69 @@ def validate_orders_steps(package: str, steps: list[dict[str, Any]]) -> str:
         "v1 (screens=1, one ui.readOrders) or v2 (2..3 readOrders screens, "
         "each extra screen preceded by one ui.swipeUp on the list container)"
     )
+
+
+# P34 auto-review shape validator lives below with the other frozen-shape
+# checkers; the constants above feed UNPINNED_STEPS_COMMANDS.
+
+
+def uses_review_step_actions(steps: list[dict[str, Any]]) -> bool:
+    return any(step.get("action") == REVIEW_STEP_ACTION for step in steps)
+
+
+def _review_shape_error(steps: list[dict[str, Any]]) -> str | None:
+    """Return the first review shape violation, or None on exact match."""
+
+    command = REVIEW_COMMAND_TYPE
+    loops = [step for step in steps if step.get("action") == REVIEW_STEP_ACTION]
+    if len(loops) != 1:
+        return f"{command}: exactly one xianyu.reviewOrders step is required"
+    loop = loops[0]
+    max_orders = loop.get("maxOrders")
+    if isinstance(max_orders, bool) or not isinstance(max_orders, int) or not 1 <= max_orders <= 50:
+        return f"{command}: xianyu.reviewOrders maxOrders must be an integer in 1..50"
+    comment = loop.get("comment")
+    if not isinstance(comment, str) or not 1 <= len(comment) <= 200 or "\x00" in comment:
+        return f"{command}: xianyu.reviewOrders comment must be 1..200 characters"
+    dry_run = loop.get("dryRun")
+    if not isinstance(dry_run, bool):
+        return f"{command}: xianyu.reviewOrders dryRun must be a boolean"
+    expected = [
+        ("ui.tap", REVIEW_NAVIGATION[0]),
+        ("ui.tap", REVIEW_NAVIGATION[1]),
+        ("ui.tap", REVIEW_NAVIGATION[2]),
+        (REVIEW_STEP_ACTION, None),
+        ("ui.screenshot", None),
+        ("run.log", None),
+    ]
+    if len(steps) != len(expected):
+        return (
+            f"{command}: steps must be exactly navigation taps (profile -> sold "
+            "orders -> 待评价 tab) -> one xianyu.reviewOrders -> one "
+            "ui.screenshot -> closing run.log"
+        )
+    for step, (action, locator) in zip(steps, expected, strict=True):
+        if step.get("action") != action:
+            return f"{command}: step {step.get('stepId')} must use action {action}"
+        if locator is not None and step.get("locatorRef") != locator:
+            return f"{command}: step {step.get('stepId')} must target {locator}"
+    log = steps[-1]
+    if log.get("messageCode") != REVIEW_LOG_CODE:
+        return f"{command}: closing run.log {REVIEW_LOG_CODE} is required"
+    return None
+
+
+def validate_review_steps(package: str, steps: list[dict[str, Any]]) -> str:
+    """Creation gate: steps using xianyu.reviewOrders must match the frozen shape."""
+
+    if not uses_review_step_actions(steps):
+        raise ValidationError("review step actions are required for this validation")
+    if package != XIANYU_PACKAGE:
+        raise ValidationError("auto-review is only defined for the xianyu package")
+    error = _review_shape_error(steps)
+    if error is None:
+        return REVIEW_COMMAND_TYPE
+    raise ValidationError(error)
 
 def action_view(row: MobileActionCommitRow) -> dict[str, Any]:
     names = (

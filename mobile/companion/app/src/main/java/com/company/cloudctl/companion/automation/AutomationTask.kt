@@ -150,6 +150,23 @@ sealed interface AutomationStep {
         override val timeoutMs: Long,
         val maxScreens: Int,
     ) : AutomationStep
+
+    /**
+     * P34 auto-review of pending sold orders (xy-review/20260921): run the
+     * whole loop on the 待评价 tab of 我卖出的 — per order open the editor by
+     * its 「去评价，按钮」 entry, tap the 好评 rating column, fill [comment],
+     * capture before/after evidence, then tap 提交评价 — or stop right after
+     * the filled-editor screenshot when [dryRun] (the editor is left open,
+     * never submitted). The loop ends at [maxOrders], when no 去评价 entry
+     * remains, or at the step window edge; zero pending orders is a success.
+     */
+    data class ReviewOrders(
+        override val stepId: String,
+        override val timeoutMs: Long,
+        val maxOrders: Int,
+        val comment: String,
+        val dryRun: Boolean,
+    ) : AutomationStep
 }
 
 enum class NodeCondition { EXISTS, NOT_EXISTS, ENABLED }
@@ -221,10 +238,12 @@ object AutomationTaskParser {
         val action = value.getString("action")
         val common = setOf("stepId", "action", "timeoutMs")
         val stepId = id(value.getString("stepId"))
-        // collectListings runs the whole multi-screen loop inside one step,
-        // so its window is the task-scale bound (backend schema allows 900s).
+        // collectListings / reviewOrders run the whole multi-screen (or
+        // multi-order) loop inside one step, so their window is the task-scale
+        // bound (backend schema allows 900s).
+        val loopScaleActions = setOf("ui.collectListings", "xianyu.reviewOrders")
         val timeout = value.getLong("timeoutMs").also {
-            require(it in 100..if (action == "ui.collectListings") 900_000L else 60_000L)
+            require(it in 100..if (action in loopScaleActions) 900_000L else 60_000L)
         }
         return when (action) {
             "ui.find" -> AutomationStep.Find(stepId, timeout, locator(value, common + "locatorRef"))
@@ -341,6 +360,19 @@ object AutomationTaskParser {
                     stepId,
                     timeout,
                     value.getInt("maxScreens").also { require(it in 1..40) { "collectListings maxScreens is invalid" } },
+                )
+            }
+            "xianyu.reviewOrders" -> {
+                val keys = common + setOf("maxOrders", "comment", "dryRun")
+                requireKeys(value, keys)
+                val comment = value.getString("comment")
+                require(comment.length in 1..200 && '\u0000' !in comment) { "reviewOrders comment is invalid" }
+                AutomationStep.ReviewOrders(
+                    stepId,
+                    timeout,
+                    value.getInt("maxOrders").also { require(it in 1..50) { "reviewOrders maxOrders is invalid" } },
+                    comment,
+                    value.getBoolean("dryRun"),
                 )
             }
             "run.log" -> {

@@ -142,6 +142,36 @@ interface LocalAutomationUi {
     suspend fun dismissListingPopups(targetPackage: String): Boolean =
         error("dismissListingPopups is not supported by this executor")
 
+    // P34 auto-review (xy-review/20260921): the five review-loop primitives.
+    // Everything is located semantically (去评价 entry desc, editor title
+    // anchor, rating row desc, editable node, 提交评价 button desc); the only
+    // gestures are the entry tap, the 好评 column tap inside the rating row's
+    // own bounds, and the submit tap. Fail-closed defaults keep plain
+    // executors honest.
+
+    /** Opens the first visible 「去评价，按钮」 order entry; false when none remains. */
+    suspend fun openPendingReviewEntry(targetPackage: String): Boolean =
+        error("openPendingReviewEntry is not supported by this executor")
+
+    /** True when the review editor anchor (你觉得本次交易体验如何？) is visible. */
+    fun isReviewEditorVisible(targetPackage: String): Boolean =
+        error("isReviewEditorVisible is not supported by this executor")
+
+    /** Taps the 好评 column inside the rating row's own bounds (left third). */
+    suspend fun tapReviewRatingGood(targetPackage: String) {
+        error("tapReviewRatingGood is not supported by this executor")
+    }
+
+    /** Fills the review comment into the editor's editable node. */
+    suspend fun setReviewComment(targetPackage: String, value: String) {
+        error("setReviewComment is not supported by this executor")
+    }
+
+    /** Taps the 提交评价 button (bounds-center gesture). */
+    suspend fun tapReviewSubmit(targetPackage: String) {
+        error("tapReviewSubmit is not supported by this executor")
+    }
+
     // I10 reply boundary feed (fleet-first-20260916.1): what the open chat
     // page verifiably shows at a conversation-level decision point — the open
     // conversation's identity ([expectedPeer] resolves first when the header
@@ -177,6 +207,12 @@ private val WAIT_RECOVERY_LOCATORS = setOf(
 /** Container-resolution poll interval while the Flutter order list renders. */
 private const val ORDER_ROW_POLL_MS = 700L
         private const val LISTING_SETTLE_MS = 1200L
+
+/** P34 auto-review (xy-review/20260921): per-order settle/poll/confirm windows. */
+private const val REVIEW_SETTLE_MS = 1200L
+private const val REVIEW_POLL_MS = 500L
+private const val REVIEW_EDITOR_OPEN_MS = 15_000L
+private const val REVIEW_SUBMIT_CONFIRM_MS = 20_000L
 
 /**
  * O10 page-report port (fleet-first-20260916.1): one call per collected
@@ -452,6 +488,7 @@ class LocalAutomationExecutor(
             is AutomationStep.ReadOrders -> executeReadOrders(task, step, runDeadline)
             is AutomationStep.SwipeUp -> executeSwipeUp(task, step, runDeadline)
             is AutomationStep.CollectListings -> executeCollectListings(task, step, runDeadline)
+            is AutomationStep.ReviewOrders -> executeReviewOrders(task, step, runDeadline)
             is AutomationStep.AppRestart -> {
                 if (task.targetPackage != TargetLocatorRegistry.XIANYU_PACKAGE) {
                     throw ExecutorFailure("TARGET_PACKAGE_REJECTED", "app.restart is approved for xianyu only")
@@ -777,6 +814,75 @@ class LocalAutomationExecutor(
             }
         }
         ui.log(LogLevel.INFO, "LISTING_DONE screens=$screen identities=${seenKeys.size}")
+    }
+
+    /**
+     * P34 (xy-review/20260921): the whole auto-review loop on the 待评价 tab
+     * of 我卖出的 — per order open the editor by its 去评价 entry, tap the
+     * 好评 column, fill the fixed comment, screenshot the filled editor, then
+     * tap 提交评价 and wait for the editor to leave before the next order.
+     * dryRun stops right after the filled-editor screenshot: the submit tap
+     * never happens, the editor is left on screen for the operator, and the
+     * loop exits after one order. Zero pending orders is a success; the loop
+     * also ends at maxOrders or the step window edge. Every order carries
+     * before/after screenshot evidence.
+     */
+    private suspend fun executeReviewOrders(task: AutomationTask, step: AutomationStep.ReviewOrders, runDeadline: Long) {
+        if (task.targetPackage != TargetLocatorRegistry.XIANYU_PACKAGE) {
+            throw ExecutorFailure("TARGET_PACKAGE_REJECTED", "reviewOrders is approved for xianyu only")
+        }
+        ui.ensureReady(task.targetPackage)
+        var processed = 0
+        while (processed < step.maxOrders && elapsedMs() < runDeadline) {
+            if (!ui.openPendingReviewEntry(task.targetPackage)) {
+                ui.log(LogLevel.INFO, "REVIEW_NO_PENDING_STOP")
+                break
+            }
+            if (!awaitReviewEditor(task.targetPackage, minOf(runDeadline, elapsedMs() + REVIEW_EDITOR_OPEN_MS))) {
+                throw ExecutorFailure(
+                    "REVIEW_EDITOR_NOT_OPEN",
+                    "Review editor anchor did not appear after the 去评价 tap; failing closed",
+                )
+            }
+            ui.tapReviewRatingGood(task.targetPackage)
+            sleep(REVIEW_SETTLE_MS)
+            ui.setReviewComment(task.targetPackage, step.comment)
+            captureScreenshot(task, "review-order-${processed + 1}-filled")
+            if (step.dryRun) {
+                ui.log(LogLevel.INFO, "REVIEW_DRY_RUN_STOP order=${processed + 1}")
+                break
+            }
+            ui.tapReviewSubmit(task.targetPackage)
+            if (!awaitReviewEditorGone(task.targetPackage, minOf(runDeadline, elapsedMs() + REVIEW_SUBMIT_CONFIRM_MS))) {
+                throw ExecutorFailure(
+                    "REVIEW_SUBMIT_UNCONFIRMED",
+                    "Review editor is still visible after the submit tap; unconfirmed state fails closed",
+                )
+            }
+            processed += 1
+            captureScreenshot(task, "review-order-$processed-submitted")
+            ui.log(LogLevel.INFO, "REVIEW_ORDER_DONE order=$processed")
+            sleep(REVIEW_SETTLE_MS)
+        }
+        ui.log(LogLevel.INFO, "REVIEW_DONE processed=$processed dryRun=${step.dryRun}")
+    }
+
+    /** Poll the review-editor anchor until it appears or [deadlineMs] (elapsed) passes. */
+    private suspend fun awaitReviewEditor(targetPackage: String, deadlineMs: Long): Boolean {
+        while (elapsedMs() < deadlineMs) {
+            if (ui.isReviewEditorVisible(targetPackage)) return true
+            sleep(REVIEW_POLL_MS)
+        }
+        return ui.isReviewEditorVisible(targetPackage)
+    }
+
+    /** Poll the review-editor anchor until it leaves the screen or [deadlineMs] (elapsed) passes. */
+    private suspend fun awaitReviewEditorGone(targetPackage: String, deadlineMs: Long): Boolean {
+        while (elapsedMs() < deadlineMs) {
+            if (!ui.isReviewEditorVisible(targetPackage)) return true
+            sleep(REVIEW_POLL_MS)
+        }
+        return !ui.isReviewEditorVisible(targetPackage)
     }
 
     /**

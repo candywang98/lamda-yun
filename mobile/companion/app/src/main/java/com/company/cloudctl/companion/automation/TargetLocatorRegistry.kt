@@ -118,6 +118,11 @@ internal object TargetLocatorRegistry {
         // parent of the 「订单信息」-prefixed rows (rows are not clickable).
         "xianyu_order_list_sold" to ApprovedLocator.Text("我卖出的"),
         "xianyu_order_list_bought" to ApprovedLocator.Text("我买到的"),
+        // P34 (xy-review/20260921, device-verified on OnePlus 9R 2026-09-21):
+        // the 待评价 tab on the sold-orders page reads
+        // 「待评价\n第 5 个标签，共 6 个」— the tab ordinal may shift with tab
+        // count, so the prefix anchors on the label line + 「第」 only.
+        "xianyu_orders_tab_pending" to ApprovedLocator.ContentDescriptionPrefix("待评价\n第"),
         "xianyu_orders_container" to ApprovedLocator.IndexedContentDescriptionPrefixParent(
             OrderRowParser.ROW_MARKER_PREFIX, 0,
         ),

@@ -1265,6 +1265,137 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         return dismissed
     }
 
+    // ————————————————— P34 auto-review primitives (xy-review/20260921) —————
+    // Anchors device-verified on OnePlus 9R 2026-09-21 (uiautomator dumps):
+    // the pending entry desc reads 「去评价，按钮, 去评价」; the editor title
+    // 「你觉得本次交易体验如何？」; the rating row one merged node
+    // 「好评\n中评\n差评」 spanning the full width (three equal columns); the
+    // submit button 「提交评价」; the comment box is an NAF EditText node.
+
+    /** Collect visible nodes of the target whose text/desc satisfies [predicate]. */
+    private fun collectReviewNodes(
+        targetPackage: String,
+        predicate: (String) -> Boolean,
+    ): List<AccessibilityNodeInfo> {
+        val matches = mutableListOf<AccessibilityNodeInfo>()
+        fun visit(node: AccessibilityNodeInfo) {
+            val text = node.text?.toString()?.trim().orEmpty()
+            val desc = node.contentDescription?.toString()?.trim().orEmpty()
+            if (node.isVisibleToUser &&
+                ((text.isNotEmpty() && predicate(text)) || (desc.isNotEmpty() && predicate(desc)))
+            ) {
+                matches += node
+            }
+            for (index in 0 until node.childCount) node.getChild(index)?.let(::visit)
+        }
+        allRoots().filter { it.packageName?.toString() == targetPackage }.forEach(::visit)
+        return matches
+    }
+
+    /** One zero-length stroke tap (same dispatch path as the executor's strokes). */
+    private suspend fun reviewTapAt(x: Float, y: Float) {
+        val completed = dispatchStroke(x, y, x, y, REVIEW_TAP_MS)
+        if (!completed) {
+            throw ExecutorFailure("REVIEW_TAP_CANCELLED", "Review gesture tap was cancelled")
+        }
+        delay(REVIEW_SETTLE_MS)
+    }
+
+    override suspend fun openPendingReviewEntry(targetPackage: String): Boolean {
+        demandWrite(UiWriter.TASK, UiWriteKind.TAP, detail = "review entry tap")
+        val entries = collectReviewNodes(targetPackage) { it.startsWith(REVIEW_ENTRY_PREFIX) }
+        if (entries.isEmpty()) return false
+        // Multiple pending orders stack vertically; take the top-most entry.
+        val rect = Rect()
+        val topEntry = entries.minByOrNull { node ->
+            node.getBoundsInScreen(rect)
+            rect.top
+        } ?: return false
+        topEntry.getBoundsInScreen(rect)
+        if (rect.isEmpty) {
+            throw ExecutorFailure("REVIEW_ENTRY_BOUNDS_INVALID", "去评价 entry has no usable bounds")
+        }
+        reviewTapAt(rect.centerX().toFloat(), rect.centerY().toFloat())
+        return true
+    }
+
+    override fun isReviewEditorVisible(targetPackage: String): Boolean =
+        collectReviewNodes(targetPackage) { it.contains(REVIEW_EDITOR_ANCHOR) }.isNotEmpty()
+
+    override suspend fun tapReviewRatingGood(targetPackage: String) {
+        demandWrite(UiWriter.TASK, UiWriteKind.TAP, detail = "review rating good tap")
+        // The rating row is ONE merged semantics node (好评\n中评\n差评); 好评
+        // is its left third — tap that column's center, bounds-relative.
+        val rating = collectReviewNodes(targetPackage) { it.startsWith("好评") && it.contains("中评") }
+            .minByOrNull { node ->
+                val rect = Rect()
+                node.getBoundsInScreen(rect)
+                rect.width()
+            }
+            ?: throw ExecutorFailure("REVIEW_RATING_NOT_FOUND", "The 好评/中评/差评 rating row was not found")
+        val rect = Rect()
+        rating.getBoundsInScreen(rect)
+        if (rect.isEmpty || rect.width() <= 0) {
+            throw ExecutorFailure("REVIEW_RATING_BOUNDS_INVALID", "Rating row has no usable bounds")
+        }
+        val x = rect.left + rect.width() / 6f
+        val y = rect.centerY().toFloat()
+        reviewTapAt(x, y)
+    }
+
+    override suspend fun setReviewComment(targetPackage: String, value: String) {
+        demandWrite(UiWriter.TASK, UiWriteKind.TEXT_INPUT, detail = "review comment fill")
+        // The comment box is an NAF EditText with empty text/desc — locate it
+        // by editability, not by any string anchor.
+        var editor: AccessibilityNodeInfo? = null
+        fun visit(node: AccessibilityNodeInfo) {
+            if (editor != null) return
+            if (node.isVisibleToUser && node.isEnabled &&
+                (node.isEditable || node.className?.toString()?.contains("EditText") == true)
+            ) {
+                editor = node
+                return
+            }
+            for (index in 0 until node.childCount) node.getChild(index)?.let(::visit)
+        }
+        allRoots().filter { it.packageName?.toString() == targetPackage }.forEach(::visit)
+        val target = editor
+            ?: throw ExecutorFailure("REVIEW_EDITOR_NODE_NOT_FOUND", "No editable comment node on the review editor")
+        target.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
+        val arguments = android.os.Bundle().apply {
+            putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, value)
+        }
+        if (!target.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)) {
+            throw ExecutorFailure("REVIEW_COMMENT_SET_TEXT_REJECTED", "Review comment SET_TEXT was rejected")
+        }
+        delay(REVIEW_SETTLE_MS)
+        // Acceptance: the visible page carries the committed comment (the
+        // Flutter field may keep an empty semantics text with a live IME).
+        if (!visibleTextContains(value)) {
+            throw ExecutorFailure(
+                "REVIEW_COMMENT_UNCONFIRMED",
+                "Review comment did not land on the visible page; failing closed",
+            )
+        }
+    }
+
+    override suspend fun tapReviewSubmit(targetPackage: String) {
+        demandWrite(UiWriter.TASK, UiWriteKind.TAP, detail = "review submit tap")
+        val submit = collectReviewNodes(targetPackage) { it == REVIEW_SUBMIT_DESC }
+            .minByOrNull { node ->
+                val rect = Rect()
+                node.getBoundsInScreen(rect)
+                rect.top
+            }
+            ?: throw ExecutorFailure("REVIEW_SUBMIT_NOT_FOUND", "The 提交评价 button was not found")
+        val rect = Rect()
+        submit.getBoundsInScreen(rect)
+        if (rect.isEmpty) {
+            throw ExecutorFailure("REVIEW_SUBMIT_BOUNDS_INVALID", "The 提交评价 button has no usable bounds")
+        }
+        reviewTapAt(rect.centerX().toFloat(), rect.centerY().toFloat())
+    }
+
 
     override fun readOrderRows(targetPackage: String, locatorRef: String, maxRows: Int): List<List<String>> {
         val container = resolveUniqueNode(targetPackage, locatorRef)
@@ -2335,6 +2466,12 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         private const val LISTING_POPUP_TAP_BOTTOM_RATIO = 0.08f
         private const val LISTING_POPUP_SETTLE_MS = 900L
         private const val LISTING_POPUP_TAP_MS = 80L
+        // P34 auto-review anchors (xy-review/20260921, device-verified OnePlus 9R).
+        private const val REVIEW_ENTRY_PREFIX = "去评价，按钮"
+        private const val REVIEW_EDITOR_ANCHOR = "你觉得本次交易体验如何？"
+        private const val REVIEW_SUBMIT_DESC = "提交评价"
+        private const val REVIEW_TAP_MS = 80L
+        private const val REVIEW_SETTLE_MS = 900L
         private const val DUTY_NAV_ANCHOR_ATTEMPTS = 3
         /** Max list scrolls to bring a title-matched card fully into the viewport. */
         private const val CARD_SCROLL_ATTEMPTS = 5

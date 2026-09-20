@@ -3854,7 +3854,8 @@
                   "ui.tapCardByTitle": "#/components/schemas/TapCardByTitleStep",
                   "ui.tapLayout": "#/components/schemas/TapLayoutStep",
                   "ui.tapText": "#/components/schemas/TapTextStep",
-                  "ui.wait": "#/components/schemas/WaitStep"
+                  "ui.wait": "#/components/schemas/WaitStep",
+                  "xianyu.reviewOrders": "#/components/schemas/ReviewOrdersStep"
                 },
                 "propertyName": "action"
               },
@@ -3897,6 +3898,9 @@
                 },
                 {
                   "$ref": "#/components/schemas/CollectListingsStep"
+                },
+                {
+                  "$ref": "#/components/schemas/ReviewOrdersStep"
                 },
                 {
                   "$ref": "#/components/schemas/AssertStep"
@@ -6307,6 +6311,55 @@
           "expectedCurrentVersionId"
         ],
         "title": "RecipeRollbackRequest",
+        "type": "object"
+      },
+      "ReviewOrdersStep": {
+        "additionalProperties": false,
+        "description": "P34 auto-review of pending sold orders (XY-REVIEW-001, xy-review/20260921).\n\nOne action runs the whole loop on the companion: from the 待评价 tab of\n我卖出的, open each order's review editor, pick 好评, fill the fixed\n[comment], capture before/after evidence per order and submit — or stop\nbefore the submit tap when dryRun (default; the filled editor is\nscreenshotted for operator verification instead). The loop ends at\nmaxOrders, when no 去评价 entry remains, or at the step window edge.",
+        "properties": {
+          "action": {
+            "const": "xianyu.reviewOrders",
+            "title": "Action",
+            "type": "string"
+          },
+          "comment": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Comment",
+            "type": "string"
+          },
+          "dryRun": {
+            "default": true,
+            "title": "Dryrun",
+            "type": "boolean"
+          },
+          "maxOrders": {
+            "default": 10,
+            "maximum": 50.0,
+            "minimum": 1.0,
+            "title": "Maxorders",
+            "type": "integer"
+          },
+          "stepId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Stepid",
+            "type": "string"
+          },
+          "timeoutMs": {
+            "default": 300000,
+            "maximum": 900000.0,
+            "minimum": 1000.0,
+            "title": "Timeoutms",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "stepId",
+          "action",
+          "comment"
+        ],
+        "title": "ReviewOrdersStep",
         "type": "object"
       },
       "RevisionCreate": {

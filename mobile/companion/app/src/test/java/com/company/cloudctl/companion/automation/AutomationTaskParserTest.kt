@@ -3,6 +3,7 @@ package com.company.cloudctl.companion.automation
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 
 class AutomationTaskParserTest {
 
@@ -327,6 +328,48 @@ class AutomationTaskParserTest {
             AutomationTaskParser.parse(tapCardByTitleJson().replace("\"tab\":\"onsale\"", "\"tab\":\"onsale\",\"cardIndex\":0"))
         }
     }
+
+    @Test
+    fun parsesReviewOrdersContractAndRejectsDrift() {
+        val task = AutomationTaskParser.parse(reviewOrdersJson())
+        assertEquals(TargetLocatorRegistry.XIANYU_PACKAGE, task.targetPackage)
+        val loop = task.steps[3] as AutomationStep.ReviewOrders
+        assertEquals("review-all", loop.stepId)
+        assertEquals(10, loop.maxOrders)
+        assertEquals("宝贝很好，交易愉快！", loop.comment)
+        assertTrue(loop.dryRun)
+        assertEquals(300_000L, loop.timeoutMs)
+
+        // 键集漂移 / maxOrders 越界 / 空 comment / 缺 dryRun → 拒绝。
+        assertFailsWith<IllegalArgumentException> {
+            AutomationTaskParser.parse(reviewOrdersJson().replace("\"dryRun\":true", "\"dryRun\":true,\"x\":1"))
+        }
+        assertFailsWith<IllegalArgumentException> {
+            AutomationTaskParser.parse(reviewOrdersJson().replace("\"maxOrders\":10", "\"maxOrders\":51"))
+        }
+        assertFailsWith<IllegalArgumentException> {
+            AutomationTaskParser.parse(reviewOrdersJson().replace("宝贝很好，交易愉快！", ""))
+        }
+        assertFailsWith<IllegalArgumentException> {
+            AutomationTaskParser.parse(reviewOrdersJson().replace(",\"dryRun\":true", ""))
+        }
+        // 任务级 900s 窗口越界 → 拒绝。
+        assertFailsWith<IllegalArgumentException> {
+            AutomationTaskParser.parse(reviewOrdersJson().replace("\"timeoutMs\":300000", "\"timeoutMs\":900001"))
+        }
+    }
+
+    private fun reviewOrdersJson() = """
+      {"protocolVersion":"cloudctl.mobile/v1","taskId":"task-xianyu-review-001","deviceId":"device-1",
+      "targetPackage":"com.taobao.idlefish","issuedAt":"2026-09-21T08:00:00Z",
+      "expiresAt":"2026-09-21T08:15:00Z","maxRunSeconds":900,"commandType":"xianyu.review_orders.steps.v1","steps":[
+      {"stepId":"open-profile","action":"ui.tap","timeoutMs":30000,"locatorRef":"xianyu_profile_tab"},
+      {"stepId":"open-sold","action":"ui.tap","timeoutMs":30000,"locatorRef":"xianyu_order_list_sold"},
+      {"stepId":"open-pending","action":"ui.tap","timeoutMs":30000,"locatorRef":"xianyu_orders_tab_pending"},
+      {"stepId":"review-all","action":"xianyu.reviewOrders","timeoutMs":300000,"maxOrders":10,"comment":"宝贝很好，交易愉快！","dryRun":true},
+      {"stepId":"shot","action":"ui.screenshot","timeoutMs":15000,"label":"xianyu_review"},
+      {"stepId":"done","action":"run.log","timeoutMs":1000,"level":"INFO","messageCode":"XIANYU_REVIEW_DONE"}]}
+    """.trimIndent()
 
     private fun tapCardByTitleJson() = """
       {"protocolVersion":"cloudctl.mobile/v1","taskId":"task-xianyu-maint-v2-001","deviceId":"device-1",

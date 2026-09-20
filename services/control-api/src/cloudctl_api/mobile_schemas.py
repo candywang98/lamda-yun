@@ -275,6 +275,39 @@ class CollectListingsStep(StrictModel):
         return value
 
 
+class ReviewOrdersStep(StrictModel):
+    """P34 auto-review of pending sold orders (XY-REVIEW-001, xy-review/20260921).
+
+    One action runs the whole loop on the companion: from the 待评价 tab of
+    我卖出的, open each order's review editor, pick 好评, fill the fixed
+    [comment], capture before/after evidence per order and submit — or stop
+    before the submit tap when dryRun (default; the filled editor is
+    screenshotted for operator verification instead). The loop ends at
+    maxOrders, when no 去评价 entry remains, or at the step window edge.
+    """
+
+    step_id: str = Field(alias="stepId", min_length=1, max_length=128)
+    action: Literal["xianyu.reviewOrders"]
+    max_orders: int = Field(default=10, alias="maxOrders", ge=1, le=50)
+    comment: str = Field(min_length=1, max_length=200)
+    dry_run: bool = Field(default=True, alias="dryRun")
+    timeout_ms: int = Field(default=300_000, alias="timeoutMs", ge=1_000, le=900_000)
+
+    @field_validator("step_id")
+    @classmethod
+    def valid_step_id(cls, value: str) -> str:
+        if not STEP_ID_PATTERN.fullmatch(value):
+            raise ValueError("stepId is invalid")
+        return value
+
+    @field_validator("comment")
+    @classmethod
+    def bounded_comment(cls, value: str) -> str:
+        if "\x00" in value:
+            raise ValueError("comment cannot contain NUL")
+        return value
+
+
 class AssertStep(LocatorStep):
     action: Literal["ui.assert"]
     predicate: Literal["EXISTS", "NOT_EXISTS", "ENABLED"]
@@ -309,6 +342,7 @@ MobileStep = Annotated[
     | TapCardByTitleStep
     | AppRestartStep
     | CollectListingsStep
+    | ReviewOrdersStep
     | AssertStep
     | LogStep,
     Field(discriminator="action"),
