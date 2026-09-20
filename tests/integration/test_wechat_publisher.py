@@ -823,3 +823,45 @@ def test_wechat_publisher_migration_renders_offline_sql_for_both_dialects(
     dropped = downgrade_sql.getvalue()
     for table in ("wechat_publish", "wechat_draft", "wechat_account"):
         assert f"DROP TABLE {table}" in dropped
+
+
+async def test_rate_limited_submit_fails_once_with_official_errcode(api):
+    """F16 delta: an official rate-limit answer (45009) is a terminal FAILED
+    with the errcode preserved — never retried, never UNKNOWN (an HTTP-level
+    timeout stays UNKNOWN; an API-level refusal is evidence)."""
+    client, app, transport = api
+    account = await register_account(client)
+    draft = (await create_draft(client, transport, account["id"], "rl-draft-1")).json()
+    intent = await authorize(client, draft["id"], "rl-auth-1")
+    publish = intent.json()
+
+    transport.queue_submit_error(WeChatApiError(45009, "api daily quota exceeded"))
+    submitted = await client.post(
+        f"/api/v1/wechat/publishes/{publish['id']}:submit",
+        headers=identity(role="publisher", user=PUBLISHER),
+    )
+    assert submitted.status_code == 200, submitted.text
+    settled = submitted.json()
+    assert settled["status"] == "FAILED"
+    assert settled["state"] == "FAILED"
+    assert settled["errorCode"] == "WECHAT_45009"
+    assert "quota exceeded" in settled["detail"]
+    assert settled["submitAttempts"] == 1
+    assert transport.count("/cgi-bin/freepublish/submit") == 1
+
+    # The single attempt is spent: replay reports the same terminal view
+    # without another official call.
+    replay = await client.post(
+        f"/api/v1/wechat/publishes/{publish['id']}:submit",
+        headers=identity(role="publisher", user=PUBLISHER),
+    )
+    assert replay.status_code == 200
+    assert replay.json()["replayed"] is True
+    assert replay.json()["status"] == "FAILED"
+    assert transport.count("/cgi-bin/freepublish/submit") == 1
+
+    # FAILED is terminal: reconciliation refuses it.
+    poll = await client.post(
+        f"/api/v1/wechat/publishes/{publish['id']}:poll", headers=identity(role="viewer")
+    )
+    assert poll.status_code == 409
