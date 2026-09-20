@@ -248,11 +248,14 @@ class LiveService:
                 await self._broadcast_state(live)
             return {"ok": True, "sessionId": live.sid, "state": live.state}
 
-    async def note_frame(self, live: LiveSession, jpeg_b64: str) -> None:
+    async def note_frame(self, live: LiveSession, frame: dict[str, Any]) -> None:
+        # WIRE3: relay the full K13 frame descriptor (seq + geometry) — the
+        # operator aims inputs in frame space, so stripping metadata to the
+        # bare jpeg would make remote coordinates unexplainable.
         live.last_frame_monotonic = time.monotonic()
         socket = live.operator_socket
         if socket is not None:
-            await socket.send_json({"t": "frame", "jpeg": jpeg_b64})
+            await socket.send_json({"t": "frame", **frame})
 
     async def route_input(self, live: LiveSession, message: dict[str, Any]) -> None:
         error = live.check_input(
@@ -381,7 +384,7 @@ async def companion_stream(
         while True:
             message = await websocket.receive_json()
             if message.get("t") == "frame":
-                await live_service.note_frame(live, str(message.get("jpeg", "")))
+                await live_service.note_frame(live, message)
             elif message.get("t") == "state":
                 await live_service._broadcast_state(live)
     except WebSocketDisconnect:
