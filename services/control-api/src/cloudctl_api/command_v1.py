@@ -118,6 +118,14 @@ class XiaohongshuPublishNoteParams(StrictModel):
     tags: list[str] = Field(default_factory=list, max_length=20)
     media_asset_ids: list[str] = Field(default_factory=list, alias="mediaAssetIds", max_length=18)
 
+    @field_validator("media_asset_ids")
+    @classmethod
+    def image_only_v1_requires_media(cls, value: list[str]) -> list[str]:
+        # F14：图文 V1 至少一图（视频口径 VIDEO_PENDING_R00，见 companion 侧）。
+        if len(value) < 1:
+            raise ValueError("image-only V1 requires at least one mediaAssetId")
+        return value
+
 
 class EmptyParams(StrictModel):
     pass
