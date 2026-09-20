@@ -5,7 +5,6 @@ from __future__ import annotations
 import time
 
 from cloudctl_api.live import LiveSession
-
 from test_p14_recipe_versions import (  # noqa: F401 - pytest fixture injection
     api,
     isolated_postgres,
@@ -121,3 +120,63 @@ async def test_session_lifecycle_audits_and_single_writer(api):  # noqa: F811
         "live.session.release",
         "live.session.close.manual",
     }
+
+
+async def test_companion_discovery_and_projection_ack(api):  # noqa: F811
+    """WIRE3 (Q14): the device-side poll and MediaProjection ack endpoints."""
+    client, _app = api
+    device = await create_direct_device(client, "live-wire3")
+    auth = await _enroll(client, device, "instance-wire3")
+
+    # No session yet: discovery answers 404 (companion treats it as "no poll").
+    missing = await client.get("/companion/v2/live/session", headers=auth)
+    assert missing.status_code == 404
+
+    opened = await client.post(f"/api/v1/devices/{device}/live", headers=identity())
+    assert opened.status_code in (200, 201), opened.text
+    sid = opened.json()["sessionId"]
+
+    discovered = await client.get("/companion/v2/live/session", headers=auth)
+    assert discovered.status_code == 200, discovered.text
+    assert discovered.json()["sessionId"] == sid
+    assert discovered.json()["state"] == "VIEWING"
+
+    # Ack requires companion auth and must be device-scoped.
+    unauthenticated = await client.post(f"/companion/v2/live/{sid}/ack", json={"granted": True})
+    assert unauthenticated.status_code == 401
+
+    granted = await client.post(f"/companion/v2/live/{sid}/ack", headers=auth,
+                                json={"granted": True})
+    assert granted.status_code == 200, granted.text
+    assert granted.json()["state"] == "VIEWING"
+
+    stopped = await client.post(f"/api/v1/devices/{device}/live/{sid}:stop",
+                                headers=identity())
+    assert stopped.status_code == 200
+
+    # After close, discovery 404s again and a late ack hits SESSION_CLOSED.
+    gone = await client.get("/companion/v2/live/session", headers=auth)
+    assert gone.status_code == 404
+
+
+async def test_projection_denial_closes_session(api):  # noqa: F811
+    """WIRE3 (Q14): a denied MediaProjection confirmation is terminal."""
+    client, _app = api
+    device = await create_direct_device(client, "live-wire3-deny")
+    auth = await _enroll(client, device, "instance-wire3-deny")
+
+    opened = await client.post(f"/api/v1/devices/{device}/live", headers=identity())
+    sid = opened.json()["sessionId"]
+
+    denied = await client.post(f"/companion/v2/live/{sid}/ack", headers=auth,
+                               json={"granted": False})
+    assert denied.status_code == 200, denied.text
+    assert denied.json()["state"] == "CLOSED"
+
+    status = await client.get(f"/api/v1/devices/{device}/live/{sid}", headers=identity())
+    assert status.status_code == 200
+    assert status.json()["state"] == "CLOSED"
+
+    # The device may immediately open a new session after a denial.
+    reopened = await client.post(f"/api/v1/devices/{device}/live", headers=identity())
+    assert reopened.status_code in (200, 201), reopened.text

@@ -23,6 +23,7 @@ import com.company.cloudctl.companion.automation.AutomationTaskParser
 import com.company.cloudctl.companion.automation.BuiltinRecipes
 import com.company.cloudctl.companion.automation.ClaimedTaskInterpreter
 import com.company.cloudctl.companion.automation.CloudCtlAccessibilityService
+import com.company.cloudctl.companion.live.LiveSessionCoordinator
 import com.company.cloudctl.companion.automation.CommandV1
 import com.company.cloudctl.companion.automation.ExecutionControl
 import com.company.cloudctl.companion.automation.ExecutorFailure
@@ -303,6 +304,16 @@ class CompanionSyncService : Service() {
                         }
                     }
                     ResumeCommand.fromHeartbeat(heartbeat)?.let { pendingResume = it }
+                    // WIRE3 (Q14): live session discovery rides the heartbeat
+                    // cadence — one extra REST GET; a discovered session raises
+                    // the MediaProjection confirmation on the device.
+                    withContext(Dispatchers.IO) {
+                        runCatching {
+                            LiveSessionCoordinator.poll(this@CompanionSyncService, configured.first)
+                        }.onFailure {
+                            android.util.Log.w("CompanionSync", "live discovery poll failed: ${it.message}")
+                        }
+                    }
                     val grant = PreviewGrant.fromHeartbeat(heartbeat)
                     if (grant != null) {
                         uploadPreviewFrame(client, grant)

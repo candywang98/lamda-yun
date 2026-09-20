@@ -71,6 +71,9 @@ class LiveSessionController(
     private var socket: AtomicReference<WebSocket?> = AtomicReference(null)
     private var activeSid: String? = null
 
+    /** WIRE3: the coordinator compares this against REST discovery results. */
+    val sessionId: String? get() = activeSid
+
     fun onProjectionResult(granted: Boolean, resultCode: Int, data: Intent?) {
         val sid = activeSid ?: return
         Thread { ack(sid, granted, resultCode, data) }.start()

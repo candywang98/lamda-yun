@@ -2579,6 +2579,19 @@
         "title": "LeaseRequest",
         "type": "object"
       },
+      "LiveAckRequest": {
+        "properties": {
+          "granted": {
+            "title": "Granted",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "granted"
+        ],
+        "title": "LiveAckRequest",
+        "type": "object"
+      },
       "LogStep": {
         "additionalProperties": false,
         "properties": {
@@ -16816,6 +16829,85 @@
         "summary": "Push Messages",
         "tags": [
           "im-companion"
+        ]
+      }
+    },
+    "/companion/v2/live/session": {
+      "get": {
+        "description": "WIRE3 (Q14): the device-side poll that LiveSessionController.checkForSession\nexpects — returns the active session for this device or 404.",
+        "operationId": "companion_live_session_companion_v2_live_session_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Companion Live Session Companion V2 Live Session Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Companion Live Session",
+        "tags": [
+          "live-companion"
+        ]
+      }
+    },
+    "/companion/v2/live/{sid}/ack": {
+      "post": {
+        "description": "WIRE3 (Q14): MediaProjection user-confirmation result for one session.",
+        "operationId": "companion_live_ack_companion_v2_live__sid__ack_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "title": "Sid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LiveAckRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Companion Live Ack Companion V2 Live  Sid  Ack Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Companion Live Ack",
+        "tags": [
+          "live-companion"
         ]
       }
     },

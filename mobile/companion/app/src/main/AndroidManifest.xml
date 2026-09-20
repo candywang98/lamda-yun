@@ -40,6 +40,13 @@
             android:taskAffinity=""
             android:theme="@style/Theme.CloudCtl.ClipboardRelay" />
         <activity
+            android:name=".live.ProjectionConsentActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+        <activity
             android:name=".MainActivity"
             android:exported="true">
             <intent-filter>
