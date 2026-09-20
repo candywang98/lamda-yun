@@ -2748,9 +2748,9 @@
       "risk": "中",
       "device_acceptance": "无；仅软件验证",
       "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
-      "dev_state": "NOT_STARTED",
-      "acceptance_state": "NOT_RUN",
-      "evidence": "artifacts/delivery-20260916/D11/",
+      "dev_state": "SOFTWARE_DONE",
+      "acceptance_state": "SOFTWARE_ACCEPTED",
+      "evidence": "5050fbd。observability/metrics.py 每设备 queueAge/claimLatency p50-p95 + 冲突/UNKNOWN/输入失败/证据计数；tests/load/fleet 负载舱 7 测（2x20 基线全过 queueAge p95≈0.74s、100 模拟客户端 100/100 claim p95≈0.61s、head-of-line 隔离健康 10/10、UNKNOWN 留存单测+集成）；修复 events[-50:] 盲截断使 MARKED_UNKNOWN/RECONCILED_* 永存（platform_tasks._retain_control_events + mobile_service 同口径）；报告 artifacts/tasks/D11/load-report-*.json 含主机规格/DB/配置/p50-p95 并标注模拟≠真机；全量后端 1061/11 跳；8 连跑稳定。剩余差额显式登记：per-tenant/per-device 限流、公平调度、jitter、媒体背压（另立切片）；BLK-011 并发领租 device_lease UNIQUE+孤儿租约致 claim 永久 204 已登记 platform 线（本舱 20ms 节流避窗口）。",
       "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
       "read_only_paths": [
         "contracts/**",
