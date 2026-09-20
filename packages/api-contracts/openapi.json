@@ -2639,6 +2639,18 @@
       "ListingRowIn": {
         "additionalProperties": false,
         "properties": {
+          "exposure_count": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exposure Count"
+          },
           "item_key": {
             "maxLength": 128,
             "minLength": 1,
@@ -2692,6 +2704,30 @@
               }
             ],
             "title": "Title"
+          },
+          "views_count": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Views Count"
+          },
+          "wants_count": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wants Count"
           }
         },
         "required": [

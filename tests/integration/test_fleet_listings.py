@@ -113,6 +113,21 @@ async def test_push_dedupe_upsert_and_replay(api):
     assert changed.status_code == 201
     assert changed.json()["updated"] == 1
 
+    # Metric fields (曝光/浏览/想要) ride along and feed the content hash:
+    # a metric change appends a snapshot row even when price is unchanged.
+    metric = await _push(client, auth, _screen("run-2", 3, [
+        {"item_key": "闲置键盘|19900", "title": "闲置键盘", "price_cents": 19900,
+         "price_text": "199", "status_text": "已下架",
+         "exposure_count": 5, "views_count": 9, "wants_count": 1},
+    ]))
+    assert metric.status_code == 201
+    assert metric.json()["updated"] == 1
+    history = await client.get("/api/v1/fleet/listings/history", headers=identity())
+    keyboard = next(i for i in history.json()["items"] if i["itemKey"] == "闲置键盘|19900")
+    assert keyboard["exposureCount"] == 5
+    assert keyboard["viewsCount"] == 9
+    assert keyboard["wantsCount"] == 1
+
     # Offline replay of an already-stored screen never double-counts.
     replay = await _push(client, auth, _screen("run-1", 1, [
         _row("闲置键盘|19900"),
@@ -133,7 +148,7 @@ async def test_push_dedupe_upsert_and_replay(api):
         keyboard = rows["闲置键盘|19900"]
         assert keyboard.price_cents == 19900
         assert keyboard.status_text == "已下架"
-        assert keyboard.snapshot_count == 2
+        assert keyboard.snapshot_count == 3
         assert keyboard.dedupe_marker == "MISSING_ID"
         history = list(
             await session.scalars(
@@ -142,7 +157,7 @@ async def test_push_dedupe_upsert_and_replay(api):
                 )
             )
         )
-        assert len(history) == 2  # first sight + price change only
+        assert len(history) == 3  # first sight + status change + metric change
 
     history_resp = await client.get("/api/v1/fleet/listings/history", headers=identity())
     assert history_resp.status_code == 200, history_resp.text

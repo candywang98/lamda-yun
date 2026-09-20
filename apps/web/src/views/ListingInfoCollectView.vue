@@ -167,12 +167,15 @@ onMounted(async () => {
       <h2>采集结果（最新 {{ listingTotal }} 条）</h2>
       <table class="table">
         <thead>
-          <tr><th>宝贝</th><th>价格</th><th>状态</th><th>快照数</th><th>最近采集</th></tr>
+          <tr><th>宝贝</th><th>价格</th><th>曝光</th><th>浏览</th><th>想要</th><th>状态</th><th>快照数</th><th>最近采集</th></tr>
         </thead>
         <tbody>
           <tr v-for="item in listingResults" :key="item.itemKey">
             <td>{{ item.title ?? item.itemKey }}</td>
             <td>{{ item.priceText ?? (item.priceCents !== null ? (item.priceCents / 100).toFixed(2) : '—') }}</td>
+            <td>{{ item.exposureCount ?? '—' }}</td>
+            <td>{{ item.viewsCount ?? '—' }}</td>
+            <td>{{ item.wantsCount ?? '—' }}</td>
             <td>{{ item.statusText ?? '—' }}</td>
             <td>{{ item.snapshotCount }}</td>
             <td>{{ item.lastSeenAt?.replace('T', ' ').slice(0, 19) ?? '—' }}</td>

@@ -89,6 +89,9 @@ class FleetListingRow(Base, TimestampMixin):
     price_cents: Mapped[int | None] = mapped_column(Integer)
     price_text: Mapped[str | None] = mapped_column(String(32))
     status_text: Mapped[str | None] = mapped_column(String(STATUS_MAX))
+    exposure_count: Mapped[int | None] = mapped_column(Integer)
+    views_count: Mapped[int | None] = mapped_column(Integer)
+    wants_count: Mapped[int | None] = mapped_column(Integer)
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     snapshot_count: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
@@ -146,6 +149,9 @@ class ListingRowIn(BaseModel):
     price_cents: int | None = Field(default=None, ge=0)
     price_text: str | None = Field(default=None, max_length=32)
     status_text: str | None = Field(default=None, max_length=STATUS_MAX)
+    exposure_count: int | None = Field(default=None, ge=0)
+    views_count: int | None = Field(default=None, ge=0)
+    wants_count: int | None = Field(default=None, ge=0)
 
 
 class FleetListingScreenIn(BaseModel):
@@ -175,6 +181,9 @@ def _row_hash(row: ListingRowIn) -> str:
             "price_cents": row.price_cents,
             "price_text": row.price_text,
             "status_text": row.status_text,
+            "exposure_count": row.exposure_count,
+            "views_count": row.views_count,
+            "wants_count": row.wants_count,
         },
         sort_keys=True,
         ensure_ascii=False,
@@ -190,6 +199,9 @@ def _listing_view(row: FleetListingRow) -> dict[str, Any]:
         "priceCents": row.price_cents,
         "priceText": row.price_text,
         "statusText": row.status_text,
+        "exposureCount": row.exposure_count,
+        "viewsCount": row.views_count,
+        "wantsCount": row.wants_count,
         "snapshotCount": row.snapshot_count,
         "firstSeenAt": row.first_seen_at,
         "lastSeenAt": row.last_seen_at,
@@ -261,6 +273,9 @@ class FleetListingsService:
                             price_cents=row.price_cents,
                             price_text=row.price_text,
                             status_text=row.status_text,
+                            exposure_count=row.exposure_count,
+                            views_count=row.views_count,
+                            wants_count=row.wants_count,
                             content_hash=content_hash,
                             snapshot_count=1,
                             first_seen_at=now,
@@ -281,6 +296,9 @@ class FleetListingsService:
                                     "priceCents": row.price_cents,
                                     "priceText": row.price_text,
                                     "statusText": row.status_text,
+                                    "exposureCount": row.exposure_count,
+                                    "viewsCount": row.views_count,
+                                    "wantsCount": row.wants_count,
                                 },
                                 ensure_ascii=False,
                             ),
@@ -294,6 +312,9 @@ class FleetListingsService:
                     existing.price_cents = row.price_cents
                     existing.price_text = row.price_text
                     existing.status_text = row.status_text
+                    existing.exposure_count = row.exposure_count
+                    existing.views_count = row.views_count
+                    existing.wants_count = row.wants_count
                     existing.content_hash = content_hash
                     existing.snapshot_count += 1
                     existing.last_seen_at = now
@@ -310,6 +331,9 @@ class FleetListingsService:
                                     "priceCents": row.price_cents,
                                     "priceText": row.price_text,
                                     "statusText": row.status_text,
+                                    "exposureCount": row.exposure_count,
+                                    "viewsCount": row.views_count,
+                                    "wantsCount": row.wants_count,
                                 },
                                 ensure_ascii=False,
                             ),
