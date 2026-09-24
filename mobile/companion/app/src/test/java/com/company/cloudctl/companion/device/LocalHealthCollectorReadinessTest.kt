@@ -82,6 +82,19 @@ class LocalHealthCollectorReadinessTest {
     }
 
     @Test
+    fun `api33 active accessibility is input ready without the cloudctl keyboard`() {
+        // This test class runs on SDK 35. Input capability must not require the
+        // user to enable or select CloudCtl Input.
+        val snapshot = collector.collectReadiness(
+            transportOnline = true,
+            activeAccessibilityService = { Any() },
+        )
+        assertTrue(snapshot.accessibilityActive)
+        assertTrue(snapshot.imeReady)
+        assertFalse(snapshot.accessibilityEnabled)
+    }
+
+    @Test
     fun `transport online is carried through, not guessed`() {
         val offline = collector.collectReadiness(transportOnline = false, activeAccessibilityService = { null })
         assertFalse(offline.transportOnline)

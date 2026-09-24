@@ -1,12 +1,8 @@
 package com.company.cloudctl.companion.service
 
 import android.app.Application
-import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
-import android.content.pm.ServiceInfo
-import android.os.Build
 import androidx.test.core.app.ApplicationProvider
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -87,18 +83,22 @@ class CompanionServiceStarterTest {
     }
 
     @Test
-    fun `manifest keeps the sync service declared as specialUse`() {
-        val info = context.packageManager.getServiceInfo(
-            ComponentName(context, CompanionSyncService::class.java),
-            PackageManager.GET_META_DATA,
+    fun `release manifest keeps the sync service declared as specialUse`() {
+        // Debug removes CompanionSyncService so a side-by-side install cannot
+        // claim. Release inherits the production declaration from src/main.
+        val manifest = locateMainManifest().readText()
+        val service = manifest.substringAfter(".service.CompanionSyncService").substringBefore("</service>")
+        assertTrue(service.contains("android:foregroundServiceType=\"specialUse\""))
+        assertTrue(!service.contains("dataSync"))
+    }
+
+    private fun locateMainManifest(): java.io.File {
+        val candidates = listOf(
+            java.io.File("app/src/main/AndroidManifest.xml"),
+            java.io.File("src/main/AndroidManifest.xml"),
         )
-        assertTrue(
-            info.foregroundServiceType and ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE != 0,
-            "manifest must keep specialUse (current type=${info.foregroundServiceType})",
-        )
-        if (Build.VERSION.SDK_INT >= 34) {
-            assertTrue(info.foregroundServiceType and ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC == 0)
-        }
+        return candidates.firstOrNull { it.isFile }
+            ?: error("main manifest not found from ${java.io.File(".").absolutePath}")
     }
 
     private fun writeBinding() {

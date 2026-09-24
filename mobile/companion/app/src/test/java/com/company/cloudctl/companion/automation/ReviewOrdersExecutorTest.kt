@@ -24,16 +24,34 @@ class ReviewOrdersExecutorTest {
             task(AutomationStep.ReviewOrders("review", 60_000, 5, "宝贝很好，卖家很赞！", true)),
         ) { step, state -> journal += "${step.stepId}:$state" }
 
-        // dry-run：进第一单、好评、填文案、截图，然后停 —— 零提交。
+        // dry-run：进第一单、填文案、截图、语义定位「提交评价」，然后停 —— 零提交。
         assertEquals(1, ui.entryTaps)
-        assertEquals(1, ui.ratingTaps)
+        assertEquals(0, ui.ratingTaps) // 评级依赖闲鱼默认好评，不再显式点击
         assertEquals(1, ui.commentFills.size)
+        assertEquals(1, ui.submitLocates)
         assertEquals(0, ui.submitTaps)
         assertTrue(ui.filledComments.all { it == "宝贝很好，卖家很赞！" })
         assertTrue(ui.screenshotLabels.contains("review-order-1-filled"))
+        assertTrue(ui.logs.any { it.second.startsWith("REVIEW_SUBMIT_LOCATED desc=提交评价") })
         assertTrue(ui.logs.contains(LogLevel.INFO to "REVIEW_DRY_RUN_STOP order=1"))
         assertTrue(ui.logs.contains(LogLevel.INFO to "REVIEW_DONE processed=0 dryRun=true"))
         assertEquals(listOf("review:STARTED", "review:SUCCEEDED"), journal)
+    }
+
+    @Test
+    fun dryRunFailsClosedWhenSubmitButtonIsMissing() = runBlocking {
+        val ui = ReviewFakeUi().apply {
+            pendingOrders = 1
+            submitPresent = false
+        }
+        val failure = assertFailsWith<ExecutorFailure> {
+            executor(ui).execute(
+                task(AutomationStep.ReviewOrders("review", 60_000, 5, "好评", true)),
+            ) { _, _ -> }
+        }
+        assertEquals("REVIEW_SUBMIT_NOT_FOUND", failure.code)
+        assertEquals(1, ui.submitLocates)
+        assertEquals(0, ui.submitTaps)
     }
 
     @Test
@@ -44,7 +62,8 @@ class ReviewOrdersExecutorTest {
             task(AutomationStep.ReviewOrders("review", 60_000, 5, "好评", false)),
         ) { _, _ -> }
 
-        assertEquals(3, ui.entryTaps) // 2 单 + 1 次空检查
+        assertEquals(13, ui.entryTaps) // 2 单 + 1 次初探 + 10 次空列表重试
+        assertEquals(2, ui.submitLocates)
         assertEquals(2, ui.submitTaps)
         assertTrue(ui.screenshotLabels.contains("review-order-1-filled"))
         assertTrue(ui.screenshotLabels.contains("review-order-1-submitted"))
@@ -60,11 +79,27 @@ class ReviewOrdersExecutorTest {
             task(AutomationStep.ReviewOrders("review", 60_000, 5, "好评", false)),
         ) { _, _ -> }
 
-        assertEquals(1, ui.entryTaps)
+        // 初次探测 + 10 次有界重试（列表渲染窗口）后才判空。
+        assertEquals(11, ui.entryTaps)
         assertEquals(0, ui.ratingTaps)
         assertEquals(0, ui.submitTaps)
         assertTrue(ui.logs.contains(LogLevel.INFO to "REVIEW_NO_PENDING_STOP"))
         assertTrue(ui.logs.contains(LogLevel.INFO to "REVIEW_DONE processed=0 dryRun=false"))
+    }
+
+    @Test
+    fun retriesEntryProbeWhenListStillRendering() = runBlocking {
+        val ui = ReviewFakeUi().apply {
+            pendingOrders = 1
+            entryMisses = 2 // 前两次探测时 Flutter 列表尚未渲染
+        }
+
+        executor(ui).execute(
+            task(AutomationStep.ReviewOrders("review", 60_000, 5, "好评", false)),
+        ) { _, _ -> }
+
+        assertEquals(1, ui.submitTaps)
+        assertTrue(ui.logs.contains(LogLevel.INFO to "REVIEW_DONE processed=1 dryRun=false"))
     }
 
     @Test
@@ -150,18 +185,20 @@ class ReviewOrdersExecutorTest {
 
     private class ReviewFakeUi : LocalAutomationUi {
         var pendingOrders = 0
+        var entryMisses = 0
         var editorOpens = true
         var submitLeavesEditor = false
+        var submitPresent = true
         var allowedPackage = TargetLocatorRegistry.XIANYU_PACKAGE
 
         var entryTaps = 0
         var ratingTaps = 0
+        var submitLocates = 0
         var submitTaps = 0
         val commentFills = mutableListOf<String>()
         val filledComments = mutableListOf<String>()
         val screenshotLabels = mutableListOf<String>()
         val logs = mutableListOf<Pair<LogLevel, String>>()
-        private var submitted = 0
         private var editorVisible = false
 
         override fun ensureReady(targetPackage: String) {
@@ -184,6 +221,11 @@ class ReviewOrdersExecutorTest {
         }
 
         override suspend fun openPendingReviewEntry(targetPackage: String): Boolean {
+            if (entryMisses > 0) {
+                entryMisses -= 1
+                entryTaps += 1
+                return false
+            }
             if (pendingOrders > 0) {
                 pendingOrders -= 1
                 entryTaps += 1
@@ -205,9 +247,21 @@ class ReviewOrdersExecutorTest {
             filledComments += value
         }
 
+        override fun locateReviewSubmit(targetPackage: String): ReviewSubmitAnchor {
+            submitLocates += 1
+            if (!submitPresent) {
+                throw ExecutorFailure("REVIEW_SUBMIT_NOT_FOUND", "The 提交评价 button was not found")
+            }
+            return ReviewSubmitAnchor(
+                description = "提交评价",
+                enabled = true,
+                clickable = false,
+                visible = true,
+            )
+        }
+
         override suspend fun tapReviewSubmit(targetPackage: String) {
             submitTaps += 1
-            submitted += 1
             if (!submitLeavesEditor) editorVisible = false
         }
     }

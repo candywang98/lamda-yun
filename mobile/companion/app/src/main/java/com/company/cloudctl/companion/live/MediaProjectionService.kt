@@ -163,11 +163,9 @@ class MediaProjectionService : Service() {
             .setContentIntent(content)
             .setOngoing(true)
             .build()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
-        } else {
-            startForeground(NOTIFICATION_ID, notification)
-        }
+        // Release declares this service with a mediaProjection type. Debug
+        // removes the service, so the call lives in the release source set.
+        ProjectionForeground.start(this, NOTIFICATION_ID, notification)
     }
 
     private fun startCapture(sessionId: String, resultCode: Int, data: android.content.Intent) {
@@ -342,7 +340,7 @@ class MediaProjectionService : Service() {
     companion object {
         private const val TAG = "CloudCtlLive"
         private const val CHANNEL_ID = "cloudctl_live"
-        private const val NOTIFICATION_ID = 4201
+        const val NOTIFICATION_ID = 4201
 
         // Process-wide glue to the owning LiveSessionController (one live
         // session per process). The controller attaches these before starting

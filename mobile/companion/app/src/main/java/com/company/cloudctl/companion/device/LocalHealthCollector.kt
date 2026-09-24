@@ -7,10 +7,12 @@ import android.content.IntentFilter
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.BatteryManager
+import android.os.Build
 import android.os.Environment
 import android.os.StatFs
 import android.provider.Settings
 import com.company.cloudctl.companion.ime.CloudCtlInputMethod
+import com.company.cloudctl.companion.ime.InputRoutePolicy
 import com.company.cloudctl.companion.model.DeviceHealth
 import java.time.Instant
 
@@ -75,7 +77,7 @@ class LocalHealthCollector(private val context: Context) {
         transportOnline = transportOnline,
         accessibilityEnabled = accessibilityEnabledBySettings(),
         accessibilityActive = activeAccessibilityService() != null,
-        imeReady = runCatching { CloudCtlInputMethod.isEnabled(context) }.getOrDefault(false),
+        imeReady = inputCapabilityReady(activeAccessibilityService() != null),
         screenUnlocked = context.getSystemService(KeyguardManager::class.java)?.isKeyguardLocked != true,
         engineVersion = engineVersion,
         observedAtEpochMillis = System.currentTimeMillis(),
@@ -91,6 +93,17 @@ class LocalHealthCollector(private val context: Context) {
             "${context.packageName}/$relative",
         )
         return enabled.split(':').any { item -> wanted.any { it.equals(item, ignoreCase = true) } }
+    }
+
+    /**
+     * API 33+ can type through the accessibility editor, so an active service is
+     * enough. API 30–32 need CloudCtl enabled (the switch is temporary). API 29
+     * still needs it selected. Editor binding stays a runtime check.
+     */
+    private fun inputCapabilityReady(accessibilityActive: Boolean): Boolean {
+        val enabled = runCatching { CloudCtlInputMethod.isEnabled(context) }.getOrDefault(false)
+        val selected = runCatching { CloudCtlInputMethod.isSelected(context) }.getOrDefault(false)
+        return InputRoutePolicy.ready(Build.VERSION.SDK_INT, accessibilityActive, enabled, selected)
     }
 }
 

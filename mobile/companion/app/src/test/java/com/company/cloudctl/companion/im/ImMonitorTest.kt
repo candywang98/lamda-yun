@@ -1,37 +1,30 @@
 package com.company.cloudctl.companion.im
 
 import java.time.Instant
+import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class ImMonitorTest {
+    @AfterTest
+    fun clearMemoryHint() {
+        ImMonitor.resetForTest()
+    }
     private fun event(peer: String = "buyer", text: String = "在吗", at: Instant = Instant.ofEpochSecond(1_800_000_000)) =
         ImEvent(platform = "xianyu", peerName = peer, text = text, occurredAt = at)
 
     @Test
     fun dedupesIdenticalEventsAndKeepsDistinctOnes() {
-        assertTrue(ImMonitor.accept("device-1", event()))
-        assertFalse(ImMonitor.accept("device-1", event()))
-        assertTrue(ImMonitor.accept("device-1", event(text = "第二条")))
-        // I10 retransmission contract: the SAME text re-observed one second
-        // later (new second bucket) is a push re-post / duty re-read, not a
-        // fresh message — it must not be queued or processed twice.
-        assertFalse(ImMonitor.accept("device-1", event(at = Instant.ofEpochSecond(1_800_000_001))))
-        assertEquals(2, ImMonitor.pendingCount())
-        assertEquals(2, ImMonitor.drain(20).size)
-        assertEquals(0, ImMonitor.pendingCount())
-    }
-
-    @Test
-    fun requeueRestoresFailedBatchesForRetry() {
-        ImMonitor.accept("device-1", event(text = "a"))
-        val batch = ImMonitor.drain(20)
-        ImMonitor.requeue(batch)
-        assertEquals(1, ImMonitor.pendingCount())
-        val retry = ImMonitor.drain(20)
-        assertEquals(listOf("a"), retry.map { it.text })
+        assertFalse(ImMonitor.alreadyRecorded("device-1", event()))
+        ImMonitor.noteAccepted("device-1", event())
+        assertTrue(ImMonitor.alreadyRecorded("device-1", event()))
+        assertFalse(ImMonitor.alreadyRecorded("device-1", event(text = "第二条")))
+        ImMonitor.noteAccepted("device-1", event(text = "第二条"))
+        // I10 retransmission contract: the SAME canonical text re-observed one
+        // second later is a push re-post, not a fresh memory hint.
+        assertTrue(ImMonitor.alreadyRecorded("device-1", event(at = Instant.ofEpochSecond(1_800_000_001))))
     }
 
     @Test
@@ -86,29 +79,28 @@ class ImMonitorTest {
         val base = Instant.ofEpochSecond(1_800_000_000)
         // Same peer+text re-observed seconds apart (push re-post / duty re-read
         // with a fabricated now()): dropped, never processed twice.
-        assertTrue(ImMonitor.accept("device-1", event(peer = "re-peer", text = "九成新吗", at = base)))
-        assertFalse(
-            ImMonitor.accept("device-1", event(peer = "re-peer", text = "九成新吗", at = base.plusSeconds(3))),
+        assertFalse(ImMonitor.alreadyRecorded("device-1", event(peer = "re-peer", text = "九成新吗", at = base)))
+        ImMonitor.noteAccepted("device-1", event(peer = "re-peer", text = "九成新吗", at = base))
+        assertTrue(
+            ImMonitor.alreadyRecorded("device-1", event(peer = "re-peer", text = "九成新吗", at = base.plusSeconds(3))),
         )
-        assertFalse(
-            ImMonitor.accept("device-1", event(peer = "re-peer", text = "九成新吗", at = base.plusSeconds(90))),
+        assertTrue(
+            ImMonitor.alreadyRecorded("device-1", event(peer = "re-peer", text = "九成新吗", at = base.plusSeconds(90))),
         )
-        assertEquals(1, ImMonitor.pendingCount())
-        ImMonitor.drain(20)
     }
 
     @Test
     fun retransmissionWindowIsBoundedAndIdentityScoped() {
         val base = Instant.ofEpochSecond(1_800_000_000)
-        val beyond = base.plusMillis(ImMonitor.RETRANSMIT_WINDOW_MS + 1_000)
+        // The window is strict `< RETRANSMIT_WINDOW_MS`, so the boundary itself is fresh.
+        val beyond = base.plusMillis(ImMonitor.RETRANSMIT_WINDOW_MS)
         // Outside the window the same text is a genuinely fresh message.
-        assertTrue(ImMonitor.accept("device-1", event(peer = "win-peer", text = "有发票吗", at = base)))
-        assertTrue(ImMonitor.accept("device-1", event(peer = "win-peer", text = "有发票吗", at = beyond)))
+        assertFalse(ImMonitor.alreadyRecorded("device-1", event(peer = "win-peer", text = "有发票吗", at = base)))
+        ImMonitor.noteAccepted("device-1", event(peer = "win-peer", text = "有发票吗", at = base))
+        assertFalse(ImMonitor.alreadyRecorded("device-1", event(peer = "win-peer", text = "有发票吗", at = beyond)))
         // Different peer, same text: distinct source identity, both fresh.
-        assertTrue(ImMonitor.accept("device-1", event(peer = "other-peer", text = "有发票吗", at = base.plusSeconds(5))))
-        // Out-of-order occurrences never count as retransmissions.
-        assertTrue(ImMonitor.accept("device-1", event(peer = "win-peer", text = "有发票吗", at = base.plusSeconds(10))))
-        assertEquals(4, ImMonitor.pendingCount())
-        ImMonitor.drain(20)
+        assertFalse(ImMonitor.alreadyRecorded("device-1", event(peer = "other-peer", text = "有发票吗", at = base.plusSeconds(5))))
+        // An earlier occurrence is not a retransmission of the later one.
+        assertFalse(ImMonitor.alreadyRecorded("device-1", event(peer = "win-peer", text = "有发票吗", at = base.minusSeconds(10))))
     }
 }

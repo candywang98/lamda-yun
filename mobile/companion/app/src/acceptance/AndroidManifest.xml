@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Controlled C6 install. Inherits the main manifest, including
+  CompanionSyncService and INTERNET. Adds only a shell-controlled pause switch.
+  Release and the isolated debug package do not merge this file.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <receiver
+            android:name="com.company.cloudctl.companion.im.ImUploadHoldReceiver"
+            android:exported="true"
+            android:permission="android.permission.DUMP">
+            <intent-filter>
+                <action android:name="com.company.cloudctl.companion.action.IM_OUTBOX_HOLD" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

@@ -4,6 +4,7 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import androidx.core.content.ContextCompat
 
 /** Result of one guarded foreground-start attempt (B11 任务 2 启动异常). */
@@ -33,9 +34,12 @@ object CompanionServiceStarter {
         return try {
             launcher(applicationContext, intent)
             ServiceStartAttempt.Started
-        } catch (error: android.app.ForegroundServiceStartNotAllowedException) {
-            ServiceStartAttempt.Refused("START_NOT_ALLOWED", error)
         } catch (error: IllegalStateException) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                error is android.app.ForegroundServiceStartNotAllowedException
+            ) {
+                return ServiceStartAttempt.Refused("START_NOT_ALLOWED", error)
+            }
             ServiceStartAttempt.Refused("FOREGROUND_START_ILLEGAL_STATE", error)
         } catch (error: SecurityException) {
             ServiceStartAttempt.Refused("FOREGROUND_START_SECURITY", error)

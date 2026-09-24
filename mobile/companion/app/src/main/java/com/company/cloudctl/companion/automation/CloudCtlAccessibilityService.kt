@@ -5,8 +5,6 @@ import android.accessibilityservice.AccessibilityServiceInfo
 import android.accessibilityservice.GestureDescription
 import android.annotation.SuppressLint
 import android.content.ActivityNotFoundException
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -24,8 +22,20 @@ import android.view.Display
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import com.company.cloudctl.companion.BuildConfig
-import com.company.cloudctl.companion.ClipboardRelayActivity
+import com.company.cloudctl.companion.ime.AccessibilityEditor
+import com.company.cloudctl.companion.ime.Api30ChatInputCommit
+import com.company.cloudctl.companion.ime.ChatInputLifecycle
+import com.company.cloudctl.companion.ime.ChatSendProof
+import com.company.cloudctl.companion.ime.CloudCtlImeTransport
 import com.company.cloudctl.companion.ime.CloudCtlInputMethod
+import com.company.cloudctl.companion.ime.FieldAnchor
+import com.company.cloudctl.companion.ime.FieldInputTransaction
+import com.company.cloudctl.companion.ime.InputChannel
+import com.company.cloudctl.companion.ime.InputProof
+import com.company.cloudctl.companion.ime.InputRoutePolicy
+import com.company.cloudctl.companion.ime.ImeSessionIdentity
+import com.company.cloudctl.companion.ime.TemporaryImeSwitch
+import com.company.cloudctl.companion.ime.VerifiedEditorInput
 import com.company.cloudctl.companion.network.PreviewFrame
 import com.company.cloudctl.companion.runtime.ArbiterDecision
 import com.company.cloudctl.companion.runtime.ArbiterGuardedUiExecutionPort
@@ -130,12 +140,38 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         return true
     }
 
+    private var accessibilityEditor: AccessibilityEditor? = null
+    private var imeSwitchEngaged = false
+    /** Chat proof, the pending task bind, and remembered field text. Cleared on unbind. */
+    private val chatInput = com.company.cloudctl.companion.ime.ChatInputLifecycle()
+
+    private fun inputMethodEditorFlag(): Int =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) FLAG_INPUT_METHOD_EDITOR else 0
+
+    private fun editorBound(targetPackage: String): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return false
+        return accessibilityEditor?.boundTo(targetPackage) == true
+    }
+
+    private fun editorTransport(targetPackage: String): com.company.cloudctl.companion.ime.EditorTransport? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return null
+        val editor = accessibilityEditor ?: return null
+        if (!editor.boundTo(targetPackage)) return null
+        return editor.transport(targetPackage)
+    }
+
+    override fun onCreateInputMethod(): android.accessibilityservice.InputMethod {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return super.onCreateInputMethod()
+        return AccessibilityEditor(this).also { accessibilityEditor = it }
+    }
+
     override fun onServiceConnected() {
         serviceInfo = serviceInfo.apply {
             flags = flags or
                 AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS or
                 AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS or
-                AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
+                AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS or
+                inputMethodEditorFlag()
             eventTypes = eventTypes or AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED
             eventTypes = eventTypes or AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
         }
@@ -186,27 +222,41 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         if (!com.company.cloudctl.companion.im.ImMonitorConfig.isChannelAllowed(
                 platform, notification.channelId)
         ) return
+        // pa-im-m3/20260922.1: production inbound is this notification only.
+        // A missing binding still persists the row; it is sealed to the binding
+        // device id at upload and is never keyed by an ADB serial.
         val deviceId = runCatching {
             val raw = getSharedPreferences("cloudctl_binding", android.content.Context.MODE_PRIVATE)
-                .getString("binding", null) ?: return
-            org.json.JSONObject(raw).getString("deviceId")
-        }.getOrNull() ?: return
-        val accepted = com.company.cloudctl.companion.im.ImMonitor.accept(
+                .getString("binding", null) ?: return@runCatching null
+            org.json.JSONObject(raw).optString("deviceId").takeIf { it.isNotBlank() }
+        }.getOrNull()
+        val observed = com.company.cloudctl.companion.im.ImNotificationIntake.observe(
+            platform = platform,
+            title = title,
+            body = text,
+            whenMillis = notification.`when`,
+            arrivedAtMillis = System.currentTimeMillis(),
+        ) ?: return
+        if (observed.occurredAtSynthesized) {
+            Log.i(TAG, "OCCURRED_AT_SYNTHESIZED pkg=$pkg title=${title.take(24)}")
+        }
+        val store = com.company.cloudctl.companion.im.ImMonitor.outbox
+            ?: com.company.cloudctl.companion.data.ImOutboxStore(this).also {
+                com.company.cloudctl.companion.im.ImMonitor.outbox = it
+            }
+        val outcome = com.company.cloudctl.companion.im.ImNotificationIntake.accept(
+            store,
             deviceId,
-            com.company.cloudctl.companion.im.ImEvent(
-                platform = platform,
-                peerName = title.take(128),
-                text = text.take(4000),
-                occurredAt = java.time.Instant.ofEpochMilli(
-                    notification.`when`.takeIf { it > 0 } ?: System.currentTimeMillis()
-                ),
-            ),
+            observed,
         )
-        if (accepted) Log.i(TAG, "IM event queued from $title")
+        if (outcome.result == com.company.cloudctl.companion.im.ImEnqueueResult.ENQUEUED) {
+            Log.i(TAG, "IM event queued from $title")
+        }
     }
     override fun onInterrupt() = Unit
 
     override fun onUnbind(intent: Intent?): Boolean {
+        clearChatSendProof()
         if (active === this) active = null
         Log.i(
             TAG,
@@ -217,6 +267,7 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
     }
 
     override fun onDestroy() {
+        clearChatSendProof()
         if (active === this) active = null
         Log.i(
             TAG,
@@ -345,7 +396,7 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
                 TargetLocatorRegistry.XIANYU_PACKAGE,
                 TargetLocatorRegistry.XHS_PACKAGE,
                 TargetLocatorRegistry.DOUYIN_PACKAGE,
-            )
+            ) && !diagnosticInputAdmitted(targetPackage)
         ) {
             throw ExecutorFailure("TARGET_PACKAGE_REJECTED", "Target package is not allowlisted")
         }
@@ -568,6 +619,110 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         }.getOrNull()
     }
 
+    override fun beginChatInput(taskId: String, peerName: String?, ttlMs: Long, nowElapsedMs: Long) {
+        chatInput.begin(taskId, peerName, ttlMs, nowElapsedMs)
+    }
+
+    override fun clearChatSendProof() {
+        chatInput.clear()
+    }
+
+    override fun committedFieldText(locatorRef: String): String? = chatInput.committed(locatorRef)
+
+    override fun currentChatSendProof(): InputProof? = chatInput.peek()
+
+    private val fieldProofs = com.company.cloudctl.companion.ime.FieldProofSlot<InputProof>()
+
+    override fun lastInputProof(): InputProof? = fieldProofs.current()
+
+    /** Drops a proof from an earlier write. The next write clears again before it runs. */
+    internal suspend fun discardFieldProof() {
+        fieldProofs.replace { null }
+    }
+
+    override fun consumeChatSendProof() {
+        chatInput.consume()
+    }
+
+    /**
+     * Re-read the editor the chat proof was issued against. The locator node,
+     * field identity and full text must still match. Page text is not read.
+     *
+     * API 30–32 cannot read the field while the user's keyboard is selected, so
+     * this re-check temporarily rebinds CloudCtl for a read-only pass and then
+     * restores the original IME. A new editor generation is allowed only when
+     * the public EditorInfo fingerprint is unchanged and the full text is stable
+     * twice inside that new generation. The rebind never commits.
+     */
+    override suspend fun verifyChatSendProof(
+        targetPackage: String,
+        locatorRef: String,
+        proof: InputProof,
+        evidence: com.company.cloudctl.companion.im.ImReplyBoundary.ChatEvidence?,
+    ): Boolean {
+        if (proof.targetPackage != targetPackage || proof.locatorRef != locatorRef) return false
+        if (locatorRef != ChatSendProof.CHAT_INPUT) return false
+        if (evidence?.chatInputVisible != true) return false
+        if (proof.peerName.isNullOrBlank() || evidence.openPeerName != proof.peerName) return false
+        val deadline = proof.expiresAtElapsedMs ?: return false
+        val now = SystemClock.elapsedRealtime()
+        if (now < 0L || deadline < now) return false
+        val anchor = fieldAnchor(targetPackage, locatorRef) ?: return false
+        if (anchor.nodeKey != proof.nodeKey) return false
+        val channel = InputRoutePolicy.channel(Build.VERSION.SDK_INT)
+        return when (channel) {
+            InputChannel.ACCESSIBILITY -> {
+                val transport = editorTransport(targetPackage) ?: return false
+                runCatching {
+                    VerifiedEditorInput(transport, target = { anchor.targetPackage }, pause = {}).verify(proof)
+                    true
+                }.getOrDefault(false)
+            }
+            InputChannel.MANUAL_IME -> {
+                val transport = CloudCtlImeTransport(targetPackage)
+                runCatching {
+                    VerifiedEditorInput(transport, target = { anchor.targetPackage }, pause = {}).verify(proof)
+                    true
+                }.getOrDefault(false)
+            }
+            InputChannel.TEMPORARY_IME -> verifyTemporaryImeProof(targetPackage, proof)
+        }
+    }
+
+    /**
+     * Read-only rebind for API 30–32. [TemporaryImeSwitch.around] restores the
+     * original IME on every exit, including a failed read. Nothing in the block
+     * calls commit.
+     */
+    private suspend fun verifyTemporaryImeProof(targetPackage: String, proof: InputProof): Boolean {
+        if (!CloudCtlInputMethod.isEnabled(this)) return false
+        return runCatching {
+            platformImeSwitch().around {
+                readStableFullText(targetPackage, proof)
+            }
+        }.getOrDefault(false).also { imeSwitchEngaged = false }
+    }
+
+    private suspend fun readStableFullText(targetPackage: String, proof: InputProof): Boolean {
+        val pinned = proof.field
+        suspend fun sample(): Pair<Long, String>? {
+            val identity = CloudCtlInputMethod.currentEditorIdentity() ?: return null
+            if (identity.fingerprint != pinned) return null
+            if (identity.packageName != targetPackage) return null
+            val session = CloudCtlInputMethod.chatSession(targetPackage) ?: return null
+            val text = CloudCtlInputMethod.readChatText(targetPackage, session) ?: return null
+            if (text != proof.expected) return null
+            return session to text
+        }
+        val first = sample() ?: return false
+        delay(150)
+        val second = sample() ?: return false
+        // Same generation, same full text, twice. A generation change between the
+        // two samples is not stable yet. The generation itself may differ from
+        // the one stored on the proof: the temporary rebind rebuilds the editor.
+        return first == second
+    }
+
     /**
      * Resolves the OPEN chat page's conversation identity from its header
      * band: the visible short lines OUTSIDE the scrollable message list and
@@ -640,7 +795,7 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
                 TargetLocatorRegistry.XIANYU_PACKAGE,
                 TargetLocatorRegistry.XHS_PACKAGE,
                 TargetLocatorRegistry.DOUYIN_PACKAGE,
-            )
+            ) && !diagnosticInputAdmitted(targetPackage)
         ) {
             throw ExecutorFailure("TARGET_PACKAGE_REJECTED", "Target package is not allowlisted")
         }
@@ -666,10 +821,18 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
                 visible = node.isVisibleToUser,
                 clickable = true,
                 editable = canAcceptText(node),
-                text = collectDisplayedText(node),
+                // A diagnostic EditText's own text is the field. collectDisplayedText
+                // also walks children and contentDescription, which on a plain
+                // EditText includes the hint. That is not the field text.
+                text = if (diagnosticInputAdmitted(targetPackage)) {
+                    node.text?.toString().orEmpty()
+                } else {
+                    collectDisplayedText(node)
+                },
                 // The node's own content description carries the published-goods
                 // tab badge signal (「1\n在卖」) asserted by ui.assertBadge.
                 description = node.contentDescription?.toString(),
+                nodeKey = stableFieldKey(node),
             )
         }
 
@@ -704,7 +867,11 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         // the frozen 1080x2400 guard failed on a 2340-high metric). Real bounds
         // are what the frozen coordinates were captured against.
         val manager = getSystemService(android.view.WindowManager::class.java) ?: return null
-        val bounds = manager.maximumWindowMetrics.bounds
+        val bounds = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            manager.maximumWindowMetrics.bounds
+        } else {
+            android.graphics.Rect().also { manager.defaultDisplay.getRectSize(it) }
+        }
         bounds.width() to bounds.height()
     }.getOrNull()
 
@@ -837,14 +1004,37 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
             .flatMap { PublishedCardLocator.visibleLines(snapshotCardTree(it)) }
 
     override suspend fun replaceText(targetPackage: String, locatorRef: String, value: String) {
-        demandWrite(UiWriter.TASK, UiWriteKind.TEXT_INPUT, detail = "replaceText $locatorRef")
-        rawReplaceText(targetPackage, locatorRef, value)
+        replaceTextReturningProof(targetPackage, locatorRef, value)
     }
 
-    private suspend fun rawReplaceText(targetPackage: String, locatorRef: String, value: String) {
-        if (locatorRef == "xianyu_chat_input") {
-            commitChatInput(targetPackage, locatorRef, value)
-            return
+    /**
+     * The production write, plus the proof it just minted. Chat still holds its
+     * send proof as before. Description and the diagnostic field do not become
+     * send proofs; they only return the proof so a caller can project it.
+     * Demand still happens here, so a task session is required.
+     */
+    override suspend fun replaceTextReturningProof(
+        targetPackage: String,
+        locatorRef: String,
+        value: String,
+    ): InputProof? {
+        // Cleared before demand or the write. A throw from either leaves the
+        // slot empty, so a later read cannot return the previous proof.
+        return fieldProofs.replace {
+            demandWrite(UiWriter.TASK, UiWriteKind.TEXT_INPUT, detail = "replaceText $locatorRef")
+            rawReplaceText(targetPackage, locatorRef, value)
+        }
+    }
+
+    private suspend fun rawReplaceText(
+        targetPackage: String,
+        locatorRef: String,
+        value: String,
+    ): InputProof? {
+        if (locatorRef == "xianyu_chat_input" && Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            val proof = bindChatProof(commitChatInput(targetPackage, locatorRef, value))
+            chatInput.hold(proof)
+            return proof
         }
         val node = resolveUniqueNode(targetPackage, locatorRef)
             ?: throw ExecutorFailure("LOCATOR_NOT_FOUND", "Approved locator was not found")
@@ -856,24 +1046,161 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         ) {
             // Native EditText composers (xiaohongshu, douyin) accept SET_TEXT directly.
             commitNativeText(node, value)
-            return
+            return null
         }
-        if (FlutterTextCommit.isNumericPrice(value)) {
+        // Only the price locator uses the nine-key pad. A numeric description
+        // ("199") must stay on the text channel.
+        if (InputRoutePolicy.isPrice(locatorRef)) {
             openPriceKeypad(targetPackage, node)
             awaitNumericKeypad()
             enterKeypad(value)
             repeat(20) {
-                if (priceAccepted(value)) return
+                if (priceAccepted(value)) return null
                 delay(150)
             }
             throw ExecutorFailure("INPUT_REJECTED", "Numeric keypad did not confirm the price")
         }
-        commitFlutterDescription(targetPackage, locatorRef, node, value)
+        val proof = commitAnchoredText(targetPackage, locatorRef, value)
+        // Description is fully re-checked before this returns. It is not a send,
+        // so it does not leave a consumable proof behind. The committed string is
+        // remembered only for this locator, so a later poll cannot treat page text
+        // as the field. The diagnostic field is not remembered as page text either:
+        // its proof is returned to the caller and nothing else.
+        if (locatorRef == "xianyu_chat_input") {
+            chatInput.hold(bindChatProof(proof))
+        } else if (!InputRoutePolicy.isPrice(locatorRef) &&
+            !DiagnosticInputPolicy.installed.admits(targetPackage, locatorRef)
+        ) {
+            chatInput.remember(locatorRef, value)
+        }
+        return proof
     }
 
-    /** Chat never enters the description SET_TEXT/clipboard/paste fallback chain. */
-    private suspend fun commitChatInput(targetPackage: String, locatorRef: String, value: String) {
-        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main.immediate) {
+    /**
+     * Chat and description share one proof: the locator node must still be the
+     * same node afterwards, and the editor readback — not the page text — is
+     * what authorizes success. Clipboard, SET_TEXT and long-press paste are not
+     * used here. Only chat input holds that proof for the later send tap.
+     */
+    private suspend fun commitAnchoredText(targetPackage: String, locatorRef: String, value: String): InputProof {
+        val transaction = FieldInputTransaction(
+            route = { InputRoutePolicy.channel(Build.VERSION.SDK_INT) },
+            accessibilityBound = { pkg -> editorBound(pkg) },
+            accessibilityTransport = { pkg -> editorTransport(pkg) },
+            imeTransport = { pkg -> CloudCtlImeTransport(pkg) },
+            anchorOf = { pkg, ref -> fieldAnchor(pkg, ref) },
+            pause = { delay(150) },
+        )
+        if (locatorRef == "xianyu_chat_input") {
+            focusChatField(targetPackage, locatorRef)
+        } else if (DiagnosticInputPolicy.installed.admits(targetPackage, locatorRef)) {
+            focusDiagnosticField(targetPackage, locatorRef)
+        } else {
+            val node = resolveUniqueNode(targetPackage, locatorRef)
+                ?: throw ExecutorFailure("LOCATOR_NOT_FOUND", "Approved locator was not found")
+            focusDescriptionField(targetPackage, locatorRef, node)
+        }
+        val channel = InputRoutePolicy.channel(Build.VERSION.SDK_INT)
+        if (channel == InputChannel.MANUAL_IME &&
+            (!CloudCtlInputMethod.isEnabled(this) || !CloudCtlInputMethod.isSelected(this))
+        ) {
+            throw ExecutorFailure("INPUT_IME_REQUIRED", "Android 10 needs CloudCtl Input selected as the current keyboard")
+        }
+        if (channel == InputChannel.TEMPORARY_IME && !CloudCtlInputMethod.isEnabled(this)) {
+            throw ExecutorFailure("INPUT_IME_REQUIRED", "Enable CloudCtl Input before running text input on this Android version")
+        }
+        // API 33 with no bound accessibility editor cannot read the field back.
+        // Refuse before TemporaryImeSwitch is constructed, so Sogou/iFlytek stay.
+        if (channel == InputChannel.ACCESSIBILITY && !editorBound(targetPackage)) {
+            throw ExecutorFailure(
+                "INPUT_READBACK_UNAVAILABLE",
+                "Accessibility editor is not bound; the user's keyboard was not switched",
+            )
+        }
+        // The temporary switch covers this one replace only, and only API 30–32.
+        return if (channel == InputChannel.TEMPORARY_IME) {
+            try {
+                platformImeSwitch().around { transaction.replace(targetPackage, locatorRef, value) }
+            } finally {
+                imeSwitchEngaged = false
+            }
+        } else {
+            transaction.replace(targetPackage, locatorRef, value)
+        }
+    }
+
+    private suspend fun focusChatField(targetPackage: String, locatorRef: String) {
+        val target = resolveUniqueNode(targetPackage, locatorRef) ?: return
+        target.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
+        gestureClick(target)
+    }
+
+    /**
+     * Isolated diagnostic field. Focus only — no gesture, no percent tap, no
+     * description-field path. The editor connection is what writes.
+     */
+    private fun focusDiagnosticField(targetPackage: String, locatorRef: String) {
+        val target = resolveUniqueNode(targetPackage, locatorRef)
+            ?: throw ExecutorFailure("LOCATOR_NOT_FOUND", "Approved locator was not found")
+        target.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
+        target.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+    }
+
+    /** True only when the installed policy admits some locator of this package. */
+    private fun diagnosticInputAdmitted(targetPackage: String): Boolean =
+        DiagnosticInputPolicy.installed.skipsRootNavigation(targetPackage)
+
+    private fun fieldAnchor(targetPackage: String, locatorRef: String): FieldAnchor? {
+        val node = resolveUniqueNode(targetPackage, locatorRef) ?: return null
+        if (!node.isVisibleToUser || !node.isEnabled) return null
+        return FieldAnchor(
+            targetPackage = targetPackage,
+            locatorRef = locatorRef,
+            nodeKey = stableFieldKey(node),
+        )
+    }
+
+    /**
+     * Public, stable features of the field. A new [AccessibilityNodeInfo] wrapper
+     * of the same control hashes the same; identityHashCode of the wrapper does not.
+     */
+    private fun stableFieldKey(node: AccessibilityNodeInfo): String {
+        val bounds = Rect()
+        node.getBoundsInScreen(bounds)
+        val viewId = node.viewIdResourceName.orEmpty()
+        val className = node.className?.toString().orEmpty()
+        return "${node.windowId}|${bounds.left},${bounds.top},${bounds.right},${bounds.bottom}|$className|$viewId"
+    }
+
+    private fun platformImeSwitch(): TemporaryImeSwitch = TemporaryImeSwitch(
+        object : com.company.cloudctl.companion.ime.ImeSwitcher {
+            override fun currentDefaultId(): String? = runCatching {
+                android.provider.Settings.Secure.getString(
+                    contentResolver,
+                    android.provider.Settings.Secure.DEFAULT_INPUT_METHOD,
+                )
+            }.getOrNull()
+
+            override fun cloudCtlIds(): Set<String> =
+                com.company.cloudctl.companion.ime.ImeAvailability.candidates(packageName)
+
+            override fun switchTo(id: String): Boolean {
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return false
+                return runCatching { softKeyboardController.switchToInputMethod(id) }.getOrDefault(false)
+            }
+
+            override fun observeSelectedId(): String? = currentDefaultId()
+        },
+        onEngaged = { imeSwitchEngaged = true },
+    )
+
+    /**
+     * Chat below API 33 keeps the strict one-write readback state machine and
+     * returns the proof that machine just verified. The caller holds it; a
+     * commit that cannot name the field returns nothing and holds nothing.
+     */
+    private suspend fun commitChatInput(targetPackage: String, locatorRef: String, value: String): InputProof {
+        return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main.immediate) {
             fun composer(): AccessibilityNodeInfo? {
                 ensureReady(targetPackage)
                 val locator = TargetLocatorRegistry.resolve(targetPackage, locatorRef)
@@ -881,9 +1208,20 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
                     .flatMap { findMatches(it, locator) }.distinct()
                     .filter { it.isVisibleToUser && it.isEnabled }.singleOrNull()
             }
-            ChatInputCommit(object : ChatInputCommit.Port {
-                override fun imeSelected() = CloudCtlInputMethod.isEnabled(this@CloudCtlAccessibilityService) &&
-                    CloudCtlInputMethod.isSelected(this@CloudCtlAccessibilityService)
+            val manual = InputRoutePolicy.channel(Build.VERSION.SDK_INT) == InputChannel.MANUAL_IME
+            val temporaryIme = !manual && Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU
+            val port = object : ChatInputCommit.Port {
+                override fun armed(): Boolean = CloudCtlInputMethod.isEnabled(this@CloudCtlAccessibilityService) &&
+                    (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R || CloudCtlInputMethod.isSelected(this@CloudCtlAccessibilityService))
+
+                override fun imeSelected(): Boolean {
+                    val selected = CloudCtlInputMethod.isSelected(this@CloudCtlAccessibilityService)
+                    // API 30–32: the temporary switch selects CloudCtl for this call.
+                    // Before it engages, report selected so the state machine can start;
+                    // after it engages, a missing selection is the user changing keyboards.
+                    if (temporaryIme && !imeSwitchEngaged) return true
+                    return selected
+                }
 
                 override suspend fun activate(): Boolean {
                     val target = composer() ?: return false
@@ -898,21 +1236,86 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
 
                 override fun readText(session: Long): String? {
                     val target = composer() ?: return null
-                    // The editor may legitimately restart right after the commit while
-                    // the text persists; verify through the live session, never a dead one.
                     val live = CloudCtlInputMethod.chatSession(targetPackage) ?: session
                     val inputText = CloudCtlInputMethod.readChatText(targetPackage, live) ?: return null
-                    // Flutter may expose only a placeholder semantics View. If it does
-                    // expose a value, disagreement with the IME is not acceptance.
                     val semanticsText = target.text?.toString().orEmpty()
                     return inputText.takeIf { semanticsText.isEmpty() || semanticsText == inputText }
                 }
 
+                override fun fieldClearFor(value: String): Boolean {
+                    val session = CloudCtlInputMethod.chatSession(targetPackage) ?: return false
+                    val current = CloudCtlInputMethod.readChatText(targetPackage, session) ?: return false
+                    return current.isEmpty() || current == value
+                }
+
                 override fun event(code: String) { Log.i(TAG, code) }
-            }).execute(value)
+            }
+            val anchor = fieldAnchor(targetPackage, locatorRef)
+                ?: throw ExecutorFailure("LOCATOR_NOT_FOUND", "Approved locator was not found")
+            val proved = if (manual) {
+                // API 29 keeps CloudCtl selected for the whole call, so the
+                // readback and the proof are the same moment.
+                chatInputProof(targetPackage, locatorRef, value, anchor, ChatInputCommit(port).execute(value))
+            } else if (temporaryIme) {
+                try {
+                    // The proof is returned from inside around, while CloudCtl is
+                    // still selected. Restoring the original IME and then reading
+                    // once is not a proof.
+                    Api30ChatInputCommit(
+                        commit = { ChatInputCommit(port).execute(it) },
+                        switchToCloudCtl = { block -> platformImeSwitch().around(block) },
+                        anchorOf = { anchor },
+                        cloudCtlStillSelected = { CloudCtlInputMethod.isSelected(this@CloudCtlAccessibilityService) },
+                        livePackage = { CloudCtlInputMethod.currentEditorIdentity()?.packageName },
+                    ).execute(targetPackage, locatorRef, value)
+                } finally {
+                    imeSwitchEngaged = false
+                }
+            } else {
+                // API 33 chat never reaches here (rawReplaceText returns first).
+                // Still refuse rather than switch the user's keyboard.
+                throw ExecutorFailure(
+                    "INPUT_READBACK_UNAVAILABLE",
+                    "Accessibility editor is not bound; the user's keyboard was not switched",
+                )
+            }
+            proved
         }
     }
 
+    /** Attaches the task/peer/TTL the executor declared for this one replace. */
+    private fun bindChatProof(proof: InputProof): InputProof {
+        val bind = chatInput.takeBind()
+            ?: throw ExecutorFailure("INPUT_REJECTED", "Chat input has no task, peer and TTL binding")
+        if (SystemClock.elapsedRealtime() > bind.expiresAtElapsedMs) {
+            throw ExecutorFailure("INPUT_PROOF_EXPIRED", "Chat proof TTL elapsed before it could be held")
+        }
+        return proof.copy(
+            taskId = bind.taskId,
+            peerName = bind.peerName,
+            expiresAtElapsedMs = bind.expiresAtElapsedMs,
+        )
+    }
+
+    /**
+     * API 29 proof. CloudCtl is already the selected keyboard, so the readback
+     * [ChatInputCommit] returned is the field. API 30–32 does not use this: that
+     * path mints the proof inside [TemporaryImeSwitch.around].
+     */
+    private fun chatInputProof(
+        targetPackage: String,
+        locatorRef: String,
+        value: String,
+        anchor: FieldAnchor,
+        readback: ChatInputReadback,
+    ): InputProof = com.company.cloudctl.companion.ime.ChatInputProofFactory.fromReadback(
+        targetPackage = targetPackage,
+        locatorRef = locatorRef,
+        value = value,
+        anchor = anchor,
+        readback = readback,
+        livePackage = CloudCtlInputMethod.currentEditorIdentity()?.packageName,
+    )
 
     /** Native EditText targets (xiaohongshu composer) accept SET_TEXT directly. */
     private fun commitNativeText(node: AccessibilityNodeInfo, value: String) {
@@ -923,44 +1326,6 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         if (!node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)) {
             throw ExecutorFailure("INPUT_REJECTED", "Native SET_TEXT was rejected")
         }
-    }
-
-    private suspend fun commitFlutterDescription(
-        targetPackage: String,
-        locatorRef: String,
-        initial: AccessibilityNodeInfo,
-        value: String,
-    ) {
-        if (descriptionAccepted(value)) return
-        focusDescriptionField(targetPackage, locatorRef, initial)
-        for (attempt in 0 until 20) {
-            if (descriptionAccepted(value)) return
-            if (CloudCtlInputMethod.hasInputConnection()) break
-            delay(100)
-        }
-        if (CloudCtlInputMethod.hasInputConnection()) {
-            repeat(12) {
-                if (CloudCtlInputMethod.requestCommit(value) && descriptionAccepted(value)) return
-                delay(150)
-            }
-        }
-        resolveUniqueNode(targetPackage, locatorRef)?.let { setTextAnywhere(it, value) }
-        if (descriptionAccepted(value)) return
-        seedClipboard(value)
-        val target = resolveUniqueNode(targetPackage, locatorRef) ?: initial
-        pasteAnywhere(target, value)
-        delay(250)
-        if (descriptionAccepted(value)) return
-        pasteViaContextMenu(target, value)
-        delay(400)
-        if (descriptionAccepted(value)) return
-        if (!CloudCtlInputMethod.isEnabled(this) || !CloudCtlInputMethod.isSelected(this)) {
-            throw ExecutorFailure(
-                "INPUT_IME_REQUIRED",
-                "Idlefish description needs CloudCtl Input as the current keyboard",
-            )
-        }
-        throw ExecutorFailure("INPUT_REJECTED", "Accessibility text replacement was rejected")
     }
 
     private suspend fun focusDescriptionField(
@@ -978,19 +1343,8 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
     }
 
-    private fun descriptionAccepted(expected: String): Boolean =
-        FlutterTextCommit.accepted(visibleHaystack(), expected)
-
     private fun visibleHaystack(): String =
         allRoots().joinToString("\n") { collectDisplayedText(it) }
-
-    private fun seedClipboard(value: String): Boolean {
-        val clipboard = getSystemService(ClipboardManager::class.java) ?: return false
-        return runCatching {
-            clipboard.setPrimaryClip(ClipData.newPlainText("cloudctl-input", value))
-            true
-        }.getOrDefault(false)
-    }
 
     override suspend fun swipeUp() {
         demandWrite(UiWriter.TASK, UiWriteKind.SWIPE)
@@ -1045,13 +1399,21 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         // Order-sync slice 1 (§7 fail-closed): registered-but-unverified locator
         // refs terminate the step with LOCATOR_UNVERIFIED before any node lookup,
         // so navigation taps and the readOrders container share one gate.
-        val locator = try {
-            TargetLocatorRegistry.resolveVerified(targetPackage, locatorRef) ?: throw ExecutorFailure(
-                "LOCATOR_UNVERIFIED",
-                "Locator '$locatorRef' is registered but not device-verified; failing closed",
-            )
-        } catch (error: IllegalArgumentException) {
-            throw ExecutorFailure("LOCATOR_NOT_APPROVED", "Locator is not approved for this target", error)
+        // A diagnostic field is resolved only when the installed policy admits
+        // that exact package and locator. The production registry is not asked
+        // and is not extended.
+        val diagnostic = DiagnosticInputPolicy.installed.locator(targetPackage, locatorRef)
+        val locator = if (diagnostic != null) {
+            diagnostic
+        } else {
+            try {
+                TargetLocatorRegistry.resolveVerified(targetPackage, locatorRef) ?: throw ExecutorFailure(
+                    "LOCATOR_UNVERIFIED",
+                    "Locator '$locatorRef' is registered but not device-verified; failing closed",
+                )
+            } catch (error: IllegalArgumentException) {
+                throw ExecutorFailure("LOCATOR_NOT_APPROVED", "Locator is not approved for this target", error)
+            }
         }
         val matches = allRoots()
             .filter { it.packageName?.toString() == targetPackage }
@@ -1288,7 +1650,9 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
             }
             for (index in 0 until node.childCount) node.getChild(index)?.let(::visit)
         }
-        allRoots().filter { it.packageName?.toString() == targetPackage }.forEach(::visit)
+        val roots = allRoots().filter { it.packageName?.toString() == targetPackage }
+        for (root in roots) root.refresh()
+        roots.forEach(::visit)
         return matches
     }
 
@@ -1301,13 +1665,54 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         delay(REVIEW_SETTLE_MS)
     }
 
+    private fun isPendingReviewEntry(node: AccessibilityNodeInfo): Boolean {
+        val desc = node.contentDescription?.toString()?.trim().orEmpty()
+        val text = node.text?.toString()?.trim().orEmpty()
+        return desc.startsWith(REVIEW_ENTRY_PREFIX) ||
+            text.startsWith(REVIEW_ENTRY_PREFIX) ||
+            (desc.contains("去评价") && desc.contains("按钮")) ||
+            text == "去评价"
+    }
+
     override suspend fun openPendingReviewEntry(targetPackage: String): Boolean {
+        // Flutter idlefish keeps a stale root after the 待评价 tab tap: the
+        // live dump later shows 去评价 cards while this snapshot is still the
+        // tab skeleton. Refresh every target root first, then search by the
+        // semantic label 「去评价」 — never a hardcoded screen coordinate.
+        val roots = allRoots().filter { it.packageName?.toString() == targetPackage }
+        for (root in roots) root.refresh()
+        val candidates = mutableListOf<AccessibilityNodeInfo>()
+        for (root in roots) {
+            for (query in listOf(REVIEW_ENTRY_PREFIX, "去评价")) {
+                for (node in root.findAccessibilityNodeInfosByText(query)) {
+                    if (isPendingReviewEntry(node)) candidates += node
+                }
+            }
+        }
+        if (candidates.isEmpty()) {
+            fun harvest(node: AccessibilityNodeInfo) {
+                if (isPendingReviewEntry(node)) candidates += node
+                for (index in 0 until node.childCount) node.getChild(index)?.let(::harvest)
+            }
+            for (root in roots) harvest(root)
+        }
+        if (candidates.isEmpty()) {
+            val tree = mutableListOf<String>()
+            fun dumpTree(node: AccessibilityNodeInfo) {
+                if (tree.size >= 40) return
+                val desc = node.contentDescription?.toString()?.trim().orEmpty()
+                val text = node.text?.toString()?.trim().orEmpty()
+                if (desc.isNotEmpty()) tree += desc.replace('\n', '|').take(60)
+                else if (text.isNotEmpty()) tree += text.replace('\n', '|').take(60)
+                for (index in 0 until node.childCount) node.getChild(index)?.let(::dumpTree)
+            }
+            for (root in roots) dumpTree(root)
+            Log.w(TAG, "REVIEW_ENTRY_MISS roots=${roots.size} tree=${tree.joinToString(";")}")
+            return false
+        }
         demandWrite(UiWriter.TASK, UiWriteKind.TAP, detail = "review entry tap")
-        val entries = collectReviewNodes(targetPackage) { it.startsWith(REVIEW_ENTRY_PREFIX) }
-        if (entries.isEmpty()) return false
-        // Multiple pending orders stack vertically; take the top-most entry.
         val rect = Rect()
-        val topEntry = entries.minByOrNull { node ->
+        val topEntry = candidates.minByOrNull { node ->
             node.getBoundsInScreen(rect)
             rect.top
         } ?: return false
@@ -1379,15 +1784,38 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         }
     }
 
-    override suspend fun tapReviewSubmit(targetPackage: String) {
-        demandWrite(UiWriter.TASK, UiWriteKind.TAP, detail = "review submit tap")
-        val submit = collectReviewNodes(targetPackage) { it == REVIEW_SUBMIT_DESC }
+    /**
+     * Semantic locate of 提交评价: match idlefish content-desc/text exactly.
+     * Never a screen coordinate — different phones keep the same desc.
+     */
+    private fun findReviewSubmitNode(targetPackage: String): AccessibilityNodeInfo =
+        collectReviewNodes(targetPackage) { it == REVIEW_SUBMIT_DESC }
             .minByOrNull { node ->
                 val rect = Rect()
                 node.getBoundsInScreen(rect)
                 rect.top
             }
             ?: throw ExecutorFailure("REVIEW_SUBMIT_NOT_FOUND", "The 提交评价 button was not found")
+
+    override fun locateReviewSubmit(targetPackage: String): ReviewSubmitAnchor {
+        val submit = findReviewSubmitNode(targetPackage)
+        val desc = submit.contentDescription?.toString()?.trim()
+            ?: submit.text?.toString()?.trim()
+            ?: REVIEW_SUBMIT_DESC
+        return ReviewSubmitAnchor(
+            description = desc,
+            enabled = submit.isEnabled,
+            clickable = submit.isClickable,
+            visible = submit.isVisibleToUser,
+        )
+    }
+
+    override suspend fun tapReviewSubmit(targetPackage: String) {
+        demandWrite(UiWriter.TASK, UiWriteKind.TAP, detail = "review submit tap")
+        val submit = findReviewSubmitNode(targetPackage)
+        // Flutter idlefish reports clickable=false on this control; ACTION_CLICK
+        // is a no-op, so the gesture lands on the already-located node's own
+        // bounds (not a hardcoded screen coordinate).
         val rect = Rect()
         submit.getBoundsInScreen(rect)
         if (rect.isEmpty) {
@@ -1509,8 +1937,14 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
                 // detail page. Scroll the card fully into view first.
                 // Real screen bounds include the system bars; the service-context
                 // displayMetrics do not (device-verified: 2249 vs 2400).
-                val realBounds = getSystemService(android.view.WindowManager::class.java)
-                    ?.maximumWindowMetrics?.bounds
+                val windowManager = getSystemService(android.view.WindowManager::class.java)
+                val realBounds = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    windowManager?.maximumWindowMetrics?.bounds
+                } else {
+                    windowManager?.defaultDisplay?.let { display ->
+                        android.graphics.Rect().also { display.getRectSize(it) }
+                    }
+                }
                 val screenBottom = realBounds?.height() ?: resources.displayMetrics.heightPixels
                 val screenWidth = realBounds?.width() ?: resources.displayMetrics.widthPixels
                 var card = outcome.bounds
@@ -1913,24 +2347,6 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         }
     }
 
-    private fun setNodeText(node: AccessibilityNodeInfo, value: String): Boolean {
-        val arguments = Bundle().apply {
-            putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, value)
-        }
-        if (node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)) return true
-        val focused = findFocused(node) ?: findFocused(rootInActiveWindow ?: return false)
-        return focused != null && focused.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)
-    }
-
-    private fun setTextAnywhere(node: AccessibilityNodeInfo, value: String): Boolean {
-        if (setNodeText(node, value)) return true
-        for (index in 0 until node.childCount) {
-            val child = node.getChild(index) ?: continue
-            if (setTextAnywhere(child, value)) return true
-        }
-        return false
-    }
-
     private fun treeContains(node: AccessibilityNodeInfo, expected: String): Boolean {
         val text = node.text?.toString().orEmpty()
         val description = node.contentDescription?.toString().orEmpty()
@@ -1940,20 +2356,6 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
             if (treeContains(child, expected)) return true
         }
         return false
-    }
-
-    private suspend fun copyToClipboardForeground(value: String) {
-        val intent = Intent(this, ClipboardRelayActivity::class.java).apply {
-            addFlags(
-                Intent.FLAG_ACTIVITY_NEW_TASK or
-                    Intent.FLAG_ACTIVITY_NO_ANIMATION or
-                    Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS,
-            )
-            putExtra(ClipboardRelayActivity.EXTRA_TEXT, value)
-        }
-        startActivity(intent)
-        delay(350)
-        waitUntilPackage(TargetLocatorRegistry.XIANYU_PACKAGE)
     }
 
     private suspend fun waitUntilPackage(pkg: String) {
@@ -1971,61 +2373,24 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         )
     }
 
-    private suspend fun pasteViaContextMenu(node: AccessibilityNodeInfo, value: String) {
-        val clipboard = getSystemService(ClipboardManager::class.java) ?: return
-        clipboard.setPrimaryClip(ClipData.newPlainText("cloudctl-input", value))
-        repeat(3) {
-            longPress(node)
-            delay(600)
-            val paste = findLabelAnywhere("粘贴")
-            if (paste != null) {
-                gestureClick(paste)
-                delay(400)
-                return
-            }
-            val selectAll = findLabelAnywhere("全选")
-            if (selectAll != null) {
-                gestureClick(selectAll)
-                delay(300)
-            }
-        }
-    }
-
-    private suspend fun longPress(node: AccessibilityNodeInfo): Boolean {
-        val bounds = Rect()
-        node.getBoundsInScreen(bounds)
-        if (bounds.width() <= 0 || bounds.height() <= 0) return false
-        return dispatchStroke(bounds.exactCenterX(), bounds.exactCenterY(), 1_200L)
-    }
-
-    private fun pasteAnywhere(node: AccessibilityNodeInfo, value: String): Boolean {
-        val clipboard = getSystemService(ClipboardManager::class.java) ?: return false
-        clipboard.setPrimaryClip(ClipData.newPlainText("cloudctl-input", value))
-        fun visit(current: AccessibilityNodeInfo): Boolean {
-            current.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
-            if (current.performAction(AccessibilityNodeInfo.ACTION_PASTE)) return true
-            for (index in 0 until current.childCount) {
-                val child = current.getChild(index) ?: continue
-                if (visit(child)) return true
-            }
-            return false
-        }
-        if (visit(node)) return true
-        val focused = allRoots().firstNotNullOfOrNull { findFocused(it) }
-        return focused != null && focused.performAction(AccessibilityNodeInfo.ACTION_PASTE)
-    }
-
     private fun digitKeypadVisible(): Boolean = keypadRoot() != null
 
     private fun priceSheetVisible(): Boolean =
         findLabelAnywhere("定价") != null || findLabelAnywhere("价格设置") != null
 
+    /**
+     * Price success is the amount token on the price form, not a page-wide
+     * substring. A "199" elsewhere on the screen, or "10199" containing "199",
+     * does not authorize the price.
+     */
     private fun priceAccepted(value: String): Boolean {
         if (digitKeypadVisible() || priceSheetVisible()) return false
+        if (!InputRoutePolicy.isPrice("xianyu_price")) return false
         val typed = PriceKeypad.keys(value)
-        if (typed.isEmpty()) return false
-        return visibleTextContains(typed) ||
-            allRoots().any { PriceKeypad.acceptedOnForm(collectDisplayedText(it), value) }
+        if (typed.isEmpty() || !PriceKeypad.keypadable(value)) return false
+        val form = findPriceAmountField()?.let { collectDisplayedText(it) }.orEmpty()
+        if (form.isBlank()) return false
+        return PriceKeypad.acceptedOnForm(form, value)
     }
 
     private suspend fun gestureClickAt(
@@ -2448,6 +2813,8 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
 
     companion object {
         private const val TAG = "CloudCtlExecutor"
+        /** AccessibilityServiceInfo.FLAG_INPUT_METHOD_EDITOR, API 33. Kept numeric so API 29 compiles. */
+        private const val FLAG_INPUT_METHOD_EDITOR = 32768
         private const val PREVIEW_MAX_SIDE = 720
         private const val PREVIEW_MAX_BYTES = 380_000
         // FLEET-20 pageSummary caps: bound the sampler even on pathological trees.

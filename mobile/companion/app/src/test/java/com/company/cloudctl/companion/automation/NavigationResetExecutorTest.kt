@@ -1,5 +1,8 @@
 package com.company.cloudctl.companion.automation
 
+import com.company.cloudctl.companion.im.ImReplyBoundary
+import com.company.cloudctl.companion.ime.EditorSnapshot
+import com.company.cloudctl.companion.ime.InputProof
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import java.time.Instant
@@ -204,6 +207,10 @@ class NavigationResetExecutorTest {
         var backs = 0
         var restarts = 0
         private var committedVisible: String? = null
+        private var held: InputProof? = null
+        private var bindTask: String? = null
+        private var bindPeer: String? = null
+        private var bindExpires: Long? = null
 
         override fun ensureReady(targetPackage: String) {
             if (!foreground) throw ExecutorFailure("WRONG_ACTIVE_PACKAGE", "target not foreground")
@@ -250,9 +257,49 @@ class NavigationResetExecutorTest {
             taps += locatorRef
         }
 
+        override fun beginChatInput(taskId: String, peerName: String?, ttlMs: Long, nowElapsedMs: Long) {
+            bindTask = taskId
+            bindPeer = peerName
+            bindExpires = nowElapsedMs + ttlMs
+        }
+
+        override fun clearChatSendProof() {
+            held = null
+        }
+
         override suspend fun replaceText(targetPackage: String, locatorRef: String, value: String) {
             committedVisible = value
             nodes[locatorRef] = nodes.getValue(locatorRef).copy(text = value)
+            if (locatorRef == "xianyu_chat_input") {
+                held = InputProof(
+                    target = targetPackage,
+                    field = "chat-field",
+                    generation = 1,
+                    expected = value,
+                    snapshot = EditorSnapshot(1, "chat-field", value, value.length, value.length, false, true, 0, false),
+                    targetPackage = targetPackage,
+                    locatorRef = locatorRef,
+                    nodeKey = "1:1",
+                    taskId = bindTask,
+                    peerName = bindPeer,
+                    expiresAtElapsedMs = bindExpires,
+                )
+            }
+        }
+
+        override fun currentChatSendProof(): InputProof? = held
+
+        override suspend fun verifyChatSendProof(
+            targetPackage: String,
+            locatorRef: String,
+            proof: InputProof,
+            evidence: ImReplyBoundary.ChatEvidence?,
+        ): Boolean = held === proof && proof.expected == committedVisible &&
+            proof.targetPackage == targetPackage && proof.locatorRef == locatorRef &&
+            evidence?.chatInputVisible == true
+
+        override fun consumeChatSendProof() {
+            held = null
         }
 
         override suspend fun screenshot(taskId: String, label: String) =

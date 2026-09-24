@@ -10,14 +10,8 @@ export interface ImThread {
   lastMessageAt: string
   lastDirection: 'IN' | 'OUT'
   unreadCount: number
-  /**
-   * 最近一条消息的正文摘要。后端线程视图当前不返回该字段；
-   * 该字段位为 Android 端正文回填（通知模式只拿到推送摘要）预留，
-   * 一旦后端补充 lastMessageText，Web 侧无需再改即可直接展示。
-   */
-  lastMessageText?: string | null
-  /** 摘要尚不可用（待 Android 端回填正文）时为 true，UI 显示「摘要待补全」。 */
-  summaryPending?: boolean
+  /** 服务端返回的最近一条消息正文；线程暂无消息时为 null。 */
+  lastMessageText: string | null
 }
 
 export interface ImMessage {
@@ -69,12 +63,12 @@ export function imPlatformDmFiltered(platform: string): boolean {
   return platform !== 'xianyu' && ALLOWED_PLATFORM_KEYS.has(platform)
 }
 
-/** 归一化线程视图：填充摘要字段位的默认值，未回填正文时标记 summaryPending。 */
+/** 归一化线程视图：空白摘要按无正文处理，绝不伪装成有效正文。 */
 export function normalizeImThread(raw: ImThread): ImThread {
   const text = typeof raw.lastMessageText === 'string' && raw.lastMessageText.trim()
     ? raw.lastMessageText
     : null
-  return { ...raw, lastMessageText: text, summaryPending: text === null }
+  return { ...raw, lastMessageText: text }
 }
 
 const CLOCK_PATTERN = /^[0-2][0-9]:[0-5][0-9]$/
@@ -202,7 +196,7 @@ export async function listImThreads(deviceId?: string, unread = false): Promise<
 }
 
 export async function listImMessages(threadId: string): Promise<ImMessage[]> {
-  const data = await request<{ items: ImMessage[] }>(`/threads/${threadId}/messages?limit=200`)
+  const data = await request<{ items: ImMessage[] }>(`/threads/${threadId}/messages?limit=200&latest=true`)
   return data.items ?? []
 }
 

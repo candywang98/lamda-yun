@@ -12,7 +12,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from cloudctl_domain import ConflictError, NotFoundError, Permission, require_permissions
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 
 from .db import ImMessageRow, ImMonitorConfigRow, ImThreadRow, MobileTaskRow
 from .mobile_schemas import MobileTaskCreate
@@ -21,6 +21,8 @@ from .mobile_service import MobileTaskService, _now
 PLATFORM = "xianyu"
 MAX_BATCH = 20
 MAX_TEXT = 2_000
+TRANSPORT_TEXT_LIMIT = 4_000
+TRUNCATED_PREFIX = "TRUNCATED "
 MAX_REPLY = 500
 REPLY_COOLDOWN = timedelta(seconds=60)
 
@@ -51,9 +53,7 @@ async def settle_reply_delivery(session: Any, task_id: str, business_state: str)
         return
     rows = list(
         await session.scalars(
-            select(ImMessageRow)
-            .where(ImMessageRow.reply_task_id == task_id)
-            .with_for_update()
+            select(ImMessageRow).where(ImMessageRow.reply_task_id == task_id).with_for_update()
         )
     )
     for row in rows:
@@ -62,21 +62,40 @@ async def settle_reply_delivery(session: Any, task_id: str, business_state: str)
         row.delivery_state = target
 
 
-def _dedupe_key(device_id: str, peer_key: str, occurred_at: datetime, text: str) -> str:
+def canonical_text(raw: str) -> str:
+    """Mirror Android ImCanonicalText using Python Unicode code points."""
+    body = raw[:TRANSPORT_TEXT_LIMIT]
+    if len(body) <= MAX_TEXT:
+        return body
+    if body.startswith(TRUNCATED_PREFIX) and len(body.removeprefix(TRUNCATED_PREFIX)) == MAX_TEXT:
+        return body
+    return TRUNCATED_PREFIX + body[:MAX_TEXT]
+
+
+def _dedupe_key(
+    device_id: str,
+    platform: str,
+    peer_key: str,
+    occurred_at: datetime,
+    text: str,
+) -> str:
     bucket = int(occurred_at.timestamp())
-    raw = f"{device_id}|{peer_key}|{bucket}|{text}"
+    raw = f"{device_id}|{platform}|{peer_key}|{bucket}|{canonical_text(text)}"
     return hashlib.sha256(raw.encode()).hexdigest()
 
 
-def _thread_view(row: ImThreadRow) -> dict[str, Any]:
+def _thread_view(row: ImThreadRow, last_message_text: str | None = None) -> dict[str, Any]:
     return {
         "id": row.id,
         "deviceId": row.device_id,
         "platform": row.platform,
         "peerKey": row.peer_key,
         "peerName": row.peer_name,
-        "lastMessageAt": row.last_message_at,
+        "lastMessageAt": row.last_message_at.replace(tzinfo=UTC)
+        if row.last_message_at.tzinfo is None
+        else row.last_message_at,
         "lastDirection": row.last_direction,
+        "lastMessageText": last_message_text,
         "unreadCount": row.unread_count,
     }
 
@@ -88,7 +107,9 @@ def _message_view(row: ImMessageRow) -> dict[str, Any]:
         "direction": row.direction,
         "contentType": row.content_type,
         "text": row.text_content,
-        "occurredAt": row.occurred_at,
+        "occurredAt": row.occurred_at.replace(tzinfo=UTC)
+        if row.occurred_at.tzinfo is None
+        else row.occurred_at,
         "replyTaskId": row.reply_task_id,
         "deliveryState": row.delivery_state,
     }
@@ -98,7 +119,6 @@ class ImService:
     def __init__(self, mobile: MobileTaskService) -> None:
         self.mobile = mobile
         self.database = mobile.database
-
 
     ALLOWED_PLATFORMS = {"xianyu", "xhs", "douyin", "wechat"}
 
@@ -114,7 +134,9 @@ class ImService:
             row = await session.get(ImMonitorConfigRow, binding_row.device_id)
             return self._config_view(row, binding_row.device_id)
 
-    async def upsert_config(self, actor: Any, device_id: str, body: dict[str, Any]) -> dict[str, Any]:
+    async def upsert_config(
+        self, actor: Any, device_id: str, body: dict[str, Any]
+    ) -> dict[str, Any]:
         # Device-side monitoring configuration is a device write: the operator
         # inbox UI gates it on ``device.control`` and the API enforces the same
         # permission so read-only roles cannot change it with a raw credential.
@@ -142,9 +164,15 @@ class ImService:
             row = await session.get(ImMonitorConfigRow, device_id, with_for_update=True)
             if row is None:
                 row = ImMonitorConfigRow(
-                    device_id=device_id, tenant_id=str(actor.tenant_id), platforms=platforms,
-                    mode=mode, duty_start=duty_start, duty_end=duty_end, enabled=enabled,
-                    updated_at=now, updated_by=str(actor.user_id),
+                    device_id=device_id,
+                    tenant_id=str(actor.tenant_id),
+                    platforms=platforms,
+                    mode=mode,
+                    duty_start=duty_start,
+                    duty_end=duty_end,
+                    enabled=enabled,
+                    updated_at=now,
+                    updated_by=str(actor.user_id),
                 )
                 session.add(row)
             else:
@@ -166,13 +194,26 @@ class ImService:
         return value
 
     @staticmethod
-    def _config_view(row, device_id: str) -> dict[str, Any]:
+    def _config_view(row: ImMonitorConfigRow | None, device_id: str) -> dict[str, Any]:
         if row is None:
-            return {"deviceId": device_id, "enabled": True, "platforms": ["xianyu"],
-                    "mode": "NOTIFICATION", "dutyStart": "09:00", "dutyEnd": "23:00", "updatedAt": None}
-        return {"deviceId": row.device_id, "enabled": row.enabled, "platforms": row.platforms,
-                "mode": row.mode, "dutyStart": row.duty_start, "dutyEnd": row.duty_end,
-                "updatedAt": row.updated_at}
+            return {
+                "deviceId": device_id,
+                "enabled": True,
+                "platforms": ["xianyu"],
+                "mode": "NOTIFICATION",
+                "dutyStart": "09:00",
+                "dutyEnd": "23:00",
+                "updatedAt": None,
+            }
+        return {
+            "deviceId": row.device_id,
+            "enabled": row.enabled,
+            "platforms": row.platforms,
+            "mode": row.mode,
+            "dutyStart": row.duty_start,
+            "dutyEnd": row.duty_end,
+            "updatedAt": row.updated_at,
+        }
 
     async def ingest(self, binding_row: Any, items: list[dict[str, Any]]) -> dict[str, int]:
         if not 1 <= len(items) <= MAX_BATCH:
@@ -182,23 +223,20 @@ class ImService:
         duplicates = 0
         async with self.database.unit_of_work() as session:
             for item in items:
+                platform = item["platform"]
+                if platform != PLATFORM:
+                    raise ConflictError("platform must be xianyu")
                 peer_key = item["peerKey"].strip()
                 peer_name = item["peerName"].strip()
-                text = item["text"]
+                text = canonical_text(item["text"])
                 if not peer_key or len(peer_key) > 128 or not peer_name or len(peer_name) > 128:
                     raise ConflictError("peer identity is invalid")
                 if not text or not text.strip():
                     continue
-                truncated = False
-                if len(text) > MAX_TEXT:
-                    text = text[:MAX_TEXT]
-                    truncated = True
-                if truncated:
-                    text = "TRUNCATED " + text
                 occurred = item["occurredAt"]
                 if occurred.tzinfo is None:
                     occurred = occurred.replace(tzinfo=UTC)
-                key = _dedupe_key(binding_row.device_id, peer_key, occurred, text)
+                key = _dedupe_key(binding_row.device_id, platform, peer_key, occurred, text)
                 existing = await session.scalar(
                     select(ImMessageRow).where(ImMessageRow.dedupe_key == key)
                 )
@@ -210,6 +248,7 @@ class ImService:
                     .where(
                         ImThreadRow.tenant_id == binding_row.tenant_id,
                         ImThreadRow.device_id == binding_row.device_id,
+                        ImThreadRow.platform == platform,
                         ImThreadRow.peer_key == peer_key,
                     )
                     .with_for_update()
@@ -219,7 +258,7 @@ class ImService:
                         id=str(uuid.uuid4()),
                         tenant_id=binding_row.tenant_id,
                         device_id=binding_row.device_id,
-                        platform=PLATFORM,
+                        platform=platform,
                         peer_key=peer_key,
                         peer_name=peer_name,
                         last_message_at=occurred,
@@ -246,8 +285,12 @@ class ImService:
                     )
                 )
                 thread.peer_name = peer_name
-                thread.last_message_at = occurred
-                thread.last_direction = "IN"
+                latest_at = thread.last_message_at
+                if latest_at.tzinfo is None:
+                    latest_at = latest_at.replace(tzinfo=UTC)
+                if occurred >= latest_at:
+                    thread.last_message_at = occurred
+                    thread.last_direction = "IN"
                 thread.unread_count += 1
                 thread.updated_at = now
                 accepted += 1
@@ -271,30 +314,78 @@ class ImService:
                 anchor = await session.get(ImThreadRow, after)
                 if anchor is None or anchor.tenant_id != str(actor.tenant_id):
                     raise NotFoundError("thread was not found")
-                query = query.where(ImThreadRow.last_message_at < anchor.last_message_at)
-            rows = await session.scalars(
-                query.order_by(ImThreadRow.last_message_at.desc()).limit(limit)
+                query = query.where(
+                    or_(
+                        ImThreadRow.last_message_at < anchor.last_message_at,
+                        and_(
+                            ImThreadRow.last_message_at == anchor.last_message_at,
+                            ImThreadRow.id < anchor.id,
+                        ),
+                    )
+                )
+            rows = list(
+                await session.scalars(
+                    query.order_by(ImThreadRow.last_message_at.desc(), ImThreadRow.id.desc()).limit(
+                        limit
+                    )
+                )
             )
-            return [_thread_view(row) for row in rows]
+            views: list[dict[str, Any]] = []
+            for row in rows:
+                last_message = await session.scalar(
+                    select(ImMessageRow)
+                    .where(
+                        ImMessageRow.tenant_id == str(actor.tenant_id),
+                        ImMessageRow.thread_id == row.id,
+                    )
+                    .order_by(
+                        ImMessageRow.occurred_at.desc(),
+                        ImMessageRow.created_at.desc(),
+                        ImMessageRow.id.desc(),
+                    )
+                    .limit(1)
+                )
+                views.append(_thread_view(row, last_message.text_content if last_message else None))
+            return views
 
     async def _owned_thread(self, session: Any, actor: Any, thread_id: str) -> ImThreadRow:
         row = await session.get(ImThreadRow, thread_id, with_for_update=True)
         if row is None or row.tenant_id != str(actor.tenant_id):
             raise NotFoundError("thread was not found")
+        assert isinstance(row, ImThreadRow)
         return row
 
     async def list_messages(
-        self, actor: Any, thread_id: str, after: str | None, limit: int
+        self, actor: Any, thread_id: str, after: str | None, limit: int, latest: bool = False
     ) -> list[dict[str, Any]]:
         async with self.database.unit_of_work() as session:
             thread = await self._owned_thread(session, actor, thread_id)
-            query = select(ImMessageRow).where(ImMessageRow.thread_id == thread.id)
+            query = select(ImMessageRow).where(
+                ImMessageRow.thread_id == thread.id,
+                ImMessageRow.tenant_id == str(actor.tenant_id),
+            )
             if after:
                 anchor = await session.get(ImMessageRow, after)
                 if anchor is None or anchor.thread_id != thread.id:
                     raise NotFoundError("message was not found")
-                query = query.where(ImMessageRow.occurred_at >= anchor.occurred_at)
-            rows = await session.scalars(query.order_by(ImMessageRow.occurred_at.asc()).limit(limit))
+                query = query.where(
+                    or_(
+                        ImMessageRow.occurred_at > anchor.occurred_at,
+                        and_(
+                            ImMessageRow.occurred_at == anchor.occurred_at,
+                            ImMessageRow.id > anchor.id,
+                        ),
+                    )
+                )
+            newest = latest and not after
+            ordering = (
+                (ImMessageRow.occurred_at.desc(), ImMessageRow.id.desc())
+                if newest
+                else (ImMessageRow.occurred_at.asc(), ImMessageRow.id.asc())
+            )
+            rows = list(await session.scalars(query.order_by(*ordering).limit(limit)))
+            if newest:
+                rows.reverse()
             return [_message_view(row) for row in rows]
 
     async def mark_read(self, actor: Any, thread_id: str) -> dict[str, Any]:
@@ -350,12 +441,17 @@ class ImService:
             )
             from sqlalchemy import func as sa_func
 
-            reply_ordinal = await session.scalar(
-                select(sa_func.count()).select_from(ImMessageRow).where(
-                    ImMessageRow.thread_id == thread.id,
-                    ImMessageRow.direction == "OUT",
+            reply_ordinal = (
+                await session.scalar(
+                    select(sa_func.count())
+                    .select_from(ImMessageRow)
+                    .where(
+                        ImMessageRow.thread_id == thread.id,
+                        ImMessageRow.direction == "OUT",
+                    )
                 )
-            ) or 0
+                or 0
+            )
             task_view, created = await self.mobile.create_task(
                 actor, f"im-reply:{thread.id}:{last_in.id}:{reply_ordinal}", body
             )
@@ -386,16 +482,45 @@ class ImService:
 
 def _reply_steps(peer_name: str, text: str) -> list[dict[str, Any]]:
     return [
-        {"stepId": "find-messages-tab", "locatorRef": "xianyu_messages_tab", "timeoutMs": 8000,
-         "action": "ui.find"},
-        {"stepId": "open-messages-tab", "locatorRef": "xianyu_messages_tab", "timeoutMs": 8000,
-         "action": "ui.tap"},
-        {"stepId": "open-conversation", "timeoutMs": 8000, "action": "ui.tapText",
-         "value": peer_name[:64]},
-        {"stepId": "wait-chat-input", "locatorRef": "xianyu_chat_input", "timeoutMs": 8000,
-         "action": "ui.wait", "condition": "EXISTS", "pollMs": 200},
-        {"stepId": "fill-reply", "locatorRef": "xianyu_chat_input", "timeoutMs": 20000,
-         "action": "ui.input", "value": text, "replace": True, "sensitive": False},
-        {"stepId": "send-reply", "locatorRef": "xianyu_chat_send", "timeoutMs": 8000,
-         "action": "ui.tap"},
+        {
+            "stepId": "find-messages-tab",
+            "locatorRef": "xianyu_messages_tab",
+            "timeoutMs": 8000,
+            "action": "ui.find",
+        },
+        {
+            "stepId": "open-messages-tab",
+            "locatorRef": "xianyu_messages_tab",
+            "timeoutMs": 8000,
+            "action": "ui.tap",
+        },
+        {
+            "stepId": "open-conversation",
+            "timeoutMs": 8000,
+            "action": "ui.tapText",
+            "value": peer_name[:64],
+        },
+        {
+            "stepId": "wait-chat-input",
+            "locatorRef": "xianyu_chat_input",
+            "timeoutMs": 8000,
+            "action": "ui.wait",
+            "condition": "EXISTS",
+            "pollMs": 200,
+        },
+        {
+            "stepId": "fill-reply",
+            "locatorRef": "xianyu_chat_input",
+            "timeoutMs": 20000,
+            "action": "ui.input",
+            "value": text,
+            "replace": True,
+            "sensitive": False,
+        },
+        {
+            "stepId": "send-reply",
+            "locatorRef": "xianyu_chat_send",
+            "timeoutMs": 8000,
+            "action": "ui.tap",
+        },
     ]

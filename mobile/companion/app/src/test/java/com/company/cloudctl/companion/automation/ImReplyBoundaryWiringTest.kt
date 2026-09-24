@@ -1,6 +1,8 @@
 package com.company.cloudctl.companion.automation
 
 import com.company.cloudctl.companion.im.ImReplyBoundary
+import com.company.cloudctl.companion.ime.EditorSnapshot
+import com.company.cloudctl.companion.ime.InputProof
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import java.time.Instant
@@ -57,6 +59,72 @@ class ImReplyBoundaryWiringTest {
         assertEquals(listOf("你好，在的"), ui.replaceTexts.map { it.second })
         assertTrue(ui.taps.contains("xianyu_chat_send"))
         assertEquals("send-reply:SUCCEEDED", journal.last())
+        // The proof was consumed before the tap, so a second send has nothing left.
+        assertTrue(ui.held == null)
+        assertTrue(ui.consumedBeforeTap)
+    }
+
+    @Test
+    fun sendConsumesTheProofBeforeTheTapSoAFailedTapCannotReuseIt() = runBlocking {
+        val ui = ReplyFakeUi().apply {
+            preOpenEvidence = evidence(openPeerName = null, chatInput = false, inbound = false)
+            postOpenEvidence = evidence(openPeerName = peer, chatInput = true, inbound = true)
+            tapThrows = ExecutorFailure("CLICK_REJECTED", "gesture result unknown")
+        }
+        val failure = assertFailsWith<ExecutorFailure> {
+            executor(ui).execute(replyTask()) { _, _ -> }
+        }
+        assertEquals("CLICK_REJECTED", failure.code)
+        assertTrue(ui.consumedBeforeTap)
+        assertTrue(ui.held == null)
+        assertTrue(ui.taps.isEmpty())
+    }
+
+    @Test
+    fun aProofBoundToAnotherTaskOrAnElapsedTtlCannotSend() = runBlocking {
+        // The wrong binding is applied only after the field text is already
+        // verified, so the refusal is the send-proof check rather than the
+        // input-step poll.
+        val ui = ReplyFakeUi().apply {
+            preOpenEvidence = evidence(openPeerName = null, chatInput = false, inbound = false)
+            postOpenEvidence = evidence(openPeerName = peer, chatInput = true, inbound = true)
+            rewriteTaskIdAfterFieldShown = "other-task"
+        }
+        val wrongTask = assertFailsWith<ExecutorFailure> {
+            executor(ui).execute(replyTask()) { _, _ -> }
+        }
+        assertEquals("INPUT_PROOF_EXPIRED", wrongTask.code)
+        assertTrue(ui.taps.isEmpty())
+        assertTrue(ui.held == null)
+
+        val expired = ReplyFakeUi().apply {
+            preOpenEvidence = evidence(openPeerName = null, chatInput = false, inbound = false)
+            postOpenEvidence = evidence(openPeerName = peer, chatInput = true, inbound = true)
+            rewriteExpiresAfterFieldShown = 0L
+        }
+        val expiredFailure = assertFailsWith<ExecutorFailure> {
+            executor(expired).execute(replyTask()) { _, _ -> }
+        }
+        assertEquals("INPUT_PROOF_EXPIRED", expiredFailure.code)
+        assertTrue(expired.taps.isEmpty())
+        assertTrue(expired.held == null)
+    }
+
+    @Test
+    fun pageTextElsewhereDoesNotAuthorizeTheChatInputStep() = runBlocking {
+        val ui = ReplyFakeUi().apply {
+            preOpenEvidence = evidence(openPeerName = null, chatInput = false, inbound = false)
+            postOpenEvidence = evidence(openPeerName = peer, chatInput = true, inbound = true)
+            // The field node keeps the empty draft. A bubble elsewhere contains
+            // the reply. That must not satisfy waitForText.
+            leaveFieldEmpty = true
+            pageText = "你好，在的"
+        }
+        val failure = assertFailsWith<ExecutorFailure> {
+            executor(ui).execute(replyTask()) { _, _ -> }
+        }
+        assertEquals("STEP_TIMEOUT", failure.code)
+        assertTrue(ui.taps.isEmpty())
     }
 
     @Test
@@ -202,6 +270,16 @@ class ImReplyBoundaryWiringTest {
         val replaceTexts = mutableListOf<Pair<String, String>>()
         val taps = mutableListOf<String>()
         val logs = mutableListOf<Pair<LogLevel, String>>()
+        var tapThrows: ExecutorFailure? = null
+        var rewriteTaskId: String? = null
+        var rewriteExpires: Long? = null
+        var rewriteTaskIdAfterFieldShown: String? = null
+        var rewriteExpiresAfterFieldShown: Long? = null
+        var fieldAccepted = false
+        var leaveFieldEmpty = false
+        var pageText: String? = null
+        var consumedBeforeTap = false
+        var held: InputProof? = null
         private var opened = false
         private var committed: String? = null
 
@@ -210,7 +288,9 @@ class ImReplyBoundaryWiringTest {
         override fun inspect(targetPackage: String, locatorRef: String): LocalNodeState? = nodes[locatorRef]
 
         override fun visibleTextContains(expected: String): Boolean =
-            nodes.values.any { expected in (it.text ?: "") } || committed?.let { expected in it } == true
+            nodes.values.any { expected in (it.text ?: "") } ||
+                committed?.let { expected in it } == true ||
+                pageText?.let { expected in it } == true
 
         override fun imChatEvidence(
             targetPackage: String,
@@ -230,14 +310,81 @@ class ImReplyBoundaryWiringTest {
         }
 
         override suspend fun tap(targetPackage: String, locatorRef: String) {
+            tapThrows?.let { throw it }
             taps += locatorRef
+        }
+
+        var verifyOk = true
+        private var bindTask: String? = null
+        private var bindPeer: String? = null
+        private var bindExpires: Long? = null
+
+        override fun beginChatInput(taskId: String, peerName: String?, ttlMs: Long, nowElapsedMs: Long) {
+            bindTask = taskId
+            bindPeer = peerName
+            bindExpires = nowElapsedMs + ttlMs
+        }
+
+        override fun clearChatSendProof() {
+            held = null
         }
 
         override suspend fun replaceText(targetPackage: String, locatorRef: String, value: String) {
             replaceTexts += locatorRef to value
             committed = value
-            nodes[locatorRef] = nodes.getValue(locatorRef).copy(text = value)
+            if (!(locatorRef == "xianyu_chat_input" && leaveFieldEmpty)) {
+                nodes[locatorRef] = nodes.getValue(locatorRef).copy(text = value)
+            }
+            if (locatorRef == "xianyu_chat_input") {
+                held = chatProof(targetPackage, locatorRef, value).copy(
+                    taskId = rewriteTaskId ?: bindTask,
+                    expiresAtElapsedMs = rewriteExpires ?: bindExpires,
+                )
+            }
         }
+
+        override fun currentChatSendProof(): InputProof? {
+            val proof = held ?: return null
+            val fieldShown = nodes["xianyu_chat_input"]?.text == proof.expected
+            if (!fieldShown) return proof
+            if (!fieldAccepted) {
+                // First observation lets waitForText accept the real binding.
+                // Later observations (the send step) see the rewritten one.
+                fieldAccepted = true
+                return proof
+            }
+            rewriteTaskIdAfterFieldShown?.let { held = proof.copy(taskId = it) }
+            rewriteExpiresAfterFieldShown?.let { held = (held ?: proof).copy(expiresAtElapsedMs = it) }
+            return held
+        }
+
+        override suspend fun verifyChatSendProof(
+            targetPackage: String,
+            locatorRef: String,
+            proof: InputProof,
+            evidence: ImReplyBoundary.ChatEvidence?,
+        ): Boolean = verifyOk && held === proof && proof.expected == committed &&
+            proof.targetPackage == targetPackage && proof.locatorRef == locatorRef &&
+            evidence?.chatInputVisible == true && evidence.openPeerName != null
+
+        override fun consumeChatSendProof() {
+            consumedBeforeTap = taps.isEmpty()
+            held = null
+        }
+
+        private fun chatProof(targetPackage: String, locatorRef: String, value: String) = InputProof(
+            target = targetPackage,
+            field = "chat-field",
+            generation = 1,
+            expected = value,
+            snapshot = EditorSnapshot(1, "chat-field", value, value.length, value.length, false, true, 0, false),
+            targetPackage = targetPackage,
+            locatorRef = locatorRef,
+            nodeKey = "1:1",
+            taskId = bindTask,
+            peerName = bindPeer,
+            expiresAtElapsedMs = bindExpires,
+        )
 
         override suspend fun screenshot(taskId: String, label: String) =
             ScreenshotEvidence("/private/proof.png", 32, "a".repeat(64))

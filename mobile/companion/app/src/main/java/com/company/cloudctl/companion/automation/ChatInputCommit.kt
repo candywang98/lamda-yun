@@ -9,6 +9,23 @@ import kotlinx.coroutines.delay
  * stale — the editor restarted, or the user switched fields — fails closed instead
  * of replaying input onto whatever field happens to be focused now.
  */
+/**
+ * The two consecutive full-text reads [ChatInputCommit] already required before
+ * it returned. The proof is this result — a later [Port.readText] after the IME
+ * has been restored is not a substitute.
+ *
+ * [text] is the full field both times. [generation] is the editor generation of
+ * those two reads (it may differ from the generation that received the single
+ * write, when Flutter rebuilt the connection after the commit). [fingerprint]
+ * is the public EditorInfo identity captured on the second stable read, while
+ * CloudCtl is still the selected IME.
+ */
+internal data class ChatInputReadback(
+    val text: String,
+    val generation: Long,
+    val fingerprint: String?,
+)
+
 internal class ChatInputCommit(private val port: Port) {
     interface Port {
         fun imeSelected(): Boolean
@@ -17,6 +34,18 @@ internal class ChatInputCommit(private val port: Port) {
         fun session(): Long?
         fun replace(session: Long, value: String): Boolean
         fun readText(session: Long): String?
+        /**
+         * False on API 30–32 until the temporary switch has selected CloudCtl.
+         * The default keeps older tests, which select the IME up front.
+         */
+        fun armed(): Boolean = true
+
+        /**
+         * True only when a complete read of the live field is empty or already
+         * equal to [value]. Default refuses: a port that cannot read the draft
+         * must not overwrite it.
+         */
+        fun fieldClearFor(value: String): Boolean = false
         fun event(code: String)
         suspend fun pause() { delay(150) }
 
@@ -32,7 +61,8 @@ internal class ChatInputCommit(private val port: Port) {
         fun clipboardContents(): String? = null
     }
 
-    suspend fun execute(value: String) {
+    suspend fun execute(value: String): ChatInputReadback {
+        if (!port.armed()) fail("INPUT_IME_REQUIRED")
         if (!port.imeSelected()) fail("INPUT_IME_REQUIRED")
         if (value.isBlank()) fail("INPUT_REJECTED")
         if (!port.activate()) fail("INPUT_REJECTED")
@@ -77,20 +107,38 @@ internal class ChatInputCommit(private val port: Port) {
             port.pause()
         }
         if (stable < 2) fail("INPUT_REJECTED")
-        // Final guard right before the single write.
+        // Final guard right before the single write. A non-empty draft that is not
+        // already the expected reply is the user's text and is never cleared.
         if (targetChanged(boundField, port.fieldIdentity())) fail("INPUT_TARGET_CHANGED")
+        if (!port.fieldClearFor(value)) fail("FIELD_DIRTY_BY_USER")
         port.event("CHAT_IME_COMMIT_ONCE")
         if (!port.replace(bound, value)) fail("INPUT_REJECTED")
+        // Two consecutive exact reads of the same live session are the proof.
+        // One matching sample is not enough: a transient paint can agree once.
+        // The clipboard is deliberately not consulted — see SendAuthorization.
+        var confirmed: String? = null
         repeat(20) {
             if (!port.imeSelected()) fail("INPUT_IME_REQUIRED")
-            if (port.session() == null) fail("INPUT_REJECTED")
+            val live = port.session() ?: fail("INPUT_REJECTED")
             if (targetChanged(boundField, port.fieldIdentity())) fail("INPUT_TARGET_CHANGED")
-            // Exact equality (full length and content) rejects old drafts, appended
-            // garbage, whitespace changes, truncated prefixes and emoji loss. The
-            // clipboard is deliberately not consulted — see SendAuthorization.
-            if (SendAuthorization.authorized(port.readText(bound), value, port.clipboardContents())) {
-                port.event("CHAT_IME_VERIFIED")
-                return
+            // The editor may restart after the single commit. Re-read that new
+            // session; never issue another replace.
+            val readback = port.readText(live)
+            if (readback != null && SendAuthorization.authorized(readback, value, port.clipboardContents())) {
+                // Same session and same full text, twice in a row. The fingerprint
+                // is taken now, before the caller restores another keyboard.
+                if (confirmed == readback && live == bound) {
+                    port.event("CHAT_IME_VERIFIED")
+                    return ChatInputReadback(
+                        text = readback,
+                        generation = live,
+                        fingerprint = port.fieldIdentity(),
+                    )
+                }
+                confirmed = readback
+                bound = live
+            } else {
+                confirmed = null
             }
             port.pause()
         }
@@ -106,6 +154,7 @@ internal class ChatInputCommit(private val port: Port) {
         throw ExecutorFailure(code, when (code) {
             "INPUT_IME_REQUIRED" -> "Select CloudCtl Input in Companion before running chat replies"
             "INPUT_TARGET_CHANGED" -> "Target field changed during the chat commit; input refused"
+            "FIELD_DIRTY_BY_USER" -> "The chat field contains an existing draft; input was not overwritten"
             else -> "Chat input session or exact reply readback was not confirmed"
         })
     }

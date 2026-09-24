@@ -111,8 +111,13 @@ class CloudTaskClient(private val connection: CloudConnection) : ApkReleaseClien
         return if (raw.has("platforms")) raw else null
     }
 
-    /** pa-im/20260913.1: batch push of monitored IM notifications. */
+    /**
+     * pa-im-m3/20260922.1: batch push of monitored IM notifications.
+     * Each message must already carry platform/peerKey/peerName/text/occurredAt.
+     * deviceId stays on the binding and is not a JSON field.
+     */
     fun sendImMessages(payload: JSONObject): JSONObject {
+        requireImUploadHasPlatform(payload)
         return request("/companion/v2/im/messages", payload) ?: JSONObject()
     }
 
@@ -329,6 +334,23 @@ class CloudTaskClient(private val connection: CloudConnection) : ApkReleaseClien
 }
 
 internal data class TaskReleaseRequest(val path: String, val body: JSONObject)
+
+/**
+ * Refuse an IM batch that omits platform or tries to smuggle a device id.
+ * The server must not be left to default a missing platform to xianyu.
+ */
+internal fun requireImUploadHasPlatform(payload: JSONObject) {
+    val messages = payload.optJSONArray("messages") ?: error("IM upload has no messages")
+    check(messages.length() in 1..20) { "IM upload batch must contain 1..20 messages" }
+    for (index in 0 until messages.length()) {
+        val message = messages.getJSONObject(index)
+        val platform = message.optString("platform")
+        check(platform == "xianyu") { "IM upload platform must be xianyu" }
+        check(!message.has("deviceId") && !message.has("device_id")) {
+            "IM upload must not carry a client device id"
+        }
+    }
+}
 
 /** Request shape of one apk-release/v1 companion call (WIRE2 golden-test seam). */
 internal data class ApkEndpointCall(val method: String, val path: String, val body: JSONObject?)

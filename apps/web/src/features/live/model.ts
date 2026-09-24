@@ -442,16 +442,23 @@ function deny(reason: InputGateReason, hint: string): InputGate {
 export type LivePanelStatus =
   | 'IDLE'
   | 'AWAITING_PROJECTION_ACK'
+  | 'WAITING_FRAME'
   | 'VIEWING'
   | 'REMOTE'
   | 'STALE_FRAME'
   | 'DISCONNECTED'
   | 'TERMINAL'
 
-/**
- * 面板主状态。优先级：终态 > 断流 > 授权待确认 > 旧帧 > REMOTE > VIEWING > IDLE。
- * 「需要手机授权」以服务端 authorization.userConfirmedAt 为准（projection ack 待确认）。
- */
+/** 预览无输入 TTL，5 秒只作画面停滞提示，不改变服务端会话与租约。 */
+const PREVIEW_STALE_AFTER_MS = 5000
+
+/** 帧龄仅表示本浏览器距收帧的时间，不是采集到显示的端到端延迟。 */
+export function frameAgeMs(frame: FrameCursor | null, nowMs: number): number | null {
+  if (!frame || !Number.isFinite(frame.receivedAtMs) || !Number.isFinite(nowMs)) return null
+  return Math.max(0, nowMs - frame.receivedAtMs)
+}
+
+/** 授权提示优先保留；授权后所有档位都按实际通道与帧状态呈现。 */
 export function panelStatus(
   session: LiveSession | null,
   frame: FrameCursor | null,
@@ -461,18 +468,20 @@ export function panelStatus(
 ): LivePanelStatus {
   if (!session) return 'IDLE'
   if (session.terminal || session.state === 'CLOSED') return 'TERMINAL'
-  if (session.state !== 'REMOTE') {
-    return session.authorization.userConfirmedAt == null ? 'AWAITING_PROJECTION_ACK' : 'VIEWING'
-  }
+  if (session.authorization.userConfirmedAt == null) return 'AWAITING_PROJECTION_ACK'
   if (!transportConnected) return 'DISCONNECTED'
-  const gate = inputGate({ session, frame, transportConnected, serverLatestFrameSeq, nowMs })
-  if (!gate.allowed && (gate.reason === 'FRAME_STALE_SEQ' || gate.reason === 'FRAME_STALE_TTL' || gate.reason === 'NO_FRAME')) return 'STALE_FRAME'
-  return 'REMOTE'
+  const age = frameAgeMs(frame, nowMs)
+  if (!frame || !Number.isInteger(frame.seq) || frame.seq < 1 || age == null) return 'WAITING_FRAME'
+  const policy = session.inputPolicy
+  if (age > (policy?.ttlExpiryMs ?? PREVIEW_STALE_AFTER_MS)) return 'STALE_FRAME'
+  if (policy && serverLatestFrameSeq != null && serverLatestFrameSeq - frame.seq > policy.staleFrameThreshold) return 'STALE_FRAME'
+  return session.state === 'REMOTE' ? 'REMOTE' : 'VIEWING'
 }
 
 export const PANEL_STATUS_LABELS: Record<LivePanelStatus, string> = {
   IDLE: '未开始',
   AWAITING_PROJECTION_ACK: '等待手机确认投屏授权',
+  WAITING_FRAME: '已授权，等待画面到达',
   VIEWING: '观察中（VIEWING）',
   REMOTE: '远控中（REMOTE）',
   STALE_FRAME: '旧帧 / 低帧率，危险交互已禁用',

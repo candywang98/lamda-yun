@@ -49,8 +49,10 @@ import com.company.cloudctl.companion.control.ControlSyncClient
 import com.company.cloudctl.companion.control.PinnedControlPlaneTransport
 import com.company.cloudctl.companion.control.SuspectOrphanedPolicy
 import com.company.cloudctl.companion.data.AutomationStore
+import com.company.cloudctl.companion.data.ImOutboxStore
 import com.company.cloudctl.companion.im.DutyController
 import com.company.cloudctl.companion.im.ImMonitor
+import com.company.cloudctl.companion.im.ImOutboxDelivery
 import com.company.cloudctl.companion.data.PendingTask
 import com.company.cloudctl.companion.data.RuntimeStatusStore
 import com.company.cloudctl.companion.data.MediaDeliveryCoordinator
@@ -179,6 +181,8 @@ class CompanionSyncService : Service() {
     override fun onCreate() {
         super.onCreate()
         store = AutomationStore(this)
+        val imOutbox = ImOutboxStore(this)
+        ImMonitor.outbox = imOutbox
         runtimeStatus = RuntimeStatusStore(this)
         networkAvailability = NetworkAvailability(this)
         mediaDeliveryCoordinator = MediaDeliveryCoordinator(this)
@@ -191,20 +195,18 @@ class CompanionSyncService : Service() {
             android.util.Log.e("CompanionSync", "Recipe restoration failed", it)
         }
         createNotificationChannel()
-        ServiceCompat.startForeground(
-            this,
-            NOTIFICATION_ID,
-            NotificationCompat.Builder(this, CHANNEL_ID)
+        // Release promotes this service. Debug does not declare it, so it must
+        // not call startForeground: lint checks the call against the variant
+        // manifest, and a debug install has no such service.
+        SyncForeground.start(
+            service = this,
+            notificationId = NOTIFICATION_ID,
+            notification = NotificationCompat.Builder(this, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_launcher_foreground)
                 .setContentTitle("CloudCtl Companion")
                 .setContentText("Secure task synchronization is active")
                 .setOngoing(true)
                 .build(),
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
-            } else {
-                0
-            },
         )
     }
 
@@ -559,26 +561,11 @@ class CompanionSyncService : Service() {
     }
 
     private suspend fun deliverImEvents(client: CloudTaskClient) {
-        val batch = ImMonitor.drain(20)
-        if (batch.isEmpty()) return
-        val payload = org.json.JSONObject()
-        val messages = org.json.JSONArray()
-        batch.forEach { event ->
-            messages.put(
-                org.json.JSONObject()
-                    .put("peerKey", event.peerKey)
-                    .put("peerName", event.peerName)
-                    .put("text", event.text)
-                    .put("occurredAt", event.occurredAt.toString()),
-            )
-        }
-        payload.put("messages", messages)
-        try {
-            client.sendImMessages(payload)
-        } catch (error: Exception) {
-            ImMonitor.requeue(batch)
-            throw error
-        }
+        val deviceId = loadConnection()?.second ?: return
+        val outbox = ImMonitor.outbox ?: return
+        // Hold is decided inside delivery so the IM_OUTBOX_HOLD log is on the
+        // same path the unit test exercises. Default remains off.
+        ImOutboxDelivery(outbox, client::sendImMessages).deliverOnce(deviceId)
     }
 
     /**

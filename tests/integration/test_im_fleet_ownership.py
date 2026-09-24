@@ -30,7 +30,13 @@ from test_platform_tasks import _enroll, create_direct_device, identity
 
 
 def _message(peer: str, text: str, when: datetime) -> dict:
-    return {"peerKey": peer, "peerName": peer, "text": text, "occurredAt": when.isoformat()}
+    return {
+        "platform": "xianyu",
+        "peerKey": peer,
+        "peerName": peer,
+        "text": text,
+        "occurredAt": when.isoformat(),
+    }
 
 
 async def _push(client, auth, peer: str, text: str, when: datetime) -> dict:
@@ -60,9 +66,7 @@ async def _outbox_rows(app, task_id: str) -> list:
 
     async with app.state.database.unit_of_work() as session:
         return list(
-            await session.scalars(
-                select(ImMessageRow).where(ImMessageRow.reply_task_id == task_id)
-            )
+            await session.scalars(select(ImMessageRow).where(ImMessageRow.reply_task_id == task_id))
         )
 
 
@@ -119,17 +123,14 @@ async def test_running_reply_task_is_the_single_writer(api):  # noqa: F811
     assert other_thread.status_code == 409, other_thread.text
     assert "DEVICE_BUSY" in other_thread.text
 
-    from sqlalchemy import select
-
     from cloudctl_api.db import ImMessageRow, MobileTaskRow
+    from sqlalchemy import select
 
     async with app.state.database.unit_of_work() as session:
         tasks = list(await session.scalars(select(MobileTaskRow)))
         assert len(tasks) == 1
         outs = list(
-            await session.scalars(
-                select(ImMessageRow).where(ImMessageRow.direction == "OUT")
-            )
+            await session.scalars(select(ImMessageRow).where(ImMessageRow.direction == "OUT"))
         )
         assert len(outs) == 1
         assert outs[0].delivery_state == "PENDING"
@@ -250,7 +251,9 @@ async def test_retransmitted_push_never_re_arms_a_second_reply(api):  # noqa: F8
     assert first == {"accepted": 1, "duplicates": 0}
     # Same push retransmitted (companion outbox retry re-POSTs the same batch).
     for _ in range(2):
-        retransmitted = await _push(client, auth, peer="i10_dup_buyer", text="这个还有货吗", when=when)
+        retransmitted = await _push(
+            client, auth, peer="i10_dup_buyer", text="这个还有货吗", when=when
+        )
         assert retransmitted == {"accepted": 0, "duplicates": 1}
 
     thread = await _thread_of(client, "i10_dup_buyer")
@@ -282,9 +285,8 @@ async def test_retransmitted_push_never_re_arms_a_second_reply(api):  # noqa: F8
     assert second_reply.status_code == 409, second_reply.text
     assert "THREAD_REPLY_RATE_LIMITED" in second_reply.text
 
-    from sqlalchemy import select
-
     from cloudctl_api.db import ImMessageRow, MobileTaskRow
+    from sqlalchemy import select
 
     async with app.state.database.unit_of_work() as session:
         ins = list(

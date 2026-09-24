@@ -237,7 +237,79 @@ class LocalAutomationExecutorTest {
             ),
         ) { _, _ -> }
         assertTrue("xianyu_description" !in ui.nodes)
-        assertTrue(ui.visibleTextContains("联调测试"))
+        // The node is gone. Only the string replaceText recorded for this
+        // locator, equal in full, authorizes the step. Page text does not.
+        assertEquals("联调测试", ui.committedFieldText("xianyu_description"))
+    }
+
+    @Test
+    fun aLongerOldDraftThatContainsTheExpectedDescriptionIsRejected() = runBlocking {
+        val expected = "联调测试"
+        val ui = FakeUi().apply {
+            allowedPackage = TargetLocatorRegistry.XIANYU_PACKAGE
+            applyInput = false
+            // The field still shows the old draft. The expected sentence is a
+            // substring of it. replaceText's strict proof is not this poll, and
+            // "expected in a longer haystack" must not pass.
+            nodes["xianyu_description"] = node(editable = true, text = "旧草稿前缀${expected}还没删掉的后半段")
+        }
+        val failure = assertFailsWith<ExecutorFailure> {
+            executor(ui).execute(
+                task(
+                    TargetLocatorRegistry.XIANYU_PACKAGE,
+                    AutomationStep.Input("fill-description", 80, "xianyu_description", expected, false),
+                ),
+            ) { _, _ -> }
+        }
+        assertEquals("STEP_TIMEOUT", failure.code)
+        assertTrue(ui.nodes.getValue("xianyu_description").text != expected)
+    }
+
+    @Test
+    fun aDisappearedDescriptionNodeWithALongerRecordedDraftIsRejected() = runBlocking {
+        val expected = "联调测试"
+        val ui = FakeUi().apply {
+            allowedPackage = TargetLocatorRegistry.XIANYU_PACKAGE
+            applyInput = false
+            dropLocatorAfterInput = true
+            recordLongerThanExpected = true
+            nodes["xianyu_description"] = node(editable = true, text = "")
+        }
+        val failure = assertFailsWith<ExecutorFailure> {
+            executor(ui).execute(
+                task(
+                    TargetLocatorRegistry.XIANYU_PACKAGE,
+                    AutomationStep.Input("fill-description", 80, "xianyu_description", expected, false),
+                ),
+            ) { _, _ -> }
+        }
+        assertEquals("STEP_TIMEOUT", failure.code)
+        assertTrue(expected in (ui.committedFieldText("xianyu_description") ?: ""))
+        assertTrue(ui.committedFieldText("xianyu_description") != expected)
+    }
+
+    @Test
+    fun neighbouringSemanticTextDoesNotAuthorizeTheDescription() = runBlocking {
+        val expected = "自用闲置，支持当面交易"
+        val ui = FakeUi().apply {
+            allowedPackage = TargetLocatorRegistry.XIANYU_PACKAGE
+            applyInput = false
+            nodes["xianyu_description"] = node(editable = true, text = "描述一下宝贝的品牌型号")
+            // A sibling semantic node carries the expected sentence. It is not
+            // the description field, so the step must time out.
+            nodes["xianyu_title"] = node(text = expected)
+            pageHaystack = "想跟TA说点什么…$expected"
+        }
+        val failure = assertFailsWith<ExecutorFailure> {
+            executor(ui).execute(
+                task(
+                    TargetLocatorRegistry.XIANYU_PACKAGE,
+                    AutomationStep.Input("fill-description", 80, "xianyu_description", expected, false),
+                ),
+            ) { _, _ -> }
+        }
+        assertEquals("STEP_TIMEOUT", failure.code)
+        assertEquals("描述一下宝贝的品牌型号", ui.nodes.getValue("xianyu_description").text)
     }
 
     @Test
@@ -253,6 +325,68 @@ class LocalAutomationExecutorTest {
                 task(
                     TargetLocatorRegistry.XIANYU_PACKAGE,
                     AutomationStep.Input("fill-description", 100, "xianyu_description", "联调测试", false),
+                ),
+            ) { _, _ -> }
+        }
+        assertEquals("STEP_TIMEOUT", failure.code)
+    }
+
+    @Test
+    fun priceElsewhereOnThePageDoesNotAuthorizeThePriceField() = runBlocking {
+        val ui = FakeUi().apply {
+            allowedPackage = TargetLocatorRegistry.XIANYU_PACKAGE
+            // The price node stays empty. A title elsewhere contains 199, and the
+            // page haystack would match the substring. Neither authorizes price.
+            nodes["xianyu_price"] = node(editable = true, text = "")
+            nodes["xianyu_title"] = node(text = "199元包邮")
+            pageHaystack = "别处的199"
+            // The replace "succeeds" only as page text. The price node stays empty,
+            // which is what an unauthorized page-wide match used to accept.
+            applyInput = false
+            recordCommittedOnly = true
+        }
+        val failure = assertFailsWith<ExecutorFailure> {
+            executor(ui).execute(
+                task(
+                    TargetLocatorRegistry.XIANYU_PACKAGE,
+                    AutomationStep.Input("fill-price", 80, "xianyu_price", "199", false),
+                ),
+            ) { _, _ -> }
+        }
+        assertEquals("STEP_TIMEOUT", failure.code)
+    }
+
+    @Test
+    fun accumulatedPriceTokenDoesNotPass() = runBlocking {
+        val ui = FakeUi().apply {
+            allowedPackage = TargetLocatorRegistry.XIANYU_PACKAGE
+            nodes["xianyu_price"] = node(editable = true, text = "¥10199")
+            applyInput = false
+        }
+        val failure = assertFailsWith<ExecutorFailure> {
+            executor(ui).execute(
+                task(
+                    TargetLocatorRegistry.XIANYU_PACKAGE,
+                    AutomationStep.Input("fill-price", 80, "xianyu_price", "199", false),
+                ),
+            ) { _, _ -> }
+        }
+        assertEquals("STEP_TIMEOUT", failure.code)
+    }
+
+    @Test
+    fun descriptionOnAnotherNodeDoesNotAuthorizeThisField() = runBlocking {
+        val ui = FakeUi().apply {
+            allowedPackage = TargetLocatorRegistry.XIANYU_PACKAGE
+            nodes["xianyu_description"] = node(editable = true, text = "")
+            nodes["xianyu_title"] = node(text = "自用闲置")
+            applyInput = false
+        }
+        val failure = assertFailsWith<ExecutorFailure> {
+            executor(ui).execute(
+                task(
+                    TargetLocatorRegistry.XIANYU_PACKAGE,
+                    AutomationStep.Input("fill-description", 80, "xianyu_description", "自用闲置", false),
                 ),
             ) { _, _ -> }
         }
@@ -294,11 +428,16 @@ class LocalAutomationExecutorTest {
         var readyFailure: ExecutorFailure? = null
         var applyInput = true
         var dropLocatorAfterInput = false
+        var pageHaystack: String? = null
+        var recordCommittedOnly = false
+        /** Records a longer draft that merely contains the expected text. */
+        var recordLongerThanExpected = false
         var allowedPackage = TargetLocatorRegistry.COMPANION_PACKAGE
         var tapCreates: Pair<String, LocalNodeState>? = null
         var followUpTapCreates: Pair<String, LocalNodeState>? = null
         var screenshot = ScreenshotEvidence("/private/proof.png", 32, "a".repeat(64))
         private var committedVisible: String? = null
+        private val committedByLocator = mutableMapOf<String, String>()
 
         override fun ensureReady(targetPackage: String) {
             readyFailure?.let { throw it }
@@ -309,7 +448,8 @@ class LocalAutomationExecutorTest {
 
         override fun visibleTextContains(expected: String) =
             nodes.values.any { expected in (it.text ?: "") } ||
-                committedVisible?.let { FlutterTextCommit.accepted(it, expected) } == true
+                committedVisible?.let { FlutterTextCommit.accepted(it, expected) } == true ||
+                pageHaystack?.let { expected in it } == true
 
         override suspend fun tap(targetPackage: String, locatorRef: String) {
             taps += locatorRef
@@ -318,13 +458,19 @@ class LocalAutomationExecutorTest {
         }
 
         override suspend fun replaceText(targetPackage: String, locatorRef: String, value: String) {
-            if (applyInput) committedVisible = value
+            val recorded = if (recordLongerThanExpected) "旧草稿前缀${value}还没删掉的后半段" else value
+            if (applyInput || recordCommittedOnly || recordLongerThanExpected) {
+                committedVisible = recorded
+                committedByLocator[locatorRef] = recorded
+            }
             if (dropLocatorAfterInput) {
                 nodes.remove(locatorRef)
                 return
             }
             if (applyInput) nodes[locatorRef] = nodes.getValue(locatorRef).copy(text = value)
         }
+
+        override fun committedFieldText(locatorRef: String): String? = committedByLocator[locatorRef]
 
         override suspend fun screenshot(taskId: String, label: String) = screenshot
 

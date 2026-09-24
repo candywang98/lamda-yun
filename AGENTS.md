@@ -81,7 +81,13 @@ The following locks are single-owner and therefore intentionally serialized:
 - `DB_MIGRATION` for migration numbering, upgrade, and rollback.
 - `MERGE:integration` for integration-branch changes.
 - `DEVICE:<serial>` for APK install, claim, pause/resume, activation, or other
-  writes to one physical device.
+  writes to one physical device. The local tool is
+  `scripts/device_lock.py` (see `docs/runbooks/device-acceptance-locks.md`).
+  It stores one shared SQLite file in the Git common directory and is not
+  production PostgreSQL `device_lease`. A missing database is only bootstrap
+  state: FREE does not prove the phone is idle. The tool locks an exact
+  serial only; pool or alias exclusion is an external stop, not something
+  the lock can prove. Sub-agents do not acquire it.
 - `DEPLOY:<environment>` for service deployment or restart.
 - `RELEASE:<package>` for manual publish, revoke, or rollback.
 - `SIDE_EFFECT:G3` for real publish, charge, delete, review, or promotion.

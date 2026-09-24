@@ -1,6 +1,6 @@
 package com.company.cloudctl.companion.im
 
-import java.security.MessageDigest
+import com.company.cloudctl.companion.data.ImOutboxStore
 import java.time.Instant
 import java.time.LocalTime
 
@@ -17,12 +17,11 @@ data class ImEvent(
 ) {
     val peerKey: String get() = peerName.trim()
 
-    fun dedupeKey(deviceId: String): String {
-        val bucket = occurredAt.epochSecond
-        val raw = "$deviceId|$platform|$peerKey|$bucket|$text"
-        return MessageDigest.getInstance("SHA-256")
-            .digest(raw.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
-    }
+    /**
+     * SHA-256 of `deviceId|platform|peerKey|epochSecond|canonicalText`.
+     * [text] is canonicalized here so a raw and an already-canonical body share one key.
+     */
+    fun dedupeKey(deviceId: String): String = ImDedupe.key(deviceId, this)
 }
 
 /** Runtime monitor configuration mirrored from the cloud (device-scoped). */
@@ -72,21 +71,16 @@ data class ImMonitorConfig(
 }
 
 /**
- * In-memory dedupe + pending queue + live config. The companion loop drains
- * batches; delivery failures never block task execution.
+ * In-memory dedupe hint + live config. Reliability is the persistent IM
+ * outbox, not this object: LRU eviction must not drop a stored event, and
+ * the memory queue is no longer the upload path (pa-im-m3/20260922.1 §4).
  *
- * I10 dedupe contract: an inbound is a retransmission when EITHER its exact
- * occurrence key (device|platform|peer|second-bucket|text) was seen, OR the
- * same source identity (platform|peer|text) was already accepted inside
- * [RETRANSMIT_WINDOW_MS] — the notification path re-posts the same push with a
- * regenerated timestamp and the duty reader re-reads the same unanswered
- * bubble with a fabricated now() clock, so the second bucket is never proof of
- * a fresh message. Retransmissions are dropped before the queue: no second
- * cloud IN row, no re-armed reply trigger.
+ * I10 still treats a same-source retransmission inside [RETRANSMIT_WINDOW_MS]
+ * as already accepted, but only after the persistent outbox has the row.
+ * Callers that have not stored the event must not use [noteAccepted].
  */
 object ImMonitor {
     private const val LRU_LIMIT = 512
-    private const val QUEUE_LIMIT = 200
 
     /** Same source identity re-observed inside this window is a retransmission. */
     const val RETRANSMIT_WINDOW_MS = 5 * 60_000L
@@ -113,47 +107,73 @@ object ImMonitor {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Instant>?): Boolean =
             size > LRU_LIMIT
     }
-    private val pending = ArrayDeque<ImEvent>()
 
-    @Synchronized
-    fun accept(deviceId: String, event: ImEvent): Boolean {
-        val key = event.dedupeKey(deviceId)
-        if (recentKeys.containsKey(key)) return false
-        // I10 retransmission window: identical (platform|peer|text) observed
-        // again inside the window — a re-posted push or a duty re-read — is
-        // never queued twice. Clock base is the event occurrence time: for the
-        // duty reader that is the fabricated now(), so the window follows the
-        // re-read cadence; an old-when notification re-post is already caught
-        // by the exact occurrence key above.
-        val textKey = "${event.platform}|${event.peerKey}|${event.text}"
-        val lastAcceptedAt = recentByText[textKey]
-        val retransmitted = lastAcceptedAt != null &&
-            !event.occurredAt.isBefore(lastAcceptedAt) &&
-            event.occurredAt.toEpochMilli() - lastAcceptedAt.toEpochMilli() < RETRANSMIT_WINDOW_MS
-        if (retransmitted) {
-            recentKeys[key] = true
-            return false
+    /**
+     * Process-wide outbox installed by the sync service. Null in unit tests
+     * that only exercise the memory hint; production callers set it before
+     * notifications or duty reads are accepted.
+     */
+    @Volatile
+    var outbox: ImOutboxStore? = null
+
+    /**
+     * Record one inbound in the persistent outbox. Returns false when the
+     * memory hint or the outbox already has it, the row is rejected, or the
+     * outbox is not installed yet. Never drops an older stored row.
+     */
+    fun accept(deviceId: String, event: ImEvent, now: Instant = Instant.now()): Boolean {
+        if (deviceId.isBlank()) return false
+        val store = outbox ?: return false
+        if (alreadyRecorded(deviceId, event)) return false
+        // Enqueue outside the memory lock. The outbox unique key is the
+        // reliability boundary if two callers pass the hint together.
+        val outcome = store.enqueue(deviceId, event, now)
+        if (outcome.result == ImEnqueueResult.ENQUEUED || outcome.result == ImEnqueueResult.DUPLICATE) {
+            noteAccepted(deviceId, event)
         }
-        recentKeys[key] = true
-        recentByText[textKey] = event.occurredAt
-        if (pending.size >= QUEUE_LIMIT) pending.removeFirst()
-        pending.addLast(event)
-        return true
+        return outcome.result == ImEnqueueResult.ENQUEUED
     }
 
+    /**
+     * Memory-only hint. True means this process already recorded the event in
+     * the persistent outbox (exact key, or I10 retransmission of canonical text).
+     * False means the caller must still consult the outbox.
+     */
     @Synchronized
-    fun drain(max: Int): List<ImEvent> {
-        val batch = buildList {
-            while (size < max && pending.isNotEmpty()) add(pending.removeFirst())
-        }
-        return batch
+    fun alreadyRecorded(deviceId: String, event: ImEvent): Boolean = alreadyRecordedLocked(deviceId, event)
+
+    /** Remember a row that the persistent outbox has accepted or already stored. */
+    @Synchronized
+    fun noteAccepted(deviceId: String, event: ImEvent) {
+        noteAcceptedLocked(deviceId, event)
     }
 
-    @Synchronized
-    fun requeue(events: List<ImEvent>) {
-        events.reversed().forEach { pending.addFirst(it) }
+    private fun alreadyRecordedLocked(deviceId: String, event: ImEvent): Boolean {
+        val canonical = event.copy(text = ImCanonicalText.canonical(event.text))
+        val key = canonical.dedupeKey(deviceId)
+        if (recentKeys.containsKey(key)) return true
+        val textKey = textIdentity(canonical)
+        val lastAcceptedAt = recentByText[textKey] ?: return false
+        val retransmitted = !canonical.occurredAt.isBefore(lastAcceptedAt) &&
+            canonical.occurredAt.toEpochMilli() - lastAcceptedAt.toEpochMilli() < RETRANSMIT_WINDOW_MS
+        if (retransmitted) recentKeys[key] = true
+        return retransmitted
     }
 
+    private fun noteAcceptedLocked(deviceId: String, event: ImEvent) {
+        val canonical = event.copy(text = ImCanonicalText.canonical(event.text))
+        recentKeys[canonical.dedupeKey(deviceId)] = true
+        recentByText[textIdentity(canonical)] = canonical.occurredAt
+    }
+
+    private fun textIdentity(event: ImEvent): String =
+        "${event.platform}|${event.peerKey}|${ImCanonicalText.canonical(event.text)}"
+
+    /** Drops the in-memory hint only. Persistent rows are untouched. */
     @Synchronized
-    fun pendingCount(): Int = pending.size
+    internal fun resetForTest() {
+        recentKeys.clear()
+        recentByText.clear()
+        outbox = null
+    }
 }

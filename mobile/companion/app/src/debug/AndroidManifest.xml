@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Debug installs beside production as com.company.cloudctl.companion.debug.
+  The merged manifest must not be able to claim, boot, or open a network
+  connection. Production permissions and components stay in src/main; this
+  file only removes them from the debug variant.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" tools:node="remove" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" tools:node="remove" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" tools:node="remove" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" tools:node="remove" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" tools:node="remove" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" tools:node="remove" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" tools:node="remove" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" tools:node="remove" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" tools:node="remove" />
+
+    <!-- See only the fixed harness. Do not keep the production view of Xianyu. -->
+    <queries>
+        <package android:name="com.taobao.idlefish" tools:node="remove" />
+        <package android:name="com.xingin.xhs" tools:node="remove" />
+        <intent tools:node="remove">
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+        <package android:name="com.company.cloudctl.inputharness" />
+    </queries>
+
+    <application>
+        <receiver
+            android:name="com.company.cloudctl.companion.service.BootReceiver"
+            tools:node="remove" />
+        <service
+            android:name="com.company.cloudctl.companion.service.CompanionSyncService"
+            tools:node="remove" />
+        <receiver
+            android:name="com.company.cloudctl.companion.updates.ApkInstallReceiver"
+            tools:node="remove" />
+        <service
+            android:name="com.company.cloudctl.companion.live.MediaProjectionService"
+            tools:node="remove" />
+        <activity
+            android:name="com.company.cloudctl.companion.ClipboardRelayActivity"
+            tools:node="remove" />
+        <activity
+            android:name="com.company.cloudctl.companion.live.ProjectionConsentActivity"
+            tools:node="remove" />
+        <!-- Enrollment UI. The diagnostic test starts the harness, not this. -->
+        <activity
+            android:name="com.company.cloudctl.companion.MainActivity"
+            tools:node="remove" />
+        <!-- API 33+ writes through the accessibility editor. Leaving the IME in
+             would let a user select it and move the keyboard the test checks. -->
+        <service
+            android:name="com.company.cloudctl.companion.ime.CloudCtlInputMethod"
+            tools:node="remove" />
+        <service
+            android:name="com.company.cloudctl.companion.automation.CloudCtlAccessibilityService"
+            android:label="CloudCtl debug input"
+            tools:replace="android:label" />
+    </application>
+</manifest>

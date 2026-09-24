@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { controlApiConfigured, createControlApiClient } from '@/api/control'
 import { mapControlDevice } from '@/api/devices'
 import {
@@ -40,23 +40,59 @@ const visibleThreads = computed(() =>
     : threads.value,
 )
 const deviceIds = computed(() => [...new Set(threads.value.map((thread) => thread.deviceId))])
+const filterDeviceOptions = computed(() => {
+  const merged = new Map<string, ConfigDeviceOption>()
+  for (const option of deviceOptions.value) merged.set(option.id, option)
+  for (const id of deviceIds.value) {
+    if (!merged.has(id)) merged.set(id, { id, name: `设备 ${deviceShort(id)}` })
+  }
+  return [...merged.values()]
+})
+const deviceNameById = computed(() => new Map(filterDeviceOptions.value.map((option) => [option.id, option.name])))
 
 const replyText = ref('')
 const busy = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
 
+let threadRequest = 0
+let disposed = false
+
 async function refreshThreads(preserveSelection = true) {
+  const request = ++threadRequest
   try {
-    threads.value = await listImThreads(deviceFilter.value || undefined, unreadOnly.value)
-    if (!preserveSelection || !threads.value.some((t) => t.id === selected.value?.id)) {
+    const nextThreads = await listImThreads(deviceFilter.value || undefined, unreadOnly.value)
+    if (disposed || request !== threadRequest) return false
+    threads.value = nextThreads
+    if (!preserveSelection || !nextThreads.some((thread) => thread.id === selected.value?.id)) {
       selected.value = null
       messages.value = []
+    } else if (selected.value) {
+      selected.value = nextThreads.find((thread) => thread.id === selected.value?.id) ?? selected.value
     }
+    errorMessage.value = ''
+    await loadDeviceConfigs()
+    return true
   } catch (error) {
-    errorMessage.value = error instanceof ImApiError ? error.message : '会话列表加载失败'
+    if (!disposed && request === threadRequest) {
+      errorMessage.value = error instanceof ImApiError ? error.message : '会话列表加载失败'
+    }
+    return false
   }
-  await loadDeviceConfigs()
+}
+
+async function refreshSelectedMessages() {
+  const thread = selected.value
+  if (!thread) return
+  try {
+    const nextMessages = await listImMessages(thread.id)
+    if (disposed || selected.value?.id !== thread.id) return
+    messages.value = nextMessages
+    cacheThreadSummary(thread)
+    errorMessage.value = ''
+  } catch (error) {
+    errorMessage.value = error instanceof ImApiError ? error.message : '消息加载失败'
+  }
 }
 
 async function openThread(thread: ImThread) {
@@ -64,7 +100,9 @@ async function openThread(thread: ImThread) {
   errorMessage.value = ''
   successMessage.value = ''
   try {
-    messages.value = await listImMessages(thread.id)
+    const nextMessages = await listImMessages(thread.id)
+    if (disposed || selected.value?.id !== thread.id) return
+    messages.value = nextMessages
     cacheThreadSummary(thread)
     if (thread.unreadCount > 0) {
       await markImThreadRead(thread.id)
@@ -79,7 +117,6 @@ function cacheThreadSummary(thread: ImThread) {
   const last = messages.value[messages.value.length - 1]
   if (!last) return
   thread.lastMessageText = last.text
-  thread.summaryPending = false
 }
 
 function threadSummary(thread: ImThread): string {
@@ -228,7 +265,7 @@ watch(configDeviceOptions, (options) => {
   if (cfgDevice.value && options.some((option) => option.id === cfgDevice.value)) return
   const preferred = deviceFilter.value && options.some((option) => option.id === deviceFilter.value)
     ? deviceFilter.value
-    : options.length === 1 ? options[0].id : ''
+    : options[0]?.id ?? ''
   if (preferred && preferred !== cfgDevice.value) {
     cfgDevice.value = preferred
     void loadConfig()
@@ -258,9 +295,58 @@ function deviceShort(id: string): string {
   return id.length > 12 ? `${id.slice(0, 12)}…` : id
 }
 
+function deviceLabel(id: string): string {
+  return `${deviceNameById.value.get(id) ?? '设备'}（${deviceShort(id)}）`
+}
+
+const POLL_INTERVAL_MS = 5_000
+let pollTimer: ReturnType<typeof setInterval> | null = null
+
+let pollInFlight = false
+async function pollInbox() {
+  if (disposed || pollInFlight || document.visibilityState !== 'visible') return
+  pollInFlight = true
+  try {
+    if (await refreshThreads(true)) await refreshSelectedMessages()
+  } finally {
+    pollInFlight = false
+  }
+}
+
+function stopPolling() {
+  if (pollTimer !== null) {
+    clearInterval(pollTimer)
+    pollTimer = null
+  }
+}
+
+function startPolling() {
+  stopPolling()
+  if (document.visibilityState !== 'visible') return
+  pollTimer = setInterval(() => { void pollInbox() }, POLL_INTERVAL_MS)
+}
+
+function onVisibilityChange() {
+  if (document.visibilityState === 'visible') {
+    void pollInbox()
+    startPolling()
+  } else {
+    stopPolling()
+  }
+}
+
 onMounted(() => {
   void refreshThreads(false)
   void loadDeviceOptions()
+  document.addEventListener('visibilitychange', onVisibilityChange)
+  startPolling()
+})
+
+onBeforeUnmount(() => {
+  disposed = true
+  ++threadRequest
+  stopPolling()
+  document.removeEventListener('visibilitychange', onVisibilityChange)
 })
 </script>
 
@@ -275,8 +361,10 @@ onMounted(() => {
         <label class="yy-field">
           <span>设备</span>
           <select v-model="deviceFilter" @change="refreshThreads(false)">
-            <option value="">全部</option>
-            <option v-for="id in deviceIds" :key="id" :value="id">{{ id.slice(0, 8) }}</option>
+            <option value="">全部设备</option>
+            <option v-for="option in filterDeviceOptions" :key="option.id" :value="option.id">
+              {{ option.name }}（{{ deviceShort(option.id) }}）
+            </option>
           </select>
         </label>
         <label class="yy-check">
@@ -371,10 +459,10 @@ onMounted(() => {
             </span>
           </span>
           <span class="im-summary" :class="{ pending: !threadSummary(thread) }">
-            {{ threadSummary(thread) || '摘要待补全' }}
+            {{ threadSummary(thread) || '暂无正文' }}
           </span>
           <span class="im-meta">
-            {{ thread.lastDirection === 'IN' ? '收到' : '已回复' }} · {{ timeLabel(thread.lastMessageAt) }} · {{ deviceShort(thread.deviceId) }}
+            {{ thread.lastDirection === 'IN' ? '收到' : '已回复' }} · {{ timeLabel(thread.lastMessageAt) }} · {{ deviceLabel(thread.deviceId) }}
           </span>
         </button>
       </aside>
@@ -387,7 +475,7 @@ onMounted(() => {
             <span v-if="dutyChips.get(selected.deviceId)" class="im-duty" :data-state="dutyChips.get(selected.deviceId)?.state">
               {{ dutyChips.get(selected.deviceId)?.label }}
             </span>
-            <span class="im-meta">{{ deviceShort(selected.deviceId) }}</span>
+            <span class="im-meta">{{ deviceLabel(selected.deviceId) }}</span>
           </header>
           <div class="im-stream">
             <div

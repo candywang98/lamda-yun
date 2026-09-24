@@ -133,4 +133,24 @@ class ImeTextReplacementTest {
         assertFailsWith<IllegalStateException> { ImeTextReplacement.replace(fake.connection, "reply") }
         assertEquals("endBatchEdit", fake.calls.last())
     }
+
+    @Test fun commitIfEmptyRefusesADifferentDraft() {
+        val fake = Fake().apply { extracted = null; beforeCursor = "用户草稿"; afterCursor = "" }
+        assertFalse(ImeTextReplacement.commitIfEmpty(fake.connection, "reply"))
+        assertFalse("commitText" in fake.calls)
+        assertFalse("setSelection" in fake.calls)
+    }
+
+    @Test fun commitIfEmptyLeavesAnEqualFieldUntouched() {
+        val fake = Fake().apply { extracted = null; beforeCursor = "reply"; afterCursor = "" }
+        assertTrue(ImeTextReplacement.commitIfEmpty(fake.connection, "reply"))
+        assertFalse("commitText" in fake.calls)
+    }
+
+    @Test fun commitIfEmptyWritesOnlyAnEmptyField() {
+        val fake = Fake().apply { extracted = null; beforeCursor = ""; afterCursor = "" }
+        assertTrue(ImeTextReplacement.commitIfEmpty(fake.connection, "reply"))
+        assertTrue("commitText" in fake.calls)
+        assertFalse("setSelection" in fake.calls)
+    }
 }

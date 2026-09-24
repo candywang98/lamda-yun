@@ -192,6 +192,9 @@ class CompanionRepository(
     }
 
     private fun saveBinding(binding: DeviceBinding) {
+        // Debug and release each compile their own BindingWritePolicy.
+        // Debug refuses. Release does nothing. Main does not name either source set.
+        BindingWritePolicy.beforeSave()
         preferences.edit().putString(
             BINDING,
             JSONObject()

@@ -40,10 +40,16 @@ android {
         versionCode = 1
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // Only the acceptance build type overrides this to true.
+        buildConfigField("boolean", "IM_UPLOAD_HOLD_ALLOWED", "false")
     }
 
     buildTypes {
         debug {
+            // Side-by-side with a bound production install. Replacing
+            // com.company.cloudctl.companion delivers MY_PACKAGE_REPLACED to
+            // BootReceiver, which starts CompanionSyncService and claims.
+            applicationIdSuffix = ".debug"
             // This public RFC 8032 vector is only for deterministic local unit tests.
             buildConfigField("String", "APP_UPDATE_PUBLIC_KEY", "\"$debugUpdatePublicKey\"")
             buildConfigField("String", "SOURCE_REVISION", sourceRevisionLiteral.get())
@@ -66,6 +72,26 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+        }
+        // C6 install. Same upload path as release, plus the DUMP-protected
+        // shell hold switch. Not the input-harness debug package or production.
+        create("acceptance") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".acceptance"
+            isDebuggable = false
+            isMinifyEnabled = false
+            matchingFallbacks += listOf("release")
+            signingConfig = signingConfigs.getByName("debug")
+            buildConfigField("boolean", "IM_UPLOAD_HOLD_ALLOWED", "true")
+            buildConfigField("String", "APP_UPDATE_PUBLIC_KEY", "\"$debugUpdatePublicKey\"")
+            buildConfigField("String", "SOURCE_REVISION", sourceRevisionLiteral.get())
+            buildConfigField("String", "RECIPE_SIGNING_PUBLIC_KEYS", "\"{}\"")
+        }
+    }
+
+    sourceSets {
+        getByName("acceptance") {
+            java.srcDir("src/release/java")
         }
     }
 

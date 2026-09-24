@@ -69,6 +69,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.company.cloudctl.companion.ime.InputChannel
+import com.company.cloudctl.companion.ime.InputRoutePolicy
 import com.company.cloudctl.companion.model.CompanionState
 import com.company.cloudctl.companion.model.ArtifactDeliveryState
 import com.company.cloudctl.companion.model.ArtifactKind
@@ -243,13 +245,23 @@ private fun StatusContent(state: CompanionState, model: CompanionViewModel) {
                 },
             )
         }
-        if (!state.permissions.inputMethodEnabled || !state.permissions.inputMethodCurrent) {
+        val inputSetup = InputRoutePolicy.requiresSetup(
+            Build.VERSION.SDK_INT,
+            state.permissions.inputMethodEnabled,
+            state.permissions.inputMethodCurrent,
+        )
+        if (inputSetup) {
+            val manual = InputRoutePolicy.channel(Build.VERSION.SDK_INT) == InputChannel.MANUAL_IME
             KeepAlivePrompt(
-                title = if (!state.permissions.inputMethodEnabled) "自动化输入法未启用" else "自动化输入法未设为当前键盘",
-                detail = "闲鱼发布与聊天回复需要 CloudCtl Input。未选中时，聊天回复将安全停止。",
+                title = if (!state.permissions.inputMethodEnabled) "备用输入法未启用" else "请手动选择 CloudCtl Input",
+                detail = if (manual) {
+                    "Android 10 需要把 CloudCtl Input 手动设为当前键盘，否则文本输入会停止。"
+                } else {
+                    "此系统版本会在输入时临时切换已启用的 CloudCtl Input，并在结束后恢复你的键盘。请先启用，不必设为日常键盘。"
+                },
                 action = "去设置",
                 onClick = {
-                    if (state.permissions.inputMethodEnabled) {
+                    if (state.permissions.inputMethodEnabled && manual) {
                         context.getSystemService(android.view.inputmethod.InputMethodManager::class.java)
                             ?.showInputMethodPicker()
                     } else {
@@ -359,6 +371,22 @@ private fun CurrentRunStrip(state: CompanionState) {
     }
 }
 
+private fun inputMethodStatus(state: CompanionState): String {
+    val channel = InputRoutePolicy.channel(Build.VERSION.SDK_INT)
+    return when (channel) {
+        InputChannel.ACCESSIBILITY -> "由无障碍输入，不必切换日常键盘"
+        InputChannel.TEMPORARY_IME -> when {
+            state.permissions.inputMethodEnabled -> "已启用，输入时临时切换并恢复"
+            else -> "需要先启用备用输入法"
+        }
+        InputChannel.MANUAL_IME -> when {
+            state.permissions.inputMethodCurrent -> "当前键盘"
+            state.permissions.inputMethodEnabled -> "已启用，需手动设为当前"
+            else -> "需要授权并手动设为当前"
+        }
+    }
+}
+
 private enum class CompanionStatusTab(val label: String) {
     Environment("基础环境"),
     CommonFeatures("常用功能"),
@@ -375,11 +403,7 @@ private fun EnvironmentStatus(state: CompanionState, model: CompanionViewModel) 
         StatusRow("无障碍执行器", if (state.permissions.lamdaServiceCertificateEnabled) "已启用" else "需要授权")
         StatusRow(
             "自动化输入法",
-            when {
-                state.permissions.inputMethodCurrent -> "当前键盘"
-                state.permissions.inputMethodEnabled -> "已启用，未设为当前"
-                else -> "需要授权"
-            },
+            inputMethodStatus(state),
         )
         if (!state.permissions.lamdaServiceCertificateEnabled) {
             Button(
@@ -393,10 +417,16 @@ private fun EnvironmentStatus(state: CompanionState, model: CompanionViewModel) 
                 Text("开启无障碍服务")
             }
         }
-        if (!state.permissions.inputMethodEnabled || !state.permissions.inputMethodCurrent) {
+        if (InputRoutePolicy.requiresSetup(
+                Build.VERSION.SDK_INT,
+                state.permissions.inputMethodEnabled,
+                state.permissions.inputMethodCurrent,
+            )
+        ) {
+            val manual = InputRoutePolicy.channel(Build.VERSION.SDK_INT) == InputChannel.MANUAL_IME
             Button(
                 onClick = {
-                    if (state.permissions.inputMethodEnabled) {
+                    if (state.permissions.inputMethodEnabled && manual) {
                         context.getSystemService(android.view.inputmethod.InputMethodManager::class.java)
                             ?.showInputMethodPicker()
                     } else {
@@ -405,7 +435,7 @@ private fun EnvironmentStatus(state: CompanionState, model: CompanionViewModel) 
                 },
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text(if (!state.permissions.inputMethodEnabled) "启用 CloudCtl Input" else "设为当前输入法")
+                Text(if (!state.permissions.inputMethodEnabled) "启用备用输入法" else "手动选择 CloudCtl Input")
             }
         }
     }

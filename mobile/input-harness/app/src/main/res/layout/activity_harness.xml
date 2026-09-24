@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <!--
+      One empty multiline field. No send, publish, review, confirm, or tap
+      controls. The resource id is the only locator the debug policy admits.
+    -->
+    <EditText
+        android:id="@+id/harness_multiline_field"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="top|start"
+        android:hint="@string/field_hint"
+        android:importantForAutofill="no"
+        android:inputType="textMultiLine|textCapSentences"
+        android:singleLine="false" />
+</FrameLayout>

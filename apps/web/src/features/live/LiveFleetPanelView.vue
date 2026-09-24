@@ -16,6 +16,7 @@ import {
 } from './api'
 import {
   createInputRateLimiter,
+  frameAgeMs,
   inputChannelOpen,
   inputGate,
   loadHandoverAck,
@@ -80,6 +81,10 @@ const nowTick = ref(Date.now())
 
 const status = computed(() => panelStatus(session.value, frameCursor.value, transportConnected.value, serverLatestFrameSeq.value, nowTick.value))
 const statusLabel = computed(() => PANEL_STATUS_LABELS[status.value])
+const frameAgeLabel = computed(() => {
+  const age = frameAgeMs(frameCursor.value, nowTick.value)
+  return age == null ? '尚未收到画面' : `${(age / 1000).toFixed(1)} 秒前收到`
+})
 const tierBadge = computed(() => (session.value ? tierBadgeLabelOf(session.value) : ''))
 const tierUiLabel = computed(() => (session.value ? tierUiLabelOf(session.value) : ''))
 const envelopeWarning = computed(() => {
@@ -98,16 +103,20 @@ const gate = computed(() =>
   }),
 )
 const awaitingProjectionAck = computed(() => session.value != null && session.value.authorization.userConfirmedAt == null && session.value.state !== 'CLOSED' && session.value.terminal == null)
-const canTakeControl = computed(
-  () => session.value != null && channelOpen.value && session.value.state === 'VIEWING' && session.value.terminal == null,
-)
 const takeControlDisabledReason = computed(() => {
-  if (!session.value || !channelOpen.value) return ''
-  if (session.value.state !== 'VIEWING') return ''
-  if (awaitingProjectionAck.value) return '手机尚未确认投屏授权（MediaProjection），接管会被 428 拒绝'
+  const current = session.value
+  if (!current) return '尚无活动会话'
+  if (current.terminal || current.state === 'CLOSED') return '会话已终态'
+  if (!channelOpen.value) return '只读档位不可接管'
+  if (current.state !== 'VIEWING') return '当前不是旁观会话'
+  if (awaitingProjectionAck.value) return '手机尚未确认投屏授权（MediaProjection），暂不可接管'
   if (!transportConnected.value) return '帧通道断开，暂不可接管'
+  if (envelopeWarning.value) return envelopeWarning.value
+  if (status.value !== 'VIEWING') return statusLabel.value
+  if (!current.inputPolicy) return '服务端未回传输入策略，暂不可接管'
   return ''
 })
+const canTakeControl = computed(() => takeControlDisabledReason.value === '')
 /** 断连立即禁用：接管/交还/输入全部锁死；仅保留「结束会话」作为安全出口。 */
 const interactionLocked = computed(() => session.value != null && session.value.terminal == null && !transportConnected.value)
 const inputDisabledReason = computed(() => {
@@ -155,6 +164,7 @@ function connectTransport(path: string | null): void {
     }
     if (message.t === 'frame' && typeof message.jpeg === 'string' && message.jpeg) {
       frameSrc.value = `data:image/jpeg;base64,${message.jpeg}`
+      nowTick.value = Date.now()
       const transportSeq = typeof message.seq === 'number' && Number.isInteger(message.seq) && message.seq >= 1 ? message.seq : null
       frameCursor.value = {
         seq: transportSeq ?? (localFrameCount += 1),
@@ -266,8 +276,9 @@ function establish(): void {
 }
 
 function takeControl(): void {
+  nowTick.value = Date.now()
   const current = session.value
-  if (!current) return
+  if (!current || busy.value || !canTakeControl.value) return
   void guard(async () => {
     session.value = await takeLiveControl(current.sessionId, sessionToken.value)
     inputSeq = 0
@@ -465,6 +476,13 @@ onBeforeUnmount(() => {
         </button>
       </div>
 
+      <p v-if="channelOpen && session.state === 'VIEWING' && takeControlDisabledReason" class="live-hint" data-testid="live-take-control-reason">
+        暂不可接管：{{ takeControlDisabledReason }}
+      </p>
+      <p v-if="status === 'WAITING_FRAME' || status === 'STALE_FRAME'" class="live-hint" data-testid="live-frame-warning" role="status">
+        {{ statusLabel }}。等待新画面到达后再操作；长时间未恢复时请结束会话并重新发起授权。
+      </p>
+
       <div
         class="live-viewport"
         :class="{ interactive: gate.allowed }"
@@ -481,6 +499,9 @@ onBeforeUnmount(() => {
       </p>
       <p v-else-if="inputDisabledReason && session.state === 'REMOTE'" class="live-hint" data-testid="live-input-disabled-reason">
         {{ inputDisabledReason }}
+      </p>
+      <p class="live-hint plain" data-testid="live-frame-age">
+        最后画面：{{ frameAgeLabel }}（浏览器收帧时间，非端到端延迟）。
       </p>
       <p v-if="frameCursor" class="live-hint plain" data-testid="live-frame-cursor">
         当前帧序 {{ frameCursor.seq }}（{{ frameCursor.seqSource === 'transport' ? '传输下发' : '本地计数' }}）
@@ -599,6 +620,7 @@ onBeforeUnmount(() => {
   color: #166534;
 }
 .live-badge[data-status='AWAITING_PROJECTION_ACK'],
+.live-badge[data-status='WAITING_FRAME'],
 .live-badge[data-status='STALE_FRAME'] {
   background: #fef3c7;
   color: #92400e;

@@ -109,7 +109,9 @@ class CloudCtlInputMethod : InputMethodService() {
 
         internal fun replaceChatText(targetPackage: String, session: Long, text: String): Boolean {
             val connection = chatConnection(targetPackage, session) ?: return false
-            return runCatching { ImeTextReplacement.replace(connection, text) }.getOrDefault(false)
+            // API 30–32 chat: read the whole field first. A non-empty different
+            // draft is never selected-to-end and overwritten.
+            return runCatching { ImeTextReplacement.commitIfEmpty(connection, text) }.getOrDefault(false)
         }
 
         internal fun readChatText(targetPackage: String, session: Long): String? {

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/vue'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { JsonObject } from '@cloudctl/api-contracts'
 import { createMemoryHistory, createRouter } from 'vue-router'
@@ -199,6 +199,7 @@ async function openPanel(opts: { tier?: 'JPEG_PREVIEW' | 'INTERACTIVE_REMOTE'; e
 }
 
 async function goToRemote(): Promise<void> {
+  await injectFrame(1)
   prime((call) => (call.method === 'POST' && call.url.endsWith(`:take-control`) ? jsonResponse(sessionPayload({ state: 'REMOTE' })) : null))
   await fireEvent.click(await screen.findByTestId('live-btn-take-control'))
   await waitFor(() => expect(screen.getByTestId('live-state-badge').textContent).toBe('REMOTE'))
@@ -323,6 +324,7 @@ describe('L12 honest tier labels (K13 §1/§7)', () => {
 
   it('旁观会话（VIEWING）：不标远控中，画布禁用且原因明确', async () => {
     await openPanel()
+    await injectFrame(1)
     expect(screen.getByTestId('live-status-badge').textContent).toBe('观察中（VIEWING）')
     expect(screen.getByTestId('live-status-badge').textContent).not.toContain('远控')
     expect(screen.getByTestId('live-frame-viewport').getAttribute('aria-disabled')).toBe('true')
@@ -336,7 +338,9 @@ describe('L12 honest tier labels (K13 §1/§7)', () => {
     expect(screen.queryByTestId('live-btn-take-control')).toBeNull()
     expect(screen.getByTestId('live-frame-viewport').getAttribute('aria-disabled')).toBe('true')
     // 修正档位后（INTERACTIVE_REMOTE + REMOTE）才有完整远控标识。
+    cleanup()
     await openPanel({ establishOverrides: sessionPayload({ state: 'REMOTE' }) })
+    await injectFrame(1)
     expect(screen.getByTestId('live-tier-badge').textContent).toBe('交互远控 · JPEG 传输')
     expect(screen.getByTestId('live-status-badge').textContent).toBe('远控中（REMOTE）')
   })
@@ -434,6 +438,61 @@ describe('L12 input gating (K13 §4 watermark mirror)', () => {
 // 四、断连与占用 / 终态
 // ===========================================================================
 
+describe('parallel live status regressions', () => {
+  it.each(['JPEG_PREVIEW', 'INTERACTIVE_REMOTE'] as const)('已授权的%s旁观会话断线不能继续标观察中', (tier) => {
+    const session = mapLiveSession(sessionPayload({ tier }))
+    expect(panelStatus(session, null, false)).toBe('DISCONNECTED')
+  })
+
+  it('已授权但没有首帧时明确等待画面，而不是观察中', () => {
+    expect(panelStatus(mapLiveSession(sessionPayload()), null, true)).toBe('WAITING_FRAME')
+  })
+
+  it('预览没有inputPolicy也会提示长期未更新的画面', () => {
+    const session = mapLiveSession(sessionPayload({ tier: 'JPEG_PREVIEW', inputPolicy: false }))
+    const frame: FrameCursor = { seq: 1, receivedAtMs: 1000, seqSource: 'transport' }
+    expect(panelStatus(session, frame, true, null, 6500)).toBe('STALE_FRAME')
+    expect(panelStatus(session, frame, true, null, 1500)).toBe('VIEWING')
+  })
+
+  it('接管按钮在授权未确认时实际禁用且不发请求', async () => {
+    await openPanel({ establishOverrides: { authorization: { mediaProjectionRequired: true, userConfirmedAt: null } } })
+    await injectFrame(1)
+    expect((screen.getByTestId('live-btn-take-control') as HTMLButtonElement).disabled).toBe(true)
+    await fireEvent.click(screen.getByTestId('live-btn-take-control'))
+    expect(callsTo(':take-control', 'POST')).toHaveLength(0)
+  })
+
+  it('接管需要首帧，画面过期后禁用，新帧到达后恢复', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    await openPanel()
+    const button = screen.getByTestId('live-btn-take-control') as HTMLButtonElement
+    expect(button.disabled).toBe(true)
+    expect(screen.getByTestId('live-status-badge').textContent).toContain('等待画面')
+    await injectFrame(1)
+    expect(button.disabled).toBe(false)
+    await vi.advanceTimersByTimeAsync(2600)
+    expect(button.disabled).toBe(true)
+    expect(screen.getByTestId('live-status-badge').textContent).toContain('旧帧')
+    await fireEvent.click(button)
+    expect(callsTo(':take-control', 'POST')).toHaveLength(0)
+    await injectFrame(2)
+    expect(button.disabled).toBe(false)
+    expect(screen.getByTestId('live-status-badge').textContent).toBe('观察中（VIEWING）')
+  })
+
+  it('帧龄随时钟更新；旁观断线后不显示正常观察', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    await openPanel()
+    await injectFrame(3)
+    await vi.advanceTimersByTimeAsync(1200)
+    expect(screen.getByTestId('live-frame-age').textContent).toContain('1.0 秒')
+    FakeWebSocket.instances.at(-1)!.close()
+    await waitFor(() => expect(screen.getByTestId('live-status-badge').textContent).toContain('帧通道断开'))
+    expect((screen.getByTestId('live-btn-take-control') as HTMLButtonElement).disabled).toBe(true)
+  })
+})
+
 describe('L12 disconnect & occupancy honesty', () => {
   it('断连立即禁用全部交互按钮并通知服务端', async () => {
     await openPanel()
@@ -451,6 +510,7 @@ describe('L12 disconnect & occupancy honesty', () => {
 
   it('其他执行者占用远控（409 CONFLICT + LIVE_REMOTE_HELD detail）→ 占用提示明确，不升级输入', async () => {
     await openPanel()
+    await injectFrame(1)
     prime((call) =>
       call.method === 'POST' && call.url.endsWith(':take-control')
         ? jsonResponse({ code: 'CONFLICT', title: 'ConflictError', status: 409, detail: 'LIVE_REMOTE_HELD: another session holds the remote write lease' }, 409)

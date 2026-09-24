@@ -50,6 +50,20 @@ class PriceKeypadTest {
     }
 
     @Test
+    fun aPriceElsewhereDoesNotMakeTheFormTokenMatch() {
+        // The price field itself is empty or shows an accumulated 10199.
+        // A title that merely contains 199 is a different string and must not
+        // be what the caller passes. 10199 is not numerically 199.
+        assertFalse(PriceKeypad.acceptedOnForm("¥", "199"))
+        assertFalse(PriceKeypad.acceptedOnForm("", "199"))
+        assertFalse(PriceKeypad.acceptedOnForm("¥10199", "199"))
+        assertTrue(PriceKeypad.acceptedOnForm("¥199.00", "199"))
+        // If a caller wrongly passes the whole page, a foreign 199 token DOES
+        // match. That is why priceAccepted must pass only the price field.
+        assertTrue(PriceKeypad.acceptedOnForm("标题199\n¥10199", "199"))
+    }
+
+    @Test
     fun displayedAmountsExtractTokensNotSubstrings() {
         assertEquals(listOf("10199.00"), PriceKeypad.displayedAmounts("¥10199.00"))
         assertEquals(listOf("199"), PriceKeypad.displayedAmounts("¥199"))

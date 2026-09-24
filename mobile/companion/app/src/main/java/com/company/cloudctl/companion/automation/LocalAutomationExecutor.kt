@@ -10,6 +10,7 @@ import com.company.cloudctl.companion.features.xianyu.orders.isPartiallyVisible
 import com.company.cloudctl.companion.features.xianyu.orders.toSummary
 import com.company.cloudctl.companion.im.ImReplyBoundary
 import com.company.cloudctl.companion.im.ImReplyTaskShape
+import com.company.cloudctl.companion.ime.InputProof
 import com.company.cloudctl.companion.locators.AlbumPickDispatcher
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.TimeoutCancellationException
@@ -23,9 +24,27 @@ data class LocalNodeState(
     val editable: Boolean,
     val text: String?,
     val description: String? = null,
+    /**
+     * Stable public identity of this node (window, bounds, class, view id).
+     * Null when the UI did not record one. A content description is not an
+     * identity: the diagnostic runner compares this with the proof's node key.
+     */
+    val nodeKey: String? = null,
 )
 
 data class ScreenshotEvidence(val path: String, val size: Long, val sha256: String)
+
+/**
+ * Semantic proof that the 提交评价 control is on the review editor.
+ * Identity is the idlefish content-desc/text, never a screen coordinate —
+ * coordinates would not survive a different phone.
+ */
+data class ReviewSubmitAnchor(
+    val description: String,
+    val enabled: Boolean,
+    val clickable: Boolean,
+    val visible: Boolean,
+)
 
 class ExecutorFailure(
     val code: String,
@@ -55,6 +74,29 @@ interface LocalAutomationUi {
         throw ExecutorFailure("SINGLE_SHOT_UNAVAILABLE", "UI does not provide a single-shot tap")
     }
     suspend fun replaceText(targetPackage: String, locatorRef: String, value: String)
+
+    /**
+     * Same write as [replaceText], plus the editor proof that write just
+     * produced. Default runs [replaceText] and returns null: a UI that cannot
+     * name the proof must not invent one. Page text is not a proof. The
+     * accessibility service overrides this so a diagnostic runner can project
+     * generation and field identity without reading the chat slot.
+     */
+    suspend fun replaceTextReturningProof(
+        targetPackage: String,
+        locatorRef: String,
+        value: String,
+    ): InputProof? {
+        replaceText(targetPackage, locatorRef, value)
+        return null
+    }
+
+    /**
+     * Text this replace just committed into [locatorRef], when the field node
+     * itself disappeared (Flutter drops the hint node). Null unless the UI
+     * recorded that one field. Page text must not be returned here.
+     */
+    fun committedFieldText(locatorRef: String): String? = null
     suspend fun screenshot(taskId: String, label: String): ScreenshotEvidence
     suspend fun swipeUp() {}
     fun log(level: LogLevel, messageCode: String)
@@ -167,7 +209,15 @@ interface LocalAutomationUi {
         error("setReviewComment is not supported by this executor")
     }
 
-    /** Taps the 提交评价 button (bounds-center gesture). */
+    /**
+     * Read-only: resolve the 提交评价 control by its idlefish content-desc/text.
+     * Never a screen coordinate. Missing node fails closed.
+     */
+    fun locateReviewSubmit(targetPackage: String): ReviewSubmitAnchor {
+        error("locateReviewSubmit is not supported by this executor")
+    }
+
+    /** Taps the already-located 提交评价 control (real submit path only). */
     suspend fun tapReviewSubmit(targetPackage: String) {
         error("tapReviewSubmit is not supported by this executor")
     }
@@ -180,6 +230,45 @@ interface LocalAutomationUi {
     // available; the executor guards treat null per their own fail-closed
     // rules (never as "assume the best").
     fun imChatEvidence(targetPackage: String, expectedPeer: String?): ImReplyBoundary.ChatEvidence? = null
+
+    /**
+     * Task that owns the chat field being written. The UI binds a chat proof to
+     * this id, the authorized peer and a monotonic TTL. Default null: a UI that
+     * is not inside a task cannot mint a send proof.
+     */
+    fun beginChatInput(taskId: String, peerName: String?, ttlMs: Long, nowElapsedMs: Long) {}
+
+    /** Drops any held chat proof. Called when a task starts, fails or is cancelled. */
+    fun clearChatSendProof() {}
+
+    /** The chat proof replaceText held, or null. Not page text. */
+    fun currentChatSendProof(): InputProof? = null
+
+    /**
+     * Editor proof of the input step that just returned, including a field that
+     * is not a chat send. Default null: only a UI that actually minted a proof
+     * may publish one. Cleared when the next step starts.
+     */
+    fun lastInputProof(): InputProof? = null
+
+    /**
+     * Re-read the chat field that [proof] was issued for. Returns false when
+     * the locator, conversation guard, field identity, or full text no longer
+     * matches. Default false: a UI that cannot re-read must not authorize send.
+     * Visible page text is not this check.
+     */
+    suspend fun verifyChatSendProof(
+        targetPackage: String,
+        locatorRef: String,
+        proof: InputProof,
+        evidence: ImReplyBoundary.ChatEvidence?,
+    ): Boolean = false
+
+    /**
+     * Drop the held chat proof after a send tap. Default no-op so executors
+     * that never hold a proof stay inert.
+     */
+    fun consumeChatSendProof() {}
 
     // W4 maintenance v2 (contract xianyu-anchors-20260915 §1/§2): open a
     // published-list card by its title text. Implementations resolve the live
@@ -213,6 +302,7 @@ private const val REVIEW_SETTLE_MS = 1200L
 private const val REVIEW_POLL_MS = 500L
 private const val REVIEW_EDITOR_OPEN_MS = 15_000L
 private const val REVIEW_SUBMIT_CONFIRM_MS = 20_000L
+private const val REVIEW_ENTRY_PROBES = 10
 
 /**
  * O10 page-report port (fleet-first-20260916.1): one call per collected
@@ -314,6 +404,7 @@ class LocalAutomationExecutor(
         startAfterIndex: Int = -1,
         journal: (AutomationStep, String) -> Unit,
     ) {
+        ui.clearChatSendProof()
         badgeBaselines.clear()
         pendingOrderReport = null
         seenRegistry = OrderSeenRegistry()
@@ -325,7 +416,11 @@ class LocalAutomationExecutor(
         val runDeadline = elapsedMs() + task.maxRunSeconds * 1_000L
         // Fresh runs start from the target root page; resumed runs keep their
         // verified in-page state (ResumeValidator guards those separately).
-        if (startAfterIndex < 0) normalizeToRootPage(task, runDeadline, control)
+        // A diagnostic one-field package has no root page and must not be walked
+        // with BACK or relaunch. Production packages keep the existing reset.
+        if (startAfterIndex < 0 && !DiagnosticInputPolicy.installed.skipsRootNavigation(task.targetPackage)) {
+            normalizeToRootPage(task, runDeadline, control)
+        }
         var lastCompleted: AutomationStep? = task.steps.getOrNull(startAfterIndex)
         var lastCompletedIndex = startAfterIndex
         for ((index, step) in task.steps.withIndex()) {
@@ -360,7 +455,7 @@ class LocalAutomationExecutor(
             var stepControl = StepControl.CONTINUE
             try {
                 val remaining = (runDeadline - elapsedMs()).coerceAtLeast(1L)
-                    withTimeout(minOf(step.timeoutMs, remaining)) {
+                withTimeout(minOf(step.timeoutMs, remaining)) {
                     ui.ensureReady(task.targetPackage)
                     stepControl = executeStep(
                         task,
@@ -372,14 +467,18 @@ class LocalAutomationExecutor(
                     )
                 }
             } catch (paused: TaskPausedException) {
+                ui.clearChatSendProof()
                 throw TaskPausedException(lastCompleted?.stepId, lastCompletedIndex, paused.message)
             } catch (failure: ExecutorFailure) {
+                ui.clearChatSendProof()
                 ui.log(LogLevel.ERROR, failure.code)
                 throw failure
             } catch (failure: TimeoutCancellationException) {
+                ui.clearChatSendProof()
                 ui.log(LogLevel.ERROR, "STEP_TIMEOUT")
                 throw ExecutorFailure("STEP_TIMEOUT", "Step ${step.stepId} exceeded its timeout", failure)
             } catch (failure: Exception) {
+                ui.clearChatSendProof()
                 ui.log(LogLevel.ERROR, "STEP_EXECUTION_FAILED")
                 throw ExecutorFailure("STEP_EXECUTION_FAILED", "Step ${step.stepId} failed safely", failure)
             }
@@ -418,6 +517,11 @@ class LocalAutomationExecutor(
                 // I10: the send tap is the last write of a reply task — the
                 // conversation proof runs again right before it.
                 guardReplySend(task, step.locatorRef)
+                if (step.locatorRef == CHAT_SEND_LOCATOR) {
+                    // Consume before the tap. A later success, failure or unknown
+                    // gesture result must not be able to reuse the same proof.
+                    guardChatSendProof(task, consume = true)
+                }
                 val node = requireNode(task, step.locatorRef)
                 // A disabled clickable control must never be tapped, but Douyin gallery
                 // cells expose passive (enabled=false, unclickable) marks over
@@ -459,7 +563,10 @@ class LocalAutomationExecutor(
                 if (!node.visible || !node.enabled) {
                     throw ExecutorFailure("NODE_NOT_EDITABLE", "Approved locator is not safely editable")
                 }
-                ui.replaceText(task.targetPackage, step.locatorRef, step.value)
+                if (step.locatorRef == ImReplyTaskShape.CHAT_INPUT_LOCATOR) {
+                    ui.beginChatInput(task.taskId, replyPeerOf(task), CHAT_PROOF_TTL_MS, elapsedMs())
+                }
+                ui.replaceTextReturningProof(task.targetPackage, step.locatorRef, step.value)
                 waitForText(task, step.locatorRef, step.value, step.pollInterval(), runDeadline)
             }
             is AutomationStep.TapText -> {
@@ -678,6 +785,46 @@ class LocalAutomationExecutor(
      * session, or a missing traceable inbound each refuse with the stable
      * I10 code: nothing is typed, nothing is sent.
      */
+    /**
+     * Chat send only. The held proof must still name this package and the chat
+     * locator, the conversation guard must still allow the peer, and a fresh
+     * editor read must still equal the proof. Page text is not consulted.
+     * The proof is consumed here so a second send cannot reuse it.
+     */
+    private suspend fun guardChatSendProof(task: AutomationTask, consume: Boolean = true) {
+        val peer = replyPeerOf(task)
+            ?: throw ExecutorFailure("INPUT_PROOF_EXPIRED", "Chat send has no reply proof to consume")
+        val proof = ui.currentChatSendProof()
+            ?: throw ExecutorFailure("INPUT_PROOF_EXPIRED", "Chat send has no held input proof")
+        fun reject(message: String): Nothing {
+            // A failed check still burns the proof: it must not be retried.
+            ui.consumeChatSendProof()
+            throw ExecutorFailure("INPUT_PROOF_EXPIRED", message)
+        }
+        if (proof.taskId != task.taskId || proof.peerName != peer) {
+            reject("Held proof is not bound to this task and peer")
+        }
+        val deadline = proof.expiresAtElapsedMs
+        if (deadline == null || deadline < elapsedMs()) {
+            reject("Held proof TTL has elapsed")
+        }
+        if (proof.targetPackage != task.targetPackage || proof.locatorRef != ImReplyTaskShape.CHAT_INPUT_LOCATOR) {
+            reject("Held proof does not match this chat field")
+        }
+        val evidence = ui.imChatEvidence(task.targetPackage, peer)
+        if (evidence == null || ImReplyBoundary.conversationChanged(peer, evidence.openPeerName)) {
+            reject("Conversation guard no longer matches the held proof")
+        }
+        when (val verdict = ImReplyBoundary.check(task, evidence)) {
+            is ImReplyBoundary.Verdict.Refuse -> reject(verdict.detail)
+            is ImReplyBoundary.Verdict.Allow -> Unit
+        }
+        if (!ui.verifyChatSendProof(task.targetPackage, ImReplyTaskShape.CHAT_INPUT_LOCATOR, proof, evidence)) {
+            reject("Chat field no longer matches the held proof")
+        }
+        if (consume) ui.consumeChatSendProof()
+    }
+
     private fun guardReplySend(task: AutomationTask, locatorRef: String) {
         val peer = replyPeerOf(task) ?: return
         if (locatorRef != ImReplyTaskShape.CHAT_INPUT_LOCATOR && locatorRef != CHAT_SEND_LOCATOR) return
@@ -818,23 +965,39 @@ class LocalAutomationExecutor(
 
     /**
      * P34 (xy-review/20260921): the whole auto-review loop on the 待评价 tab
-     * of 我卖出的 — per order open the editor by its 去评价 entry, tap the
-     * 好评 column, fill the fixed comment, screenshot the filled editor, then
-     * tap 提交评价 and wait for the editor to leave before the next order.
-     * dryRun stops right after the filled-editor screenshot: the submit tap
-     * never happens, the editor is left on screen for the operator, and the
-     * loop exits after one order. Zero pending orders is a success; the loop
-     * also ends at maxOrders or the step window edge. Every order carries
-     * before/after screenshot evidence.
+     * of 我卖出的 — per order open the editor by its 去评价 entry, fill the
+     * fixed comment, screenshot the filled editor, prove 提交评价 is on the
+     * page by its content-desc/text (never a screen coordinate), then tap
+     * 提交评价 and wait for the editor to leave before the next order.
+     * dryRun stops after that semantic locate: the submit tap never happens,
+     * the editor is left on screen for the operator, and the loop exits after
+     * one order. Zero pending orders is a success; the loop also ends at
+     * maxOrders or the step window edge. Every order carries before/after
+     * screenshot evidence.
      */
     private suspend fun executeReviewOrders(task: AutomationTask, step: AutomationStep.ReviewOrders, runDeadline: Long) {
         if (task.targetPackage != TargetLocatorRegistry.XIANYU_PACKAGE) {
             throw ExecutorFailure("TARGET_PACKAGE_REJECTED", "reviewOrders is approved for xianyu only")
         }
         ui.ensureReady(task.targetPackage)
+        // Give the 待评价 Flutter list a first settle before the probe loop:
+        // a 6s window after cold 我的→我卖出的→待评价 was not enough
+        // (device-verified 2026-09-21: REVIEW_NO_PENDING_STOP while dump
+        // later showed three 去评价 cards).
+        sleep(REVIEW_SETTLE_MS)
         var processed = 0
         while (processed < step.maxOrders && elapsedMs() < runDeadline) {
-            if (!ui.openPendingReviewEntry(task.targetPackage)) {
+            // The Flutter list renders after the 待评价 tab tap (the X13
+            // first-screen precedent): a miss is usually the list still
+            // settling, so probe a bounded window before declaring empty.
+            var opened = ui.openPendingReviewEntry(task.targetPackage)
+            var probes = 0
+            while (!opened && probes < REVIEW_ENTRY_PROBES && elapsedMs() < runDeadline) {
+                probes += 1
+                sleep(REVIEW_SETTLE_MS)
+                opened = ui.openPendingReviewEntry(task.targetPackage)
+            }
+            if (!opened) {
                 ui.log(LogLevel.INFO, "REVIEW_NO_PENDING_STOP")
                 break
             }
@@ -844,10 +1007,21 @@ class LocalAutomationExecutor(
                     "Review editor anchor did not appear after the 去评价 tap; failing closed",
                 )
             }
-            ui.tapReviewRatingGood(task.targetPackage)
-            sleep(REVIEW_SETTLE_MS)
+            // The rating row stays UNTOUCHED: idlefish pre-selects 好评 and the
+            // tree exposes no selected-state (uiautomator shows selected=false
+            // on every rating node), so an explicit tap would only TOGGLE the
+            // default off and break the submit (device-verified 2026-09-21:
+            // a rating tap left the editor unfirable). If the default ever
+            // changes, the submit simply fails closed below — never a wrong
+            // rating, never a silent skip.
             ui.setReviewComment(task.targetPackage, step.comment)
             captureScreenshot(task, "review-order-${processed + 1}-filled")
+            val submit = ui.locateReviewSubmit(task.targetPackage)
+            ui.log(
+                LogLevel.INFO,
+                "REVIEW_SUBMIT_LOCATED desc=${submit.description} enabled=${submit.enabled} " +
+                    "clickable=${submit.clickable} visible=${submit.visible}",
+            )
             if (step.dryRun) {
                 ui.log(LogLevel.INFO, "REVIEW_DRY_RUN_STOP order=${processed + 1}")
                 break
@@ -1334,16 +1508,46 @@ class LocalAutomationExecutor(
         while (true) {
             ensureWithinTaskDeadline(task, runDeadline)
             ui.ensureReady(task.targetPackage)
-            if (ui.visibleTextContains(expected)) return
-            if (locatorRef == "xianyu_price") {
-                val typed = PriceKeypad.keys(expected)
-                if (typed.isNotEmpty() && ui.visibleTextContains(typed)) return
+            // Chat send authorization is the held editor proof, not page text.
+            // The input step still requires the field node itself to show the text.
+            if (locatorRef == ImReplyTaskShape.CHAT_INPUT_LOCATOR) {
+                val proof = ui.currentChatSendProof()
+                val node = ui.inspect(task.targetPackage, locatorRef)
+                if (proof != null && proof.taskId == task.taskId && proof.expected == expected &&
+                    node?.text == expected
+                ) {
+                    return
+                }
+                sleep(pollMs)
+                continue
             }
             val node = ui.inspect(task.targetPackage, locatorRef)
             val actual = node?.text.orEmpty()
-            if (FlutterTextCommit.accepted(actual, expected)) return
-            if (locatorRef == "xianyu_price" && PriceKeypad.acceptedOnForm(actual, expected)) return
-            // Flutter replaces the "描述一下" hint after focus. Missing locator is not success.
+            if (node != null && locatorRef == "xianyu_price") {
+                // Only the price field's own amount token. A "199" elsewhere,
+                // or a page-wide substring, is not a successful price.
+                if (PriceKeypad.acceptedOnForm(actual, expected)) return
+            } else if (strictEditorField(task, locatorRef)) {
+                // Chat and description already returned an editor-transport proof
+                // from replaceText. That return is the field proof. A later poll
+                // may only accept this locator's own full text, strictly equal —
+                // the live node, or the string replaceText recorded for it when
+                // Flutter drops the hint node. A longer old draft that merely
+                // contains the expected string, and text on a neighbouring node,
+                // are not this field. Substring acceptance is not used.
+                val recorded = if (node == null) ui.committedFieldText(locatorRef) else null
+                if (node?.text == expected || recorded == expected) return
+            } else if (node != null && actual == expected) {
+                return
+            } else if (node != null && actual.isNotBlank() && FlutterTextCommit.accepted(actual, expected)) {
+                return
+            } else if (node == null) {
+                // A non-strict field whose node disappeared. Only the text this
+                // replace recorded for that locator counts — never a substring
+                // found somewhere else on the page.
+                val committed = ui.committedFieldText(locatorRef)
+                if (committed != null && FlutterTextCommit.accepted(committed, expected)) return
+            }
             sleep(pollMs)
         }
     }
@@ -1371,6 +1575,15 @@ class LocalAutomationExecutor(
 
     private fun AutomationStep.pollInterval() = minOf(200L, timeoutMs)
 
+    /**
+     * Chat, description, and an admitted diagnostic field already returned an
+     * editor-transport proof. Their later poll accepts only complete equality.
+     * A diagnostic locator on any other package stays on the ordinary path.
+     */
+    private fun strictEditorField(task: AutomationTask, locatorRef: String): Boolean =
+        locatorRef in STRICT_EDITOR_LOCATORS ||
+            DiagnosticInputPolicy.installed.admits(task.targetPackage, locatorRef)
+
     private companion object {
         val SHA256 = Regex("^[a-f0-9]{64}$")
         const val TAP_TEXT_MAX_SCROLLS = 10
@@ -1378,6 +1591,15 @@ class LocalAutomationExecutor(
 
         // I10: the reply task's send control (verified locator, TargetLocatorRegistry).
         const val CHAT_SEND_LOCATOR = "xianyu_chat_send"
+
+        /**
+         * Locators whose replaceText already returned a strict editor-transport
+         * proof. The executor must not authorize them again with a substring.
+         */
+        private val STRICT_EDITOR_LOCATORS = setOf("xianyu_chat_input", "xianyu_description")
+
+        /** Monotonic lifetime of one chat proof, measured on the executor clock. */
+        const val CHAT_PROOF_TTL_MS = 30_000L
 
         // Wrong-card defense 1 polling (detail-page title verification).
         const val DETAIL_VERIFY_POLL_MS = 400L
