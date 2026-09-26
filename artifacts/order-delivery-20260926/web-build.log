@@ -1,0 +1,19 @@
+
+> @cloudctl/web@0.1.0 build /Users/wangziheng/Desktop/01-主战场/LAMDA云控系统/cloudctl-source/apps/web
+> vue-tsc -b && vite build
+
+vite v7.3.6 building client environment for production...
+transforming...
+✓ 1924 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.64 kB │ gzip:   0.37 kB
+dist/assets/index-BFpj8Kld.css  128.08 kB │ gzip:  21.75 kB
+dist/assets/xlsx-CNerDvZX.js    429.19 kB │ gzip: 141.77 kB
+dist/assets/index-B4P4fK3I.js   768.63 kB │ gzip: 241.03 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 2.49s

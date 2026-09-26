@@ -1,0 +1,31 @@
+{"backupRestoreVerified": true, "tableCount": 67}
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 20260926_0034 -> 20260926_0035, Store immutable task-bound order delivery receipts.
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running downgrade 20260926_0035 -> 20260926_0034, Store immutable task-bound order delivery receipts.
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 20260926_0034 -> 20260926_0035, Store immutable task-bound order delivery receipts.
+{"migrationRehearsal": "PASS", "historyPreserved": true}
+tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.provenance'
+tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.provenance'
+tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.provenance'
+tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.provenance'
+tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.provenance'
+tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.provenance'
+tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.provenance'
+tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.provenance'
+tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.provenance'
+tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.provenance'
+tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.provenance'
+tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.provenance'
+tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.provenance'
+tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.provenance'
+tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.provenance'
+tar: Ignoring unknown extended header keyword 'LIBARCHIVE.xattr.com.apple.provenance'
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 20260926_0034 -> 20260926_0035, Store immutable task-bound order delivery receipts.
+{"activated": true, "release": "order-delivery-557f547", "sourceSha": "557f547", "activatedAt": "2026-09-26T15:39:50Z", "schema": "20260926_0035", "backupRestoreVerified": true, "migrationRehearsal": "upgrade-downgrade-upgrade", "productionBusinessTablesPreserved": 66, "admissionsStoppedDuringSwitch": true, "receiveOnly": true, "imMode": "NOTIFICATION", "originalMessagesUnchanged": 128, "outCount": 23, "taskCount": 376, "webAssetsVerified": 2, "browserVisualVerified": false, "androidInstalled": false, "realCollectionDispatched": false, "adbDisconnectedAcceptance": false, "receiptCount": 0, "oldApi": "/home/ubuntu/cloudctl-mobile/releases/listing-sync-b3bd1f3", "oldWeb": "/var/www/cloudctl-mobile-listing-sync-b3bd1f3", "dropIn": "/etc/systemd/system/cloudctl-mobile-api.service.d/99-zzzzzzzzzzzzzz-order-delivery.conf"}

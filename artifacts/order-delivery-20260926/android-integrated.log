@@ -1,0 +1,193 @@
+Picked up JAVA_TOOL_OPTIONS: -Drobolectric.dependency.repo.url=file:///Users/wangziheng/.m2/repository
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.10.2/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build
+Warning: SDK processing. This version only understands SDK XML versions up to 3 but an SDK XML file of version 4 was encountered. This can happen if you use versions of Android Studio and the command-line tools that were released at different times.
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:generateDebugBuildConfig
+> Task :app:generateDebugResValues
+> Task :app:checkDebugAarMetadata
+> Task :app:mapDebugSourceSetPaths
+> Task :app:generateDebugResources
+> Task :app:packageDebugResources
+> Task :app:createDebugCompatibleScreenManifests
+> Task :app:extractDeepLinksDebug
+> Task :app:mergeDebugResources
+> Task :app:parseDebugLocalResources
+> Task :app:processDebugMainManifest
+> Task :app:processDebugManifest
+> Task :app:preDebugUnitTestBuild UP-TO-DATE
+> Task :app:javaPreCompileDebug
+> Task :app:javaPreCompileDebugUnitTest
+> Task :app:mergeDebugShaders
+> Task :app:compileDebugShaders NO-SOURCE
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :app:mergeDebugAssets
+> Task :app:buildKotlinToolingMetadata
+> Task :app:preAcceptanceBuild UP-TO-DATE
+> Task :app:generateAcceptanceBuildConfig
+> Task :app:checkAcceptanceAarMetadata
+> Task :app:generateAcceptanceResValues
+> Task :app:mapAcceptanceSourceSetPaths
+> Task :app:generateAcceptanceResources
+> Task :app:packageAcceptanceResources
+> Task :app:createAcceptanceCompatibleScreenManifests
+> Task :app:extractDeepLinksAcceptance
+> Task :app:processDebugManifestForPackage
+> Task :app:parseAcceptanceLocalResources
+> Task :app:mergeAcceptanceResources
+> Task :app:processAcceptanceMainManifest
+> Task :app:processAcceptanceManifest
+> Task :app:javaPreCompileAcceptance
+> Task :app:processAcceptanceManifestForPackage
+> Task :app:preAcceptanceUnitTestBuild UP-TO-DATE
+> Task :app:javaPreCompileAcceptanceUnitTest
+> Task :app:mergeAcceptanceShaders
+> Task :app:compileAcceptanceShaders NO-SOURCE
+> Task :app:generateAcceptanceAssets UP-TO-DATE
+> Task :app:mergeAcceptanceAssets
+> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+> Task :app:compressDebugAssets
+> Task :app:desugarDebugFileDependencies
+> Task :app:mergeDebugJniLibFolders
+> Task :app:mergeDebugNativeLibs
+> Task :app:validateSigningDebug
+> Task :app:checkDebugDuplicateClasses
+
+> Task :app:stripDebugDebugSymbols
+Unable to strip the following libraries, packaging them as they are: libandroidx.graphics.path.so.
+
+> Task :app:writeDebugAppMetadata
+> Task :app:mergeLibDexDebug
+> Task :app:writeDebugSigningConfigVersions
+> Task :app:extractProguardFiles
+> Task :app:mergeAcceptanceJniLibFolders
+> Task :app:mergeAcceptanceNativeLibs
+> Task :app:processAcceptanceResources
+> Task :app:processDebugResources
+> Task :app:mergeAcceptanceArtProfile
+> Task :app:packageDebugUnitTestForUnitTest
+> Task :app:generateDebugUnitTestConfig
+> Task :app:packageAcceptanceUnitTestForUnitTest
+> Task :app:generateAcceptanceUnitTestConfig
+> Task :app:desugarAcceptanceFileDependencies
+
+> Task :app:stripAcceptanceDebugSymbols
+Unable to strip the following libraries, packaging them as they are: libandroidx.graphics.path.so.
+
+> Task :app:extractAcceptanceNativeSymbolTables
+> Task :app:mergeAcceptanceStartupProfile UP-TO-DATE
+> Task :app:mergeAcceptanceNativeDebugMetadata NO-SOURCE
+> Task :app:compressAcceptanceAssets
+> Task :app:checkAcceptanceDuplicateClasses
+> Task :app:extractAcceptanceVersionControlInfo
+> Task :app:collectAcceptanceDependencies
+> Task :app:sdkAcceptanceDependencyData
+> Task :app:validateSigningAcceptance
+> Task :app:writeAcceptanceAppMetadata
+> Task :app:writeAcceptanceSigningConfigVersions
+> Task :app:optimizeAcceptanceResources
+> Task :app:mergeExtDexDebug
+> Task :app:mergeExtDexAcceptance
+> Task :app:compileDebugKotlin
+> Task :app:compileAcceptanceKotlin
+w: file:///Users/wangziheng/Desktop/01-%E4%B8%BB%E6%88%98%E5%9C%BA/LAMDA%E4%BA%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/cloudctl-source/mobile/companion/app/src/main/java/com/company/cloudctl/companion/automation/CloudCtlAccessibilityService.kt:794:26 'val canRetrieveWindowContent: Boolean' is deprecated. Deprecated in Java.
+w: file:///Users/wangziheng/Desktop/01-%E4%B8%BB%E6%88%98%E5%9C%BA/LAMDA%E4%BA%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/cloudctl-source/mobile/companion/app/src/main/java/com/company/cloudctl/companion/automation/CloudCtlAccessibilityService.kt:865:52 'val defaultDisplay: Display!' is deprecated. Deprecated in Java.
+w: file:///Users/wangziheng/Desktop/01-%E4%B8%BB%E6%88%98%E5%9C%BA/LAMDA%E4%BA%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/cloudctl-source/mobile/companion/app/src/main/java/com/company/cloudctl/companion/automation/CloudCtlAccessibilityService.kt:865:67 'fun getRectSize(p0: Rect!): Unit' is deprecated. Deprecated in Java.
+w: file:///Users/wangziheng/Desktop/01-%E4%B8%BB%E6%88%98%E5%9C%BA/LAMDA%E4%BA%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/cloudctl-source/mobile/companion/app/src/main/java/com/company/cloudctl/companion/automation/CloudCtlAccessibilityService.kt:1936:36 'val defaultDisplay: Display!' is deprecated. Deprecated in Java.
+w: file:///Users/wangziheng/Desktop/01-%E4%B8%BB%E6%88%98%E5%9C%BA/LAMDA%E4%BA%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/cloudctl-source/mobile/companion/app/src/main/java/com/company/cloudctl/companion/automation/CloudCtlAccessibilityService.kt:1937:64 'fun getRectSize(p0: Rect!): Unit' is deprecated. Deprecated in Java.
+w: file:///Users/wangziheng/Desktop/01-%E4%B8%BB%E6%88%98%E5%9C%BA/LAMDA%E4%BA%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/cloudctl-source/mobile/companion/app/src/main/java/com/company/cloudctl/companion/data/AutomationStore.kt:190:25 Type argument for reified type parameter 'T' was inferred to the intersection of ['kotlin.Comparable<*>' & 'java.io.Serializable']. Reification of an intersection type results in the common supertype being used. This may lead to subtle issues and an explicit type argument is encouraged. This will become an error in a future release.
+w: file:///Users/wangziheng/Desktop/01-%E4%B8%BB%E6%88%98%E5%9C%BA/LAMDA%E4%BA%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/cloudctl-source/mobile/companion/app/src/main/java/com/company/cloudctl/companion/data/AutomationStore.kt:202:33 Type argument for reified type parameter 'T' was inferred to the intersection of ['kotlin.Comparable<*>' & 'java.io.Serializable']. Reification of an intersection type results in the common supertype being used. This may lead to subtle issues and an explicit type argument is encouraged. This will become an error in a future release.
+w: file:///Users/wangziheng/Desktop/01-%E4%B8%BB%E6%88%98%E5%9C%BA/LAMDA%E4%BA%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/cloudctl-source/mobile/companion/app/src/main/java/com/company/cloudctl/companion/data/AutomationStore.kt:210:33 Type argument for reified type parameter 'T' was inferred to the intersection of ['kotlin.Comparable<*>' & 'java.io.Serializable']. Reification of an intersection type results in the common supertype being used. This may lead to subtle issues and an explicit type argument is encouraged. This will become an error in a future release.
+w: file:///Users/wangziheng/Desktop/01-%E4%B8%BB%E6%88%98%E5%9C%BA/LAMDA%E4%BA%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/cloudctl-source/mobile/companion/app/src/main/java/com/company/cloudctl/companion/data/AutomationStore.kt:221:33 Type argument for reified type parameter 'T' was inferred to the intersection of ['kotlin.Comparable<*>' & 'java.io.Serializable']. Reification of an intersection type results in the common supertype being used. This may lead to subtle issues and an explicit type argument is encouraged. This will become an error in a future release.
+w: file:///Users/wangziheng/Desktop/01-%E4%B8%BB%E6%88%98%E5%9C%BA/LAMDA%E4%BA%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/cloudctl-source/mobile/companion/app/src/main/java/com/company/cloudctl/companion/data/AutomationStore.kt:336:91 Type argument for reified type parameter 'T' was inferred to the intersection of ['kotlin.Comparable<*>' & 'java.io.Serializable']. Reification of an intersection type results in the common supertype being used. This may lead to subtle issues and an explicit type argument is encouraged. This will become an error in a future release.
+w: file:///Users/wangziheng/Desktop/01-%E4%B8%BB%E6%88%98%E5%9C%BA/LAMDA%E4%BA%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/cloudctl-source/mobile/companion/app/src/main/java/com/company/cloudctl/companion/data/AutomationStore.kt:340:21 Type argument for reified type parameter 'T' was inferred to the intersection of ['kotlin.Comparable<*>' & 'java.io.Serializable']. Reification of an intersection type results in the common supertype being used. This may lead to subtle issues and an explicit type argument is encouraged. This will become an error in a future release.
+w: file:///Users/wangziheng/Desktop/01-%E4%B8%BB%E6%88%98%E5%9C%BA/LAMDA%E4%BA%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/cloudctl-source/mobile/companion/app/src/main/java/com/company/cloudctl/companion/data/AutomationStore.kt:588:13 Type argument for reified type parameter 'T' was inferred to the intersection of ['kotlin.Comparable<*>' & 'java.io.Serializable']. Reification of an intersection type results in the common supertype being used. This may lead to subtle issues and an explicit type argument is encouraged. This will become an error in a future release.
+w: file:///Users/wangziheng/Desktop/01-%E4%B8%BB%E6%88%98%E5%9C%BA/LAMDA%E4%BA%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/cloudctl-source/mobile/companion/app/src/main/java/com/company/cloudctl/companion/data/AutomationStore.kt:602:13 Type argument for reified type parameter 'T' was inferred to the intersection of ['kotlin.Comparable<*>' & 'java.io.Serializable']. Reification of an intersection type results in the common supertype being used. This may lead to subtle issues and an explicit type argument is encouraged. This will become an error in a future release.
+w: file:///Users/wangziheng/Desktop/01-%E4%B8%BB%E6%88%98%E5%9C%BA/LAMDA%E4%BA%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/cloudctl-source/mobile/companion/app/src/main/java/com/company/cloudctl/companion/data/AutomationStore.kt:614:13 Type argument for reified type parameter 'T' was inferred to the intersection of ['kotlin.Comparable<*>' & 'java.io.Serializable']. Reification of an intersection type results in the common supertype being used. This may lead to subtle issues and an explicit type argument is encouraged. This will become an error in a future release.
+w: file:///Users/wangziheng/Desktop/01-%E4%B8%BB%E6%88%98%E5%9C%BA/LAMDA%E4%BA%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/cloudctl-source/mobile/companion/app/src/main/java/com/company/cloudctl/companion/data/AutomationStore.kt:714:13 Type argument for reified type parameter 'T' was inferred to the intersection of ['kotlin.Comparable<*>' & 'java.io.Serializable']. Reification of an intersection type results in the common supertype being used. This may lead to subtle issues and an explicit type argument is encouraged. This will become an error in a future release.
+w: file:///Users/wangziheng/Desktop/01-%E4%B8%BB%E6%88%98%E5%9C%BA/LAMDA%E4%BA%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/cloudctl-source/mobile/companion/app/src/main/java/com/company/cloudctl/companion/data/AutomationStore.kt:1020:13 Type argument for reified type parameter 'T' was inferred to the intersection of ['kotlin.Comparable<*>' & 'java.io.Serializable']. Reification of an intersection type results in the common supertype being used. This may lead to subtle issues and an explicit type argument is encouraged. This will become an error in a future release.
+w: file:///Users/wangziheng/Desktop/01-%E4%B8%BB%E6%88%98%E5%9C%BA/LAMDA%E4%BA%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/cloudctl-source/mobile/companion/app/src/main/java/com/company/cloudctl/companion/data/AutomationStore.kt:1284:13 Type argument for reified type parameter 'T' was inferred to the intersection of ['kotlin.Comparable<*>' & 'java.io.Serializable']. Reification of an intersection type results in the common supertype being used. This may lead to subtle issues and an explicit type argument is encouraged. This will become an error in a future release.
+w: file:///Users/wangziheng/Desktop/01-%E4%B8%BB%E6%88%98%E5%9C%BA/LAMDA%E4%BA%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/cloudctl-source/mobile/companion/app/src/main/java/com/company/cloudctl/companion/data/AutomationStore.kt:1354:13 Type argument for reified type parameter 'T' was inferred to the intersection of ['kotlin.Comparable<*>' & 'java.io.Serializable']. Reification of an intersection type results in the common supertype being used. This may lead to subtle issues and an explicit type argument is encouraged. This will become an error in a future release.
+w: file:///Users/wangziheng/Desktop/01-%E4%B8%BB%E6%88%98%E5%9C%BA/LAMDA%E4%BA%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/cloudctl-source/mobile/companion/app/src/main/java/com/company/cloudctl/companion/data/AutomationStore.kt:1361:13 Type argument for reified type parameter 'T' was inferred to the intersection of ['kotlin.Comparable<*>' & 'java.io.Serializable']. Reification of an intersection type results in the common supertype being used. This may lead to subtle issues and an explicit type argument is encouraged. This will become an error in a future release.
+w: file:///Users/wangziheng/Desktop/01-%E4%B8%BB%E6%88%98%E5%9C%BA/LAMDA%E4%BA%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/cloudctl-source/mobile/companion/app/src/main/java/com/company/cloudctl/companion/observation/Observation.kt:66:100 Java type mismatch: inferred type is 'kotlin.Nothing?', but 'kotlin.String' was expected.
+
+> Task :app:compileDebugKotlin
+w: file:///Users/wangziheng/Desktop/01-%E4%B8%BB%E6%88%98%E5%9C%BA/LAMDA%E4%BA%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/cloudctl-source/mobile/companion/app/src/main/java/com/company/cloudctl/companion/automation/CloudCtlAccessibilityService.kt:794:26 'val canRetrieveWindowContent: Boolean' is deprecated. Deprecated in Java.
+w: file:///Users/wangziheng/Desktop/01-%E4%B8%BB%E6%88%98%E5%9C%BA/LAMDA%E4%BA%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/cloudctl-source/mobile/companion/app/src/main/java/com/company/cloudctl/companion/automation/CloudCtlAccessibilityService.kt:865:52 'val defaultDisplay: Display!' is deprecated. Deprecated in Java.
+w: file:///Users/wangziheng/Desktop/01-%E4%B8%BB%E6%88%98%E5%9C%BA/LAMDA%E4%BA%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/cloudctl-source/mobile/companion/app/src/main/java/com/company/cloudctl/companion/automation/CloudCtlAccessibilityService.kt:865:67 'fun getRectSize(p0: Rect!): Unit' is deprecated. Deprecated in Java.
+w: file:///Users/wangziheng/Desktop/01-%E4%B8%BB%E6%88%98%E5%9C%BA/LAMDA%E4%BA%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/cloudctl-source/mobile/companion/app/src/main/java/com/company/cloudctl/companion/automation/CloudCtlAccessibilityService.kt:1936:36 'val defaultDisplay: Display!' is deprecated. Deprecated in Java.
+w: file:///Users/wangziheng/Desktop/01-%E4%B8%BB%E6%88%98%E5%9C%BA/LAMDA%E4%BA%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/cloudctl-source/mobile/companion/app/src/main/java/com/company/cloudctl/companion/automation/CloudCtlAccessibilityService.kt:1937:64 'fun getRectSize(p0: Rect!): Unit' is deprecated. Deprecated in Java.
+w: file:///Users/wangziheng/Desktop/01-%E4%B8%BB%E6%88%98%E5%9C%BA/LAMDA%E4%BA%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/cloudctl-source/mobile/companion/app/src/main/java/com/company/cloudctl/companion/data/AutomationStore.kt:190:25 Type argument for reified type parameter 'T' was inferred to the intersection of ['kotlin.Comparable<*>' & 'java.io.Serializable']. Reification of an intersection type results in the common supertype being used. This may lead to subtle issues and an explicit type argument is encouraged. This will become an error in a future release.
+w: file:///Users/wangziheng/Desktop/01-%E4%B8%BB%E6%88%98%E5%9C%BA/LAMDA%E4%BA%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/cloudctl-source/mobile/companion/app/src/main/java/com/company/cloudctl/companion/data/AutomationStore.kt:202:33 Type argument for reified type parameter 'T' was inferred to the intersection of ['kotlin.Comparable<*>' & 'java.io.Serializable']. Reification of an intersection type results in the common supertype being used. This may lead to subtle issues and an explicit type argument is encouraged. This will become an error in a future release.
+w: file:///Users/wangziheng/Desktop/01-%E4%B8%BB%E6%88%98%E5%9C%BA/LAMDA%E4%BA%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/cloudctl-source/mobile/companion/app/src/main/java/com/company/cloudctl/companion/data/AutomationStore.kt:210:33 Type argument for reified type parameter 'T' was inferred to the intersection of ['kotlin.Comparable<*>' & 'java.io.Serializable']. Reification of an intersection type results in the common supertype being used. This may lead to subtle issues and an explicit type argument is encouraged. This will become an error in a future release.
+w: file:///Users/wangziheng/Desktop/01-%E4%B8%BB%E6%88%98%E5%9C%BA/LAMDA%E4%BA%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/cloudctl-source/mobile/companion/app/src/main/java/com/company/cloudctl/companion/data/AutomationStore.kt:221:33 Type argument for reified type parameter 'T' was inferred to the intersection of ['kotlin.Comparable<*>' & 'java.io.Serializable']. Reification of an intersection type results in the common supertype being used. This may lead to subtle issues and an explicit type argument is encouraged. This will become an error in a future release.
+w: file:///Users/wangziheng/Desktop/01-%E4%B8%BB%E6%88%98%E5%9C%BA/LAMDA%E4%BA%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/cloudctl-source/mobile/companion/app/src/main/java/com/company/cloudctl/companion/data/AutomationStore.kt:336:91 Type argument for reified type parameter 'T' was inferred to the intersection of ['kotlin.Comparable<*>' & 'java.io.Serializable']. Reification of an intersection type results in the common supertype being used. This may lead to subtle issues and an explicit type argument is encouraged. This will become an error in a future release.
+w: file:///Users/wangziheng/Desktop/01-%E4%B8%BB%E6%88%98%E5%9C%BA/LAMDA%E4%BA%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/cloudctl-source/mobile/companion/app/src/main/java/com/company/cloudctl/companion/data/AutomationStore.kt:340:21 Type argument for reified type parameter 'T' was inferred to the intersection of ['kotlin.Comparable<*>' & 'java.io.Serializable']. Reification of an intersection type results in the common supertype being used. This may lead to subtle issues and an explicit type argument is encouraged. This will become an error in a future release.
+w: file:///Users/wangziheng/Desktop/01-%E4%B8%BB%E6%88%98%E5%9C%BA/LAMDA%E4%BA%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/cloudctl-source/mobile/companion/app/src/main/java/com/company/cloudctl/companion/data/AutomationStore.kt:588:13 Type argument for reified type parameter 'T' was inferred to the intersection of ['kotlin.Comparable<*>' & 'java.io.Serializable']. Reification of an intersection type results in the common supertype being used. This may lead to subtle issues and an explicit type argument is encouraged. This will become an error in a future release.
+w: file:///Users/wangziheng/Desktop/01-%E4%B8%BB%E6%88%98%E5%9C%BA/LAMDA%E4%BA%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/cloudctl-source/mobile/companion/app/src/main/java/com/company/cloudctl/companion/data/AutomationStore.kt:602:13 Type argument for reified type parameter 'T' was inferred to the intersection of ['kotlin.Comparable<*>' & 'java.io.Serializable']. Reification of an intersection type results in the common supertype being used. This may lead to subtle issues and an explicit type argument is encouraged. This will become an error in a future release.
+w: file:///Users/wangziheng/Desktop/01-%E4%B8%BB%E6%88%98%E5%9C%BA/LAMDA%E4%BA%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/cloudctl-source/mobile/companion/app/src/main/java/com/company/cloudctl/companion/data/AutomationStore.kt:614:13 Type argument for reified type parameter 'T' was inferred to the intersection of ['kotlin.Comparable<*>' & 'java.io.Serializable']. Reification of an intersection type results in the common supertype being used. This may lead to subtle issues and an explicit type argument is encouraged. This will become an error in a future release.
+w: file:///Users/wangziheng/Desktop/01-%E4%B8%BB%E6%88%98%E5%9C%BA/LAMDA%E4%BA%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/cloudctl-source/mobile/companion/app/src/main/java/com/company/cloudctl/companion/data/AutomationStore.kt:714:13 Type argument for reified type parameter 'T' was inferred to the intersection of ['kotlin.Comparable<*>' & 'java.io.Serializable']. Reification of an intersection type results in the common supertype being used. This may lead to subtle issues and an explicit type argument is encouraged. This will become an error in a future release.
+w: file:///Users/wangziheng/Desktop/01-%E4%B8%BB%E6%88%98%E5%9C%BA/LAMDA%E4%BA%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/cloudctl-source/mobile/companion/app/src/main/java/com/company/cloudctl/companion/data/AutomationStore.kt:1020:13 Type argument for reified type parameter 'T' was inferred to the intersection of ['kotlin.Comparable<*>' & 'java.io.Serializable']. Reification of an intersection type results in the common supertype being used. This may lead to subtle issues and an explicit type argument is encouraged. This will become an error in a future release.
+w: file:///Users/wangziheng/Desktop/01-%E4%B8%BB%E6%88%98%E5%9C%BA/LAMDA%E4%BA%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/cloudctl-source/mobile/companion/app/src/main/java/com/company/cloudctl/companion/data/AutomationStore.kt:1284:13 Type argument for reified type parameter 'T' was inferred to the intersection of ['kotlin.Comparable<*>' & 'java.io.Serializable']. Reification of an intersection type results in the common supertype being used. This may lead to subtle issues and an explicit type argument is encouraged. This will become an error in a future release.
+w: file:///Users/wangziheng/Desktop/01-%E4%B8%BB%E6%88%98%E5%9C%BA/LAMDA%E4%BA%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/cloudctl-source/mobile/companion/app/src/main/java/com/company/cloudctl/companion/data/AutomationStore.kt:1354:13 Type argument for reified type parameter 'T' was inferred to the intersection of ['kotlin.Comparable<*>' & 'java.io.Serializable']. Reification of an intersection type results in the common supertype being used. This may lead to subtle issues and an explicit type argument is encouraged. This will become an error in a future release.
+w: file:///Users/wangziheng/Desktop/01-%E4%B8%BB%E6%88%98%E5%9C%BA/LAMDA%E4%BA%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/cloudctl-source/mobile/companion/app/src/main/java/com/company/cloudctl/companion/data/AutomationStore.kt:1361:13 Type argument for reified type parameter 'T' was inferred to the intersection of ['kotlin.Comparable<*>' & 'java.io.Serializable']. Reification of an intersection type results in the common supertype being used. This may lead to subtle issues and an explicit type argument is encouraged. This will become an error in a future release.
+w: file:///Users/wangziheng/Desktop/01-%E4%B8%BB%E6%88%98%E5%9C%BA/LAMDA%E4%BA%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/cloudctl-source/mobile/companion/app/src/main/java/com/company/cloudctl/companion/observation/Observation.kt:66:100 Java type mismatch: inferred type is 'kotlin.Nothing?', but 'kotlin.String' was expected.
+
+> Task :app:compileDebugJavaWithJavac
+> Task :app:processDebugJavaRes
+> Task :app:bundleDebugClassesToRuntimeJar
+> Task :app:bundleDebugClassesToCompileJar
+> Task :app:compileAcceptanceJavaWithJavac
+> Task :app:processAcceptanceJavaRes
+> Task :app:bundleAcceptanceClassesToRuntimeJar
+> Task :app:bundleAcceptanceClassesToCompileJar
+> Task :app:dexBuilderDebug
+> Task :app:mergeDebugGlobalSynthetics
+> Task :app:mergeProjectDexDebug
+> Task :app:generateAcceptanceLintVitalReportModel
+> Task :app:mergeDebugJavaResource
+> Task :app:dexBuilderAcceptance
+> Task :app:mergeAcceptanceGlobalSynthetics
+> Task :app:packageDebug
+> Task :app:createDebugApkListingFileRedirect
+> Task :app:assembleDebug
+> Task :app:mergeAcceptanceJavaResource
+> Task :app:compileDebugUnitTestKotlin
+> Task :app:mergeDexAcceptance
+> Task :app:compileAcceptanceArtProfile
+> Task :app:packageAcceptance
+> Task :app:createAcceptanceApkListingFileRedirect
+
+> Task :app:compileDebugUnitTestKotlin
+w: file:///Users/wangziheng/Desktop/01-%E4%B8%BB%E6%88%98%E5%9C%BA/LAMDA%E4%BA%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/cloudctl-source/mobile/companion/app/src/test/java/com/company/cloudctl/companion/control/ControlPlaneModelsTest.kt:19:24 Only safe (?.) or non-null asserted (!!.) calls are allowed on a nullable receiver of type 'java.lang.ClassLoader?'.
+w: file:///Users/wangziheng/Desktop/01-%E4%B8%BB%E6%88%98%E5%9C%BA/LAMDA%E4%BA%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/cloudctl-source/mobile/companion/app/src/test/java/com/company/cloudctl/companion/observation/FixtureConsistencyTest.kt:24:33 Only safe (?.) or non-null asserted (!!.) calls are allowed on a nullable receiver of type 'java.lang.ClassLoader?'.
+w: file:///Users/wangziheng/Desktop/01-%E4%B8%BB%E6%88%98%E5%9C%BA/LAMDA%E4%BA%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/cloudctl-source/mobile/companion/app/src/test/java/com/company/cloudctl/companion/observation/FixtureConsistencyTest.kt:37:29 Only safe (?.) or non-null asserted (!!.) calls are allowed on a nullable receiver of type 'java.lang.ClassLoader?'.
+w: file:///Users/wangziheng/Desktop/01-%E4%B8%BB%E6%88%98%E5%9C%BA/LAMDA%E4%BA%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/cloudctl-source/mobile/companion/app/src/test/java/com/company/cloudctl/companion/observation/FixturePaths.kt:44:13 Only safe (?.) or non-null asserted (!!.) calls are allowed on a nullable receiver of type 'java.lang.ClassLoader?'.
+
+> Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :app:processDebugUnitTestJavaRes
+
+> Task :app:testDebugUnitTest
+Picked up JAVA_TOOL_OPTIONS: -Drobolectric.dependency.repo.url=file:///Users/wangziheng/.m2/repository
+
+> Task :app:compileAcceptanceUnitTestKotlin
+w: file:///Users/wangziheng/Desktop/01-%E4%B8%BB%E6%88%98%E5%9C%BA/LAMDA%E4%BA%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/cloudctl-source/mobile/companion/app/src/test/java/com/company/cloudctl/companion/control/ControlPlaneModelsTest.kt:19:24 Only safe (?.) or non-null asserted (!!.) calls are allowed on a nullable receiver of type 'java.lang.ClassLoader?'.
+w: file:///Users/wangziheng/Desktop/01-%E4%B8%BB%E6%88%98%E5%9C%BA/LAMDA%E4%BA%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/cloudctl-source/mobile/companion/app/src/test/java/com/company/cloudctl/companion/observation/FixtureConsistencyTest.kt:24:33 Only safe (?.) or non-null asserted (!!.) calls are allowed on a nullable receiver of type 'java.lang.ClassLoader?'.
+w: file:///Users/wangziheng/Desktop/01-%E4%B8%BB%E6%88%98%E5%9C%BA/LAMDA%E4%BA%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/cloudctl-source/mobile/companion/app/src/test/java/com/company/cloudctl/companion/observation/FixtureConsistencyTest.kt:37:29 Only safe (?.) or non-null asserted (!!.) calls are allowed on a nullable receiver of type 'java.lang.ClassLoader?'.
+w: file:///Users/wangziheng/Desktop/01-%E4%B8%BB%E6%88%98%E5%9C%BA/LAMDA%E4%BA%91%E6%8E%A7%E7%B3%BB%E7%BB%9F/cloudctl-source/mobile/companion/app/src/test/java/com/company/cloudctl/companion/observation/FixturePaths.kt:44:13 Only safe (?.) or non-null asserted (!!.) calls are allowed on a nullable receiver of type 'java.lang.ClassLoader?'.
+
+> Task :app:lintVitalAnalyzeAcceptance
+> Task :app:compileAcceptanceUnitTestJavaWithJavac NO-SOURCE
+> Task :app:processAcceptanceUnitTestJavaRes
+
+> Task :app:testAcceptanceUnitTest
+Picked up JAVA_TOOL_OPTIONS: -Drobolectric.dependency.repo.url=file:///Users/wangziheng/.m2/repository
+
+> Task :app:lintVitalReportAcceptance
+> Task :app:lintVitalAcceptance
+> Task :app:assembleAcceptance
+
+BUILD SUCCESSFUL in 3m 10s
+103 actionable tasks: 102 executed, 1 up-to-date

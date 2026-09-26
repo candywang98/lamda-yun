@@ -2154,7 +2154,12 @@
     "mobile/companion/app/src/main/java/com/company/cloudctl/companion/automation/OrderReading.kt",
     "mobile/companion/app/src/main/java/com/company/cloudctl/companion/features/xianyu/orders/**",
     "services/control-api/src/cloudctl_api/fleet_orders.py",
+    "services/control-api/src/cloudctl_api/order_delivery.py",
+    "services/control-api/src/cloudctl_api/xianyu_orders.py",
+    "services/control-api/migrations/versions/20260926_0035_order_delivery.py",
     "tests/integration/test_order_checkpoint_runs.py",
+    "tests/integration/test_order_delivery.py",
+    "tests/integration/test_order_delivery_migration.py",
     "apps/web/src/features/orders/**"
    ],
    "required_locks": [
@@ -2183,10 +2188,10 @@
     "ISS-22"
    ],
    "risk": "中",
-   "device_acceptance": "历史软件测试不代表断网与恢复闭环；新版本需在现有三台范围内核对只读采集，禁止发货/评价/交易写操作",
+   "device_acceptance": "order-delivery/1软件和云端已验证；新APK未安装，需先一台再现有三台断开USB/无线ADB、无Edge及开发电脑验证只读采集与断网补传，禁止发货/评价/交易写操作",
    "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
    "dev_state": "IN_PROGRESS",
-   "acceptance_state": "NOT_RUN",
+   "acceptance_state": "DEVICE_WAIT",
    "evidence": "agent/fleet-o10 @ee02fe3 merged 15b4d3d. features/xianyu/orders (OrderDedupe REAL_ID/MISSING_ID, OrderPagination cursor+3-stop scroll policy, OrderCheckpoint 5-tuple binding, OrderHistoryWindow); fleet_orders.py (screens push + checkpoint guard + tenant-scoped history); migration 0026; Web orders history view. Android 833/0, backend 922 passed, Web 246/246. Seams for next wave: executor readOrders wiring to registry/scroll-policy + screens payload, checkpoint persistence location. WIRE merged d6c9587: executor wired to OrderSeenRegistry/OrderScrollPolicy (3-stop before journal), screens payload dual-write (batch retained), checkpoint persisted SharedPreferences bound 5-tuple; payload golden == FleetOrderScreenIn.",
    "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
    "read_only_paths": [
@@ -2194,13 +2199,13 @@
     "AGENTS.md"
    ],
    "baseline_sha": "4af3698c6f31f041c957a490a48adaeb71ca5ef1",
-   "scope_note": "2026-09-26重新审计确认readOrders已接线，但上传失败吞错、恢复屏号归零、任务缺少账号绑定等生产路径缺陷未被既有测试覆盖，故重开可靠性增量。9cdc27e已修复首次非第一屏拒绝和新run断点计数重置，订单46测试通过（含SQLite/PostgreSQL新增6项），22:39:14+08:00随listing-sync-b3bd1f3部署。保留历史软件证据，不将局部修复称为同步闭环完成。",
+   "scope_note": "2026-09-26可靠同步切片已实现并软件验证：6e08f61/eb9ffb4/af94623后端、5a231e7 Web、d0a2dbc Android、3f539e9接口。主分支和独立发布包后端均144通过/1个SQLite条件跳过，Web分别496/489通过，集成Android Debug1279/Acceptance1265全通过并构建成功。23:39:50+08:00云端上线order-delivery-557f547及0035，67表备份还原、迁移升降升与66张原业务表保全验证通过，无新手机任务。新版APK未安装、三机无ADB及浏览器视觉未验；完整历史账号隔离与legacy混用保护仍未解决，因此O10整体继续IN_PROGRESS。详见artifacts/order-delivery-20260926/report.md。",
    "remaining_gates": [
-    "P1：订单逐屏载荷持久化与独立重试，采集结束和上传完成分开；当前上传异常仅写日志",
-    "P1：恢复执行需还原屏号、已见集合与未确认载荷；当前execute重置状态却跳过已完成步骤",
-    "P1：采集任务冻结真实账号及绑定版本，积压数据不得随设备换号重绑；完整历史账号隔离单独设计",
-    "P2：单屏旧batch路径不刷新状态；多屏batch后screens双写使新增统计失真，需版本化兼容升级",
-    "本轮断点修复不等于以上问题已解决；下一切片先冻结持久上传与恢复契约，再派发跨组件实现"
+    "DEVICE_WAIT：新APK尚未安装；取得新鲜空闲确认并核对包名/签名/绑定后，先单机再三机断开USB与无线ADB验证真实订单、断网补传和进程恢复",
+    "Web单测与云端资源校验已通过；浏览器空间18仍交用户，未进行视觉验收",
+    "完整历史订单按账号隔离仍需独立设计，不能凭新任务冻结账号声称历史数据已迁移",
+    "迟到防回退水位仅覆盖durable到durable；旧screens路径保持兼容且未核验，降级或混用旧通道的覆盖风险单列",
+    "物理页面不确定时安全暂停，不保证自动继续导航；长期后台稳定性单独记录，不作为单机接入前置"
    ],
    "acceptance_commands": [
     "在所声明新测试文件落地后运行其定向测试；测试名由taskId登记",
