@@ -1,0 +1,46 @@
+{
+  "checkedAt": "2026-09-26 12:49:28.156537+00:00",
+  "status": "NOTIFICATION_RECEIVED_BODY_INCOMPLETE_WEB_VISUAL_PENDING",
+  "records": [
+    {
+      "id": "8eeb6253-8769-448e-bf31-1e5e55a1ae72",
+      "thread_id": "2facf142-3e8c-419c-a796-54f44e9c9cc9",
+      "device_id": "769d67a5-679c-4655-aeb9-60a2a265fbc6",
+      "tenant_id": "00000000-0000-7000-8000-000000001111",
+      "platform": "xianyu",
+      "direction": "IN",
+      "created_at": "2026-09-26 12:43:29.794549+00:00",
+      "occurred_at": "2026-09-26 12:43:27.678000+00:00",
+      "textSha256": "189ee7781f276640045c3eea8d8709414f0a111ac8d0f0d23a7147d5dc341993",
+      "textLength": 7,
+      "genericNotificationSummary": true,
+      "workbenchApiMatched": true
+    }
+  ],
+  "classification": [
+    {
+      "timestamp": "2026-09-26T12:43:30.166207+00:00",
+      "messageId": "8eeb6253-8769-448e-bf31-1e5e55a1ae72",
+      "deviceId": "769d67a5-679c-4655-aeb9-60a2a265fbc6",
+      "category": "UNKNOWN",
+      "confidence": 0.39,
+      "classificationStatus": "NEEDS_REVIEW",
+      "httpStatus": 200,
+      "mode": "SHADOW"
+    }
+  ],
+  "workbenchThreads": 1,
+  "messageCounts": {
+    "IN": 105,
+    "OUT": 23
+  },
+  "historicalMessagesVerifiedUnchanged": 127,
+  "otherHuawei": {
+    "deviceId": "d2f2672f-ef26-4d7d-a6c2-88452c0eb2bf",
+    "lastSeenAt": "2026-09-26 12:35:29.039962+00:00",
+    "reportedAccessibilityEnabled": false
+  },
+  "fullChatBodyVerified": false,
+  "browserVisualAcceptance": false,
+  "singleDevicePassed": false
+}

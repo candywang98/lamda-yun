@@ -21,8 +21,10 @@
 ## 云端观察
 
 - 发布：`/home/ubuntu/cloudctl-mobile/releases/im-3a1d306`。
-- `CLOUDCTL_IM_CLASSIFIER_DEVICE_IDS` 显式限定为 VOG 设备 ID
-  `050cdb78-c815-4989-8744-2a519d33079a`；默认空列表不观察任何手机。
+- `CLOUDCTL_IM_CLASSIFIER_DEVICE_IDS` 显式限定为 VOG。20:16 重新入网后的 ID 为
+  `769d67a5-679c-4655-aeb9-60a2a265fbc6`；切换白名单暂留旧 ID
+  `050cdb78-c815-4989-8744-2a519d33079a`，旧绑定已撤销。
+  默认空列表不观察任何手机，没有启用三机分类。
 - 接收入库成功后只对新消息排队；去重命中及事务回滚不向模型发送内容。
 - 队列最多 100 条、单消费者，云端单次总时限 5 秒。发送字段仅平台、标题和正文；
   不向供应商发送 deviceId、tenantId、绑定凭据或原始通知对象。
@@ -33,8 +35,11 @@
 - 旧闲鱼 APK 省略平台字段的兼容仅限 `CLOUDCTL_IM_LEGACY_XIANYU_DEVICE_IDS`；
   正常三机契约仍须显式平台，不能把白名单兼容等同于新版 Android 验收。
 
-云端原生接口合成系统通知测试为 HTTP 200、`SYSTEM_NOTICE / 1.0`。正式发布及租户
-归属阻塞见 [发布报告](../../artifacts/im-cloud-20260926/report.md)。
+云端原生接口合成系统通知测试为 HTTP 200、`SYSTEM_NOTICE / 1.0`。
+20:43 的真实闲鱼通知已实际调用：HTTP 200、`UNKNOWN / NEEDS_REVIEW / 0.39`；
+原始通知仅提供新消息摘要，不是具体聊天正文，不将该结果视为分类精度验收。
+正式发布见 [发布报告](../../artifacts/im-cloud-20260926/report.md)，租户重新绑定及
+实际通知结果见 [取证报告](../../artifacts/im-rebind-20260926/report.md)。
 
 不要把密钥写入前端 `VITE_*`、命令行参数、Git、截图或验收日志。对话中已出现的密钥
 应后续轮换。以后每次更新仍须完成变更窗口、兼容和回退准入。

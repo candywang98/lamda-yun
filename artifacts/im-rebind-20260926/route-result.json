@@ -1,0 +1,13 @@
+{
+  "before": {
+    "anonymous": 401,
+    "authenticated": 401
+  },
+  "after": {
+    "anonymous": 401,
+    "authenticated": 200
+  },
+  "anonymousCompanion": 401,
+  "nginxTest": "PASS",
+  "historicalMessages": 127
+}

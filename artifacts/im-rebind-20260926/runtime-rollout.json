@@ -1,0 +1,15 @@
+{
+  "classifierDeviceIds": [
+    "050cdb78-c815-4989-8744-2a519d33079a",
+    "769d67a5-679c-4655-aeb9-60a2a265fbc6"
+  ],
+  "legacyXianyuDeviceIds": [
+    "050cdb78-c815-4989-8744-2a519d33079a",
+    "769d67a5-679c-4655-aeb9-60a2a265fbc6"
+  ],
+  "receiveOnly": true,
+  "classifierEnabled": true,
+  "shadowWorkerStarted": true,
+  "realClassificationLogCount": 0,
+  "apiServiceActive": "active"
+}

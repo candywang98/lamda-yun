@@ -1,0 +1,18 @@
+{
+  "newDeviceId": "769d67a5-679c-4655-aeb9-60a2a265fbc6",
+  "tenantId": "00000000-0000-7000-8000-000000001111",
+  "created": true,
+  "config": {
+    "deviceId": "769d67a5-679c-4655-aeb9-60a2a265fbc6",
+    "receiveOnly": true,
+    "enabled": true,
+    "platforms": [
+      "xianyu"
+    ],
+    "mode": "NOTIFICATION",
+    "dutyStart": "09:00",
+    "dutyEnd": "23:00",
+    "updatedAt": "2026-09-26T12:11:56.920449Z"
+  },
+  "rolloutOldAndNew": true
+}
