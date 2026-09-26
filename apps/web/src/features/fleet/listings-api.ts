@@ -9,6 +9,9 @@ export interface FleetListingItem {
   priceCents: number | null
   priceText: string | null
   statusText: string | null
+  exposureCount?: number | null
+  viewsCount?: number | null
+  wantsCount?: number | null
   snapshotCount: number
   firstSeenAt: string
   lastSeenAt: string

@@ -2559,6 +2559,18 @@
             "title": "Peername",
             "type": "string"
           },
+          "platform": {
+            "anyOf": [
+              {
+                "const": "xianyu",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Platform"
+          },
           "text": {
             "maxLength": 4000,
             "minLength": 1,
@@ -10477,6 +10489,16 @@
               "minimum": 1,
               "title": "Limit",
               "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "latest",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Latest",
+              "type": "boolean"
             }
           }
         ],

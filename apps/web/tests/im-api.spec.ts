@@ -32,7 +32,6 @@ function threadFixture(overrides: Partial<ImThread> = {}): ImThread {
     lastDirection: 'IN',
     unreadCount: 2,
     lastMessageText: null,
-    summaryPending: true,
     ...overrides,
   }
 }
@@ -51,16 +50,11 @@ function configFixture(overrides: Partial<ImMonitorConfig> = {}): ImMonitorConfi
 }
 
 describe('im api helpers', () => {
-  it('marks threads without a backfilled body as summary-pending', () => {
-    const pending = normalizeImThread(threadFixture())
-    expect(pending.lastMessageText).toBeNull()
-    expect(pending.summaryPending).toBe(true)
-
-    const backfilled = normalizeImThread(threadFixture({ lastMessageText: '在的，可以拍' }))
-    expect(backfilled.lastMessageText).toBe('在的，可以拍')
-    expect(backfilled.summaryPending).toBe(false)
-
-    expect(normalizeImThread(threadFixture({ lastMessageText: '   ' })).summaryPending).toBe(true)
+  it('normalizes absent or blank server summaries to null', () => {
+    expect(normalizeImThread(threadFixture()).lastMessageText).toBeNull()
+    expect(normalizeImThread(threadFixture({ lastMessageText: '在的，可以拍' })).lastMessageText)
+      .toBe('在的，可以拍')
+    expect(normalizeImThread(threadFixture({ lastMessageText: '   ' })).lastMessageText).toBeNull()
   })
 
   it('labels platform sources and DM-channel filtering', () => {

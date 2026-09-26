@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from .auth import current_actor
@@ -33,6 +33,7 @@ Service = Annotated[ImService, Depends(service)]
 
 class ImMessageIn(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    platform: Literal["xianyu"] | None = None
     peer_key: str = Field(alias="peerKey", min_length=1, max_length=128)
     peer_name: str = Field(alias="peerName", min_length=1, max_length=128)
     text: str = Field(min_length=1, max_length=4000)
@@ -51,10 +52,17 @@ class ImReplyIn(BaseModel):
 
 @companion_router.post("/messages")
 async def push_messages(body: ImBatchIn, binding_row: BindingDep, im: Service) -> dict[str, int]:
+    for item in body.messages:
+        if item.platform is None and (
+            "platform" in item.model_fields_set
+            or binding_row.device_id not in im.legacy_xianyu_device_ids
+        ):
+            raise HTTPException(status_code=422, detail="platform is required")
     return await im.ingest(
         binding_row,
         [
             {
+                "platform": item.platform or "xianyu",
                 "peerKey": item.peer_key,
                 "peerName": item.peer_name,
                 "text": item.text,
@@ -85,8 +93,9 @@ async def list_messages(
     im: Service,
     after: str | None = None,
     limit: int = Query(default=100, ge=1, le=200),
+    latest: bool = Query(default=False),
 ) -> dict[str, Any]:
-    items = await im.list_messages(actor, thread_id, after, limit)
+    items = await im.list_messages(actor, thread_id, after, limit, latest=latest)
     return {"items": items, "count": len(items)}
 
 
@@ -110,7 +119,9 @@ class ImConfigIn(BaseModel):
 
 
 @operator_router.get("/config")
-async def get_im_config(actor: ActorDep, im: Service, device_id: str = Query(alias="deviceId")) -> dict[str, Any]:
+async def get_im_config(
+    actor: ActorDep, im: Service, device_id: str = Query(alias="deviceId")
+) -> dict[str, Any]:
     return await im.get_config(actor, device_id)
 
 
@@ -118,10 +129,17 @@ async def get_im_config(actor: ActorDep, im: Service, device_id: str = Query(ali
 async def put_im_config(
     body: ImConfigIn, actor: ActorDep, im: Service, device_id: str = Query(alias="deviceId")
 ) -> dict[str, Any]:
-    return await im.upsert_config(actor, device_id, {
-        "enabled": body.enabled, "platforms": body.platforms, "mode": body.mode,
-        "dutyStart": body.duty_start, "dutyEnd": body.duty_end,
-    })
+    return await im.upsert_config(
+        actor,
+        device_id,
+        {
+            "enabled": body.enabled,
+            "platforms": body.platforms,
+            "mode": body.mode,
+            "dutyStart": body.duty_start,
+            "dutyEnd": body.duty_end,
+        },
+    )
 
 
 @companion_router.get("/config")

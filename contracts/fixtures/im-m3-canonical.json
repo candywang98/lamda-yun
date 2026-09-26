@@ -1,0 +1,36 @@
+{
+  "deviceId": "device-a",
+  "platform": "xianyu",
+  "peerKey": "买家",
+  "epochSecond": 1800000000,
+  "cases": [
+    {
+      "name": "exact2000",
+      "character": "a",
+      "repeat": 2000,
+      "suffix": "",
+      "sha256": "cc5c2c93af07c1b1bc9338cf3bcb19d5086bbc5989110e34a6f095e27c431c1e"
+    },
+    {
+      "name": "over2000",
+      "character": "b",
+      "repeat": 2001,
+      "suffix": "",
+      "sha256": "a44bba102bc6b4a11ec9cdaa121b50387a32c92fd71aeae9c18d0a7966f63c62"
+    },
+    {
+      "name": "over4000",
+      "character": "c",
+      "repeat": 4500,
+      "suffix": "",
+      "sha256": "118e7479b2c01ca1d413878839deec0f6546a8da0d3f98288785ef10d20d09a3"
+    },
+    {
+      "name": "supplementaryBoundary",
+      "character": "d",
+      "repeat": 1999,
+      "suffix": "😀z",
+      "sha256": "80b1e046a8fffd3cba54c263f1abbbc8d7c515b0798eea68417aa60190af9aaf"
+    }
+  ]
+}

@@ -28,7 +28,9 @@ def upgrade() -> None:
         "fleet_listing",
         sa.Column("id", sa.String(36), primary_key=True),
         sa.Column("tenant_id", sa.String(36), nullable=False, index=True),
-        sa.Column("device_id", sa.String(36), sa.ForeignKey("device.id"), nullable=False, index=True),
+        sa.Column(
+            "device_id", sa.String(36), sa.ForeignKey("device.id"), nullable=False, index=True
+        ),
         sa.Column("platform", sa.String(16), nullable=False, server_default="xianyu"),
         sa.Column("item_key", sa.String(128), nullable=False),
         sa.Column("dedupe_marker", sa.String(16), nullable=False, server_default="MISSING_ID"),
@@ -43,11 +45,15 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.UniqueConstraint(
-            "tenant_id", "device_id", "platform", "item_key",
+            "tenant_id",
+            "device_id",
+            "platform",
+            "item_key",
             name="uq_fleet_listing_identity",
         ),
-        sa.CheckConstraint("price_cents is null or price_cents >= 0",
-                           name="ck_fleet_listing_price"),
+        sa.CheckConstraint(
+            "price_cents is null or price_cents >= 0", name="ck_fleet_listing_price"
+        ),
     )
     op.create_table(
         "fleet_listing_snapshot",
@@ -78,8 +84,9 @@ def upgrade() -> None:
         sa.Column("collected_at", sa.DateTime(timezone=True)),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
-        sa.UniqueConstraint("tenant_id", "device_id", "run_key", "screen",
-                            name="uq_fleet_listing_screen"),
+        sa.UniqueConstraint(
+            "tenant_id", "device_id", "run_key", "screen", name="uq_fleet_listing_screen"
+        ),
     )
 
 

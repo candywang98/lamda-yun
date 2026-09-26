@@ -55,9 +55,7 @@ def upgrade() -> None:
             name="ck_xianyu_publish_target_state",
         ),
     )
-    op.create_index(
-        "ix_xianyu_publish_target_tenant_id", "xianyu_publish_target", ["tenant_id"]
-    )
+    op.create_index("ix_xianyu_publish_target_tenant_id", "xianyu_publish_target", ["tenant_id"])
     op.create_index("ix_xianyu_publish_target_queue_id", "xianyu_publish_target", ["queue_id"])
 
 

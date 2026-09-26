@@ -50,14 +50,10 @@ def upgrade() -> None:
             "state IN ('APPROVED','CONSUMED','ABORTED_BY_OPERATOR','RESOLVED')",
             name="ck_xianyu_delete_approval_state",
         ),
-        sa.CheckConstraint(
-            "valid_until > valid_from", name="ck_xianyu_delete_approval_window"
-        ),
+        sa.CheckConstraint("valid_until > valid_from", name="ck_xianyu_delete_approval_window"),
         sa.CheckConstraint("action = 'delete-delisted'", name="ck_xianyu_delete_approval_action"),
     )
-    op.create_index(
-        "ix_xianyu_delete_approval_tenant_id", "xianyu_delete_approval", ["tenant_id"]
-    )
+    op.create_index("ix_xianyu_delete_approval_tenant_id", "xianyu_delete_approval", ["tenant_id"])
     op.create_index(
         "ix_xianyu_delete_approval_target_key", "xianyu_delete_approval", ["target_key"]
     )
@@ -78,8 +74,7 @@ def upgrade() -> None:
         sa.Column("resolution", sa.JSON(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.CheckConstraint(
-            "verdict IN ('VERIFIED_DELETED','PENDING_VERIFICATION',"
-            "'STILL_PRESENT','INCONCLUSIVE')",
+            "verdict IN ('VERIFIED_DELETED','PENDING_VERIFICATION','STILL_PRESENT','INCONCLUSIVE')",
             name="ck_xianyu_delete_result_verdict",
         ),
     )

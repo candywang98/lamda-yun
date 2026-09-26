@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import hashlib
+import os
 import shutil
 import socket
 import subprocess
@@ -32,6 +33,8 @@ from test_backend_control_api import (
 )
 from test_platform_tasks import PROBE, _enroll, bind, create_account, create_direct_device, identity
 
+POSTGRES_ENV = {**os.environ, "LC_ALL": "C", "LANG": "C", "LANGUAGE": "C"}
+
 DEVELOPER = headers(CREATOR, "automation_developer")
 
 
@@ -48,6 +51,7 @@ def isolated_postgres(tmp_path_factory):
         ["initdb", "-D", str(root / "data"), "-A", "trust", "-U", "p14test"],  # noqa: S607
         check=True,
         capture_output=True,
+        env=POSTGRES_ENV,
     )
     subprocess.run(  # noqa: S603 - fixed PostgreSQL tools and test-owned paths
         [  # noqa: S607
@@ -63,6 +67,7 @@ def isolated_postgres(tmp_path_factory):
         ],
         check=True,
         capture_output=True,
+        env=POSTGRES_ENV,
     )
     try:
         yield port
@@ -71,6 +76,7 @@ def isolated_postgres(tmp_path_factory):
             ["pg_ctl", "-D", str(root / "data"), "-m", "immediate", "-w", "stop"],  # noqa: S607
             check=True,
             capture_output=True,
+            env=POSTGRES_ENV,
         )
 
 
@@ -81,6 +87,7 @@ def pg_url(isolated_postgres):
         ["createdb", "-h", "127.0.0.1", "-p", str(isolated_postgres), "-U", "p14test", name],  # noqa: S607
         check=True,
         capture_output=True,
+        env=POSTGRES_ENV,
     )
     return f"postgresql+asyncpg://p14test@127.0.0.1:{isolated_postgres}/{name}"
 
@@ -264,7 +271,9 @@ async def test_atomic_stale_history_and_tenant_permissions(api):
     ).status_code == 403
     assert (
         await client.post(
-            "/api/v1/recipes", headers=DEVELOPER, json=package("4", engine=CURRENT_ENGINE_VERSION + 1)
+            "/api/v1/recipes",
+            headers=DEVELOPER,
+            json=package("4", engine=CURRENT_ENGINE_VERSION + 1),
         )
     ).status_code == 422
 

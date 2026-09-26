@@ -808,7 +808,9 @@ class MobileTaskRow(Base, TimestampMixin):
     command_type: Mapped[str | None] = mapped_column(String(80), index=True)
     command_payload: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
     recipe_pin: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
-    business_state: Mapped[str] = mapped_column(String(32), default="QUEUED", index=True, nullable=False)
+    business_state: Mapped[str] = mapped_column(
+        String(32), default="QUEUED", index=True, nullable=False
+    )
     control_mode: Mapped[str] = mapped_column(String(16), default="AUTO", nullable=False)
     batch_id: Mapped[str | None] = mapped_column(String(36), index=True)
     scheduled_for: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -869,8 +871,10 @@ class MobileActionCommitRow(Base, TimestampMixin):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     __table_args__ = (
         UniqueConstraint("task_id", "action_id", name="uq_mobile_action_task_state"),
-        CheckConstraint("status IN ('INTENT', 'APPLIED', 'UNKNOWN', 'NOT_SUBMITTED')",
-                        name="ck_mobile_action_status"),
+        CheckConstraint(
+            "status IN ('INTENT', 'APPLIED', 'UNKNOWN', 'NOT_SUBMITTED')",
+            name="ck_mobile_action_status",
+        ),
         CheckConstraint("resolution_revision >= 0", name="ck_mobile_action_revision"),
     )
 
@@ -879,7 +883,9 @@ class ImThreadRow(Base):
     __tablename__ = "im_thread"
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     tenant_id: Mapped[str] = mapped_column(String(36), index=True, nullable=False)
-    device_id: Mapped[str] = mapped_column(String(36), ForeignKey("device.id"), index=True, nullable=False)
+    device_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("device.id"), index=True, nullable=False
+    )
     platform: Mapped[str] = mapped_column(String(32), nullable=False)
     peer_key: Mapped[str] = mapped_column(String(128), nullable=False)
     peer_name: Mapped[str] = mapped_column(String(128), nullable=False)
@@ -888,7 +894,15 @@ class ImThreadRow(Base):
     unread_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    __table_args__ = (UniqueConstraint("tenant_id", "device_id", "peer_key", name="uq_im_thread_peer"),)
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "device_id",
+            "platform",
+            "peer_key",
+            name="uq_im_thread_platform_peer",
+        ),
+    )
 
 
 class ImMonitorConfigRow(Base):
@@ -896,7 +910,7 @@ class ImMonitorConfigRow(Base):
     device_id: Mapped[str] = mapped_column(String(36), ForeignKey("device.id"), primary_key=True)
     tenant_id: Mapped[str] = mapped_column(String(36), index=True, nullable=False)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    platforms: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False)
+    platforms: Mapped[list[str]] = mapped_column(JSON, nullable=False)
     mode: Mapped[str] = mapped_column(String(16), default="NOTIFICATION", nullable=False)
     duty_start: Mapped[str] = mapped_column(String(5), default="09:00", nullable=False)
     duty_end: Mapped[str] = mapped_column(String(5), default="23:00", nullable=False)
@@ -911,7 +925,9 @@ class ImMessageRow(Base):
     __tablename__ = "im_message"
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     tenant_id: Mapped[str] = mapped_column(String(36), index=True, nullable=False)
-    thread_id: Mapped[str] = mapped_column(String(36), ForeignKey("im_thread.id"), index=True, nullable=False)
+    thread_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("im_thread.id"), index=True, nullable=False
+    )
     direction: Mapped[str] = mapped_column(String(8), nullable=False)
     content_type: Mapped[str] = mapped_column(String(16), default="TEXT", nullable=False)
     text_content: Mapped[str] = mapped_column(Text, nullable=False)
@@ -926,8 +942,10 @@ class ImMessageRow(Base):
     __table_args__ = (
         CheckConstraint("direction IN ('IN', 'OUT')", name="ck_im_message_direction"),
         CheckConstraint("content_type IN ('TEXT', 'SYSTEM')", name="ck_im_message_content_type"),
-        CheckConstraint("delivery_state IN ('PENDING', 'DELIVERED', 'FAILED')",
-                        name="ck_im_message_delivery_state"),
+        CheckConstraint(
+            "delivery_state IN ('PENDING', 'DELIVERED', 'FAILED')",
+            name="ck_im_message_delivery_state",
+        ),
     )
 
 
@@ -957,7 +975,10 @@ class OrderRow(Base, TimestampMixin):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     __table_args__ = (
         UniqueConstraint(
-            "tenant_id", "device_id", "platform", "order_key",
+            "tenant_id",
+            "device_id",
+            "platform",
+            "order_key",
             name="uq_xianyu_order_natural_key",
         ),
         CheckConstraint("platform IN ('xianyu')", name="ck_xianyu_order_platform"),

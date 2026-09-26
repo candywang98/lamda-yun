@@ -21,11 +21,21 @@ depends_on = None
 _TABLES = ("fleet_listing", "fleet_listing_snapshot", "fleet_listing_screen")
 
 
-def upgrade() -> None:
+def _set_nullable(nullable: bool) -> None:
     for table in _TABLES:
-        op.execute(f"ALTER TABLE {table} ALTER COLUMN updated_at DROP NOT NULL")
+        if op.get_bind().dialect.name == "sqlite":
+            with op.batch_alter_table(table) as batch:
+                batch.alter_column(
+                    "updated_at", existing_type=sa.DateTime(timezone=True), nullable=nullable
+                )
+        else:
+            clause = "DROP NOT NULL" if nullable else "SET NOT NULL"
+            op.execute(f"ALTER TABLE {table} ALTER COLUMN updated_at {clause}")
+
+
+def upgrade() -> None:
+    _set_nullable(True)
 
 
 def downgrade() -> None:
-    for table in _TABLES:
-        op.execute(f"ALTER TABLE {table} ALTER COLUMN updated_at SET NOT NULL")
+    _set_nullable(False)
