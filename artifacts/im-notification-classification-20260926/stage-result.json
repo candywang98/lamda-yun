@@ -1,0 +1,7 @@
+{
+  "stage": "PASS",
+  "release": "/home/ubuntu/cloudctl-mobile/releases/im-notify-bb19ad2",
+  "migrationRehearsal": "upgrade-downgrade-upgrade",
+  "businessTablesUnchanged": 65,
+  "activated": false
+}

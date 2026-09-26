@@ -1,0 +1,30 @@
+{
+  "verification": "PASS",
+  "messageId": "8eeb6253-8769-448e-bf31-1e5e55a1ae72",
+  "threadId": "2facf142-3e8c-419c-a796-54f44e9c9cc9",
+  "deviceId": "769d67a5-679c-4655-aeb9-60a2a265fbc6",
+  "classification": {
+    "category": "HUMAN_MESSAGE",
+    "predictedCategory": "HUMAN_MESSAGE",
+    "confidence": 0.45,
+    "source": "RULE",
+    "status": "RULE_CLASSIFIED",
+    "modelStatus": "NEEDS_REVIEW",
+    "ruleCode": "NAMED_PEER_MESSAGE_SUMMARY",
+    "reviewedAt": "2026-09-26T13:41:21.628607Z",
+    "reviewedBy": "12345678-1234-1234-1234-123456789012",
+    "version": 4
+  },
+  "bucketCounts": {
+    "all": 1,
+    "user": 1,
+    "notice": 0,
+    "review": 0
+  },
+  "manualCorrectionAndReset": "PASS",
+  "originalMessagesUnchanged": 128,
+  "outCount": 23,
+  "taskCount": 376,
+  "browserVisualVerified": false,
+  "androidInstalled": false
+}

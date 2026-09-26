@@ -1,0 +1,20 @@
+{
+  "readcheck": "PASS",
+  "serviceDirectory": "/home/ubuntu/cloudctl-mobile/releases/im-notify-bb19ad2",
+  "staticAssets": {
+    "index-DALWJkwe.js": 200,
+    "index-C6Smg1Ds.css": 200
+  },
+  "originalMessagesUnchanged": 128,
+  "classificationCalls": [
+    {
+      "messageId": "8eeb6253-8769-448e-bf31-1e5e55a1ae72",
+      "classificationStatus": "NEEDS_REVIEW",
+      "httpStatus": 200,
+      "confidence": 0.45
+    }
+  ],
+  "tracebacks": 0,
+  "http5xx": 0,
+  "browserVisualVerified": false
+}

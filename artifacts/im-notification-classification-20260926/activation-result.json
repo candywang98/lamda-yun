@@ -1,0 +1,19 @@
+{
+  "activated": true,
+  "release": "/home/ubuntu/cloudctl-mobile/releases/im-notify-bb19ad2",
+  "web": "/var/www/cloudctl-mobile-im-notify-bb19ad2",
+  "activatedAt": "2026-09-26T13:40:46Z",
+  "databaseMigration": "20260926_0034",
+  "originalMessagesUnchanged": 128,
+  "apiHealth": "PASS",
+  "auth": "PASS",
+  "webHash": "PASS",
+  "receiveOnly": true,
+  "outCount": 23,
+  "taskCount": 376,
+  "oldApi": "/home/ubuntu/cloudctl-mobile/releases/im-3a1d306",
+  "oldWeb": "/var/www/cloudctl-mobile-im-3a1d306",
+  "dropIn": "/etc/systemd/system/cloudctl-mobile-api.service.d/99-zzzzzzzzzzzz-im-notify.conf",
+  "browserVisualVerified": false,
+  "androidInstalled": false
+}
