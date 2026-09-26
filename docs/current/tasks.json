@@ -2188,7 +2188,7 @@
     "ISS-22"
    ],
    "risk": "中",
-   "device_acceptance": "order-delivery/1软件和云端已验证；2026-09-27一加已原位更新businessAcceptance v2并上报协议能力，未派发真实采集。仍需先一台再现有三台断开USB/无线ADB、无Edge及开发电脑验证只读采集与断网补传，禁止发货/评价/交易写操作",
+   "device_acceptance": "一加已拔线，ADB列表为空；云端单屏只读订单任务已被手机领取，但v2接收入口以TASK_CONTRACT_REJECTED拒绝，零订单回执。v3入口修复测试通过并提供受认证的手机手动下载，尚未安装/复验。仍需先一台再现有三台无ADB验证只读采集与断网补传，禁止发货/评价/交易写操作",
    "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
    "dev_state": "IN_PROGRESS",
    "acceptance_state": "DEVICE_WAIT",
@@ -2199,9 +2199,9 @@
     "AGENTS.md"
    ],
    "baseline_sha": "4af3698c6f31f041c957a490a48adaeb71ca5ef1",
-   "scope_note": "2026-09-26可靠同步切片已实现并软件验证：6e08f61/eb9ffb4/af94623后端、5a231e7 Web、d0a2dbc Android、3f539e9接口。主分支和独立发布包后端均144通过/1个SQLite条件跳过，Web分别496/489通过，集成Android Debug1279/Acceptance1265全通过并构建成功。23:39:50+08:00云端上线order-delivery-557f547及0035，67表备份还原、迁移升降升与66张原业务表保全验证通过。2026-09-27 00:14一加同包同签名原位安装businessAcceptance v2，1265项单测通过，云端收到order-delivery/1能力；绑定/授权保留，维护false/version6和设备锁已收尾，无新手机任务。两台华为未连接ADB且未更新；单机/三机无ADB及浏览器视觉未验。完整历史账号隔离、legacy混用保护、正式更新信任仍单列，因此O10整体继续IN_PROGRESS。详见artifacts/order-delivery-20260926/report.md和artifacts/order-device-20260927/report.md。",
+   "scope_note": "可靠同步切片已实现并部署order-delivery-557f547/0035，原部署证据见artifacts/order-delivery-20260926/report.md。一加原位安装businessAcceptance v2后已拔线；2026-09-26T16:24Z只读任务26bb23ba-362b-402b-9607-a4300d22c59b通过云端领取，但接收入口漏接order-aware解析器，TASK_CONTRACT_REJECTED且零回执。新增入口测试先5例1失败复现，再修复；v3 Business1270/Debug1284全通过，签名/权限不变，已上传认证下载区供手机手动覆盖安装，尚未安装/实机复验。任务仅新增1条，外发消息仍23，设备锁已释放，无ADB操作手机。两华为未更新、浏览器视觉未验；历史账号隔离、legacy混用和正式更新信任仍单列，O10继续IN_PROGRESS/DEVICE_WAIT。详见artifacts/order-device-20260927/unplugged-report.md。",
    "remaining_gates": [
-    "DEVICE_WAIT：一加businessAcceptance v2已安装并上报新能力，等待用户拔USB/关闭无线ADB后验证真实订单、断网补传和进程恢复；两台华为仍需新鲜空闲确认与同包签名更新，不增加三台以外硬件门槛",
+    "DEVICE_WAIT：一加已拔线且云端任务领取成功，但v2契约接收失败；等待手机浏览器手动覆盖安装v3后重新验证真实订单、断网补传和进程恢复。两台华为仍需新鲜空闲确认与同包签名更新，不增加三台以外硬件门槛",
     "Web单测与云端资源校验已通过；浏览器空间18仍交用户，未进行视觉验收",
     "完整历史订单按账号隔离仍需独立设计，不能凭新任务冻结账号声称历史数据已迁移",
     "迟到防回退水位仅覆盖durable到durable；旧screens路径保持兼容且未核验，降级或混用旧通道的覆盖风险单列",

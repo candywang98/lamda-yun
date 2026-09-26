@@ -6,8 +6,10 @@ import com.company.cloudctl.companion.automation.*
 import com.company.cloudctl.companion.data.AutomationStore
 import com.company.cloudctl.companion.network.CloudConnection
 import com.company.cloudctl.companion.network.CloudHttpException
+import com.company.cloudctl.companion.network.ClaimedTask
 import com.company.cloudctl.companion.network.addOrderDeliveryCapability
 import com.company.cloudctl.companion.network.buildClaimedTaskPayload
+import com.company.cloudctl.companion.service.acceptedClaimDeviceId
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
@@ -363,6 +365,57 @@ class OrderDeliveryIntegrationTest {
         assertFalse(addOrderDeliveryCapability(JSONObject(), true).has("orderDeliveryProtocol"))
         response.remove("orderDelivery")
         assertNull(OrderDeliveryIdentity.fromTask(buildClaimedTaskPayload(response), task))
+    }
+
+    @Test fun serviceAdmissionAcceptsDurableClaimBeforeEnqueue() {
+        val task = task(screens = 1)
+        val claim = ClaimedTask(
+            buildClaimedTaskPayload(payload(task)).toString(),
+            task.taskId, task.deviceId, "lease-1", 0,
+        )
+        assertEquals(task.deviceId, acceptedClaimDeviceId(claim, task.deviceId))
+    }
+
+    @Test fun serviceAdmissionKeepsLegacyTasksCompatible() {
+        val task = task(screens = 1)
+        val response = payload(task).apply { remove("orderDelivery") }
+        val claim = ClaimedTask(
+            buildClaimedTaskPayload(response).toString(),
+            task.taskId, task.deviceId, "lease-1", 0,
+        )
+        assertEquals(task.deviceId, acceptedClaimDeviceId(claim, task.deviceId))
+    }
+
+    @Test fun serviceAdmissionRejectsMalformedDurableIdentity() {
+        val task = task(screens = 1)
+        for (key in listOf("accountId", "bindingVersion")) {
+            val response = payload(task).apply { remove(key) }
+            val claim = ClaimedTask(
+                buildClaimedTaskPayload(response).toString(),
+                task.taskId, task.deviceId, "lease-1", 0,
+            )
+            assertFails { acceptedClaimDeviceId(claim, task.deviceId) }
+        }
+    }
+
+    @Test fun serviceAdmissionRejectsMixedCommandAndUnknownFields() {
+        val task = task(screens = 1)
+        val mixed = buildClaimedTaskPayload(payload(task)).put("command", JSONObject())
+        val unknown = buildClaimedTaskPayload(payload(task)).put("unknownInstruction", true)
+        for (value in listOf(mixed, unknown)) {
+            val claim = ClaimedTask(value.toString(), task.taskId, task.deviceId, "lease-1", 0)
+            assertFails { acceptedClaimDeviceId(claim, task.deviceId) }
+        }
+    }
+
+    @Test fun serviceAdmissionRejectsWrongPayloadOrEnvelopeDevice() {
+        val task = task(screens = 1)
+        val claim = ClaimedTask(
+            buildClaimedTaskPayload(payload(task)).toString(),
+            task.taskId, task.deviceId, "lease-1", 0,
+        )
+        assertFails { acceptedClaimDeviceId(claim, "another-device") }
+        assertFails { acceptedClaimDeviceId(claim.copy(deviceId = "another-device"), task.deviceId) }
     }
 
     @Test fun mixedDurableCommandCannotBypassTheOrderExecutionPath() {

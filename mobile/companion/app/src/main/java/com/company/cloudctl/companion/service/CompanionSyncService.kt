@@ -27,7 +27,6 @@ import com.company.cloudctl.companion.R
 import com.company.cloudctl.companion.automation.AutomationTask
 import com.company.cloudctl.companion.automation.AutomationStep
 import com.company.cloudctl.companion.automation.CommitGate
-import com.company.cloudctl.companion.automation.AutomationTaskParser
 import com.company.cloudctl.companion.automation.BuiltinRecipes
 import com.company.cloudctl.companion.automation.ClaimedTaskInterpreter
 import com.company.cloudctl.companion.automation.CloudCtlAccessibilityService
@@ -526,19 +525,7 @@ class CompanionSyncService : Service() {
                 }
                 if (claimed != null) {
                     val acceptedDeviceId = try {
-                        val command = ClaimedTaskInterpreter.commandOrNull(claimed.taskPayload)
-                        if (command != null) {
-                            require(command.deviceId == configured.second && claimed.deviceId == configured.second) {
-                                "Task belongs to another device"
-                            }
-                            command.deviceId
-                        } else {
-                            val task = AutomationTaskParser.parse(claimed.taskPayload)
-                            require(task.deviceId == configured.second && claimed.deviceId == configured.second) {
-                                "Task belongs to another device"
-                            }
-                            task.deviceId
-                        }
+                        acceptedClaimDeviceId(claimed, configured.second)
                     } catch (_: Exception) {
                         store.enqueueTask(
                             claimed.taskId,

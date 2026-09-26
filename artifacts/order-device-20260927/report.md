@@ -1,5 +1,10 @@
 # OnePlus Business Restore, 2026-09-27 +08:00
 
+Follow-up: [unplugged attempt and v3 fix](unplugged-report.md). The user has
+since disconnected USB; cloud claim worked but v2 rejected the new sidecar at
+admission. The tested v3 correction is available for authenticated manual
+download, not yet installed or device-accepted.
+
 ## Result
 
 User confirmed that the phones were idle and approved updating the collectors.

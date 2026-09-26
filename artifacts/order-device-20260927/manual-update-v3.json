@@ -1,0 +1,14 @@
+{
+  "manualDownloadUrl": "https://43.133.243.154.sslip.io/cloudctl-mobile/downloads/cloudctl-companion-v3-c6a39272.apk",
+  "sha256": "c6a39272612bf507c70d0a5f3084162b87770d445fcecedb4e659be5cd4a9005",
+  "bytes": 50937988,
+  "unauthenticatedStatus": 401,
+  "authenticatedStatus": 200,
+  "contentType": "application/octet-stream",
+  "versionCode": 3,
+  "versionName": "0.1.0-business-acceptance.3",
+  "requiresManualInstall": true,
+  "otaAdmittedOrAssigned": false,
+  "phoneInstalled": false,
+  "serviceOrNginxRestarted": false
+}
