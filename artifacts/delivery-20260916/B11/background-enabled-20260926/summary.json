@@ -1,0 +1,88 @@
+{
+  "acceptance": {
+    "b11_complete": false,
+    "business_acceptance": false,
+    "business_apk_restored": false,
+    "computer_independent_acceptance": false,
+    "usb_connected": true
+  },
+  "cloud": {
+    "all_occupancy_guards_zero_at_samples": true,
+    "device_configuration_samples": {
+      "050cdb78-c815-4989-8744-2a519d33079a": [
+        [
+          false,
+          0
+        ]
+      ],
+      "4aabc387-6e4b-4b59-a525-b1c119ec7f5b": [
+        [
+          false,
+          4
+        ]
+      ],
+      "d2f2672f-ef26-4d7d-a6c2-88452c0eb2bf": [
+        [
+          true,
+          1
+        ]
+      ]
+    },
+    "oneplus_auth_age_max_seconds": 20.237431,
+    "oneplus_auth_age_min_seconds": 1.123136,
+    "samples": 31
+  },
+  "freezer": {
+    "after_identity_checks_match": true,
+    "after_state": "NOT_FROZEN_AT_SAMPLES",
+    "baseline_identity_checks_match": true,
+    "baseline_state": "NOT_FROZEN_AT_SAMPLES",
+    "continuous_unfrozen_proven": false,
+    "same_identity_at_endpoints": true
+  },
+  "schema": "b11-full-background-retest/1",
+  "trace": {
+    "error_stages": [],
+    "first_heartbeat_wall_ms": 1790418698792,
+    "heartbeat_intervals": {
+      "count": 43,
+      "maximum_ms": 21583,
+      "median_ms": 20433,
+      "minimum_ms": 20355
+    },
+    "heartbeat_ok_count": 44,
+    "idle_values": [
+      "false"
+    ],
+    "interactive_values": [
+      "false",
+      "true"
+    ],
+    "last_heartbeat_wall_ms": 1790419578538,
+    "lifecycle_stages": [],
+    "locked_values": [
+      "false"
+    ],
+    "network_check_gap": {
+      "count": 44,
+      "maximum_ms": 20008,
+      "median_ms": 20006.0,
+      "minimum_ms": 20003
+    },
+    "pid_values": [
+      "661"
+    ],
+    "record_count": 440,
+    "transport_done_count": 44,
+    "transport_status_values": [
+      "200"
+    ]
+  },
+  "window": {
+    "continuous_power_state_proven": false,
+    "device_trace_filter": "device wall clock within host wall-clock window",
+    "host_end": "2026-09-26T18:46:30.900470+08:00",
+    "host_start": "2026-09-26T18:31:29.814799+08:00",
+    "observed_monotonic_seconds": 900.974
+  }
+}

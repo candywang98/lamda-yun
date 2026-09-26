@@ -837,7 +837,7 @@
     "ISS-16"
    ],
    "risk": "中",
-   "device_acceptance": "未完成；2026-09-26傍晚一加息屏停顿时读到UID freeze=1及PID frozen=1，亮屏后均为0且心跳恢复；已确认采样时内核冻结，策略发起者未知。系统允许完全后台行为关闭，待用户手工开启后单变量复验；保留只发心跳诊断版，不恢复业务",
+   "device_acceptance": "未完成；2026-09-26用户开启完全后台行为后900.974秒观察获44次HTTP200心跳，前后探针未冻结；末段亮屏，不计连续15分钟息屏或脱离电脑通过。按用户新优先级本轮取证收尾，不扩展保活排查；长期稳定性独立待验，不阻塞单台闲鱼入站到网页验收；一加保留仅心跳诊断版",
    "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
    "dev_state": "IN_PROGRESS",
    "acceptance_state": "DEVICE_WAIT",
@@ -883,14 +883,30 @@
     "probe": "scripts/companion_freezer_probe.py",
     "kernel_freeze_observed": true,
     "freezing_policy_owner": "UNKNOWN",
-    "full_background_permission": "OBSERVED_OFF_AWAITING_USER",
+    "full_background_permission": "OBSERVED_OFF_BASELINE_THEN_USER_ENABLED",
     "no_send": true,
     "apk_changed": false,
     "production_changed": false,
     "business_acceptance": false,
     "software_validation": "只读探针49项+设备锁22项，共71 passed；Ruff lint/format、探针Pyright、plan_guard及diff检查通过",
     "cleanup": "2026-09-26T18:19:46+08:00 释放一加fencing7，最终FREE；云端维护/绑定/任务未修改",
-    "next": "用户在系统界面开启允许完全后台行为后，按设备锁SOP重复息屏对照；不能把亮屏恢复或电池白名单当作持续在线通过"
+    "next": "用户开启后的复验已取证收尾，见background_enabled_retest_20260926；长期保活单列待验，不作为单台消息接入的前置条件"
+   },
+   "background_enabled_retest_20260926": {
+    "baseline_sha": "af98ea8",
+    "report": "artifacts/delivery-20260916/B11/background-enabled-20260926/report.md",
+    "window_start": "2026-09-26T18:31:29.814799+08:00",
+    "window_end": "2026-09-26T18:46:30.900470+08:00",
+    "observed_seconds": 900.974,
+    "successful_heartbeats": 44,
+    "max_success_gap_ms": 21583,
+    "continuous_screen_off_15m_passed": false,
+    "screen_became_interactive_at": "2026-09-26T18:45:57.661+08:00",
+    "computer_independent_acceptance": false,
+    "business_acceptance": false,
+    "status": "EVIDENCE_CLOSED_LONG_TERM_STABILITY_DEFERRED",
+    "blocks_single_device_im_intake": false,
+    "cleanup": "2026-09-26T18:52:13+08:00释放一加fencing8，最终FREE；无APK或云端变更"
    },
    "activation": {
     "delivered_at": "2026-09-17T01:20:00+08:00",
@@ -1957,7 +1973,11 @@
    "owned_paths": [
     "mobile/companion/app/src/main/java/com/company/cloudctl/companion/im/**",
     "apps/web/src/features/im/**",
-    "tests/integration/test_im_fleet_ownership.py"
+    "tests/integration/test_im_fleet_ownership.py",
+    "services/control-api/src/cloudctl_api/im_classifier.py",
+    "services/control-api/src/cloudctl_api/settings.py",
+    "scripts/check_im_classifier.py",
+    "tests/unit/test_im_classifier.py"
    ],
    "required_locks": [
     "APK:IM",
@@ -1985,10 +2005,10 @@
     "ISS-21"
    ],
    "risk": "高",
-   "device_acceptance": "授权测试会话；发送前核对收件人及内容",
+   "device_acceptance": "2026-09-26新增单台闲鱼真实外部入站到网页验收，先VOG后扩三台；只收不发，后台长期稳定性不作前置。VOG已安装业务版且无障碍Bound，云端有5条历史IN但未据此认定新真实用户样本；网页认证待用户登录，单机闭环未通过",
    "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
-   "dev_state": "SOFTWARE_DONE",
-   "acceptance_state": "SOFTWARE_ACCEPTED",
+   "dev_state": "IN_PROGRESS",
+   "acceptance_state": "DEVICE_WAIT",
    "evidence": "agent/fleet-i10 @eebb289 merged 5853870. DutyWriteArbitration (formalized frozen-order decision, reuse not rewrite), ImReplyBoundary (WRONG_CONVERSATION/CHAT_TARGET_CHANGED/HARASSMENT_SESSION fail-closed), NoiseProfile+SOURCE layer, ImMonitor 5-min retransmit window; zero backend route changes (reused settle_reply_delivery). 8 integration tests incl. cancel-consistency via real A14 flow. Seams: ImReplyBoundary check() call in CompanionSyncService.runNext before send steps; noise calibration cloud delivery needs im config contract extension; web modules not yet mounted in ImInboxView. WIRE merged d6c9587: ImReplyBoundary.check wired into executor conversation-open and send seams (covers resume path), imChatEvidence from chat locators + header peer (heuristic until device calibration).",
    "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
    "read_only_paths": [
@@ -1996,7 +2016,24 @@
     "AGENTS.md"
    ],
    "baseline_sha": "4af3698c6f31f041c957a490a48adaeb71ca5ef1",
-   "scope_note": "先复用现存实现和已合入成果，只实现差额；新增目录为拟议路径，本机核验后固定。",
+   "scope_note": "保留原I10软件验收证据；2026-09-26用户增加单机真实入站优先和Jev分类接入，重新进入增量IN_PROGRESS/DEVICE_WAIT，不代表原软件测试失效。禁止发送，长期保活不阻塞本轮单机接入。",
+   "receive_first_20260926": {
+    "priority": "ONE_DEVICE_REAL_XIANYU_MESSAGE_TO_WEB_THEN_THREE_DEVICES",
+    "entry": "docs/current/im-receive-priority-20260926.md",
+    "report": "artifacts/im-single-device-20260926/report.md",
+    "background_stability_gate": false,
+    "real_send_allowed": false,
+    "single_device_passed": false,
+    "three_device_passed": false,
+    "first_candidate_serial": "APH0219624006517",
+    "first_candidate_device_id": "050cdb78-c815-4989-8744-2a519d33079a",
+    "jev_model": "jev-latest",
+    "jev_native_endpoint_verified": true,
+    "jev_live_filter_enabled": false,
+    "cloud_deployed": false,
+    "software_validation": "新增分类客户端及原IM聚合/设备隔离定向回归78 passed；少量虚构样本不构成中文通知精度或单机真机验收",
+    "next": "用户正常登录现有网页，确认VOG闲鱼账号并由用户安排一条真实外部测试消息；核对采集、服务器与网页同条证据，不绕过认证、不代发"
+   },
    "acceptance_commands": [
     "在所声明新测试文件落地后运行其定向测试；测试名由taskId登记",
     "cd mobile/companion && ./gradlew testDebugUnitTest lint assembleDebug（涉及Android时）",

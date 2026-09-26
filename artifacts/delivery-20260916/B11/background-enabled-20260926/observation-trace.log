@@ -1,0 +1,440 @@
+09-26 18:31:38.378   661  1167 I ConnectivityDiag: stage=network_check wall=1790418698372 elapsed=660813725 uptime=523253716 gap=20005 sleep=0 interactive=false idle=false locked=false
+09-26 18:31:38.384   661  1167 I ConnectivityDiag: stage=health_collect wall=1790418698383 elapsed=660813735 uptime=523253726 gap=10 sleep=0 interactive=false idle=false locked=false
+09-26 18:31:38.396   661  1167 I ConnectivityDiag: stage=heartbeat_request wall=1790418698395 elapsed=660813747 uptime=523253738 gap=12 sleep=0 interactive=false idle=false locked=false
+09-26 18:31:38.406   661  1167 I ConnectivityDiag: stage=transport_connect wall=1790418698405 elapsed=660813757 uptime=523253749 gap=10 sleep=0 interactive=false idle=false locked=false
+09-26 18:31:38.507   661  1167 I ConnectivityDiag: stage=transport_tls wall=1790418698502 elapsed=660813854 uptime=523253846 gap=97 sleep=0 interactive=false idle=false locked=false
+09-26 18:31:38.603   661  1167 I ConnectivityDiag: stage=transport_write wall=1790418698601 elapsed=660813953 uptime=523253945 gap=99 sleep=0 interactive=false idle=false locked=false
+09-26 18:31:38.604   661  1167 I ConnectivityDiag: stage=transport_read wall=1790418698603 elapsed=660813955 uptime=523253947 gap=2 sleep=0 interactive=false idle=false locked=false
+09-26 18:31:38.784   661  1167 I ConnectivityDiag: stage=transport_done wall=1790418698782 elapsed=660814134 uptime=523254125 gap=179 sleep=1 interactive=false idle=false locked=false status=200
+09-26 18:31:38.793   661  1167 I ConnectivityDiag: stage=heartbeat_ok wall=1790418698792 elapsed=660814144 uptime=523254135 gap=10 sleep=0 interactive=false idle=false locked=false
+09-26 18:31:38.807   661  1167 I ConnectivityDiag: stage=heartbeat_delay wall=1790418698806 elapsed=660814158 uptime=523254149 gap=14 sleep=0 interactive=false idle=false locked=false
+09-26 18:31:58.814   661  1167 I ConnectivityDiag: stage=network_check wall=1790418718810 elapsed=660834162 uptime=523274153 gap=20004 sleep=0 interactive=false idle=false locked=false
+09-26 18:31:58.818   661  1167 I ConnectivityDiag: stage=health_collect wall=1790418718817 elapsed=660834169 uptime=523274160 gap=7 sleep=0 interactive=false idle=false locked=false
+09-26 18:31:58.826   661  1167 I ConnectivityDiag: stage=heartbeat_request wall=1790418718825 elapsed=660834178 uptime=523274169 gap=9 sleep=0 interactive=false idle=false locked=false
+09-26 18:31:58.832   661  1167 I ConnectivityDiag: stage=transport_connect wall=1790418718831 elapsed=660834183 uptime=523274175 gap=5 sleep=0 interactive=false idle=false locked=false
+09-26 18:31:58.928   661  1167 I ConnectivityDiag: stage=transport_tls wall=1790418718927 elapsed=660834279 uptime=523274270 gap=96 sleep=1 interactive=false idle=false locked=false
+09-26 18:31:59.011   661  1167 I ConnectivityDiag: stage=transport_write wall=1790418719010 elapsed=660834362 uptime=523274354 gap=83 sleep=0 interactive=false idle=false locked=false
+09-26 18:31:59.013   661  1167 I ConnectivityDiag: stage=transport_read wall=1790418719012 elapsed=660834364 uptime=523274355 gap=2 sleep=1 interactive=false idle=false locked=false
+09-26 18:31:59.187   661  1167 I ConnectivityDiag: stage=transport_done wall=1790418719186 elapsed=660834538 uptime=523274529 gap=174 sleep=0 interactive=false idle=false locked=false status=200
+09-26 18:31:59.192   661  1167 I ConnectivityDiag: stage=heartbeat_ok wall=1790418719191 elapsed=660834543 uptime=523274534 gap=5 sleep=0 interactive=false idle=false locked=false
+09-26 18:31:59.198   661  1167 I ConnectivityDiag: stage=heartbeat_delay wall=1790418719198 elapsed=660834550 uptime=523274541 gap=7 sleep=0 interactive=false idle=false locked=false
+09-26 18:32:19.208   661  1167 I ConnectivityDiag: stage=network_check wall=1790418739203 elapsed=660854555 uptime=523294546 gap=20005 sleep=0 interactive=false idle=false locked=false
+09-26 18:32:19.215   661  1167 I ConnectivityDiag: stage=health_collect wall=1790418739213 elapsed=660854565 uptime=523294556 gap=10 sleep=0 interactive=false idle=false locked=false
+09-26 18:32:19.226   661  1167 I ConnectivityDiag: stage=heartbeat_request wall=1790418739225 elapsed=660854577 uptime=523294568 gap=12 sleep=0 interactive=false idle=false locked=false
+09-26 18:32:19.236   661  1167 I ConnectivityDiag: stage=transport_connect wall=1790418739235 elapsed=660854587 uptime=523294578 gap=10 sleep=0 interactive=false idle=false locked=false
+09-26 18:32:19.337   661  1167 I ConnectivityDiag: stage=transport_tls wall=1790418739333 elapsed=660854685 uptime=523294676 gap=98 sleep=0 interactive=false idle=false locked=false
+09-26 18:32:19.434   661  1167 I ConnectivityDiag: stage=transport_write wall=1790418739432 elapsed=660854785 uptime=523294776 gap=100 sleep=0 interactive=false idle=false locked=false
+09-26 18:32:19.436   661  1167 I ConnectivityDiag: stage=transport_read wall=1790418739435 elapsed=660854787 uptime=523294778 gap=2 sleep=0 interactive=false idle=false locked=false
+09-26 18:32:19.609   661  1167 I ConnectivityDiag: stage=transport_done wall=1790418739607 elapsed=660854959 uptime=523294950 gap=172 sleep=0 interactive=false idle=false locked=false status=200
+09-26 18:32:19.616   661  1167 I ConnectivityDiag: stage=heartbeat_ok wall=1790418739615 elapsed=660854967 uptime=523294959 gap=8 sleep=0 interactive=false idle=false locked=false
+09-26 18:32:19.625   661  1167 I ConnectivityDiag: stage=heartbeat_delay wall=1790418739625 elapsed=660854977 uptime=523294968 gap=10 sleep=1 interactive=false idle=false locked=false
+09-26 18:32:39.634   661  1167 I ConnectivityDiag: stage=network_check wall=1790418759630 elapsed=660874982 uptime=523314973 gap=20005 sleep=0 interactive=false idle=false locked=false
+09-26 18:32:39.639   661  1167 I ConnectivityDiag: stage=health_collect wall=1790418759637 elapsed=660874990 uptime=523314981 gap=8 sleep=0 interactive=false idle=false locked=false
+09-26 18:32:39.648   661  1167 I ConnectivityDiag: stage=heartbeat_request wall=1790418759647 elapsed=660874999 uptime=523314991 gap=9 sleep=0 interactive=false idle=false locked=false
+09-26 18:32:39.656   661  1167 I ConnectivityDiag: stage=transport_connect wall=1790418759655 elapsed=660875007 uptime=523314998 gap=8 sleep=1 interactive=false idle=false locked=false
+09-26 18:32:39.751   661  1167 I ConnectivityDiag: stage=transport_tls wall=1790418759750 elapsed=660875102 uptime=523315093 gap=95 sleep=0 interactive=false idle=false locked=false
+09-26 18:32:39.842   661  1167 I ConnectivityDiag: stage=transport_write wall=1790418759839 elapsed=660875192 uptime=523315183 gap=90 sleep=0 interactive=false idle=false locked=false
+09-26 18:32:39.843   661  1167 I ConnectivityDiag: stage=transport_read wall=1790418759842 elapsed=660875194 uptime=523315186 gap=2 sleep=0 interactive=false idle=false locked=false
+09-26 18:32:40.026   661  1167 I ConnectivityDiag: stage=transport_done wall=1790418760023 elapsed=660875375 uptime=523315366 gap=181 sleep=1 interactive=false idle=false locked=false status=200
+09-26 18:32:40.034   661  1177 I ConnectivityDiag: stage=heartbeat_ok wall=1790418760033 elapsed=660875385 uptime=523315376 gap=10 sleep=0 interactive=false idle=false locked=false
+09-26 18:32:40.051   661  1177 I ConnectivityDiag: stage=heartbeat_delay wall=1790418760050 elapsed=660875402 uptime=523315393 gap=17 sleep=0 interactive=false idle=false locked=false
+09-26 18:33:00.060   661  1177 I ConnectivityDiag: stage=network_check wall=1790418780056 elapsed=660895408 uptime=523335399 gap=20006 sleep=0 interactive=false idle=false locked=false
+09-26 18:33:00.069   661  1177 I ConnectivityDiag: stage=health_collect wall=1790418780065 elapsed=660895418 uptime=523335409 gap=10 sleep=0 interactive=false idle=false locked=false
+09-26 18:33:00.083   661  1177 I ConnectivityDiag: stage=heartbeat_request wall=1790418780081 elapsed=660895433 uptime=523335424 gap=15 sleep=0 interactive=false idle=false locked=false
+09-26 18:33:00.093   661  1177 I ConnectivityDiag: stage=transport_connect wall=1790418780092 elapsed=660895444 uptime=523335435 gap=11 sleep=0 interactive=false idle=false locked=false
+09-26 18:33:00.189   661  1177 I ConnectivityDiag: stage=transport_tls wall=1790418780186 elapsed=660895538 uptime=523335529 gap=94 sleep=0 interactive=false idle=false locked=false
+09-26 18:33:00.283   661  1177 I ConnectivityDiag: stage=transport_write wall=1790418780281 elapsed=660895633 uptime=523335624 gap=95 sleep=0 interactive=false idle=false locked=false
+09-26 18:33:00.284   661  1177 I ConnectivityDiag: stage=transport_read wall=1790418780283 elapsed=660895635 uptime=523335627 gap=2 sleep=0 interactive=false idle=false locked=false
+09-26 18:33:00.464   661  1177 I ConnectivityDiag: stage=transport_done wall=1790418780461 elapsed=660895813 uptime=523335805 gap=178 sleep=0 interactive=false idle=false locked=false status=200
+09-26 18:33:00.473   661  1169 I ConnectivityDiag: stage=heartbeat_ok wall=1790418780472 elapsed=660895824 uptime=523335815 gap=11 sleep=1 interactive=false idle=false locked=false
+09-26 18:33:00.491   661  1169 I ConnectivityDiag: stage=heartbeat_delay wall=1790418780489 elapsed=660895842 uptime=523335833 gap=18 sleep=0 interactive=false idle=false locked=false
+09-26 18:33:20.501   661  1169 I ConnectivityDiag: stage=network_check wall=1790418800496 elapsed=660915848 uptime=523355839 gap=20006 sleep=0 interactive=false idle=false locked=false
+09-26 18:33:20.505   661  1169 I ConnectivityDiag: stage=health_collect wall=1790418800504 elapsed=660915856 uptime=523355847 gap=8 sleep=0 interactive=false idle=false locked=false
+09-26 18:33:20.516   661  1169 I ConnectivityDiag: stage=heartbeat_request wall=1790418800515 elapsed=660915867 uptime=523355859 gap=11 sleep=0 interactive=false idle=false locked=false
+09-26 18:33:20.526   661  1169 I ConnectivityDiag: stage=transport_connect wall=1790418800525 elapsed=660915878 uptime=523355869 gap=11 sleep=1 interactive=false idle=false locked=false
+09-26 18:33:20.628   661  1169 I ConnectivityDiag: stage=transport_tls wall=1790418800624 elapsed=660915976 uptime=523355967 gap=98 sleep=0 interactive=false idle=false locked=false
+09-26 18:33:20.719   661  1169 I ConnectivityDiag: stage=transport_write wall=1790418800718 elapsed=660916070 uptime=523356062 gap=94 sleep=0 interactive=false idle=false locked=false
+09-26 18:33:20.721   661  1169 I ConnectivityDiag: stage=transport_read wall=1790418800720 elapsed=660916072 uptime=523356063 gap=2 sleep=1 interactive=false idle=false locked=false
+09-26 18:33:20.905   661  1169 I ConnectivityDiag: stage=transport_done wall=1790418800903 elapsed=660916255 uptime=523356246 gap=183 sleep=0 interactive=false idle=false locked=false status=200
+09-26 18:33:20.914   661  1169 I ConnectivityDiag: stage=heartbeat_ok wall=1790418800913 elapsed=660916265 uptime=523356256 gap=10 sleep=0 interactive=false idle=false locked=false
+09-26 18:33:20.928   661  1169 I ConnectivityDiag: stage=heartbeat_delay wall=1790418800928 elapsed=660916280 uptime=523356271 gap=15 sleep=0 interactive=false idle=false locked=false
+09-26 18:33:40.938   661  1169 I ConnectivityDiag: stage=network_check wall=1790418820934 elapsed=660936286 uptime=523376277 gap=20006 sleep=0 interactive=false idle=false locked=false
+09-26 18:33:40.944   661  1169 I ConnectivityDiag: stage=health_collect wall=1790418820942 elapsed=660936294 uptime=523376286 gap=8 sleep=0 interactive=false idle=false locked=false
+09-26 18:33:40.955   661  1169 I ConnectivityDiag: stage=heartbeat_request wall=1790418820954 elapsed=660936306 uptime=523376298 gap=12 sleep=0 interactive=false idle=false locked=false
+09-26 18:33:40.966   661  1169 I ConnectivityDiag: stage=transport_connect wall=1790418820965 elapsed=660936317 uptime=523376309 gap=11 sleep=0 interactive=false idle=false locked=false
+09-26 18:33:41.061   661  1169 I ConnectivityDiag: stage=transport_tls wall=1790418821057 elapsed=660936410 uptime=523376401 gap=93 sleep=1 interactive=false idle=false locked=false
+09-26 18:33:41.160   661  1169 I ConnectivityDiag: stage=transport_write wall=1790418821157 elapsed=660936510 uptime=523376501 gap=100 sleep=0 interactive=false idle=false locked=false
+09-26 18:33:41.161   661  1169 I ConnectivityDiag: stage=transport_read wall=1790418821160 elapsed=660936512 uptime=523376504 gap=2 sleep=0 interactive=false idle=false locked=false
+09-26 18:33:41.336   661  1169 I ConnectivityDiag: stage=transport_done wall=1790418821334 elapsed=660936686 uptime=523376678 gap=174 sleep=0 interactive=false idle=false locked=false status=200
+09-26 18:33:41.345   661  1177 I ConnectivityDiag: stage=heartbeat_ok wall=1790418821344 elapsed=660936696 uptime=523376687 gap=10 sleep=1 interactive=false idle=false locked=false
+09-26 18:33:41.365   661  1177 I ConnectivityDiag: stage=heartbeat_delay wall=1790418821363 elapsed=660936715 uptime=523376706 gap=19 sleep=0 interactive=false idle=false locked=false
+09-26 18:34:01.374   661  1177 I ConnectivityDiag: stage=network_check wall=1790418841370 elapsed=660956722 uptime=523396713 gap=20007 sleep=0 interactive=false idle=false locked=false
+09-26 18:34:01.382   661  1177 I ConnectivityDiag: stage=health_collect wall=1790418841380 elapsed=660956732 uptime=523396723 gap=10 sleep=0 interactive=false idle=false locked=false
+09-26 18:34:01.394   661  1177 I ConnectivityDiag: stage=heartbeat_request wall=1790418841393 elapsed=660956745 uptime=523396736 gap=13 sleep=0 interactive=false idle=false locked=false
+09-26 18:34:01.404   661  1177 I ConnectivityDiag: stage=transport_connect wall=1790418841403 elapsed=660956755 uptime=523396746 gap=10 sleep=0 interactive=false idle=false locked=false
+09-26 18:34:01.502   661  1177 I ConnectivityDiag: stage=transport_tls wall=1790418841499 elapsed=660956851 uptime=523396842 gap=96 sleep=0 interactive=false idle=false locked=false
+09-26 18:34:01.594   661  1177 I ConnectivityDiag: stage=transport_write wall=1790418841592 elapsed=660956945 uptime=523396936 gap=94 sleep=0 interactive=false idle=false locked=false
+09-26 18:34:01.596   661  1177 I ConnectivityDiag: stage=transport_read wall=1790418841595 elapsed=660956947 uptime=523396938 gap=2 sleep=0 interactive=false idle=false locked=false
+09-26 18:34:01.770   661  1177 I ConnectivityDiag: stage=transport_done wall=1790418841767 elapsed=660957119 uptime=523397111 gap=172 sleep=0 interactive=false idle=false locked=false status=200
+09-26 18:34:01.779   661  1177 I ConnectivityDiag: stage=heartbeat_ok wall=1790418841777 elapsed=660957130 uptime=523397121 gap=11 sleep=1 interactive=false idle=false locked=false
+09-26 18:34:01.793   661  1177 I ConnectivityDiag: stage=heartbeat_delay wall=1790418841792 elapsed=660957144 uptime=523397135 gap=14 sleep=0 interactive=false idle=false locked=false
+09-26 18:34:21.803   661  1177 I ConnectivityDiag: stage=network_check wall=1790418861799 elapsed=660977151 uptime=523417142 gap=20007 sleep=0 interactive=false idle=false locked=false
+09-26 18:34:21.809   661  1177 I ConnectivityDiag: stage=health_collect wall=1790418861807 elapsed=660977159 uptime=523417150 gap=8 sleep=0 interactive=false idle=false locked=false
+09-26 18:34:21.822   661  1177 I ConnectivityDiag: stage=heartbeat_request wall=1790418861820 elapsed=660977173 uptime=523417164 gap=14 sleep=0 interactive=false idle=false locked=false
+09-26 18:34:21.832   661  1177 I ConnectivityDiag: stage=transport_connect wall=1790418861831 elapsed=660977183 uptime=523417174 gap=10 sleep=0 interactive=false idle=false locked=false
+09-26 18:34:21.930   661  1177 I ConnectivityDiag: stage=transport_tls wall=1790418861928 elapsed=660977280 uptime=523417272 gap=97 sleep=0 interactive=false idle=false locked=false
+09-26 18:34:22.028   661  1177 I ConnectivityDiag: stage=transport_write wall=1790418862026 elapsed=660977378 uptime=523417369 gap=98 sleep=1 interactive=false idle=false locked=false
+09-26 18:34:22.030   661  1177 I ConnectivityDiag: stage=transport_read wall=1790418862029 elapsed=660977381 uptime=523417372 gap=3 sleep=0 interactive=false idle=false locked=false
+09-26 18:34:22.212   661  1177 I ConnectivityDiag: stage=transport_done wall=1790418862209 elapsed=660977561 uptime=523417553 gap=180 sleep=0 interactive=false idle=false locked=false status=200
+09-26 18:34:22.220   661  1169 I ConnectivityDiag: stage=heartbeat_ok wall=1790418862219 elapsed=660977571 uptime=523417562 gap=10 sleep=1 interactive=false idle=false locked=false
+09-26 18:34:22.233   661  1169 I ConnectivityDiag: stage=heartbeat_delay wall=1790418862232 elapsed=660977584 uptime=523417575 gap=13 sleep=0 interactive=false idle=false locked=false
+09-26 18:34:42.238   661  1169 I ConnectivityDiag: stage=network_check wall=1790418882235 elapsed=660997587 uptime=523437578 gap=20003 sleep=0 interactive=false idle=false locked=false
+09-26 18:34:42.242   661  1169 I ConnectivityDiag: stage=health_collect wall=1790418882241 elapsed=660997593 uptime=523437584 gap=6 sleep=0 interactive=false idle=false locked=false
+09-26 18:34:42.251   661  1169 I ConnectivityDiag: stage=heartbeat_request wall=1790418882250 elapsed=660997602 uptime=523437594 gap=9 sleep=0 interactive=false idle=false locked=false
+09-26 18:34:42.257   661  1169 I ConnectivityDiag: stage=transport_connect wall=1790418882256 elapsed=660997608 uptime=523437600 gap=6 sleep=0 interactive=false idle=false locked=false
+09-26 18:34:42.350   661  1169 I ConnectivityDiag: stage=transport_tls wall=1790418882348 elapsed=660997701 uptime=523437692 gap=93 sleep=1 interactive=false idle=false locked=false
+09-26 18:34:42.430   661  1169 I ConnectivityDiag: stage=transport_write wall=1790418882429 elapsed=660997781 uptime=523437772 gap=80 sleep=0 interactive=false idle=false locked=false
+09-26 18:34:42.431   661  1169 I ConnectivityDiag: stage=transport_read wall=1790418882430 elapsed=660997782 uptime=523437774 gap=1 sleep=0 interactive=false idle=false locked=false
+09-26 18:34:42.600   661  1169 I ConnectivityDiag: stage=transport_done wall=1790418882599 elapsed=660997951 uptime=523437943 gap=169 sleep=0 interactive=false idle=false locked=false status=200
+09-26 18:34:42.606   661  1169 I ConnectivityDiag: stage=heartbeat_ok wall=1790418882606 elapsed=660997958 uptime=523437949 gap=7 sleep=1 interactive=false idle=false locked=false
+09-26 18:34:42.614   661  1169 I ConnectivityDiag: stage=heartbeat_delay wall=1790418882613 elapsed=660997965 uptime=523437956 gap=7 sleep=0 interactive=false idle=false locked=false
+09-26 18:35:02.623   661  1169 I ConnectivityDiag: stage=network_check wall=1790418902618 elapsed=661017970 uptime=523457961 gap=20005 sleep=0 interactive=false idle=false locked=false
+09-26 18:35:02.630   661  1169 I ConnectivityDiag: stage=health_collect wall=1790418902628 elapsed=661017981 uptime=523457972 gap=11 sleep=0 interactive=false idle=false locked=false
+09-26 18:35:02.642   661  1169 I ConnectivityDiag: stage=heartbeat_request wall=1790418902641 elapsed=661017993 uptime=523457984 gap=12 sleep=0 interactive=false idle=false locked=false
+09-26 18:35:02.656   661  1169 I ConnectivityDiag: stage=transport_connect wall=1790418902655 elapsed=661018007 uptime=523457998 gap=14 sleep=0 interactive=false idle=false locked=false
+09-26 18:35:02.749   661  1169 I ConnectivityDiag: stage=transport_tls wall=1790418902747 elapsed=661018099 uptime=523458090 gap=92 sleep=0 interactive=false idle=false locked=false
+09-26 18:35:02.842   661  1169 I ConnectivityDiag: stage=transport_write wall=1790418902840 elapsed=661018192 uptime=523458183 gap=93 sleep=0 interactive=false idle=false locked=false
+09-26 18:35:02.844   661  1169 I ConnectivityDiag: stage=transport_read wall=1790418902842 elapsed=661018195 uptime=523458186 gap=3 sleep=0 interactive=false idle=false locked=false
+09-26 18:35:03.041   661  1169 I ConnectivityDiag: stage=transport_done wall=1790418903038 elapsed=661018390 uptime=523458382 gap=195 sleep=0 interactive=false idle=false locked=false status=200
+09-26 18:35:03.049   661  1169 I ConnectivityDiag: stage=heartbeat_ok wall=1790418903048 elapsed=661018400 uptime=523458392 gap=10 sleep=0 interactive=false idle=false locked=false
+09-26 18:35:03.063   661  1169 I ConnectivityDiag: stage=heartbeat_delay wall=1790418903062 elapsed=661018414 uptime=523458405 gap=14 sleep=1 interactive=false idle=false locked=false
+09-26 18:35:23.072   661  1169 I ConnectivityDiag: stage=network_check wall=1790418923067 elapsed=661038420 uptime=523478411 gap=20006 sleep=0 interactive=false idle=false locked=false
+09-26 18:35:23.078   661  1169 I ConnectivityDiag: stage=health_collect wall=1790418923076 elapsed=661038429 uptime=523478420 gap=9 sleep=0 interactive=false idle=false locked=false
+09-26 18:35:23.091   661  1169 I ConnectivityDiag: stage=heartbeat_request wall=1790418923090 elapsed=661038442 uptime=523478433 gap=13 sleep=0 interactive=false idle=false locked=false
+09-26 18:35:23.101   661  1169 I ConnectivityDiag: stage=transport_connect wall=1790418923100 elapsed=661038452 uptime=523478443 gap=10 sleep=0 interactive=false idle=false locked=false
+09-26 18:35:23.195   661  1169 I ConnectivityDiag: stage=transport_tls wall=1790418923191 elapsed=661038543 uptime=523478535 gap=91 sleep=0 interactive=false idle=false locked=false
+09-26 18:35:23.304   661  1169 I ConnectivityDiag: stage=transport_write wall=1790418923302 elapsed=661038654 uptime=523478645 gap=111 sleep=1 interactive=false idle=false locked=false
+09-26 18:35:23.306   661  1169 I ConnectivityDiag: stage=transport_read wall=1790418923305 elapsed=661038657 uptime=523478648 gap=3 sleep=0 interactive=false idle=false locked=false
+09-26 18:35:23.483   661  1169 I ConnectivityDiag: stage=transport_done wall=1790418923480 elapsed=661038832 uptime=523478823 gap=175 sleep=0 interactive=false idle=false locked=false status=200
+09-26 18:35:23.492   661  1167 I ConnectivityDiag: stage=heartbeat_ok wall=1790418923490 elapsed=661038843 uptime=523478834 gap=11 sleep=0 interactive=false idle=false locked=false
+09-26 18:35:23.505   661  1167 I ConnectivityDiag: stage=heartbeat_delay wall=1790418923504 elapsed=661038857 uptime=523478848 gap=14 sleep=0 interactive=false idle=false locked=false
+09-26 18:35:43.515   661  1167 I ConnectivityDiag: stage=network_check wall=1790418943511 elapsed=661058863 uptime=523498854 gap=20006 sleep=0 interactive=false idle=false locked=false
+09-26 18:35:43.520   661  1167 I ConnectivityDiag: stage=health_collect wall=1790418943519 elapsed=661058871 uptime=523498862 gap=8 sleep=0 interactive=false idle=false locked=false
+09-26 18:35:43.529   661  1167 I ConnectivityDiag: stage=heartbeat_request wall=1790418943528 elapsed=661058881 uptime=523498872 gap=10 sleep=0 interactive=false idle=false locked=false
+09-26 18:35:43.536   661  1167 I ConnectivityDiag: stage=transport_connect wall=1790418943535 elapsed=661058888 uptime=523498879 gap=7 sleep=0 interactive=false idle=false locked=false
+09-26 18:35:43.629   661  1167 I ConnectivityDiag: stage=transport_tls wall=1790418943627 elapsed=661058979 uptime=523498970 gap=91 sleep=0 interactive=false idle=false locked=false
+09-26 18:35:43.719   661  1167 I ConnectivityDiag: stage=transport_write wall=1790418943718 elapsed=661059070 uptime=523499061 gap=91 sleep=0 interactive=false idle=false locked=false
+09-26 18:35:43.721   661  1167 I ConnectivityDiag: stage=transport_read wall=1790418943720 elapsed=661059072 uptime=523499063 gap=2 sleep=0 interactive=false idle=false locked=false
+09-26 18:35:44.098   661  1167 I ConnectivityDiag: stage=transport_done wall=1790418944096 elapsed=661059448 uptime=523499440 gap=376 sleep=0 interactive=false idle=false locked=false status=200
+09-26 18:35:44.106   661  1167 I ConnectivityDiag: stage=heartbeat_ok wall=1790418944105 elapsed=661059457 uptime=523499449 gap=9 sleep=0 interactive=false idle=false locked=false
+09-26 18:35:44.119   661  1167 I ConnectivityDiag: stage=heartbeat_delay wall=1790418944119 elapsed=661059471 uptime=523499462 gap=14 sleep=1 interactive=false idle=false locked=false
+09-26 18:36:04.130   661  1167 I ConnectivityDiag: stage=network_check wall=1790418964125 elapsed=661079477 uptime=523519468 gap=20006 sleep=0 interactive=false idle=false locked=false
+09-26 18:36:04.138   661  1167 I ConnectivityDiag: stage=health_collect wall=1790418964135 elapsed=661079488 uptime=523519479 gap=11 sleep=0 interactive=false idle=false locked=false
+09-26 18:36:04.151   661  1167 I ConnectivityDiag: stage=heartbeat_request wall=1790418964150 elapsed=661079502 uptime=523519493 gap=14 sleep=0 interactive=false idle=false locked=false
+09-26 18:36:04.161   661  1167 I ConnectivityDiag: stage=transport_connect wall=1790418964160 elapsed=661079512 uptime=523519504 gap=10 sleep=0 interactive=false idle=false locked=false
+09-26 18:36:04.261   661  1167 I ConnectivityDiag: stage=transport_tls wall=1790418964257 elapsed=661079609 uptime=523519600 gap=97 sleep=1 interactive=false idle=false locked=false
+09-26 18:36:04.356   661  1167 I ConnectivityDiag: stage=transport_write wall=1790418964354 elapsed=661079706 uptime=523519697 gap=97 sleep=0 interactive=false idle=false locked=false
+09-26 18:36:04.358   661  1167 I ConnectivityDiag: stage=transport_read wall=1790418964357 elapsed=661079709 uptime=523519700 gap=3 sleep=0 interactive=false idle=false locked=false
+09-26 18:36:04.538   661  1167 I ConnectivityDiag: stage=transport_done wall=1790418964536 elapsed=661079888 uptime=523519879 gap=179 sleep=0 interactive=false idle=false locked=false status=200
+09-26 18:36:04.547   661  1169 I ConnectivityDiag: stage=heartbeat_ok wall=1790418964546 elapsed=661079898 uptime=523519889 gap=10 sleep=0 interactive=false idle=false locked=false
+09-26 18:36:04.562   661  1169 I ConnectivityDiag: stage=heartbeat_delay wall=1790418964561 elapsed=661079913 uptime=523519904 gap=15 sleep=0 interactive=false idle=false locked=false
+09-26 18:36:24.570   661  1169 I ConnectivityDiag: stage=network_check wall=1790418984567 elapsed=661099919 uptime=523539910 gap=20006 sleep=0 interactive=false idle=false locked=false
+09-26 18:36:24.575   661  1169 I ConnectivityDiag: stage=health_collect wall=1790418984574 elapsed=661099926 uptime=523539918 gap=7 sleep=0 interactive=false idle=false locked=false
+09-26 18:36:24.586   661  1169 I ConnectivityDiag: stage=heartbeat_request wall=1790418984584 elapsed=661099937 uptime=523539928 gap=11 sleep=1 interactive=false idle=false locked=false
+09-26 18:36:24.592   661  1169 I ConnectivityDiag: stage=transport_connect wall=1790418984591 elapsed=661099944 uptime=523539935 gap=7 sleep=0 interactive=false idle=false locked=false
+09-26 18:36:24.681   661  1169 I ConnectivityDiag: stage=transport_tls wall=1790418984680 elapsed=661100032 uptime=523540023 gap=88 sleep=0 interactive=false idle=false locked=false
+09-26 18:36:24.770   661  1169 I ConnectivityDiag: stage=transport_write wall=1790418984768 elapsed=661100121 uptime=523540112 gap=89 sleep=0 interactive=false idle=false locked=false
+09-26 18:36:24.771   661  1169 I ConnectivityDiag: stage=transport_read wall=1790418984770 elapsed=661100122 uptime=523540114 gap=1 sleep=0 interactive=false idle=false locked=false
+09-26 18:36:24.949   661  1169 I ConnectivityDiag: stage=transport_done wall=1790418984947 elapsed=661100300 uptime=523540291 gap=178 sleep=1 interactive=false idle=false locked=false status=200
+09-26 18:36:24.959   661  1177 I ConnectivityDiag: stage=heartbeat_ok wall=1790418984957 elapsed=661100310 uptime=523540301 gap=10 sleep=0 interactive=false idle=false locked=false
+09-26 18:36:24.972   661  1177 I ConnectivityDiag: stage=heartbeat_delay wall=1790418984971 elapsed=661100323 uptime=523540314 gap=13 sleep=0 interactive=false idle=false locked=false
+09-26 18:36:44.983   661  1177 I ConnectivityDiag: stage=network_check wall=1790419004977 elapsed=661120329 uptime=523560320 gap=20006 sleep=0 interactive=false idle=false locked=false
+09-26 18:36:44.991   661  1177 I ConnectivityDiag: stage=health_collect wall=1790419004989 elapsed=661120341 uptime=523560332 gap=12 sleep=0 interactive=false idle=false locked=false
+09-26 18:36:45.010   661  1177 I ConnectivityDiag: stage=heartbeat_request wall=1790419005008 elapsed=661120360 uptime=523560351 gap=19 sleep=0 interactive=false idle=false locked=false
+09-26 18:36:45.021   661  1177 I ConnectivityDiag: stage=transport_connect wall=1790419005020 elapsed=661120373 uptime=523560364 gap=13 sleep=0 interactive=false idle=false locked=false
+09-26 18:36:45.118   661  1177 I ConnectivityDiag: stage=transport_tls wall=1790419005115 elapsed=661120467 uptime=523560459 gap=94 sleep=0 interactive=false idle=false locked=false
+09-26 18:36:45.206   661  1177 I ConnectivityDiag: stage=transport_write wall=1790419005204 elapsed=661120556 uptime=523560548 gap=89 sleep=0 interactive=false idle=false locked=false
+09-26 18:36:45.207   661  1177 I ConnectivityDiag: stage=transport_read wall=1790419005206 elapsed=661120558 uptime=523560550 gap=2 sleep=0 interactive=false idle=false locked=false
+09-26 18:36:45.394   661  1177 I ConnectivityDiag: stage=transport_done wall=1790419005392 elapsed=661120744 uptime=523560735 gap=186 sleep=1 interactive=false idle=false locked=false status=200
+09-26 18:36:45.403   661  1177 I ConnectivityDiag: stage=heartbeat_ok wall=1790419005402 elapsed=661120754 uptime=523560745 gap=10 sleep=0 interactive=false idle=false locked=false
+09-26 18:36:45.419   661  1177 I ConnectivityDiag: stage=heartbeat_delay wall=1790419005419 elapsed=661120771 uptime=523560762 gap=17 sleep=0 interactive=false idle=false locked=false
+09-26 18:37:05.429   661  1177 I ConnectivityDiag: stage=network_check wall=1790419025425 elapsed=661140777 uptime=523580768 gap=20006 sleep=0 interactive=false idle=false locked=false
+09-26 18:37:05.437   661  1177 I ConnectivityDiag: stage=health_collect wall=1790419025435 elapsed=661140787 uptime=523580778 gap=10 sleep=0 interactive=false idle=false locked=false
+09-26 18:37:05.449   661  1177 I ConnectivityDiag: stage=heartbeat_request wall=1790419025448 elapsed=661140800 uptime=523580791 gap=13 sleep=0 interactive=false idle=false locked=false
+09-26 18:37:05.459   661  1177 I ConnectivityDiag: stage=transport_connect wall=1790419025458 elapsed=661140810 uptime=523580802 gap=10 sleep=0 interactive=false idle=false locked=false
+09-26 18:37:05.563   661  1177 I ConnectivityDiag: stage=transport_tls wall=1790419025558 elapsed=661140910 uptime=523580902 gap=100 sleep=0 interactive=false idle=false locked=false
+09-26 18:37:05.659   661  1177 I ConnectivityDiag: stage=transport_write wall=1790419025657 elapsed=661141009 uptime=523581000 gap=99 sleep=1 interactive=false idle=false locked=false
+09-26 18:37:05.660   661  1177 I ConnectivityDiag: stage=transport_read wall=1790419025659 elapsed=661141012 uptime=523581003 gap=3 sleep=0 interactive=false idle=false locked=false
+09-26 18:37:05.840   661  1177 I ConnectivityDiag: stage=transport_done wall=1790419025837 elapsed=661141190 uptime=523581181 gap=178 sleep=0 interactive=false idle=false locked=false status=200
+09-26 18:37:05.850   661  1177 I ConnectivityDiag: stage=heartbeat_ok wall=1790419025848 elapsed=661141200 uptime=523581192 gap=10 sleep=0 interactive=false idle=false locked=false
+09-26 18:37:05.864   661  1177 I ConnectivityDiag: stage=heartbeat_delay wall=1790419025863 elapsed=661141215 uptime=523581207 gap=15 sleep=0 interactive=false idle=false locked=false
+09-26 18:37:25.873   661  1177 I ConnectivityDiag: stage=network_check wall=1790419045869 elapsed=661161221 uptime=523601212 gap=20006 sleep=1 interactive=false idle=false locked=false
+09-26 18:37:25.879   661  1177 I ConnectivityDiag: stage=health_collect wall=1790419045878 elapsed=661161230 uptime=523601221 gap=9 sleep=0 interactive=false idle=false locked=false
+09-26 18:37:25.891   661  1177 I ConnectivityDiag: stage=heartbeat_request wall=1790419045890 elapsed=661161242 uptime=523601233 gap=12 sleep=0 interactive=false idle=false locked=false
+09-26 18:37:25.901   661  1177 I ConnectivityDiag: stage=transport_connect wall=1790419045900 elapsed=661161252 uptime=523601243 gap=10 sleep=0 interactive=false idle=false locked=false
+09-26 18:37:25.998   661  1177 I ConnectivityDiag: stage=transport_tls wall=1790419045995 elapsed=661161347 uptime=523601338 gap=95 sleep=0 interactive=false idle=false locked=false
+09-26 18:37:26.089   661  1177 I ConnectivityDiag: stage=transport_write wall=1790419046087 elapsed=661161439 uptime=523601430 gap=92 sleep=0 interactive=false idle=false locked=false
+09-26 18:37:26.090   661  1177 I ConnectivityDiag: stage=transport_read wall=1790419046089 elapsed=661161441 uptime=523601433 gap=2 sleep=0 interactive=false idle=false locked=false
+09-26 18:37:26.273   661  1177 I ConnectivityDiag: stage=transport_done wall=1790419046270 elapsed=661161622 uptime=523601613 gap=181 sleep=1 interactive=false idle=false locked=false status=200
+09-26 18:37:26.282   661  1177 I ConnectivityDiag: stage=heartbeat_ok wall=1790419046280 elapsed=661161633 uptime=523601624 gap=11 sleep=0 interactive=false idle=false locked=false
+09-26 18:37:26.295   661  1177 I ConnectivityDiag: stage=heartbeat_delay wall=1790419046294 elapsed=661161646 uptime=523601638 gap=13 sleep=0 interactive=false idle=false locked=false
+09-26 18:37:46.307   661  1177 I ConnectivityDiag: stage=network_check wall=1790419066301 elapsed=661181653 uptime=523621644 gap=20007 sleep=1 interactive=false idle=false locked=false
+09-26 18:37:46.313   661  1177 I ConnectivityDiag: stage=health_collect wall=1790419066311 elapsed=661181664 uptime=523621655 gap=11 sleep=0 interactive=false idle=false locked=false
+09-26 18:37:46.325   661  1177 I ConnectivityDiag: stage=heartbeat_request wall=1790419066323 elapsed=661181676 uptime=523621667 gap=12 sleep=0 interactive=false idle=false locked=false
+09-26 18:37:46.334   661  1177 I ConnectivityDiag: stage=transport_connect wall=1790419066334 elapsed=661181686 uptime=523621677 gap=10 sleep=0 interactive=false idle=false locked=false
+09-26 18:37:46.427   661  1177 I ConnectivityDiag: stage=transport_tls wall=1790419066425 elapsed=661181777 uptime=523621768 gap=91 sleep=0 interactive=false idle=false locked=false
+09-26 18:37:46.518   661  1177 I ConnectivityDiag: stage=transport_write wall=1790419066517 elapsed=661181869 uptime=523621860 gap=92 sleep=0 interactive=false idle=false locked=false
+09-26 18:37:46.520   661  1177 I ConnectivityDiag: stage=transport_read wall=1790419066519 elapsed=661181871 uptime=523621862 gap=2 sleep=0 interactive=false idle=false locked=false
+09-26 18:37:46.698   661  1177 I ConnectivityDiag: stage=transport_done wall=1790419066696 elapsed=661182048 uptime=523622039 gap=177 sleep=0 interactive=false idle=false locked=false status=200
+09-26 18:37:46.707   661  1177 I ConnectivityDiag: stage=heartbeat_ok wall=1790419066705 elapsed=661182058 uptime=523622049 gap=10 sleep=0 interactive=false idle=false locked=false
+09-26 18:37:46.720   661  1177 I ConnectivityDiag: stage=heartbeat_delay wall=1790419066719 elapsed=661182072 uptime=523622063 gap=14 sleep=0 interactive=false idle=false locked=false
+09-26 18:38:06.730   661  1177 I ConnectivityDiag: stage=network_check wall=1790419086724 elapsed=661202077 uptime=523642068 gap=20005 sleep=0 interactive=false idle=false locked=false
+09-26 18:38:06.737   661  1177 I ConnectivityDiag: stage=health_collect wall=1790419086735 elapsed=661202087 uptime=523642078 gap=10 sleep=0 interactive=false idle=false locked=false
+09-26 18:38:06.750   661  1177 I ConnectivityDiag: stage=heartbeat_request wall=1790419086749 elapsed=661202101 uptime=523642093 gap=14 sleep=0 interactive=false idle=false locked=false
+09-26 18:38:06.761   661  1177 I ConnectivityDiag: stage=transport_connect wall=1790419086760 elapsed=661202112 uptime=523642103 gap=11 sleep=1 interactive=false idle=false locked=false
+09-26 18:38:06.852   661  1177 I ConnectivityDiag: stage=transport_tls wall=1790419086850 elapsed=661202203 uptime=523642194 gap=91 sleep=0 interactive=false idle=false locked=false
+09-26 18:38:06.945   661  1177 I ConnectivityDiag: stage=transport_write wall=1790419086943 elapsed=661202296 uptime=523642287 gap=93 sleep=0 interactive=false idle=false locked=false
+09-26 18:38:06.947   661  1177 I ConnectivityDiag: stage=transport_read wall=1790419086946 elapsed=661202298 uptime=523642289 gap=2 sleep=0 interactive=false idle=false locked=false
+09-26 18:38:07.130   661  1177 I ConnectivityDiag: stage=transport_done wall=1790419087127 elapsed=661202479 uptime=523642470 gap=181 sleep=0 interactive=false idle=false locked=false status=200
+09-26 18:38:07.138   661  1167 I ConnectivityDiag: stage=heartbeat_ok wall=1790419087137 elapsed=661202489 uptime=523642480 gap=10 sleep=0 interactive=false idle=false locked=false
+09-26 18:38:07.154   661  1167 I ConnectivityDiag: stage=heartbeat_delay wall=1790419087153 elapsed=661202505 uptime=523642497 gap=16 sleep=0 interactive=false idle=false locked=false
+09-26 18:38:27.159   661  1167 I ConnectivityDiag: stage=network_check wall=1790419107157 elapsed=661222510 uptime=523662501 gap=20005 sleep=1 interactive=false idle=false locked=false
+09-26 18:38:27.166   661  1167 I ConnectivityDiag: stage=health_collect wall=1790419107162 elapsed=661222514 uptime=523662506 gap=4 sleep=0 interactive=false idle=false locked=false
+09-26 18:38:27.174   661  1167 I ConnectivityDiag: stage=heartbeat_request wall=1790419107173 elapsed=661222526 uptime=523662517 gap=12 sleep=1 interactive=false idle=false locked=false
+09-26 18:38:27.182   661  1167 I ConnectivityDiag: stage=transport_connect wall=1790419107182 elapsed=661222534 uptime=523662525 gap=8 sleep=0 interactive=false idle=false locked=false
+09-26 18:38:27.276   661  1167 I ConnectivityDiag: stage=transport_tls wall=1790419107273 elapsed=661222625 uptime=523662616 gap=91 sleep=0 interactive=false idle=false locked=false
+09-26 18:38:27.364   661  1167 I ConnectivityDiag: stage=transport_write wall=1790419107363 elapsed=661222715 uptime=523662706 gap=90 sleep=0 interactive=false idle=false locked=false
+09-26 18:38:27.366   661  1167 I ConnectivityDiag: stage=transport_read wall=1790419107365 elapsed=661222717 uptime=523662708 gap=2 sleep=0 interactive=false idle=false locked=false
+09-26 18:38:27.546   661  1167 I ConnectivityDiag: stage=transport_done wall=1790419107544 elapsed=661222896 uptime=523662887 gap=179 sleep=0 interactive=false idle=false locked=false status=200
+09-26 18:38:27.554   661  1169 I ConnectivityDiag: stage=heartbeat_ok wall=1790419107553 elapsed=661222905 uptime=523662897 gap=9 sleep=0 interactive=false idle=false locked=false
+09-26 18:38:27.570   661  1169 I ConnectivityDiag: stage=heartbeat_delay wall=1790419107569 elapsed=661222921 uptime=523662912 gap=16 sleep=1 interactive=false idle=false locked=false
+09-26 18:38:47.578   661  1169 I ConnectivityDiag: stage=network_check wall=1790419127574 elapsed=661242926 uptime=523682918 gap=20005 sleep=0 interactive=false idle=false locked=false
+09-26 18:38:47.583   661  1169 I ConnectivityDiag: stage=health_collect wall=1790419127582 elapsed=661242934 uptime=523682925 gap=8 sleep=1 interactive=false idle=false locked=false
+09-26 18:38:47.593   661  1169 I ConnectivityDiag: stage=heartbeat_request wall=1790419127592 elapsed=661242944 uptime=523682935 gap=10 sleep=0 interactive=false idle=false locked=false
+09-26 18:38:47.600   661  1169 I ConnectivityDiag: stage=transport_connect wall=1790419127599 elapsed=661242952 uptime=523682943 gap=8 sleep=0 interactive=false idle=false locked=false
+09-26 18:38:47.692   661  1169 I ConnectivityDiag: stage=transport_tls wall=1790419127691 elapsed=661243043 uptime=523683034 gap=91 sleep=0 interactive=false idle=false locked=false
+09-26 18:38:47.787   661  1169 I ConnectivityDiag: stage=transport_write wall=1790419127785 elapsed=661243137 uptime=523683129 gap=94 sleep=0 interactive=false idle=false locked=false
+09-26 18:38:47.789   661  1169 I ConnectivityDiag: stage=transport_read wall=1790419127788 elapsed=661243140 uptime=523683131 gap=3 sleep=1 interactive=false idle=false locked=false
+09-26 18:38:47.967   661  1169 I ConnectivityDiag: stage=transport_done wall=1790419127965 elapsed=661243317 uptime=523683308 gap=177 sleep=0 interactive=false idle=false locked=false status=200
+09-26 18:38:47.976   661  1177 I ConnectivityDiag: stage=heartbeat_ok wall=1790419127975 elapsed=661243327 uptime=523683318 gap=10 sleep=0 interactive=false idle=false locked=false
+09-26 18:38:47.991   661  1177 I ConnectivityDiag: stage=heartbeat_delay wall=1790419127990 elapsed=661243343 uptime=523683334 gap=16 sleep=0 interactive=false idle=false locked=false
+09-26 18:39:08.003   661  1177 I ConnectivityDiag: stage=network_check wall=1790419147996 elapsed=661263349 uptime=523703340 gap=20006 sleep=0 interactive=false idle=false locked=false
+09-26 18:39:08.010   661  1177 I ConnectivityDiag: stage=health_collect wall=1790419148007 elapsed=661263360 uptime=523703351 gap=11 sleep=0 interactive=false idle=false locked=false
+09-26 18:39:08.023   661  1177 I ConnectivityDiag: stage=heartbeat_request wall=1790419148022 elapsed=661263374 uptime=523703365 gap=14 sleep=0 interactive=false idle=false locked=false
+09-26 18:39:08.033   661  1177 I ConnectivityDiag: stage=transport_connect wall=1790419148032 elapsed=661263385 uptime=523703376 gap=11 sleep=0 interactive=false idle=false locked=false
+09-26 18:39:08.133   661  1177 I ConnectivityDiag: stage=transport_tls wall=1790419148129 elapsed=661263481 uptime=523703472 gap=96 sleep=0 interactive=false idle=false locked=false
+09-26 18:39:08.225   661  1177 I ConnectivityDiag: stage=transport_write wall=1790419148223 elapsed=661263575 uptime=523703567 gap=94 sleep=0 interactive=false idle=false locked=false
+09-26 18:39:08.227   661  1177 I ConnectivityDiag: stage=transport_read wall=1790419148226 elapsed=661263578 uptime=523703569 gap=3 sleep=1 interactive=false idle=false locked=false
+09-26 18:39:08.409   661  1177 I ConnectivityDiag: stage=transport_done wall=1790419148407 elapsed=661263759 uptime=523703750 gap=181 sleep=0 interactive=false idle=false locked=false status=200
+09-26 18:39:08.418   661  1177 I ConnectivityDiag: stage=heartbeat_ok wall=1790419148417 elapsed=661263769 uptime=523703760 gap=10 sleep=0 interactive=false idle=false locked=false
+09-26 18:39:08.431   661  1177 I ConnectivityDiag: stage=heartbeat_delay wall=1790419148430 elapsed=661263782 uptime=523703774 gap=13 sleep=0 interactive=false idle=false locked=false
+09-26 18:39:28.443   661  1177 I ConnectivityDiag: stage=network_check wall=1790419168437 elapsed=661283789 uptime=523723780 gap=20007 sleep=1 interactive=false idle=false locked=false
+09-26 18:39:28.450   661  1177 I ConnectivityDiag: stage=health_collect wall=1790419168448 elapsed=661283800 uptime=523723791 gap=11 sleep=0 interactive=false idle=false locked=false
+09-26 18:39:28.463   661  1177 I ConnectivityDiag: stage=heartbeat_request wall=1790419168462 elapsed=661283814 uptime=523723805 gap=14 sleep=0 interactive=false idle=false locked=false
+09-26 18:39:28.473   661  1177 I ConnectivityDiag: stage=transport_connect wall=1790419168472 elapsed=661283825 uptime=523723816 gap=11 sleep=0 interactive=false idle=false locked=false
+09-26 18:39:28.574   661  1177 I ConnectivityDiag: stage=transport_tls wall=1790419168570 elapsed=661283922 uptime=523723913 gap=97 sleep=0 interactive=false idle=false locked=false
+09-26 18:39:28.662   661  1177 I ConnectivityDiag: stage=transport_write wall=1790419168661 elapsed=661284013 uptime=523724004 gap=91 sleep=0 interactive=false idle=false locked=false
+09-26 18:39:28.664   661  1177 I ConnectivityDiag: stage=transport_read wall=1790419168663 elapsed=661284015 uptime=523724006 gap=2 sleep=0 interactive=false idle=false locked=false
+09-26 18:39:28.865   661  1177 I ConnectivityDiag: stage=transport_done wall=1790419168863 elapsed=661284215 uptime=523724206 gap=200 sleep=0 interactive=false idle=false locked=false status=200
+09-26 18:39:28.874   661  1169 I ConnectivityDiag: stage=heartbeat_ok wall=1790419168872 elapsed=661284225 uptime=523724216 gap=10 sleep=0 interactive=false idle=false locked=false
+09-26 18:39:28.888   661  1169 I ConnectivityDiag: stage=heartbeat_delay wall=1790419168887 elapsed=661284239 uptime=523724231 gap=14 sleep=0 interactive=false idle=false locked=false
+09-26 18:39:48.900   661  1169 I ConnectivityDiag: stage=network_check wall=1790419188895 elapsed=661304247 uptime=523744238 gap=20008 sleep=1 interactive=false idle=false locked=false
+09-26 18:39:48.907   661  1169 I ConnectivityDiag: stage=health_collect wall=1790419188905 elapsed=661304257 uptime=523744248 gap=10 sleep=0 interactive=false idle=false locked=false
+09-26 18:39:48.920   661  1169 I ConnectivityDiag: stage=heartbeat_request wall=1790419188918 elapsed=661304271 uptime=523744262 gap=14 sleep=0 interactive=false idle=false locked=false
+09-26 18:39:48.930   661  1169 I ConnectivityDiag: stage=transport_connect wall=1790419188929 elapsed=661304282 uptime=523744273 gap=11 sleep=0 interactive=false idle=false locked=false
+09-26 18:39:49.025   661  1169 I ConnectivityDiag: stage=transport_tls wall=1790419189022 elapsed=661304374 uptime=523744365 gap=92 sleep=0 interactive=false idle=false locked=false
+09-26 18:39:49.122   661  1169 I ConnectivityDiag: stage=transport_write wall=1790419189120 elapsed=661304472 uptime=523744463 gap=98 sleep=0 interactive=false idle=false locked=false
+09-26 18:39:49.124   661  1169 I ConnectivityDiag: stage=transport_read wall=1790419189123 elapsed=661304475 uptime=523744466 gap=3 sleep=0 interactive=false idle=false locked=false
+09-26 18:39:49.305   661  1169 I ConnectivityDiag: stage=transport_done wall=1790419189302 elapsed=661304654 uptime=523744646 gap=179 sleep=0 interactive=false idle=false locked=false status=200
+09-26 18:39:49.314   661  1167 I ConnectivityDiag: stage=heartbeat_ok wall=1790419189313 elapsed=661304665 uptime=523744656 gap=11 sleep=1 interactive=false idle=false locked=false
+09-26 18:39:49.329   661  1167 I ConnectivityDiag: stage=heartbeat_delay wall=1790419189328 elapsed=661304680 uptime=523744671 gap=15 sleep=0 interactive=false idle=false locked=false
+09-26 18:40:09.338   661  1167 I ConnectivityDiag: stage=network_check wall=1790419209334 elapsed=661324687 uptime=523764678 gap=20007 sleep=0 interactive=false idle=false locked=false
+09-26 18:40:09.343   661  1167 I ConnectivityDiag: stage=health_collect wall=1790419209342 elapsed=661324694 uptime=523764686 gap=7 sleep=0 interactive=false idle=false locked=false
+09-26 18:40:09.354   661  1167 I ConnectivityDiag: stage=heartbeat_request wall=1790419209353 elapsed=661324705 uptime=523764696 gap=11 sleep=1 interactive=false idle=false locked=false
+09-26 18:40:09.360   661  1167 I ConnectivityDiag: stage=transport_connect wall=1790419209359 elapsed=661324712 uptime=523764703 gap=7 sleep=0 interactive=false idle=false locked=false
+09-26 18:40:09.456   661  1167 I ConnectivityDiag: stage=transport_tls wall=1790419209454 elapsed=661324806 uptime=523764798 gap=94 sleep=0 interactive=false idle=false locked=false
+09-26 18:40:09.547   661  1167 I ConnectivityDiag: stage=transport_write wall=1790419209546 elapsed=661324898 uptime=523764889 gap=92 sleep=1 interactive=false idle=false locked=false
+09-26 18:40:09.549   661  1167 I ConnectivityDiag: stage=transport_read wall=1790419209548 elapsed=661324900 uptime=523764891 gap=2 sleep=0 interactive=false idle=false locked=false
+09-26 18:40:09.737   661  1167 I ConnectivityDiag: stage=transport_done wall=1790419209734 elapsed=661325087 uptime=523765078 gap=187 sleep=0 interactive=false idle=false locked=false status=200
+09-26 18:40:09.746   661  1167 I ConnectivityDiag: stage=heartbeat_ok wall=1790419209745 elapsed=661325097 uptime=523765088 gap=10 sleep=0 interactive=false idle=false locked=false
+09-26 18:40:09.758   661  1167 I ConnectivityDiag: stage=heartbeat_delay wall=1790419209757 elapsed=661325110 uptime=523765101 gap=13 sleep=0 interactive=false idle=false locked=false
+09-26 18:40:29.770   661  1167 I ConnectivityDiag: stage=network_check wall=1790419229764 elapsed=661345117 uptime=523785108 gap=20007 sleep=0 interactive=false idle=false locked=false
+09-26 18:40:29.773   661  1167 I ConnectivityDiag: stage=health_collect wall=1790419229772 elapsed=661345124 uptime=523785115 gap=7 sleep=0 interactive=false idle=false locked=false
+09-26 18:40:29.781   661  1167 I ConnectivityDiag: stage=heartbeat_request wall=1790419229779 elapsed=661345132 uptime=523785123 gap=8 sleep=0 interactive=false idle=false locked=false
+09-26 18:40:29.785   661  1167 I ConnectivityDiag: stage=transport_connect wall=1790419229784 elapsed=661345136 uptime=523785127 gap=4 sleep=0 interactive=false idle=false locked=false
+09-26 18:40:29.868   661  1167 I ConnectivityDiag: stage=transport_tls wall=1790419229867 elapsed=661345219 uptime=523785211 gap=83 sleep=0 interactive=false idle=false locked=false
+09-26 18:40:29.960   661  1167 I ConnectivityDiag: stage=transport_write wall=1790419229958 elapsed=661345310 uptime=523785302 gap=91 sleep=0 interactive=false idle=false locked=false
+09-26 18:40:29.961   661  1167 I ConnectivityDiag: stage=transport_read wall=1790419229960 elapsed=661345312 uptime=523785304 gap=2 sleep=0 interactive=false idle=false locked=false
+09-26 18:40:30.138   661  1167 I ConnectivityDiag: stage=transport_done wall=1790419230136 elapsed=661345488 uptime=523785479 gap=176 sleep=1 interactive=false idle=false locked=false status=200
+09-26 18:40:30.147   661  1169 I ConnectivityDiag: stage=heartbeat_ok wall=1790419230145 elapsed=661345498 uptime=523785489 gap=10 sleep=0 interactive=false idle=false locked=false
+09-26 18:40:30.161   661  1169 I ConnectivityDiag: stage=heartbeat_delay wall=1790419230160 elapsed=661345512 uptime=523785503 gap=14 sleep=0 interactive=false idle=false locked=false
+09-26 18:40:50.170   661  1169 I ConnectivityDiag: stage=network_check wall=1790419250166 elapsed=661365518 uptime=523805509 gap=20006 sleep=0 interactive=false idle=false locked=false
+09-26 18:40:50.174   661  1169 I ConnectivityDiag: stage=health_collect wall=1790419250173 elapsed=661365525 uptime=523805517 gap=7 sleep=0 interactive=false idle=false locked=false
+09-26 18:40:50.184   661  1169 I ConnectivityDiag: stage=heartbeat_request wall=1790419250183 elapsed=661365536 uptime=523805527 gap=11 sleep=1 interactive=false idle=false locked=false
+09-26 18:40:50.192   661  1169 I ConnectivityDiag: stage=transport_connect wall=1790419250191 elapsed=661365543 uptime=523805535 gap=7 sleep=0 interactive=false idle=false locked=false
+09-26 18:40:50.282   661  1169 I ConnectivityDiag: stage=transport_tls wall=1790419250280 elapsed=661365632 uptime=523805623 gap=89 sleep=1 interactive=false idle=false locked=false
+09-26 18:40:50.370   661  1169 I ConnectivityDiag: stage=transport_write wall=1790419250368 elapsed=661365721 uptime=523805712 gap=89 sleep=0 interactive=false idle=false locked=false
+09-26 18:40:50.372   661  1169 I ConnectivityDiag: stage=transport_read wall=1790419250371 elapsed=661365723 uptime=523805714 gap=2 sleep=0 interactive=false idle=false locked=false
+09-26 18:40:50.551   661  1169 I ConnectivityDiag: stage=transport_done wall=1790419250549 elapsed=661365901 uptime=523805892 gap=178 sleep=0 interactive=false idle=false locked=false status=200
+09-26 18:40:50.560   661  1177 I ConnectivityDiag: stage=heartbeat_ok wall=1790419250559 elapsed=661365911 uptime=523805903 gap=10 sleep=0 interactive=false idle=false locked=false
+09-26 18:40:50.574   661  1177 I ConnectivityDiag: stage=heartbeat_delay wall=1790419250573 elapsed=661365925 uptime=523805916 gap=14 sleep=1 interactive=false idle=false locked=false
+09-26 18:41:10.584   661  1177 I ConnectivityDiag: stage=network_check wall=1790419270579 elapsed=661385931 uptime=523825923 gap=20006 sleep=0 interactive=false idle=false locked=false
+09-26 18:41:10.591   661  1177 I ConnectivityDiag: stage=health_collect wall=1790419270590 elapsed=661385942 uptime=523825933 gap=11 sleep=1 interactive=false idle=false locked=false
+09-26 18:41:10.603   661  1177 I ConnectivityDiag: stage=heartbeat_request wall=1790419270601 elapsed=661385954 uptime=523825945 gap=12 sleep=0 interactive=false idle=false locked=false
+09-26 18:41:10.609   661  1177 I ConnectivityDiag: stage=transport_connect wall=1790419270608 elapsed=661385960 uptime=523825951 gap=6 sleep=0 interactive=false idle=false locked=false
+09-26 18:41:10.697   661  1177 I ConnectivityDiag: stage=transport_tls wall=1790419270696 elapsed=661386048 uptime=523826039 gap=88 sleep=0 interactive=false idle=false locked=false
+09-26 18:41:10.788   661  1177 I ConnectivityDiag: stage=transport_write wall=1790419270785 elapsed=661386138 uptime=523826129 gap=90 sleep=0 interactive=false idle=false locked=false
+09-26 18:41:10.789   661  1177 I ConnectivityDiag: stage=transport_read wall=1790419270788 elapsed=661386140 uptime=523826132 gap=2 sleep=0 interactive=false idle=false locked=false
+09-26 18:41:10.984   661  1177 I ConnectivityDiag: stage=transport_done wall=1790419270982 elapsed=661386334 uptime=523826325 gap=194 sleep=1 interactive=false idle=false locked=false status=200
+09-26 18:41:10.993   661  1167 I ConnectivityDiag: stage=heartbeat_ok wall=1790419270992 elapsed=661386344 uptime=523826335 gap=10 sleep=0 interactive=false idle=false locked=false
+09-26 18:41:11.008   661  1167 I ConnectivityDiag: stage=heartbeat_delay wall=1790419271007 elapsed=661386359 uptime=523826350 gap=15 sleep=0 interactive=false idle=false locked=false
+09-26 18:41:31.019   661  1167 I ConnectivityDiag: stage=network_check wall=1790419291013 elapsed=661406365 uptime=523846357 gap=20006 sleep=0 interactive=false idle=false locked=false
+09-26 18:41:31.026   661  1167 I ConnectivityDiag: stage=health_collect wall=1790419291024 elapsed=661406376 uptime=523846367 gap=11 sleep=1 interactive=false idle=false locked=false
+09-26 18:41:31.037   661  1167 I ConnectivityDiag: stage=heartbeat_request wall=1790419291036 elapsed=661406388 uptime=523846380 gap=12 sleep=0 interactive=false idle=false locked=false
+09-26 18:41:31.047   661  1167 I ConnectivityDiag: stage=transport_connect wall=1790419291046 elapsed=661406398 uptime=523846389 gap=10 sleep=1 interactive=false idle=false locked=false
+09-26 18:41:31.138   661  1167 I ConnectivityDiag: stage=transport_tls wall=1790419291136 elapsed=661406488 uptime=523846480 gap=90 sleep=0 interactive=false idle=false locked=false
+09-26 18:41:31.234   661  1167 I ConnectivityDiag: stage=transport_write wall=1790419291232 elapsed=661406584 uptime=523846575 gap=96 sleep=1 interactive=false idle=false locked=false
+09-26 18:41:31.236   661  1167 I ConnectivityDiag: stage=transport_read wall=1790419291235 elapsed=661406587 uptime=523846578 gap=3 sleep=0 interactive=false idle=false locked=false
+09-26 18:41:31.415   661  1167 I ConnectivityDiag: stage=transport_done wall=1790419291413 elapsed=661406765 uptime=523846756 gap=178 sleep=0 interactive=false idle=false locked=false status=200
+09-26 18:41:31.425   661  1169 I ConnectivityDiag: stage=heartbeat_ok wall=1790419291423 elapsed=661406776 uptime=523846767 gap=11 sleep=0 interactive=false idle=false locked=false
+09-26 18:41:31.439   661  1169 I ConnectivityDiag: stage=heartbeat_delay wall=1790419291438 elapsed=661406790 uptime=523846781 gap=14 sleep=0 interactive=false idle=false locked=false
+09-26 18:41:51.448   661  1169 I ConnectivityDiag: stage=network_check wall=1790419311443 elapsed=661426795 uptime=523866787 gap=20005 sleep=0 interactive=false idle=false locked=false
+09-26 18:41:51.455   661  1169 I ConnectivityDiag: stage=health_collect wall=1790419311454 elapsed=661426806 uptime=523866797 gap=11 sleep=1 interactive=false idle=false locked=false
+09-26 18:41:51.468   661  1169 I ConnectivityDiag: stage=heartbeat_request wall=1790419311467 elapsed=661426819 uptime=523866810 gap=13 sleep=0 interactive=false idle=false locked=false
+09-26 18:41:51.478   661  1169 I ConnectivityDiag: stage=transport_connect wall=1790419311477 elapsed=661426830 uptime=523866821 gap=11 sleep=0 interactive=false idle=false locked=false
+09-26 18:41:51.574   661  1169 I ConnectivityDiag: stage=transport_tls wall=1790419311571 elapsed=661426923 uptime=523866915 gap=93 sleep=0 interactive=false idle=false locked=false
+09-26 18:41:51.667   661  1169 I ConnectivityDiag: stage=transport_write wall=1790419311665 elapsed=661427017 uptime=523867009 gap=94 sleep=0 interactive=false idle=false locked=false
+09-26 18:41:51.669   661  1169 I ConnectivityDiag: stage=transport_read wall=1790419311668 elapsed=661427020 uptime=523867011 gap=3 sleep=1 interactive=false idle=false locked=false
+09-26 18:41:51.857   661  1169 I ConnectivityDiag: stage=transport_done wall=1790419311855 elapsed=661427207 uptime=523867198 gap=187 sleep=0 interactive=false idle=false locked=false status=200
+09-26 18:41:51.866   661  1169 I ConnectivityDiag: stage=heartbeat_ok wall=1790419311865 elapsed=661427217 uptime=523867208 gap=10 sleep=0 interactive=false idle=false locked=false
+09-26 18:41:51.878   661  1169 I ConnectivityDiag: stage=heartbeat_delay wall=1790419311877 elapsed=661427229 uptime=523867220 gap=12 sleep=0 interactive=false idle=false locked=false
+09-26 18:42:11.889   661  1169 I ConnectivityDiag: stage=network_check wall=1790419331883 elapsed=661447236 uptime=523887227 gap=20007 sleep=0 interactive=false idle=false locked=false
+09-26 18:42:11.895   661  1169 I ConnectivityDiag: stage=health_collect wall=1790419331893 elapsed=661447246 uptime=523887237 gap=10 sleep=0 interactive=false idle=false locked=false
+09-26 18:42:11.907   661  1169 I ConnectivityDiag: stage=heartbeat_request wall=1790419331906 elapsed=661447258 uptime=523887249 gap=12 sleep=0 interactive=false idle=false locked=false
+09-26 18:42:11.917   661  1169 I ConnectivityDiag: stage=transport_connect wall=1790419331915 elapsed=661447268 uptime=523887259 gap=10 sleep=0 interactive=false idle=false locked=false
+09-26 18:42:13.034   661  1169 I ConnectivityDiag: stage=transport_tls wall=1790419333030 elapsed=661448382 uptime=523888373 gap=1114 sleep=0 interactive=false idle=false locked=false
+09-26 18:42:13.196   661  1169 I ConnectivityDiag: stage=transport_write wall=1790419333194 elapsed=661448546 uptime=523888537 gap=164 sleep=0 interactive=false idle=false locked=false
+09-26 18:42:13.198   661  1169 I ConnectivityDiag: stage=transport_read wall=1790419333197 elapsed=661448549 uptime=523888541 gap=3 sleep=0 interactive=false idle=false locked=false
+09-26 18:42:13.440   661  1169 I ConnectivityDiag: stage=transport_done wall=1790419333438 elapsed=661448790 uptime=523888781 gap=241 sleep=1 interactive=false idle=false locked=false status=200
+09-26 18:42:13.449   661  1167 I ConnectivityDiag: stage=heartbeat_ok wall=1790419333448 elapsed=661448800 uptime=523888791 gap=10 sleep=0 interactive=false idle=false locked=false
+09-26 18:42:13.462   661  1167 I ConnectivityDiag: stage=heartbeat_delay wall=1790419333461 elapsed=661448814 uptime=523888805 gap=14 sleep=0 interactive=false idle=false locked=false
+09-26 18:42:33.472   661  1167 I ConnectivityDiag: stage=network_check wall=1790419353467 elapsed=661468819 uptime=523908811 gap=20005 sleep=0 interactive=false idle=false locked=false
+09-26 18:42:33.479   661  1167 I ConnectivityDiag: stage=health_collect wall=1790419353477 elapsed=661468829 uptime=523908820 gap=10 sleep=1 interactive=false idle=false locked=false
+09-26 18:42:33.492   661  1167 I ConnectivityDiag: stage=heartbeat_request wall=1790419353491 elapsed=661468843 uptime=523908834 gap=14 sleep=0 interactive=false idle=false locked=false
+09-26 18:42:33.502   661  1167 I ConnectivityDiag: stage=transport_connect wall=1790419353501 elapsed=661468853 uptime=523908845 gap=10 sleep=0 interactive=false idle=false locked=false
+09-26 18:42:33.603   661  1167 I ConnectivityDiag: stage=transport_tls wall=1790419353598 elapsed=661468951 uptime=523908942 gap=98 sleep=1 interactive=false idle=false locked=false
+09-26 18:42:33.699   661  1167 I ConnectivityDiag: stage=transport_write wall=1790419353697 elapsed=661469050 uptime=523909041 gap=99 sleep=0 interactive=false idle=false locked=false
+09-26 18:42:33.701   661  1167 I ConnectivityDiag: stage=transport_read wall=1790419353699 elapsed=661469052 uptime=523909043 gap=2 sleep=0 interactive=false idle=false locked=false
+09-26 18:42:33.875   661  1167 I ConnectivityDiag: stage=transport_done wall=1790419353874 elapsed=661469226 uptime=523909217 gap=174 sleep=0 interactive=false idle=false locked=false status=200
+09-26 18:42:33.882   661  1167 I ConnectivityDiag: stage=heartbeat_ok wall=1790419353881 elapsed=661469233 uptime=523909225 gap=7 sleep=0 interactive=false idle=false locked=false
+09-26 18:42:33.889   661  1167 I ConnectivityDiag: stage=heartbeat_delay wall=1790419353888 elapsed=661469240 uptime=523909231 gap=7 sleep=1 interactive=false idle=false locked=false
+09-26 18:42:53.898   661  1167 I ConnectivityDiag: stage=network_check wall=1790419373894 elapsed=661489246 uptime=523929237 gap=20006 sleep=0 interactive=false idle=false locked=false
+09-26 18:42:53.903   661  1167 I ConnectivityDiag: stage=health_collect wall=1790419373902 elapsed=661489254 uptime=523929246 gap=8 sleep=0 interactive=false idle=false locked=false
+09-26 18:42:53.913   661  1167 I ConnectivityDiag: stage=heartbeat_request wall=1790419373912 elapsed=661489264 uptime=523929255 gap=10 sleep=1 interactive=false idle=false locked=false
+09-26 18:42:53.920   661  1167 I ConnectivityDiag: stage=transport_connect wall=1790419373919 elapsed=661489271 uptime=523929263 gap=7 sleep=0 interactive=false idle=false locked=false
+09-26 18:42:54.020   661  1167 I ConnectivityDiag: stage=transport_tls wall=1790419374016 elapsed=661489368 uptime=523929359 gap=97 sleep=1 interactive=false idle=false locked=false
+09-26 18:42:54.113   661  1167 I ConnectivityDiag: stage=transport_write wall=1790419374111 elapsed=661489463 uptime=523929455 gap=95 sleep=0 interactive=false idle=false locked=false
+09-26 18:42:54.115   661  1167 I ConnectivityDiag: stage=transport_read wall=1790419374114 elapsed=661489466 uptime=523929457 gap=3 sleep=1 interactive=false idle=false locked=false
+09-26 18:42:54.297   661  1167 I ConnectivityDiag: stage=transport_done wall=1790419374294 elapsed=661489647 uptime=523929638 gap=181 sleep=0 interactive=false idle=false locked=false status=200
+09-26 18:42:54.305   661  1167 I ConnectivityDiag: stage=heartbeat_ok wall=1790419374304 elapsed=661489657 uptime=523929648 gap=10 sleep=0 interactive=false idle=false locked=false
+09-26 18:42:54.318   661  1167 I ConnectivityDiag: stage=heartbeat_delay wall=1790419374317 elapsed=661489669 uptime=523929660 gap=12 sleep=0 interactive=false idle=false locked=false
+09-26 18:43:14.324   661  1167 I ConnectivityDiag: stage=network_check wall=1790419394321 elapsed=661509673 uptime=523949664 gap=20004 sleep=0 interactive=false idle=false locked=false
+09-26 18:43:14.328   661  1167 I ConnectivityDiag: stage=health_collect wall=1790419394327 elapsed=661509680 uptime=523949671 gap=7 sleep=0 interactive=false idle=false locked=false
+09-26 18:43:14.336   661  1167 I ConnectivityDiag: stage=heartbeat_request wall=1790419394335 elapsed=661509687 uptime=523949679 gap=7 sleep=0 interactive=false idle=false locked=false
+09-26 18:43:14.340   661  1167 I ConnectivityDiag: stage=transport_connect wall=1790419394339 elapsed=661509691 uptime=523949683 gap=4 sleep=0 interactive=false idle=false locked=false
+09-26 18:43:14.409   661  1167 I ConnectivityDiag: stage=transport_tls wall=1790419394407 elapsed=661509759 uptime=523949750 gap=68 sleep=1 interactive=false idle=false locked=false
+09-26 18:43:14.488   661  1167 I ConnectivityDiag: stage=transport_write wall=1790419394487 elapsed=661509839 uptime=523949830 gap=80 sleep=0 interactive=false idle=false locked=false
+09-26 18:43:14.488   661  1167 I ConnectivityDiag: stage=transport_read wall=1790419394488 elapsed=661509840 uptime=523949831 gap=1 sleep=0 interactive=false idle=false locked=false
+09-26 18:43:14.654   661  1167 I ConnectivityDiag: stage=transport_done wall=1790419394653 elapsed=661510005 uptime=523949996 gap=165 sleep=0 interactive=false idle=false locked=false status=200
+09-26 18:43:14.662   661  1177 I ConnectivityDiag: stage=heartbeat_ok wall=1790419394660 elapsed=661510012 uptime=523950003 gap=7 sleep=0 interactive=false idle=false locked=false
+09-26 18:43:14.675   661  1177 I ConnectivityDiag: stage=heartbeat_delay wall=1790419394673 elapsed=661510026 uptime=523950017 gap=14 sleep=0 interactive=false idle=false locked=false
+09-26 18:43:34.683   661  1177 I ConnectivityDiag: stage=network_check wall=1790419414679 elapsed=661530032 uptime=523970023 gap=20006 sleep=0 interactive=false idle=false locked=false
+09-26 18:43:34.688   661  1177 I ConnectivityDiag: stage=health_collect wall=1790419414687 elapsed=661530039 uptime=523970030 gap=7 sleep=0 interactive=false idle=false locked=false
+09-26 18:43:34.699   661  1177 I ConnectivityDiag: stage=heartbeat_request wall=1790419414697 elapsed=661530050 uptime=523970041 gap=11 sleep=0 interactive=false idle=false locked=false
+09-26 18:43:34.704   661  1177 I ConnectivityDiag: stage=transport_connect wall=1790419414704 elapsed=661530056 uptime=523970047 gap=6 sleep=0 interactive=false idle=false locked=false
+09-26 18:43:34.797   661  1177 I ConnectivityDiag: stage=transport_tls wall=1790419414796 elapsed=661530148 uptime=523970139 gap=92 sleep=0 interactive=false idle=false locked=false
+09-26 18:43:34.886   661  1177 I ConnectivityDiag: stage=transport_write wall=1790419414885 elapsed=661530237 uptime=523970228 gap=89 sleep=0 interactive=false idle=false locked=false
+09-26 18:43:34.888   661  1177 I ConnectivityDiag: stage=transport_read wall=1790419414887 elapsed=661530239 uptime=523970230 gap=2 sleep=0 interactive=false idle=false locked=false
+09-26 18:43:35.067   661  1177 I ConnectivityDiag: stage=transport_done wall=1790419415064 elapsed=661530417 uptime=523970408 gap=178 sleep=0 interactive=false idle=false locked=false status=200
+09-26 18:43:35.076   661  1177 I ConnectivityDiag: stage=heartbeat_ok wall=1790419415074 elapsed=661530427 uptime=523970418 gap=10 sleep=0 interactive=false idle=false locked=false
+09-26 18:43:35.088   661  1177 I ConnectivityDiag: stage=heartbeat_delay wall=1790419415088 elapsed=661530440 uptime=523970431 gap=13 sleep=0 interactive=false idle=false locked=false
+09-26 18:43:55.098   661  1177 I ConnectivityDiag: stage=network_check wall=1790419435093 elapsed=661550446 uptime=523990437 gap=20006 sleep=0 interactive=false idle=false locked=false
+09-26 18:43:55.104   661  1177 I ConnectivityDiag: stage=health_collect wall=1790419435103 elapsed=661550455 uptime=523990446 gap=9 sleep=0 interactive=false idle=false locked=false
+09-26 18:43:55.115   661  1177 I ConnectivityDiag: stage=heartbeat_request wall=1790419435114 elapsed=661550466 uptime=523990458 gap=11 sleep=0 interactive=false idle=false locked=false
+09-26 18:43:55.126   661  1177 I ConnectivityDiag: stage=transport_connect wall=1790419435125 elapsed=661550477 uptime=523990468 gap=11 sleep=1 interactive=false idle=false locked=false
+09-26 18:43:55.222   661  1177 I ConnectivityDiag: stage=transport_tls wall=1790419435218 elapsed=661550570 uptime=523990561 gap=93 sleep=0 interactive=false idle=false locked=false
+09-26 18:43:55.315   661  1177 I ConnectivityDiag: stage=transport_write wall=1790419435313 elapsed=661550665 uptime=523990656 gap=95 sleep=0 interactive=false idle=false locked=false
+09-26 18:43:55.317   661  1177 I ConnectivityDiag: stage=transport_read wall=1790419435315 elapsed=661550668 uptime=523990659 gap=3 sleep=0 interactive=false idle=false locked=false
+09-26 18:43:55.489   661  1177 I ConnectivityDiag: stage=transport_done wall=1790419435487 elapsed=661550839 uptime=523990830 gap=171 sleep=0 interactive=false idle=false locked=false status=200
+09-26 18:43:55.497   661  1167 I ConnectivityDiag: stage=heartbeat_ok wall=1790419435496 elapsed=661550848 uptime=523990839 gap=9 sleep=0 interactive=false idle=false locked=false
+09-26 18:43:55.509   661  1167 I ConnectivityDiag: stage=heartbeat_delay wall=1790419435508 elapsed=661550861 uptime=523990852 gap=13 sleep=0 interactive=false idle=false locked=false
+09-26 18:44:15.522   661  1167 I ConnectivityDiag: stage=network_check wall=1790419455516 elapsed=661570868 uptime=524010859 gap=20007 sleep=0 interactive=false idle=false locked=false
+09-26 18:44:15.528   661  1167 I ConnectivityDiag: stage=health_collect wall=1790419455526 elapsed=661570878 uptime=524010870 gap=10 sleep=0 interactive=false idle=false locked=false
+09-26 18:44:15.539   661  1167 I ConnectivityDiag: stage=heartbeat_request wall=1790419455538 elapsed=661570890 uptime=524010881 gap=12 sleep=1 interactive=false idle=false locked=false
+09-26 18:44:15.550   661  1167 I ConnectivityDiag: stage=transport_connect wall=1790419455549 elapsed=661570901 uptime=524010892 gap=11 sleep=0 interactive=false idle=false locked=false
+09-26 18:44:15.647   661  1167 I ConnectivityDiag: stage=transport_tls wall=1790419455644 elapsed=661570996 uptime=524010987 gap=95 sleep=0 interactive=false idle=false locked=false
+09-26 18:44:15.745   661  1167 I ConnectivityDiag: stage=transport_write wall=1790419455743 elapsed=661571095 uptime=524011086 gap=99 sleep=0 interactive=false idle=false locked=false
+09-26 18:44:15.747   661  1167 I ConnectivityDiag: stage=transport_read wall=1790419455746 elapsed=661571098 uptime=524011089 gap=3 sleep=0 interactive=false idle=false locked=false
+09-26 18:44:15.932   661  1167 I ConnectivityDiag: stage=transport_done wall=1790419455929 elapsed=661571281 uptime=524011273 gap=183 sleep=0 interactive=false idle=false locked=false status=200
+09-26 18:44:15.940   661  1167 I ConnectivityDiag: stage=heartbeat_ok wall=1790419455939 elapsed=661571291 uptime=524011282 gap=10 sleep=1 interactive=false idle=false locked=false
+09-26 18:44:15.952   661  1167 I ConnectivityDiag: stage=heartbeat_delay wall=1790419455951 elapsed=661571303 uptime=524011295 gap=12 sleep=0 interactive=false idle=false locked=false
+09-26 18:44:35.964   661  1167 I ConnectivityDiag: stage=network_check wall=1790419475959 elapsed=661591311 uptime=524031303 gap=20008 sleep=0 interactive=false idle=false locked=false
+09-26 18:44:35.971   661  1167 I ConnectivityDiag: stage=health_collect wall=1790419475968 elapsed=661591321 uptime=524031312 gap=10 sleep=1 interactive=false idle=false locked=false
+09-26 18:44:35.985   661  1167 I ConnectivityDiag: stage=heartbeat_request wall=1790419475984 elapsed=661591336 uptime=524031327 gap=15 sleep=0 interactive=false idle=false locked=false
+09-26 18:44:35.996   661  1167 I ConnectivityDiag: stage=transport_connect wall=1790419475995 elapsed=661591347 uptime=524031338 gap=11 sleep=0 interactive=false idle=false locked=false
+09-26 18:44:36.093   661  1167 I ConnectivityDiag: stage=transport_tls wall=1790419476089 elapsed=661591441 uptime=524031432 gap=94 sleep=0 interactive=false idle=false locked=false
+09-26 18:44:36.187   661  1167 I ConnectivityDiag: stage=transport_write wall=1790419476185 elapsed=661591537 uptime=524031528 gap=96 sleep=0 interactive=false idle=false locked=false
+09-26 18:44:36.189   661  1167 I ConnectivityDiag: stage=transport_read wall=1790419476188 elapsed=661591540 uptime=524031531 gap=3 sleep=0 interactive=false idle=false locked=false
+09-26 18:44:36.363   661  1167 I ConnectivityDiag: stage=transport_done wall=1790419476361 elapsed=661591713 uptime=524031704 gap=173 sleep=0 interactive=false idle=false locked=false status=200
+09-26 18:44:36.373   661  1177 I ConnectivityDiag: stage=heartbeat_ok wall=1790419476372 elapsed=661591724 uptime=524031715 gap=11 sleep=0 interactive=false idle=false locked=false
+09-26 18:44:36.386   661  1177 I ConnectivityDiag: stage=heartbeat_delay wall=1790419476385 elapsed=661591737 uptime=524031728 gap=13 sleep=0 interactive=false idle=false locked=false
+09-26 18:44:56.395   661  1177 I ConnectivityDiag: stage=network_check wall=1790419496391 elapsed=661611743 uptime=524051734 gap=20006 sleep=0 interactive=false idle=false locked=false
+09-26 18:44:56.399   661  1177 I ConnectivityDiag: stage=health_collect wall=1790419496398 elapsed=661611751 uptime=524051742 gap=8 sleep=0 interactive=false idle=false locked=false
+09-26 18:44:56.409   661  1177 I ConnectivityDiag: stage=heartbeat_request wall=1790419496408 elapsed=661611760 uptime=524051751 gap=9 sleep=0 interactive=false idle=false locked=false
+09-26 18:44:56.416   661  1177 I ConnectivityDiag: stage=transport_connect wall=1790419496415 elapsed=661611767 uptime=524051759 gap=7 sleep=0 interactive=false idle=false locked=false
+09-26 18:44:56.504   661  1177 I ConnectivityDiag: stage=transport_tls wall=1790419496503 elapsed=661611855 uptime=524051846 gap=88 sleep=1 interactive=false idle=false locked=false
+09-26 18:44:56.590   661  1177 I ConnectivityDiag: stage=transport_write wall=1790419496588 elapsed=661611940 uptime=524051931 gap=85 sleep=0 interactive=false idle=false locked=false
+09-26 18:44:56.590   661  1177 I ConnectivityDiag: stage=transport_read wall=1790419496590 elapsed=661611942 uptime=524051933 gap=2 sleep=0 interactive=false idle=false locked=false
+09-26 18:44:56.770   661  1177 I ConnectivityDiag: stage=transport_done wall=1790419496767 elapsed=661612119 uptime=524052111 gap=177 sleep=0 interactive=false idle=false locked=false status=200
+09-26 18:44:56.779   661  1169 I ConnectivityDiag: stage=heartbeat_ok wall=1790419496778 elapsed=661612130 uptime=524052122 gap=11 sleep=0 interactive=false idle=false locked=false
+09-26 18:44:56.793   661  1169 I ConnectivityDiag: stage=heartbeat_delay wall=1790419496792 elapsed=661612144 uptime=524052135 gap=14 sleep=1 interactive=false idle=false locked=false
+09-26 18:45:16.802   661  1169 I ConnectivityDiag: stage=network_check wall=1790419516798 elapsed=661632150 uptime=524072141 gap=20006 sleep=0 interactive=false idle=false locked=false
+09-26 18:45:16.806   661  1169 I ConnectivityDiag: stage=health_collect wall=1790419516805 elapsed=661632157 uptime=524072148 gap=7 sleep=0 interactive=false idle=false locked=false
+09-26 18:45:16.817   661  1169 I ConnectivityDiag: stage=heartbeat_request wall=1790419516816 elapsed=661632168 uptime=524072159 gap=11 sleep=0 interactive=false idle=false locked=false
+09-26 18:45:16.823   661  1169 I ConnectivityDiag: stage=transport_connect wall=1790419516822 elapsed=661632175 uptime=524072166 gap=7 sleep=0 interactive=false idle=false locked=false
+09-26 18:45:16.921   661  1169 I ConnectivityDiag: stage=transport_tls wall=1790419516917 elapsed=661632269 uptime=524072260 gap=94 sleep=0 interactive=false idle=false locked=false
+09-26 18:45:17.017   661  1169 I ConnectivityDiag: stage=transport_write wall=1790419517016 elapsed=661632368 uptime=524072359 gap=99 sleep=0 interactive=false idle=false locked=false
+09-26 18:45:17.019   661  1169 I ConnectivityDiag: stage=transport_read wall=1790419517018 elapsed=661632370 uptime=524072361 gap=2 sleep=0 interactive=false idle=false locked=false
+09-26 18:45:17.201   661  1169 I ConnectivityDiag: stage=transport_done wall=1790419517198 elapsed=661632550 uptime=524072542 gap=180 sleep=0 interactive=false idle=false locked=false status=200
+09-26 18:45:17.209   661  1169 I ConnectivityDiag: stage=heartbeat_ok wall=1790419517208 elapsed=661632561 uptime=524072552 gap=11 sleep=1 interactive=false idle=false locked=false
+09-26 18:45:17.222   661  1169 I ConnectivityDiag: stage=heartbeat_delay wall=1790419517221 elapsed=661632573 uptime=524072564 gap=12 sleep=0 interactive=false idle=false locked=false
+09-26 18:45:37.233   661  1169 I ConnectivityDiag: stage=network_check wall=1790419537227 elapsed=661652580 uptime=524092571 gap=20007 sleep=0 interactive=false idle=false locked=false
+09-26 18:45:37.240   661  1169 I ConnectivityDiag: stage=health_collect wall=1790419537238 elapsed=661652590 uptime=524092582 gap=10 sleep=0 interactive=false idle=false locked=false
+09-26 18:45:37.251   661  1169 I ConnectivityDiag: stage=heartbeat_request wall=1790419537250 elapsed=661652602 uptime=524092594 gap=12 sleep=0 interactive=false idle=false locked=false
+09-26 18:45:37.262   661  1169 I ConnectivityDiag: stage=transport_connect wall=1790419537261 elapsed=661652613 uptime=524092604 gap=11 sleep=1 interactive=false idle=false locked=false
+09-26 18:45:37.355   661  1169 I ConnectivityDiag: stage=transport_tls wall=1790419537353 elapsed=661652705 uptime=524092696 gap=92 sleep=0 interactive=false idle=false locked=false
+09-26 18:45:37.451   661  1169 I ConnectivityDiag: stage=transport_write wall=1790419537448 elapsed=661652801 uptime=524092792 gap=96 sleep=0 interactive=false idle=false locked=false
+09-26 18:45:37.452   661  1169 I ConnectivityDiag: stage=transport_read wall=1790419537451 elapsed=661652803 uptime=524092795 gap=2 sleep=0 interactive=false idle=false locked=false
+09-26 18:45:37.625   661  1169 I ConnectivityDiag: stage=transport_done wall=1790419537623 elapsed=661652976 uptime=524092967 gap=173 sleep=1 interactive=false idle=false locked=false status=200
+09-26 18:45:37.634   661  1177 I ConnectivityDiag: stage=heartbeat_ok wall=1790419537632 elapsed=661652985 uptime=524092976 gap=9 sleep=0 interactive=false idle=false locked=false
+09-26 18:45:37.648   661  1177 I ConnectivityDiag: stage=heartbeat_delay wall=1790419537647 elapsed=661652999 uptime=524092991 gap=14 sleep=0 interactive=false idle=false locked=false
+09-26 18:45:57.661   661  1177 I ConnectivityDiag: stage=network_check wall=1790419557653 elapsed=661673005 uptime=524112996 gap=20006 sleep=1 interactive=true idle=false locked=false
+09-26 18:45:57.666   661  1177 I ConnectivityDiag: stage=health_collect wall=1790419557664 elapsed=661673017 uptime=524113008 gap=12 sleep=0 interactive=true idle=false locked=false
+09-26 18:45:57.677   661  1177 I ConnectivityDiag: stage=heartbeat_request wall=1790419557675 elapsed=661673028 uptime=524113019 gap=11 sleep=0 interactive=true idle=false locked=false
+09-26 18:45:57.686   661  1177 I ConnectivityDiag: stage=transport_connect wall=1790419557686 elapsed=661673038 uptime=524113029 gap=10 sleep=0 interactive=true idle=false locked=false
+09-26 18:45:57.784   661  1177 I ConnectivityDiag: stage=transport_tls wall=1790419557780 elapsed=661673132 uptime=524113123 gap=94 sleep=0 interactive=true idle=false locked=false
+09-26 18:45:57.882   661  1177 I ConnectivityDiag: stage=transport_write wall=1790419557880 elapsed=661673232 uptime=524113224 gap=100 sleep=0 interactive=true idle=false locked=false
+09-26 18:45:57.884   661  1177 I ConnectivityDiag: stage=transport_read wall=1790419557883 elapsed=661673235 uptime=524113226 gap=3 sleep=1 interactive=true idle=false locked=false
+09-26 18:45:58.063   661  1177 I ConnectivityDiag: stage=transport_done wall=1790419558061 elapsed=661673413 uptime=524113405 gap=178 sleep=0 interactive=true idle=false locked=false status=200
+09-26 18:45:58.073   661  1177 I ConnectivityDiag: stage=heartbeat_ok wall=1790419558071 elapsed=661673424 uptime=524113415 gap=11 sleep=1 interactive=true idle=false locked=false
+09-26 18:45:58.085   661  1177 I ConnectivityDiag: stage=heartbeat_delay wall=1790419558083 elapsed=661673436 uptime=524113427 gap=12 sleep=0 interactive=true idle=false locked=false
+09-26 18:46:18.094   661  1177 I ConnectivityDiag: stage=network_check wall=1790419578089 elapsed=661693442 uptime=524133433 gap=20006 sleep=0 interactive=true idle=false locked=false
+09-26 18:46:18.103   661  1177 I ConnectivityDiag: stage=health_collect wall=1790419578100 elapsed=661693453 uptime=524133444 gap=11 sleep=0 interactive=true idle=false locked=false
+09-26 18:46:18.119   661  1177 I ConnectivityDiag: stage=heartbeat_request wall=1790419578117 elapsed=661693469 uptime=524133461 gap=16 sleep=0 interactive=true idle=false locked=false
+09-26 18:46:18.131   661  1177 I ConnectivityDiag: stage=transport_connect wall=1790419578130 elapsed=661693482 uptime=524133473 gap=13 sleep=1 interactive=true idle=false locked=false
+09-26 18:46:18.231   661  1177 I ConnectivityDiag: stage=transport_tls wall=1790419578227 elapsed=661693580 uptime=524133571 gap=98 sleep=0 interactive=true idle=false locked=false
+09-26 18:46:18.330   661  1177 I ConnectivityDiag: stage=transport_write wall=1790419578328 elapsed=661693681 uptime=524133672 gap=101 sleep=0 interactive=true idle=false locked=false
+09-26 18:46:18.332   661  1177 I ConnectivityDiag: stage=transport_read wall=1790419578331 elapsed=661693683 uptime=524133674 gap=2 sleep=0 interactive=true idle=false locked=false
+09-26 18:46:18.531   661  1177 I ConnectivityDiag: stage=transport_done wall=1790419578529 elapsed=661693881 uptime=524133872 gap=198 sleep=0 interactive=true idle=false locked=false status=200
+09-26 18:46:18.539   661  1169 I ConnectivityDiag: stage=heartbeat_ok wall=1790419578538 elapsed=661693891 uptime=524133882 gap=10 sleep=0 interactive=true idle=false locked=false
+09-26 18:46:18.549   661  1169 I ConnectivityDiag: stage=heartbeat_delay wall=1790419578548 elapsed=661693901 uptime=524133892 gap=10 sleep=0 interactive=true idle=false locked=false

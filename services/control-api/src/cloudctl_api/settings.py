@@ -65,6 +65,12 @@ class Settings(BaseSettings):
     wechat_http_timeout_seconds: float = Field(default=10.0, ge=1.0, le=60.0)
     wechat_token_expiry_margin_seconds: int = Field(default=120, ge=30, le=600)
     wechat_secret_encryption_key: SecretStr | None = None
+    im_classifier_enabled: bool = False
+    im_classifier_base_url: str | None = Field(default=None, min_length=8, max_length=512)
+    im_classifier_model: str = Field(default="jev-latest", min_length=1, max_length=128)
+    im_classifier_api_key: SecretStr | None = None
+    im_classifier_http_timeout_seconds: float = Field(default=10.0, ge=1.0, le=30.0)
+    im_classifier_confidence_threshold: float = Field(default=0.95, ge=0.5, le=1.0)
     apk_analysis_public_keys: dict[str, str] = Field(default_factory=dict)
     apk_denied_permissions: list[str] = Field(
         default_factory=lambda: [
@@ -77,6 +83,23 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def secure_production(self) -> "Settings":
+        if self.im_classifier_base_url is not None:
+            classifier_url = urlsplit(self.im_classifier_base_url)
+            if (
+                classifier_url.scheme != "https"
+                or not classifier_url.hostname
+                or classifier_url.username is not None
+                or classifier_url.password is not None
+                or classifier_url.query
+                or classifier_url.fragment
+            ):
+                raise ValueError("IM classifier requires a credential-free HTTPS base URL")
+        if self.im_classifier_enabled and (
+            self.im_classifier_base_url is None
+            or self.im_classifier_api_key is None
+            or not self.im_classifier_api_key.get_secret_value().strip()
+        ):
+            raise ValueError("Enabled IM classifier requires a base URL and API key")
         if self.dev_auth_bypass and self.env not in {"development", "test"}:
             raise ValueError("CLOUDCTL_DEV_AUTH_BYPASS is only allowed in development or test")
         if self.env == "production" and "*" in self.cors_allowed_origins:

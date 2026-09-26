@@ -1,0 +1,253 @@
+{
+  "serial": "b0644fb5",
+  "package": "com.company.cloudctl.companion",
+  "startedAt": "2026-09-26T10:29:35.077921+00:00",
+  "state": "NOT_FROZEN_AT_SAMPLES",
+  "diagnosticOnly": true,
+  "businessAcceptance": false,
+  "mutatingOperations": [],
+  "atomicSnapshot": false,
+  "identityMatchesAtChecks": true,
+  "identityChecks": [
+    {
+      "bootId": "a0e6ecd6-29d7-44cc-b4af-74f9604ed061",
+      "pid": "661",
+      "startTicks": "63295939",
+      "cgroup": "/uid_10269/pid_661"
+    },
+    {
+      "bootId": "a0e6ecd6-29d7-44cc-b4af-74f9604ed061",
+      "pid": "661",
+      "startTicks": "63295939",
+      "cgroup": "/uid_10269/pid_661"
+    },
+    {
+      "bootId": "a0e6ecd6-29d7-44cc-b4af-74f9604ed061",
+      "pid": "661",
+      "startTicks": "63295939",
+      "cgroup": "/uid_10269/pid_661"
+    }
+  ],
+  "rounds": [
+    [
+      {
+        "path": "/sys/fs/cgroup/uid_10269/pid_661",
+        "freeze": 0,
+        "frozen": 0,
+        "populated": 1
+      },
+      {
+        "path": "/sys/fs/cgroup/uid_10269",
+        "freeze": 0,
+        "frozen": 0,
+        "populated": 1
+      }
+    ],
+    [
+      {
+        "path": "/sys/fs/cgroup/uid_10269/pid_661",
+        "freeze": 0,
+        "frozen": 0,
+        "populated": 1
+      },
+      {
+        "path": "/sys/fs/cgroup/uid_10269",
+        "freeze": 0,
+        "frozen": 0,
+        "populated": 1
+      }
+    ]
+  ],
+  "process": {
+    "bootId": "a0e6ecd6-29d7-44cc-b4af-74f9604ed061",
+    "pid": "661",
+    "startTicks": "63295939",
+    "cgroup": "/uid_10269/pid_661"
+  },
+  "freezeObserved": false,
+  "requestingPaths": [],
+  "policyOwner": "UNKNOWN",
+  "completedAt": "2026-09-26T10:29:36.290181+00:00",
+  "reads": [
+    {
+      "startedAt": "2026-09-26T10:29:35.078319+00:00",
+      "arguments": [
+        "cat",
+        "/proc/sys/kernel/random/boot_id"
+      ],
+      "exitCode": 0,
+      "completedAt": "2026-09-26T10:29:35.139449+00:00"
+    },
+    {
+      "startedAt": "2026-09-26T10:29:35.139522+00:00",
+      "arguments": [
+        "pidof",
+        "com.company.cloudctl.companion"
+      ],
+      "exitCode": 0,
+      "completedAt": "2026-09-26T10:29:35.206989+00:00"
+    },
+    {
+      "startedAt": "2026-09-26T10:29:35.207137+00:00",
+      "arguments": [
+        "cat",
+        "/proc/661/stat"
+      ],
+      "exitCode": 0,
+      "completedAt": "2026-09-26T10:29:35.263757+00:00"
+    },
+    {
+      "startedAt": "2026-09-26T10:29:35.263824+00:00",
+      "arguments": [
+        "cat",
+        "/proc/661/cgroup"
+      ],
+      "exitCode": 0,
+      "completedAt": "2026-09-26T10:29:35.322547+00:00"
+    },
+    {
+      "startedAt": "2026-09-26T10:29:35.322955+00:00",
+      "arguments": [
+        "cat",
+        "/sys/fs/cgroup/uid_10269/pid_661/cgroup.freeze"
+      ],
+      "exitCode": 0,
+      "completedAt": "2026-09-26T10:29:35.363487+00:00"
+    },
+    {
+      "startedAt": "2026-09-26T10:29:35.363537+00:00",
+      "arguments": [
+        "cat",
+        "/sys/fs/cgroup/uid_10269/pid_661/cgroup.events"
+      ],
+      "exitCode": 0,
+      "completedAt": "2026-09-26T10:29:35.402508+00:00"
+    },
+    {
+      "startedAt": "2026-09-26T10:29:35.402551+00:00",
+      "arguments": [
+        "cat",
+        "/sys/fs/cgroup/uid_10269/cgroup.freeze"
+      ],
+      "exitCode": 0,
+      "completedAt": "2026-09-26T10:29:35.450175+00:00"
+    },
+    {
+      "startedAt": "2026-09-26T10:29:35.450215+00:00",
+      "arguments": [
+        "cat",
+        "/sys/fs/cgroup/uid_10269/cgroup.events"
+      ],
+      "exitCode": 0,
+      "completedAt": "2026-09-26T10:29:35.498196+00:00"
+    },
+    {
+      "startedAt": "2026-09-26T10:29:35.498267+00:00",
+      "arguments": [
+        "cat",
+        "/proc/sys/kernel/random/boot_id"
+      ],
+      "exitCode": 0,
+      "completedAt": "2026-09-26T10:29:35.562335+00:00"
+    },
+    {
+      "startedAt": "2026-09-26T10:29:35.562387+00:00",
+      "arguments": [
+        "pidof",
+        "com.company.cloudctl.companion"
+      ],
+      "exitCode": 0,
+      "completedAt": "2026-09-26T10:29:35.632744+00:00"
+    },
+    {
+      "startedAt": "2026-09-26T10:29:35.632840+00:00",
+      "arguments": [
+        "cat",
+        "/proc/661/stat"
+      ],
+      "exitCode": 0,
+      "completedAt": "2026-09-26T10:29:35.698399+00:00"
+    },
+    {
+      "startedAt": "2026-09-26T10:29:35.698450+00:00",
+      "arguments": [
+        "cat",
+        "/proc/661/cgroup"
+      ],
+      "exitCode": 0,
+      "completedAt": "2026-09-26T10:29:35.753635+00:00"
+    },
+    {
+      "startedAt": "2026-09-26T10:29:35.753822+00:00",
+      "arguments": [
+        "cat",
+        "/sys/fs/cgroup/uid_10269/pid_661/cgroup.freeze"
+      ],
+      "exitCode": 0,
+      "completedAt": "2026-09-26T10:29:35.810563+00:00"
+    },
+    {
+      "startedAt": "2026-09-26T10:29:35.810602+00:00",
+      "arguments": [
+        "cat",
+        "/sys/fs/cgroup/uid_10269/pid_661/cgroup.events"
+      ],
+      "exitCode": 0,
+      "completedAt": "2026-09-26T10:29:35.867152+00:00"
+    },
+    {
+      "startedAt": "2026-09-26T10:29:35.867191+00:00",
+      "arguments": [
+        "cat",
+        "/sys/fs/cgroup/uid_10269/cgroup.freeze"
+      ],
+      "exitCode": 0,
+      "completedAt": "2026-09-26T10:29:35.934062+00:00"
+    },
+    {
+      "startedAt": "2026-09-26T10:29:35.934134+00:00",
+      "arguments": [
+        "cat",
+        "/sys/fs/cgroup/uid_10269/cgroup.events"
+      ],
+      "exitCode": 0,
+      "completedAt": "2026-09-26T10:29:35.993187+00:00"
+    },
+    {
+      "startedAt": "2026-09-26T10:29:35.993235+00:00",
+      "arguments": [
+        "cat",
+        "/proc/sys/kernel/random/boot_id"
+      ],
+      "exitCode": 0,
+      "completedAt": "2026-09-26T10:29:36.092781+00:00"
+    },
+    {
+      "startedAt": "2026-09-26T10:29:36.092828+00:00",
+      "arguments": [
+        "pidof",
+        "com.company.cloudctl.companion"
+      ],
+      "exitCode": 0,
+      "completedAt": "2026-09-26T10:29:36.181090+00:00"
+    },
+    {
+      "startedAt": "2026-09-26T10:29:36.181136+00:00",
+      "arguments": [
+        "cat",
+        "/proc/661/stat"
+      ],
+      "exitCode": 0,
+      "completedAt": "2026-09-26T10:29:36.234931+00:00"
+    },
+    {
+      "startedAt": "2026-09-26T10:29:36.234975+00:00",
+      "arguments": [
+        "cat",
+        "/proc/661/cgroup"
+      ],
+      "exitCode": 0,
+      "completedAt": "2026-09-26T10:29:36.290041+00:00"
+    }
+  ]
+}
