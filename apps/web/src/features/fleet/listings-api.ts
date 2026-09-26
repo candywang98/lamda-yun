@@ -1,8 +1,11 @@
 import { controlApiBaseUrl, controlApiConfigured, controlApiHeaders } from '@/api/control'
 
-/** P43/P44 fleet listing collection web client (listing-collect/20260920.1). */
+/** listing-collect/20260920.1 + listing-sync/20260926.1; shared clients are controller-owned. */
 
 export interface FleetListingItem {
+  id?: string | null
+  deviceId?: string | null
+  platform?: string | null
   itemKey: string
   dedupeMarker: string
   title: string | null
@@ -64,10 +67,15 @@ export async function listFleetListings(
     throw new FleetListingsApiError(response.status, `${detail}（HTTP ${response.status}）`)
   }
   const body = payload as { items?: unknown; total?: unknown; nextCursor?: unknown }
-  const items = Array.isArray(body.items) ? (body.items as FleetListingItem[]) : []
+  if (!Array.isArray(body.items) ||
+      !body.items.every((item) => item && typeof item === 'object' && typeof item.itemKey === 'string' && item.itemKey.trim()) ||
+      typeof body.total !== 'number' || !Number.isSafeInteger(body.total) || body.total < 0 ||
+      (body.nextCursor != null && (typeof body.nextCursor !== 'string' || !body.nextCursor.trim()))) {
+    throw new FleetListingsApiError(response.status, '宝贝历史响应格式无效')
+  }
   return {
-    items,
-    total: typeof body.total === 'number' ? body.total : items.length,
+    items: body.items as FleetListingItem[],
+    total: body.total,
     nextCursor: typeof body.nextCursor === 'string' ? body.nextCursor : null,
   }
 }
@@ -79,6 +87,7 @@ export async function dispatchListingCollectTask(input: {
 }): Promise<{ taskId: string }> {
   if (!controlApiConfigured) throw new FleetListingsApiError(0, '未配置 Control API，无法派发采集任务')
   const headers = new Headers(controlApiHeaders())
+  headers.set('Accept', 'application/json')
   headers.set('Content-Type', 'application/json')
   headers.set('Idempotency-Key', input.idempotencyKey)
   const response = await fetch(`${controlApiBaseUrl()}/api/v1/mobile/tasks`, {
@@ -132,7 +141,9 @@ export async function dispatchListingCollectTask(input: {
     const detail = responseDetail(payload) ?? '派发失败'
     throw new FleetListingsApiError(response.status, `${detail}（HTTP ${response.status}）`)
   }
-  const body = payload as { taskId?: string; id?: string }
-  const taskId = body.taskId ?? body.id ?? ''
+  const taskId = payload && typeof payload === 'object' && 'taskId' in payload ? payload.taskId : null
+  if (typeof taskId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(taskId)) {
+    throw new FleetListingsApiError(response.status, '派发响应缺少有效 taskId，结果未确认')
+  }
   return { taskId }
 }
