@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { RefreshCw } from 'lucide-vue-next'
 import { controlApiConfigured, createControlApiClient } from '@/api/control'
 import { mapControlDevice } from '@/api/devices'
 import {
   fetchImConfig,
+  classifyImMessage,
+  reclassifyImMessage,
   imDutyStatus,
   imDutyStatusLabel,
   imPlatformDmFiltered,
@@ -17,16 +20,28 @@ import {
   saveImConfig,
   validateImConfigDraft,
   type ImMessage,
+  type ImBucket,
+  type ImCategory,
+  type ImThreadPage,
   type ImMonitorConfig,
   type ImThread,
 } from '@/api/im'
 import { useSessionStore } from '@/stores/session'
+import MessageClassification from '@/features/im/MessageClassification.vue'
+import { categoryLabel, classificationVersion, IM_BUCKETS } from '@/features/im/classification'
 
 const threads = ref<ImThread[]>([])
 const selected = ref<ImThread | null>(null)
 const messages = ref<ImMessage[]>([])
 const deviceFilter = ref('')
 const unreadOnly = ref(false)
+const bucket = ref<ImBucket>('user')
+const bucketCounts = ref<ImThreadPage['bucketCounts']>(null)
+const threadsLoading = ref(false)
+const messagesLoading = ref(false)
+const classificationBusy = ref('')
+const classificationError = ref('')
+const classificationNotice = ref('')
 
 const session = useSessionStore()
 /** 设备监控设置是设备侧运维写操作，沿用 device.control 权限；只读角色仅可查看。 */
@@ -56,64 +71,88 @@ const errorMessage = ref('')
 const successMessage = ref('')
 
 let threadRequest = 0
+let messageRequest = 0
+let contextRevision = 0
+let conversationRevision = 0
 let disposed = false
+
+function clearSelection() {
+  ++messageRequest
+  ++conversationRevision
+  selected.value = null
+  messages.value = []
+  messagesLoading.value = false
+  replyText.value = ''
+  classificationError.value = ''
+  classificationNotice.value = ''
+}
 
 async function refreshThreads(preserveSelection = true) {
   const request = ++threadRequest
+  if (!preserveSelection) clearSelection()
+  threadsLoading.value = true
   try {
-    const nextThreads = await listImThreads(deviceFilter.value || undefined, unreadOnly.value)
+    const page = await listImThreads(deviceFilter.value || undefined, unreadOnly.value, bucket.value)
     if (disposed || request !== threadRequest) return false
+    const nextThreads = page.items
     threads.value = nextThreads
-    if (!preserveSelection || !nextThreads.some((thread) => thread.id === selected.value?.id)) {
-      selected.value = null
-      messages.value = []
+    bucketCounts.value = page.bucketCounts
+    if (selected.value && !nextThreads.some((thread) => thread.id === selected.value?.id)) {
+      clearSelection()
     } else if (selected.value) {
       selected.value = nextThreads.find((thread) => thread.id === selected.value?.id) ?? selected.value
     }
     errorMessage.value = ''
     await loadDeviceConfigs()
-    return true
+    return !disposed && request === threadRequest
   } catch (error) {
     if (!disposed && request === threadRequest) {
       errorMessage.value = error instanceof ImApiError ? error.message : '会话列表加载失败'
     }
     return false
+  } finally {
+    if (!disposed && request === threadRequest) threadsLoading.value = false
   }
 }
 
-async function refreshSelectedMessages() {
+async function refreshSelectedMessages(markRead = false) {
   const thread = selected.value
   if (!thread) return
+  const request = ++messageRequest
+  const revision = contextRevision
+  const current = () => !disposed && request === messageRequest && revision === contextRevision && selected.value?.id === thread.id
+  messagesLoading.value = true
   try {
-    const nextMessages = await listImMessages(thread.id)
-    if (disposed || selected.value?.id !== thread.id) return
+    const nextMessages = await listImMessages(thread.id, bucket.value)
+    if (!current()) return
     messages.value = nextMessages
     cacheThreadSummary(thread)
     errorMessage.value = ''
+    if (markRead && thread.unreadCount > 0) {
+      await markImThreadRead(thread.id)
+      if (!current()) return
+      const listed = threads.value.find((item) => item.id === thread.id)
+      if (listed) listed.unreadCount = 0
+      if (selected.value) selected.value.unreadCount = 0
+    }
   } catch (error) {
-    errorMessage.value = error instanceof ImApiError ? error.message : '消息加载失败'
+    if (current()) errorMessage.value = error instanceof ImApiError ? error.message : '消息加载失败'
+  } finally {
+    if (current()) messagesLoading.value = false
   }
 }
 
 async function openThread(thread: ImThread) {
+  clearSelection()
   selected.value = thread
   errorMessage.value = ''
   successMessage.value = ''
-  try {
-    const nextMessages = await listImMessages(thread.id)
-    if (disposed || selected.value?.id !== thread.id) return
-    messages.value = nextMessages
-    cacheThreadSummary(thread)
-    if (thread.unreadCount > 0) {
-      await markImThreadRead(thread.id)
-      thread.unreadCount = 0
-    }
-  } catch (error) {
-    errorMessage.value = error instanceof ImApiError ? error.message : '消息加载失败'
-  }
+  await refreshSelectedMessages(true)
 }
+
 /** 会话打开后用本地已见正文回填摘要（后端 lastMessageText 字段位优先）。 */
 function cacheThreadSummary(thread: ImThread) {
+  if (threadSummary(thread)) return
   const last = messages.value[messages.value.length - 1]
   if (!last) return
   thread.lastMessageText = last.text
@@ -122,6 +161,63 @@ function cacheThreadSummary(thread: ImThread) {
 function threadSummary(thread: ImThread): string {
   if (typeof thread.lastMessageText === 'string' && thread.lastMessageText.trim()) return thread.lastMessageText
   return ''
+}
+
+async function refreshInbox() {
+  if (await refreshThreads()) await refreshSelectedMessages()
+}
+
+async function changeClassification(message: ImMessage, category: ImCategory | null, retry = false) {
+  const expectedVersion = classificationVersion(message.classification)
+  if (!session.can('device.control') || message.direction !== 'IN' || classificationBusy.value ||
+      expectedVersion === null || !messages.value.some((item) => item.id === message.id)) return
+  const revision = contextRevision
+  const conversation = conversationRevision
+  const current = () => !disposed && revision === contextRevision && conversation === conversationRevision
+  classificationBusy.value = message.id
+  classificationError.value = ''
+  classificationNotice.value = ''
+  // Invalidate reads started before the correction, including in-flight polling.
+  ++threadRequest
+  ++messageRequest
+  threadsLoading.value = false
+  messagesLoading.value = false
+  let shouldRefresh = false
+  let feedback = ''
+  let conflict = false
+  try {
+    const updated = retry
+      ? await reclassifyImMessage(message.id, expectedVersion)
+      : await classifyImMessage(message.id, category, expectedVersion)
+    if (!current()) return
+    messages.value = messages.value.map((item) => item.id === updated.id ? updated : item)
+    shouldRefresh = true
+    feedback = retry ? '重新分类已提交' : '分类已更新'
+  } catch (error) {
+    if (!current()) return
+    conflict = error instanceof ImApiError && error.status === 409
+    shouldRefresh = conflict
+    feedback = conflict
+      ? '分类版本已变化，本次修改未保存；已请求刷新，请核对后重试。'
+      : error instanceof ImApiError ? error.message : '分类更新失败，请重试'
+    classificationError.value = feedback
+  } finally {
+    if (!current() || !shouldRefresh) classificationBusy.value = ''
+  }
+  if (!current() || !shouldRefresh) return
+  ++threadRequest
+  ++messageRequest
+  // Membership, ordering and counts can all change, even within a mixed thread.
+  try {
+    await refreshInbox()
+    if (!disposed && revision === contextRevision &&
+        (conversation === conversationRevision || selected.value === null)) {
+      if (conflict) classificationError.value = feedback
+      else classificationNotice.value = feedback
+    }
+  } finally {
+    classificationBusy.value = ''
+  }
 }
 
 async function sendReply() {
@@ -133,9 +229,7 @@ async function sendReply() {
     const result = await replyImThread(selected.value.id, replyText.value.trim())
     successMessage.value = `已生成回复任务 ${result.taskId.slice(0, 8)}…，手机将自动打开发送`
     replyText.value = ''
-    messages.value = await listImMessages(selected.value.id)
-    cacheThreadSummary(selected.value)
-    selected.value.lastDirection = 'OUT'
+    await refreshInbox()
   } catch (error) {
     errorMessage.value = error instanceof ImApiError ? error.message : '回复失败'
   } finally {
@@ -193,6 +287,7 @@ async function loadDeviceOptions() {
 
 /** 会话列表按设备拉取监控配置：值班徽标 + 配置面板共用，失败静默（徽标缺失不阻塞收件箱）。 */
 async function loadDeviceConfigs() {
+  const request = ++deviceConfigsRequest
   const ids = new Set([...deviceIds.value, ...(cfgDevice.value ? [cfgDevice.value] : [])])
   const entries = await Promise.all(
     [...ids].map(async (id) => {
@@ -203,18 +298,28 @@ async function loadDeviceConfigs() {
       }
     }),
   )
-  deviceConfigs.value = new Map(entries.filter((entry): entry is readonly [string, ImMonitorConfig] => entry !== null))
+  if (!disposed && request === deviceConfigsRequest) {
+    deviceConfigs.value = new Map(entries.filter((entry): entry is readonly [string, ImMonitorConfig] => entry !== null))
+  }
 }
 
+let deviceConfigsRequest = 0
+let configRequest = 0
 async function loadConfig() {
+  const request = ++configRequest
+  const deviceId = cfgDevice.value
+  cfg.value = null
   if (!cfgDevice.value) return
   cfgMessage.value = ''
   cfgMessageIsError.value = false
   cfgErrors.value = []
   try {
-    cfg.value = await fetchImConfig(cfgDevice.value)
+    const next = await fetchImConfig(deviceId)
+    if (disposed || request !== configRequest || deviceId !== cfgDevice.value) return
+    cfg.value = next
     await loadDeviceConfigs()
   } catch (error) {
+    if (disposed || request !== configRequest || deviceId !== cfgDevice.value) return
     cfg.value = null
     cfgMessageIsError.value = true
     cfgMessage.value = error instanceof ImApiError ? error.message : '监控设置加载失败'
@@ -233,7 +338,7 @@ function togglePlatform(key: string) {
 const cfgDutyStatus = computed(() => (cfg.value ? imDutyStatus(cfg.value) : 'off'))
 
 async function saveConfig() {
-  if (!cfg.value || !cfgDevice.value) return
+  if (!cfg.value || !cfgDevice.value || !canEditConfig.value) return
   cfgMessage.value = ''
   cfgMessageIsError.value = false
   const draft = {
@@ -266,6 +371,15 @@ watch(deviceFilter, (value) => {
     void loadConfig()
   }
 })
+
+watch([deviceFilter, unreadOnly, bucket], () => {
+  ++contextRevision
+  threads.value = []
+  bucketCounts.value = null
+  errorMessage.value = ''
+  successMessage.value = ''
+  void refreshThreads(false)
+}, { flush: 'sync' })
 
 watch(configDeviceOptions, (options) => {
   if (cfgDevice.value && options.some((option) => option.id === cfgDevice.value)) return
@@ -310,7 +424,7 @@ let pollTimer: ReturnType<typeof setInterval> | null = null
 
 let pollInFlight = false
 async function pollInbox() {
-  if (disposed || pollInFlight || document.visibilityState !== 'visible') return
+  if (disposed || pollInFlight || classificationBusy.value || document.visibilityState !== 'visible') return
   pollInFlight = true
   try {
     if (await refreshThreads(true)) await refreshSelectedMessages()
@@ -351,6 +465,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   disposed = true
   ++threadRequest
+  ++messageRequest
   stopPolling()
   document.removeEventListener('visibilitychange', onVisibilityChange)
 })
@@ -365,7 +480,7 @@ onBeforeUnmount(() => {
       <div class="yy-actions">
         <label class="yy-field">
           <span>设备</span>
-          <select v-model="deviceFilter" @change="refreshThreads(false)">
+          <select v-model="deviceFilter">
             <option value="">全部设备</option>
             <option v-for="option in filterDeviceOptions" :key="option.id" :value="option.id">
               {{ option.name }}（{{ deviceShort(option.id) }}）
@@ -373,15 +488,19 @@ onBeforeUnmount(() => {
           </select>
         </label>
         <label class="yy-check">
-          <input v-model="unreadOnly" type="checkbox" @change="refreshThreads(false)" />
+          <input v-model="unreadOnly" type="checkbox" />
           <span>只看未读</span>
         </label>
-        <button class="yy-btn" type="button" @click="refreshThreads()">刷新</button>
+        <button class="yy-btn im-refresh" type="button" title="刷新收件箱" aria-label="刷新收件箱" :disabled="!!classificationBusy" @click="refreshInbox">
+          <RefreshCw :size="16" aria-hidden="true" />
+        </button>
       </div>
     </header>
 
     <p v-if="errorMessage" class="yy-error">{{ errorMessage }}</p>
     <p v-if="successMessage" class="yy-ok">{{ successMessage }}</p>
+    <p v-if="classificationError" class="yy-error" role="alert">{{ classificationError }}</p>
+    <p v-if="classificationNotice" class="yy-ok" role="status">{{ classificationNotice }}</p>
 
     <section v-if="configDeviceOptions.length > 0" class="yy-panel im-config">
       <header class="im-config-head">
@@ -444,9 +563,27 @@ onBeforeUnmount(() => {
       </template>
     </section>
 
-    <div class="im-layout">
-      <aside class="im-threads" aria-label="会话列表">
-        <p v-if="visibleThreads.length === 0" class="yy-sub">暂无消息。手机在线收到消息后会出现在这里。</p>
+    <div class="yy-tabs im-buckets" role="tablist" aria-label="消息分类">
+      <button
+        v-for="item in IM_BUCKETS"
+        :id="`im-tab-${item.key}`"
+        :key="item.key"
+        type="button"
+        role="tab"
+        class="yy-tab"
+        :class="{ active: bucket === item.key }"
+        :aria-selected="bucket === item.key"
+        aria-controls="im-inbox-panel"
+        @click="bucket = item.key"
+      >
+        {{ item.label }}
+        <span :title="bucketCounts ? '匹配会话数' : '服务端未提供分类计数'">{{ bucketCounts?.[item.key] ?? '—' }}</span>
+      </button>
+    </div>
+    <div id="im-inbox-panel" class="im-layout" role="tabpanel" :aria-labelledby="`im-tab-${bucket}`">
+      <aside class="im-threads" aria-label="会话列表" :aria-busy="threadsLoading">
+        <p v-if="threadsLoading" class="yy-sub" role="status">加载会话中…</p>
+        <p v-else-if="visibleThreads.length === 0" class="yy-sub">当前分类暂无会话。</p>
         <button
           v-for="thread in visibleThreads"
           :key="thread.id"
@@ -457,8 +594,9 @@ onBeforeUnmount(() => {
         >
           <span class="im-peer">
             {{ thread.peerName }}
-            <em v-if="thread.unreadCount > 0" class="im-badge">{{ thread.unreadCount }}</em>
+            <em v-if="thread.unreadCount > 0" class="im-badge" title="整个会话未读数">{{ thread.unreadCount }}</em>
             <span class="im-platform" :data-platform="thread.platform">{{ imPlatformLabel(thread.platform) }}</span>
+            <span v-if="thread.lastDirection === 'IN'" class="im-platform">{{ categoryLabel(thread.lastMessageClassification?.category) }}</span>
             <span v-if="dutyChips.get(thread.deviceId)" class="im-duty" :data-state="dutyChips.get(thread.deviceId)?.state">
               {{ dutyChips.get(thread.deviceId)?.label }}
             </span>
@@ -482,7 +620,8 @@ onBeforeUnmount(() => {
             </span>
             <span class="im-meta">{{ deviceLabel(selected.deviceId) }}</span>
           </header>
-          <div class="im-stream">
+          <div class="im-stream" :aria-busy="messagesLoading">
+            <p v-if="messagesLoading" class="yy-sub" role="status">加载消息中…</p>
             <div
               v-for="message in messages"
               :key="message.id"
@@ -491,8 +630,15 @@ onBeforeUnmount(() => {
             >
               <span class="im-text">{{ message.text }}</span>
               <span class="im-time">{{ timeLabel(message.occurredAt) }}</span>
+              <MessageClassification
+                :message="message"
+                :can-edit="canEditConfig"
+                :busy="!!classificationBusy"
+                @classify="changeClassification(message, $event)"
+                @reclassify="changeClassification(message, null, true)"
+              />
             </div>
-            <p v-if="messages.length === 0" class="yy-sub">该会话暂无消息记录。</p>
+            <p v-if="!messagesLoading && messages.length === 0" class="yy-sub">当前分类暂无消息记录。</p>
           </div>
           <p v-if="!canReply" class="yy-sub">只读收件箱</p>
           <form v-else class="im-composer" @submit.prevent="sendReply">
@@ -517,7 +663,7 @@ onBeforeUnmount(() => {
 <style scoped>
 .im-layout {
   display: grid;
-  grid-template-columns: minmax(240px, 320px) 1fr;
+  grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
   gap: 16px;
   min-height: 420px;
 }
@@ -529,6 +675,7 @@ onBeforeUnmount(() => {
   overflow-y: auto;
 }
 .im-thread {
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -581,6 +728,7 @@ onBeforeUnmount(() => {
 }
 .im-duty[data-state='inside'] { border-color: #a7f3d0; background: #ecfdf5; color: #065f46; }
 .im-summary {
+  max-width: 100%;
   color: #334155;
   font-size: 12.5px;
   overflow: hidden;
@@ -666,4 +814,15 @@ onBeforeUnmount(() => {
 .im-config-feedback { font-size: 13px; color: #0f766e; }
 .im-config-feedback.error { color: #b91c1c; }
 .im-readonly { color: #b45309; }
+.im-buckets { margin-bottom: 12px; padding-left: 0; background: transparent; }
+.im-buckets > button { cursor: pointer; }
+.im-buckets > button span { min-width: 2ch; text-align: center; font-variant-numeric: tabular-nums; }
+.im-refresh { width: 34px; height: 34px; padding: 0; justify-content: center; }
+.im-conversation, .im-threads { min-width: 0; }
+.im-conversation-head, .im-peer, .im-meta { overflow-wrap: anywhere; }
+@media (max-width: 720px) {
+  .im-layout { grid-template-columns: minmax(0, 1fr); }
+  .im-threads { max-height: 260px; }
+  .im-bubble { max-width: 100%; box-sizing: border-box; }
+}
 </style>
