@@ -3278,6 +3278,18 @@
             "minimum": 10.0,
             "title": "Leaseseconds",
             "type": "integer"
+          },
+          "orderDeliveryProtocol": {
+            "anyOf": [
+              {
+                "const": "order-delivery/1",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Orderdeliveryprotocol"
           }
         },
         "title": "MobileClaimRequest",
@@ -3547,6 +3559,18 @@
               }
             ],
             "title": "Lastappliedcontrolseq"
+          },
+          "orderDeliveryProtocol": {
+            "anyOf": [
+              {
+                "const": "order-delivery/1",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Orderdeliveryprotocol"
           },
           "runnerState": {
             "enum": [
@@ -5312,6 +5336,57 @@
           "orders"
         ],
         "title": "OrderBatchIn",
+        "type": "object"
+      },
+      "OrderDeliveryEnvelope": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "SCREEN",
+              "COMPLETE"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "payloadJson": {
+            "maxLength": 200000,
+            "minLength": 2,
+            "title": "Payloadjson",
+            "type": "string"
+          },
+          "payloadSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Payloadsha256",
+            "type": "string"
+          },
+          "protocolVersion": {
+            "const": "order-delivery/1",
+            "title": "Protocolversion",
+            "type": "string"
+          },
+          "screen": {
+            "maximum": 3.0,
+            "minimum": 0.0,
+            "title": "Screen",
+            "type": "integer"
+          },
+          "taskId": {
+            "maxLength": 36,
+            "minLength": 36,
+            "title": "Taskid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "protocolVersion",
+          "taskId",
+          "kind",
+          "screen",
+          "payloadJson",
+          "payloadSha256"
+        ],
+        "title": "OrderDeliveryEnvelope",
         "type": "object"
       },
       "OrderIn": {
@@ -7837,6 +7912,18 @@
             "minimum": 1.0,
             "title": "Maxrows",
             "type": "integer"
+          },
+          "orderDeliveryProtocol": {
+            "anyOf": [
+              {
+                "const": "order-delivery/1",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Orderdeliveryprotocol"
           },
           "screens": {
             "default": 1,
@@ -17762,6 +17849,49 @@
         "summary": "Get Order Checkpoint",
         "tags": [
           "fleet-orders-companion"
+        ]
+      }
+    },
+    "/companion/v2/orders/delivery": {
+      "post": {
+        "operationId": "deliver_orders_companion_v2_orders_delivery_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderDeliveryEnvelope"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Deliver Orders Companion V2 Orders Delivery Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Deliver Orders",
+        "tags": [
+          "orders"
         ]
       }
     },
