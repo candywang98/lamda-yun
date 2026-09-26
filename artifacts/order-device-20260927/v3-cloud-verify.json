@@ -1,0 +1,18 @@
+{
+  "action": "verify",
+  "observedAt": "2026-09-26 16:46:33.581594+00:00",
+  "idle": true,
+  "counts": {
+    "tasks": 377,
+    "outgoingMessages": 23
+  },
+  "bindingRetained": true,
+  "device": {
+    "maintenance": false,
+    "version": 8,
+    "capabilities": "{\"mobileDirect\": true, \"companionVersion\": \"0.1.0-business-acceptance.3\", \"accessibilityEnabled\": true, \"runnerState\": \"IDLE\", \"health\": {\"batteryPercent\": 98, \"charging\": true, \"network\": \"WIFI\", \"temperatureCelsius\": 32.0, \"freeStorageBytes\": 72802086912, \"manufacturer\": null, \"model\": null, \"sdkInt\": null, \"romSummary\": null, \"mediaProjection\": null, \"inputMethod\": null, \"gestureAvailable\": null}, \"capabilitiesVersion\": 35435, \"safetyBarrier\": \"NONE\", \"orderDeliveryProtocol\": \"order-delivery/1\"}",
+    "last_seen_at": "2026-09-26 16:46:30.267553+00:00"
+  },
+  "receiveOnly": true,
+  "mode": "NOTIFICATION"
+}

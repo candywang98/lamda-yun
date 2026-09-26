@@ -1,5 +1,10 @@
 # OnePlus Unplugged Order Attempt And Admission Fix
 
+Follow-up: the user reconnected USB and authorized the controller to install
+v3. [Installation completed](v3-install-report.md), with binding and permissions
+retained. The manual-install wait below describes the earlier handoff; the
+current remaining gate is a new ADB-disconnected v3 collection attempt.
+
 ## Runtime Result
 
 User confirmed USB disconnection. Local `adb devices -l` returned an empty
