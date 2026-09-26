@@ -762,6 +762,39 @@
         "title": "BatchOperationCreate",
         "type": "object"
       },
+      "ClassificationIn": {
+        "additionalProperties": false,
+        "properties": {
+          "category": {
+            "anyOf": [
+              {
+                "enum": [
+                  "HUMAN_MESSAGE",
+                  "SYSTEM_NOTICE",
+                  "PROMOTION",
+                  "UNKNOWN"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "expectedVersion": {
+            "minimum": 0.0,
+            "title": "Expectedversion",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "category",
+          "expectedVersion"
+        ],
+        "title": "ClassificationIn",
+        "type": "object"
+      },
       "CollectListingsStep": {
         "additionalProperties": false,
         "description": "Collect the whole 在卖 tab of 我发布的 (xy-tasks-24, listing-collect).\n\nOne action runs the full loop on the companion: dismiss the entry popups,\nread every visible card's content-desc, push the parsed rows per screen,\nsemantic-scroll, and stop at the 「所有宝贝加载完成」 anchor (or the\nmaxScreens bound). Read-only: the only gestures are popup dismiss and the\nlist's own scroll action — never a card tap.",
@@ -2542,6 +2575,16 @@
       "ImMessageIn": {
         "additionalProperties": false,
         "properties": {
+          "notificationMetadata": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NotificationMetadata"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "occurredAt": {
             "format": "date-time",
             "title": "Occurredat",
@@ -4099,6 +4142,49 @@
           "reason"
         ],
         "title": "MobileTaskRelease",
+        "type": "object"
+      },
+      "NotificationMetadata": {
+        "additionalProperties": false,
+        "properties": {
+          "category": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "channelId": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Channelid"
+          },
+          "packageName": {
+            "anyOf": [
+              {
+                "const": "com.taobao.idlefish",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Packagename"
+          }
+        },
+        "title": "NotificationMetadata",
         "type": "object"
       },
       "OperationApprovalRequest": {
@@ -6323,6 +6409,21 @@
           "expectedCurrentVersionId"
         ],
         "title": "RecipeRollbackRequest",
+        "type": "object"
+      },
+      "ReclassificationIn": {
+        "additionalProperties": false,
+        "properties": {
+          "expectedVersion": {
+            "minimum": 0.0,
+            "title": "Expectedversion",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "expectedVersion"
+        ],
+        "title": "ReclassificationIn",
         "type": "object"
       },
       "ReviewOrdersStep": {
@@ -10361,6 +10462,114 @@
         ]
       }
     },
+    "/api/v1/im/messages/{message_id}:classify": {
+      "post": {
+        "operationId": "classify_message_api_v1_im_messages__message_id__classify_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "message_id",
+            "required": true,
+            "schema": {
+              "title": "Message Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClassificationIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Classify Message Api V1 Im Messages  Message Id  Classify Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Classify Message",
+        "tags": [
+          "im-operator"
+        ]
+      }
+    },
+    "/api/v1/im/messages/{message_id}:reclassify": {
+      "post": {
+        "operationId": "reclassify_message_api_v1_im_messages__message_id__reclassify_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "message_id",
+            "required": true,
+            "schema": {
+              "title": "Message Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReclassificationIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Reclassify Message Api V1 Im Messages  Message Id  Reclassify Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reclassify Message",
+        "tags": [
+          "im-operator"
+        ]
+      }
+    },
     "/api/v1/im/threads": {
       "get": {
         "operationId": "list_threads_api_v1_im_threads_get",
@@ -10417,6 +10626,22 @@
               "minimum": 1,
               "title": "Limit",
               "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "bucket",
+            "required": false,
+            "schema": {
+              "default": "all",
+              "enum": [
+                "all",
+                "user",
+                "notice",
+                "review"
+              ],
+              "title": "Bucket",
+              "type": "string"
             }
           }
         ],
@@ -10499,6 +10724,22 @@
               "default": false,
               "title": "Latest",
               "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "bucket",
+            "required": false,
+            "schema": {
+              "default": "all",
+              "enum": [
+                "all",
+                "user",
+                "notice",
+                "review"
+              ],
+              "title": "Bucket",
+              "type": "string"
             }
           }
         ],
