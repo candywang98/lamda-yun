@@ -7,6 +7,17 @@
  "activated_by": "R02 @bf6529b；2026-09-20 补记状态翻转与 WAIT_CONTRACT 重算（见 docs/current/README.md R02 补记）",
  "source_scope": "single-sheet audit + selected code + user APK/QA; R02 imports remaining workbook acceptance",
  "max_writers": 3,
+ "current_application_release": {
+  "release": "listing-sync-b3bd1f3",
+  "deployed_at": "2026-09-26T22:39:14+08:00",
+  "previous_release": "im-notify-bb19ad2",
+  "database_revision": "20260926_0034",
+  "production_migration_run": false,
+  "receive_only": true,
+  "notification_mode": true,
+  "evidence": "artifacts/workflow-readiness-20260926/activation-result.json",
+  "limits": "HTTP和真实存量数据读验通过；未安装APK、未派发真机采集，浏览器视觉及现有三台端到端验收仍待完成"
+ },
  "fleet_acceptance_scope": {
   "decision_id": "D-11",
   "decided_at": "2026-09-26",
@@ -2132,6 +2143,7 @@
     "mobile/companion/app/src/main/java/com/company/cloudctl/companion/automation/OrderReading.kt",
     "mobile/companion/app/src/main/java/com/company/cloudctl/companion/features/xianyu/orders/**",
     "services/control-api/src/cloudctl_api/fleet_orders.py",
+    "tests/integration/test_order_checkpoint_runs.py",
     "apps/web/src/features/orders/**"
    ],
    "required_locks": [
@@ -2160,10 +2172,10 @@
     "ISS-22"
    ],
    "risk": "中",
-   "device_acceptance": "无；仅软件验证",
+   "device_acceptance": "历史软件测试不代表断网与恢复闭环；新版本需在现有三台范围内核对只读采集，禁止发货/评价/交易写操作",
    "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
-   "dev_state": "SOFTWARE_DONE",
-   "acceptance_state": "SOFTWARE_ACCEPTED",
+   "dev_state": "IN_PROGRESS",
+   "acceptance_state": "NOT_RUN",
    "evidence": "agent/fleet-o10 @ee02fe3 merged 15b4d3d. features/xianyu/orders (OrderDedupe REAL_ID/MISSING_ID, OrderPagination cursor+3-stop scroll policy, OrderCheckpoint 5-tuple binding, OrderHistoryWindow); fleet_orders.py (screens push + checkpoint guard + tenant-scoped history); migration 0026; Web orders history view. Android 833/0, backend 922 passed, Web 246/246. Seams for next wave: executor readOrders wiring to registry/scroll-policy + screens payload, checkpoint persistence location. WIRE merged d6c9587: executor wired to OrderSeenRegistry/OrderScrollPolicy (3-stop before journal), screens payload dual-write (batch retained), checkpoint persisted SharedPreferences bound 5-tuple; payload golden == FleetOrderScreenIn.",
    "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
    "read_only_paths": [
@@ -2171,7 +2183,14 @@
     "AGENTS.md"
    ],
    "baseline_sha": "4af3698c6f31f041c957a490a48adaeb71ca5ef1",
-   "scope_note": "先复用现存实现和已合入成果，只实现差额；新增目录为拟议路径，本机核验后固定。",
+   "scope_note": "2026-09-26重新审计确认readOrders已接线，但上传失败吞错、恢复屏号归零、任务缺少账号绑定等生产路径缺陷未被既有测试覆盖，故重开可靠性增量。9cdc27e已修复首次非第一屏拒绝和新run断点计数重置，订单46测试通过（含SQLite/PostgreSQL新增6项），22:39:14+08:00随listing-sync-b3bd1f3部署。保留历史软件证据，不将局部修复称为同步闭环完成。",
+   "remaining_gates": [
+    "P1：订单逐屏载荷持久化与独立重试，采集结束和上传完成分开；当前上传异常仅写日志",
+    "P1：恢复执行需还原屏号、已见集合与未确认载荷；当前execute重置状态却跳过已完成步骤",
+    "P1：采集任务冻结真实账号及绑定版本，积压数据不得随设备换号重绑；完整历史账号隔离单独设计",
+    "P2：单屏旧batch路径不刷新状态；多屏batch后screens双写使新增统计失真，需版本化兼容升级",
+    "本轮断点修复不等于以上问题已解决；下一切片先冻结持久上传与恢复契约，再派发跨组件实现"
+   ],
    "acceptance_commands": [
     "在所声明新测试文件落地后运行其定向测试；测试名由taskId登记",
     "cd mobile/companion && ./gradlew testDebugUnitTest lint assembleDebug（涉及Android时）",
@@ -4191,42 +4210,60 @@
     "services/control-api/migrations/versions/20260920_0030_fleet_listings.py",
     "mobile/companion/app/src/main/java/com/company/cloudctl/companion/automation/ListingReading.kt",
     "apps/web/src/features/fleet/listings-api.ts",
-    "tests/integration/test_fleet_listings.py"
+    "apps/web/src/views/ListingInfoCollectView.vue",
+    "apps/web/src/features/fleet/listing-collection.ts",
+    "apps/web/tests/listings-api.spec.ts",
+    "apps/web/tests/listing-info-collect.spec.ts",
+    "tests/integration/test_fleet_listings.py",
+    "tests/integration/test_listing_history_devices.py"
    ],
    "required_locks": [
-    "XY:COLLECT"
+    "XY:COLLECT",
+    "API:LISTINGS",
+    "WEB:LISTINGS"
    ],
    "effort_low": 1.0,
    "effort_high": 2,
    "implementation": [
     "身份=组合自然键{title}|{price_cents}（与订单slice1同清洗规则，绝不伪造平台ID；真实15-24位数字ID以REAL_ID标记）",
     "变更历史只在内容哈希变化时追加（价格/状态变化可查询）；同屏重放幂等不双计",
-    "companion解析器拒绝无价/无题卡片(Skipped非任务失败)；卡片级行料校准等A机闲鱼重登后补",
-    "执行器ui.readListings动作接线为下一波接缝（导航+滑动+逐屏上报）"
+    "companion解析器拒绝无价/无题卡片；2026-09-21已完成卡片校准与ui.collectListings执行器真机循环，保留既有实现",
+    "2026-09-26补齐每次新采集独立幂等键、防重复提交、按设备回执与失败重试；移除尚未接线的定时控件",
+    "历史返回记录ID、设备及平台，支持来源筛选和稳定分页；同设备同标题同价仍为组合身份限制"
    ],
    "acceptance_cases": [
     "推送/去重/变更历史/重放/租户隔离集成测试",
-    "真实商品入库需A机闲鱼登录态恢复后真机采集验收"
+    "三设备同键不串归属、分页并列排序稳定；网页重复采集、防双击、部分失败重试和错误状态",
+    "保留2026-09-21单机真实采集证据；新版本部署与现有三台实测单独验收"
    ],
    "sources": [
     "S01"
    ],
    "issues": [],
    "risk": "中",
-   "device_acceptance": "真机采集需已登录闲鱼的设备(当前A机登录态失效待重登)；无障碍不前置(只读采集)",
+   "device_acceptance": "2026-09-21历史记录：A机38屏、156组合身份、任务SUCCEEDED，见artifacts/tasks/X13/summary.md。当前版本真机需重新核对登录态、无障碍、绑定及设备空闲；只读业务采集仍会导航手机UI，需要设备独占锁。历史记录不等于本轮三机验收。",
    "rollback": "回退本切片提交与迁移0030；采集数据可重采",
-   "dev_state": "SOFTWARE_DONE",
-   "acceptance_state": "NOT_RUN",
+   "dev_state": "IN_PROGRESS",
+   "acceptance_state": "DEVICE_WAIT",
    "evidence": "artifacts/tasks/X13/",
-   "contract": "listing-collect/20260920.1(本切片冻结)",
+   "contract": "listing-collect/20260920.1；本轮增量listing-sync/20260926.1，contracts/phase1/listing-sync-readiness-20260926.md",
    "read_only_paths": [
     "contracts/**",
     "AGENTS.md"
    ],
    "baseline_sha": "4af3698c6f31f041c957a490a48adaeb71ca5ef1",
-   "scope_note": "软件层先行；卡片级校准与执行器接线登记为接缝",
+   "scope_note": "2026-09-26纠正旧计划：执行器不是未接线，2026-09-21已有单机完整采集记录。本轮商品同步操作页与多设备历史来源已修复并于22:39:14+08:00部署listing-sync-b3bd1f3；主分支Web414、聚焦Web407、聚焦后端196通过。云端156条历史商品不变，读验100条来源字段。不扩到五台/十台，未派发采集、发布或下架。网页视觉、新版本三机和Android上传持久化仍待完成。",
+   "remaining_gates": [
+    "新版网页视觉验收与现有三台真实采集；历史单机证据不替代本轮结果",
+    "同一设备同标题同价仍合并为组合身份，未解决真实平台ID锚定",
+    "Android商品逐屏上传失败仍仅记录日志，尚无持久补传；已受理不等于同步成功",
+    "网页未确认批次状态目前仅在内存保留，跨刷新恢复未实现"
+   ],
    "acceptance_commands": [
-    "python -m pytest -q tests/integration/test_fleet_listings.py"
+    ".venv/bin/pytest -q tests/integration/test_platform_tasks.py tests/integration/test_fleet_listings.py tests/integration/test_listing_history_devices.py",
+    "pnpm --dir apps/web test",
+    "pnpm --dir apps/web build",
+    ".venv/bin/python scripts/plan_guard.py docs/current/tasks.json"
    ],
    "activation": "R02已激活；用户指定商品同步优先(2026-09-20)"
   }

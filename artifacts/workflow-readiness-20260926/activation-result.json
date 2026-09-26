@@ -1,0 +1,28 @@
+{
+  "activated": true,
+  "release": "listing-sync-b3bd1f3",
+  "sourceSha": "b3bd1f3",
+  "activatedAt": "2026-09-26T14:39:14Z",
+  "backupRestoreVerified": true,
+  "schema": "20260926_0034",
+  "productionMigrationRun": false,
+  "receiveOnly": true,
+  "imMode": "NOTIFICATION",
+  "webContentArchived": true,
+  "admissionsStoppedDuringSwitch": true,
+  "listingTotal": 156,
+  "sourceFieldsVerified": 100,
+  "listingSources": [
+    "4aabc387-6e4b-4b59-a525-b1c119ec7f5b"
+  ],
+  "originalMessagesUnchanged": 128,
+  "outCount": 23,
+  "taskCount": 376,
+  "webAssetsVerified": 2,
+  "browserVisualVerified": false,
+  "androidInstalled": false,
+  "realCollectionDispatched": false,
+  "oldApi": "/home/ubuntu/cloudctl-mobile/releases/im-notify-bb19ad2",
+  "oldWeb": "/var/www/cloudctl-mobile-im-notify-bb19ad2",
+  "dropIn": "/etc/systemd/system/cloudctl-mobile-api.service.d/99-zzzzzzzzzzzzz-listing-sync.conf"
+}
