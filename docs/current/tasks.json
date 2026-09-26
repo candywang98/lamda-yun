@@ -2017,7 +2017,7 @@
     "ISS-21"
    ],
    "risk": "高",
-   "device_acceptance": "2026-09-26先VOG单机真实入站到网页，再扩三台；后台长期稳定性不作前置。19:47已部署只收不发和Jev；20:16正常重新入网解决租户不匹配。20:43收到一条真实闲鱼通知并入库，工作台API一致，Jev HTTP200/UNKNOWN/0.39；但只有通知摘要，未获取聊天原文且未完成浏览器视觉验收，单机仍未通过。另一台P30最近心跳无障碍关闭，不能算接入完成",
+   "device_acceptance": "2026-09-26先VOG单机真实入站到网页，再扩三台；后台长期稳定性和完整聊天正文不作前置。19:47已部署只收不发和Jev；20:16正常重新入网解决租户不匹配。20:43真实闲鱼通知入库、工作台API一致，Jev HTTP200，应用最终UNKNOWN/0.39，旧实现未保留原始预测。用户确认通知用途分类优先，网页视觉验收仍待完成。另一台P30最近心跳无障碍关闭，不能算接入完成",
    "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
    "dev_state": "IN_PROGRESS",
    "acceptance_state": "DEVICE_WAIT",
@@ -2028,7 +2028,7 @@
     "AGENTS.md"
    ],
    "baseline_sha": "4af3698c6f31f041c957a490a48adaeb71ca5ef1",
-   "scope_note": "保留原I10软件验收证据；2026-09-26用户增加单机真实入站优先和Jev分类接入，重新进入增量IN_PROGRESS/DEVICE_WAIT，不代表原软件测试失效。禁止发送，长期保活不阻塞本轮单机接入。",
+   "scope_note": "保留原I10软件验收证据；2026-09-26用户确认通知用途分类、网页分区、人工纠正和Jev原始预测持久化，合同im-notify/20260926.1。增量IN_PROGRESS/DEVICE_WAIT不代表原软件测试失效。禁止发送，长期保活和完整聊天正文均不阻塞本轮单机接入。",
    "receive_first_20260926": {
     "priority": "ONE_DEVICE_REAL_XIANYU_MESSAGE_TO_WEB_THEN_THREE_DEVICES",
     "entry": "docs/current/im-receive-priority-20260926.md",
@@ -2064,7 +2064,7 @@
     "jev_real_notification_category": "UNKNOWN",
     "jev_real_notification_confidence": 0.39,
     "software_validation": "聚焦发布基于线上571ce32：后端95 passed，迁移3 passed，Web IM 22 passed及生产构建通过；66表快照备份还原一致，隔离升级/降级/再升级后65业务表摘要不变；Jev云端合成系统样本HTTP200。主分支Web全套312 passed。上述不构成新真实消息到网页验收",
-    "next": "VOG已有真实通知到云端和工作台API证据，但只含通知摘要；先解决不依赖回复任务的正文读取并完成网页视觉核对，禁止为补正文发送回复。另一台P30需恢复可检查连接并核验无障碍/APK；三机扩展仍在单机验收后。浏览器空间18仍交由用户，B11不重开"
+    "next": "优先完成通知分类侧表、Jev原始结果、网页用户/系统营销/待确认分区及人工纠正并部署云端；保留通知原文，低置信度不丢弃。Android移除通知入口硬过滤并保留元数据，安装需独立确认手机空闲及设备锁。完整聊天正文不作前置。浏览器空间18仍交由用户，需归还后视觉核验；单机通过后再扩三机，B11不重开"
    },
    "acceptance_commands": [
     "在所声明新测试文件落地后运行其定向测试；测试名由taskId登记",

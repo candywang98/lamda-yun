@@ -1,11 +1,11 @@
-"""Optional Jev SystemOne classification; never sends, deletes, or stores messages."""
+"""Optional Jev SystemOne classification; never sends or deletes messages."""
 
 from __future__ import annotations
 
 import asyncio
 import json
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
 
 import httpx
 from pydantic import BaseModel, ConfigDict, Field
@@ -44,6 +44,7 @@ class MessageAssessment:
     confidence: float = 0.0
     status: str = "DISABLED"
     http_status: int | None = None
+    predicted_category: Category | None = None
 
 
 class ImMessageClassifier:
@@ -53,7 +54,14 @@ class ImMessageClassifier:
         self.settings = settings
         self.transport = transport
 
-    async def classify(self, *, platform: str, title: str, text: str) -> MessageAssessment:
+    async def classify(
+        self,
+        *,
+        platform: str,
+        title: str,
+        text: str,
+        notification_metadata: dict[str, str | None] | None = None,
+    ) -> MessageAssessment:
         if not self.settings.im_classifier_enabled:
             return MessageAssessment()
         if (
@@ -68,11 +76,17 @@ class ImMessageClassifier:
         base_url = self.settings.im_classifier_base_url
         if key is None or base_url is None:
             return MessageAssessment(status="NOT_CONFIGURED")
-        payload = {
+        payload: dict[str, Any] = {
             "model": self.settings.im_classifier_model,
             "state": {"platform": platform, "title": title, "text": text},
             "questions": {"message_kind": QUESTION},
         }
+        if notification_metadata is not None:
+            payload["state"]["notificationMetadata"] = {
+                key: value
+                for key, value in notification_metadata.items()
+                if key in {"packageName", "channelId", "category"}
+            }
         try:
             async with (
                 asyncio.timeout(self.settings.im_classifier_http_timeout_seconds),
@@ -110,11 +124,15 @@ class ImMessageClassifier:
             or answer.confidence < self.settings.im_classifier_confidence_threshold
         ):
             return MessageAssessment(
-                confidence=answer.confidence, status="NEEDS_REVIEW", http_status=200
+                confidence=answer.confidence,
+                status="NEEDS_REVIEW",
+                http_status=200,
+                predicted_category=answer.choice,
             )
         return MessageAssessment(
             category=answer.choice,
             confidence=answer.confidence,
             status="CLASSIFIED",
             http_status=200,
+            predicted_category=answer.choice,
         )
