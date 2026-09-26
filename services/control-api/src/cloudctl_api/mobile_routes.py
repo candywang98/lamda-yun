@@ -230,7 +230,7 @@ async def publish_listing(
 async def claim(
     body: MobileClaimRequest, current: Binding, mobile: Service, response: Response
 ) -> dict[str, Any] | None:
-    result = await mobile.claim(current, body.lease_seconds)
+    result = await mobile.claim(current, body.lease_seconds, body.order_delivery_protocol)
     if result is None:
         response.status_code = status.HTTP_204_NO_CONTENT
     return result

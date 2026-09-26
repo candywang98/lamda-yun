@@ -462,6 +462,9 @@ class MobilePublishListingRequest(StrictModel):
 
 class MobileClaimRequest(StrictModel):
     lease_seconds: int = Field(default=60, alias="leaseSeconds", ge=10, le=300)
+    order_delivery_protocol: Literal["order-delivery/1"] | None = Field(
+        default=None, alias="orderDeliveryProtocol"
+    )
 
 
 class MobileTaskRelease(StrictModel):
@@ -507,6 +510,9 @@ class MobileDeviceHealth(StrictModel):
 
 
 class MobileDeviceHeartbeat(StrictModel):
+    order_delivery_protocol: Literal["order-delivery/1"] | None = Field(
+        default=None, alias="orderDeliveryProtocol"
+    )
     companion_version: str = Field(alias="companionVersion", min_length=1, max_length=128)
     android_version: str | None = Field(default=None, alias="androidVersion", max_length=32)
     accessibility_enabled: bool = Field(alias="accessibilityEnabled")

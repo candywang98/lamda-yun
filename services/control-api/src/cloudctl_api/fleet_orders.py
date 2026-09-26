@@ -290,6 +290,14 @@ class FleetOrdersService:
         now = _now()
         collected_at = parse_occurred_at(body.collected_at)
         async with self.database.unit_of_work() as session:
+            from .db import MobileTaskRow
+            from .order_delivery import delivery_metadata
+
+            task = await session.get(MobileTaskRow, body.run_key)
+            if task is not None and delivery_metadata(task) is not None:
+                if task.tenant_id != tenant_id or task.device_id != device_id:
+                    raise NotFoundError("order collection task was not found")
+                raise ConflictError("ORDER_DELIVERY_PROTOCOL_REQUIRED")
             device = await session.get(DeviceRow, device_id)
             if device is None or device.tenant_id != tenant_id:
                 raise NotFoundError("device was not found")

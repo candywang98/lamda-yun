@@ -877,6 +877,9 @@ class MobileTaskService:
             capabilities["companionVersion"] = body.companion_version
             capabilities["accessibilityEnabled"] = body.accessibility_enabled
             capabilities["runnerState"] = body.runner_state
+            capabilities.pop("orderDeliveryProtocol", None)
+            if body.order_delivery_protocol is not None:
+                capabilities["orderDeliveryProtocol"] = body.order_delivery_protocol
             capabilities["capabilitiesVersion"] = (
                 int(capabilities.get("capabilitiesVersion") or 0) + 1
             )
@@ -1211,12 +1214,15 @@ class MobileTaskService:
         requested_by: str,
         key: str,
         body: MobileTaskCreate,
+        order_collection: dict[str, Any] | None = None,
     ) -> tuple[dict[str, Any], bool]:
         if body.target_package not in ALLOWED_PACKAGES:
             raise ValidationError("targetPackage must be an allowlisted application")
         if not key or len(key) > 128:
             raise ValidationError("Idempotency-Key is required and must be at most 128 characters")
         document = body.model_dump(mode="json", by_alias=True, exclude_none=True)
+        if order_collection is not None:
+            document["orderCollection"] = order_collection
         # Xianyu maintenance steps (ui.tapLayout/ui.assertBadge) are accepted only
         # when they match exactly one frozen maintenance command shape.
         from .mobile_actions import (
@@ -1258,9 +1264,35 @@ class MobileTaskService:
                 device = await session.get(DeviceRow, body.device_id, with_for_update=True)
                 if device is None or device.tenant_id != tenant_id:
                     raise NotFoundError("device was not found")
+                # Serialize creation by device, then recheck after a competing
+                # transaction commits. Resolve live identity only for a new run.
+                if order_collection is not None:
+                    existing = await session.scalar(
+                        select(MobileTaskRow).where(
+                            MobileTaskRow.tenant_id == tenant_id,
+                            MobileTaskRow.idempotency_key == key,
+                        )
+                    )
+                    if existing is not None:
+                        if existing.request_sha256 != digest:
+                            raise ConflictError(
+                                "Idempotency-Key was reused with different task content"
+                            )
+                        return self._task_view(existing), False
                 frozen_account_id = body.account_id
                 frozen_binding_version = None
-                if frozen_account_id:
+                frozen_order_collection = None
+                if order_collection is not None:
+                    from .order_delivery import resolve_order_account
+
+                    bound = await resolve_order_account(session, device)
+                    frozen_account_id = bound.account_id
+                    frozen_binding_version = bound.binding_version
+                    frozen_order_collection = {
+                        **order_collection,
+                        "mobileBindingId": device.active_binding_id,
+                    }
+                elif frozen_account_id:
                     account_binding = await session.scalar(
                         select(AccountDeviceBindingRow)
                         .where(
@@ -1308,7 +1340,7 @@ class MobileTaskService:
                     command_payload={},
                     business_state="QUEUED",
                     control_mode="AUTO",
-                    batch_id=None,
+                    batch_id=order_collection["runId"] if order_collection else None,
                     scheduled_for=None,
                     stall_reason=None,
                     attempt_id=str(uuid.uuid4()),
@@ -1319,6 +1351,11 @@ class MobileTaskService:
                         {
                             "totalTimeoutMs": body.total_timeout_ms,
                             "mediaDelivery": document.get("mediaDelivery"),
+                            **(
+                                {"orderCollection": frozen_order_collection}
+                                if frozen_order_collection
+                                else {}
+                            ),
                         },
                         *document["steps"],
                     ],
@@ -1338,6 +1375,16 @@ class MobileTaskService:
                 session.add(row)
             return self._task_view(row), True
         except IntegrityError as exc:
+            if order_collection is not None:
+                async with self.database.unit_of_work() as session:
+                    existing = await session.scalar(
+                        select(MobileTaskRow).where(
+                            MobileTaskRow.tenant_id == tenant_id,
+                            MobileTaskRow.idempotency_key == key,
+                        )
+                    )
+                    if existing is not None and existing.request_sha256 == digest:
+                        return self._task_view(existing), False
             raise ConflictError("task idempotency conflict") from exc
 
     async def list_tasks(self, actor: Actor) -> list[dict[str, Any]]:
@@ -1370,9 +1417,15 @@ class MobileTaskService:
             view["events"] = [self._event_view(event) for event in events]
             return view
 
-    async def claim(self, binding: MobileBindingRow, lease_seconds: int) -> dict[str, Any] | None:
+    async def claim(
+        self,
+        binding: MobileBindingRow,
+        lease_seconds: int,
+        order_delivery_protocol: str | None = None,
+    ) -> dict[str, Any] | None:
         # Lazy import: mobile_actions imports helpers from this module.
         from .mobile_actions import UNPINNED_STEPS_COMMANDS
+        from .order_delivery import PROTOCOL, delivery_identity_error, delivery_metadata
 
         now = _now()
         async with self.database.unit_of_work() as session:
@@ -1469,6 +1522,21 @@ class MobileTaskService:
             row = None
             ineligible: list[tuple[str, list[str]]] = []
             for candidate in queued:
+                if delivery_metadata(candidate) is not None:
+                    if (
+                        order_delivery_protocol != PROTOCOL
+                        or (device.capabilities or {}).get("orderDeliveryProtocol") != PROTOCOL
+                    ):
+                        continue
+                    reason = await delivery_identity_error(session, candidate, device)
+                    if reason:
+                        candidate.status = "FAILED"
+                        candidate.business_state = "FAILED"
+                        candidate.error_code = reason
+                        candidate.completed_at = now
+                        candidate.lease_id = None
+                        candidate.lease_expires_at = None
+                        continue
                 mismatch = await self._account_binding_mismatch(session, candidate)
                 if mismatch:
                     candidate.status = "FAILED"
@@ -2147,6 +2215,14 @@ class MobileTaskService:
             "completedAt": _aware(row.completed_at) if row.completed_at is not None else None,
         }
         control_epoch = metadata.get("controlEpoch")
+        order_meta = metadata.get("orderCollection") or {}
+        if order_meta.get("deliveryProtocol") == "order-delivery/1":
+            view["orderDelivery"] = {
+                "protocolVersion": order_meta["deliveryProtocol"],
+                "mobileBindingId": order_meta["mobileBindingId"],
+                "direction": order_meta["direction"],
+                "maxScreens": order_meta["screens"],
+            }
         if (
             row.command_type
             and row.account_id

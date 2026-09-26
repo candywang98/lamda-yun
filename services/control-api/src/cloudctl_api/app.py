@@ -45,6 +45,8 @@ from .mobile_routes import operator_router as mobile_operator_router
 from .mobile_service import MobileTaskService
 from .operation_routes import router as operation_router
 from .operation_service import OperationService
+from .order_delivery import OrderDeliveryService
+from .order_delivery import router as order_delivery_router
 from .orders_routes import companion_router as orders_companion_router
 from .orders_routes import operator_router as orders_operator_router
 from .orders_service import OrderService
@@ -145,6 +147,7 @@ def create_app(
     app.state.xianyu_delete_evidence_service = XianyuDeleteEvidenceService(database)
     app.state.orders_service = OrderService(database)
     app.state.fleet_orders_service = FleetOrdersService(database)
+    app.state.order_delivery_service = OrderDeliveryService(database)
     app.state.fleet_listings_service = FleetListingsService(database)
     app.state.xianyu_orders_service = XianyuOrdersService(database, app.state.mobile_task_service)
     app.state.platform_task_service = PlatformTaskService(database, app.state.mobile_task_service)
@@ -268,6 +271,7 @@ def create_app(
     app.include_router(orders_operator_router)
     app.include_router(orders_companion_router)
     app.include_router(fleet_orders_router)
+    app.include_router(order_delivery_router)
     app.include_router(fleet_listings_router)
     app.include_router(debug_router)
     app.include_router(mobile_operator_router)
