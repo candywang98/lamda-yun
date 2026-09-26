@@ -392,7 +392,9 @@ describe('OperationsView', () => {
     expect(screen.queryByLabelText('先主后副')).toBeNull()
     expect(screen.getByRole('button', { name: '创建任务' })).toBeTruthy()
     expect(screen.getByRole('button', { name: '保存配置' })).toBeTruthy()
-    expect(screen.getByText(/请勿发布相同标题的宝贝/)).toBeTruthy()
+    expect(screen.getByLabelText('来源设备')).toBeTruthy()
+    expect(screen.getByRole('button', { name: '刷新采集历史' })).toBeTruthy()
+    expect(screen.queryByText(/每天重复执行/)).toBeNull()
     expect(screen.queryByText('竞品页面依据')).toBeNull()
   })
 
