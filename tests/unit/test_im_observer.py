@@ -10,6 +10,12 @@ from cloudctl_api.im_observer import ImClassificationObserver, InboundObservatio
 from cloudctl_api.settings import Settings
 
 
+@pytest.fixture(autouse=True)
+def enable_observer_log_capture(monkeypatch):
+    # Alembic's fileConfig can disable pre-existing loggers in preceding tests.
+    monkeypatch.setattr(logging.getLogger("cloudctl_api.im_observer"), "disabled", False)
+
+
 def observer(*, enabled=True, devices=None, capacity=100):
     settings = Settings(
         env="test",
