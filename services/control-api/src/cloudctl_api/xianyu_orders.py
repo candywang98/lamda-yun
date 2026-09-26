@@ -40,6 +40,7 @@ from .mobile_actions import (
 )
 from .mobile_schemas import MobileTaskCreate
 from .mobile_service import RUNNER_TO_BUSINESS, XIANYU_PACKAGE, MobileTaskService
+from .order_delivery import PROTOCOL, order_delivery_view
 from .xianyu_maintenance import (
     LOG_TIMEOUT_MS,
     NAV_TAP_TIMEOUT_MS,
@@ -148,6 +149,9 @@ class XianyuOrdersCollectRequest(BaseModel):
     direction: Literal["SOLD", "BOUGHT"]
     max_rows: int = Field(alias="maxRows", ge=1, le=10)
     screens: int = Field(default=1, ge=1, le=ORDERS_MAX_SCREENS)
+    order_delivery_protocol: Literal["order-delivery/1"] | None = Field(
+        default=None, alias="orderDeliveryProtocol"
+    )
 
 
 class XianyuOrdersService:
@@ -169,7 +173,9 @@ class XianyuOrdersService:
         # the default screens=1 path keeps the exact v1 derivation so already
         # accepted runs replay to the same run id after this deploy.
         run_material = f"{tenant_id}:xianyu-orders-collect:{key}"
-        if body.screens != 1:
+        if body.order_delivery_protocol:
+            run_material = f"{tenant_id}:{PROTOCOL}:{key}"
+        elif body.screens != 1:
             run_material = f"{run_material}:{body.screens}"
         run_id = str(uuid.uuid5(ORDERS_RUN_ID_NAMESPACE, run_material))
         async with self.database.unit_of_work() as session:
@@ -184,6 +190,17 @@ class XianyuOrdersService:
         command = validate_orders_steps(XIANYU_PACKAGE, steps)
         run_suffix = run_id.replace("-", "")[:8]
         task_key = f"xianyu-collect-orders-{body.device_id}-{body.direction}-{run_suffix}"
+        order_collection = None
+        if body.order_delivery_protocol:
+            task_key = f"order-delivery-{run_id}"
+            order_collection = {
+                "runId": run_id,
+                "deliveryProtocol": PROTOCOL,
+                "direction": body.direction,
+                "maxRows": body.max_rows,
+                "screens": body.screens,
+                "commandType": command,
+            }
         payload: dict[str, Any] = {
             "deviceId": body.device_id,
             "targetPackage": XIANYU_PACKAGE,
@@ -196,8 +213,9 @@ class XianyuOrdersService:
             requested_by=str(actor.user_id),
             key=task_key,
             body=MobileTaskCreate.model_validate(payload),
+            order_collection=order_collection,
         )
-        if created:
+        if created and order_collection is None:
             await self._stamp_run_fields(
                 task_id=str(view["taskId"]),
                 run_id=run_id,
@@ -228,6 +246,10 @@ class XianyuOrdersService:
         if body.screens != 1:
             task["screens"] = body.screens
             run_view["screens"] = body.screens
+        async with self.database.unit_of_work() as session:
+            row = await session.get(MobileTaskRow, view["taskId"])
+            assert row is not None
+            run_view["delivery"] = await order_delivery_view(session, row)
         return (run_view, created)
 
     async def get_run(self, actor: Actor, run_id: str) -> dict[str, Any]:
@@ -260,6 +282,7 @@ class XianyuOrdersService:
                 if rows
                 else []
             )
+            delivery = await order_delivery_view(session, rows[0]) if rows else None
         if not rows:
             raise NotFoundError("order collection run was not found")
         # Minimal slice2 aggregation: per-screen ORDERS_READ_N LOG events from
@@ -312,6 +335,7 @@ class XianyuOrdersService:
             "summary": summary,
             "allTerminal": terminal == len(rows),
             "tasks": tasks,
+            "delivery": delivery,
         }
         if first_meta.get("screens") is not None:
             run["screens"] = first_meta["screens"]
