@@ -2188,7 +2188,7 @@
     "ISS-22"
    ],
    "risk": "中",
-   "device_acceptance": "order-delivery/1软件和云端已验证；新APK未安装，需先一台再现有三台断开USB/无线ADB、无Edge及开发电脑验证只读采集与断网补传，禁止发货/评价/交易写操作",
+   "device_acceptance": "order-delivery/1软件和云端已验证；2026-09-27一加已原位更新businessAcceptance v2并上报协议能力，未派发真实采集。仍需先一台再现有三台断开USB/无线ADB、无Edge及开发电脑验证只读采集与断网补传，禁止发货/评价/交易写操作",
    "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
    "dev_state": "IN_PROGRESS",
    "acceptance_state": "DEVICE_WAIT",
@@ -2199,9 +2199,9 @@
     "AGENTS.md"
    ],
    "baseline_sha": "4af3698c6f31f041c957a490a48adaeb71ca5ef1",
-   "scope_note": "2026-09-26可靠同步切片已实现并软件验证：6e08f61/eb9ffb4/af94623后端、5a231e7 Web、d0a2dbc Android、3f539e9接口。主分支和独立发布包后端均144通过/1个SQLite条件跳过，Web分别496/489通过，集成Android Debug1279/Acceptance1265全通过并构建成功。23:39:50+08:00云端上线order-delivery-557f547及0035，67表备份还原、迁移升降升与66张原业务表保全验证通过，无新手机任务。新版APK未安装、三机无ADB及浏览器视觉未验；完整历史账号隔离与legacy混用保护仍未解决，因此O10整体继续IN_PROGRESS。详见artifacts/order-delivery-20260926/report.md。",
+   "scope_note": "2026-09-26可靠同步切片已实现并软件验证：6e08f61/eb9ffb4/af94623后端、5a231e7 Web、d0a2dbc Android、3f539e9接口。主分支和独立发布包后端均144通过/1个SQLite条件跳过，Web分别496/489通过，集成Android Debug1279/Acceptance1265全通过并构建成功。23:39:50+08:00云端上线order-delivery-557f547及0035，67表备份还原、迁移升降升与66张原业务表保全验证通过。2026-09-27 00:14一加同包同签名原位安装businessAcceptance v2，1265项单测通过，云端收到order-delivery/1能力；绑定/授权保留，维护false/version6和设备锁已收尾，无新手机任务。两台华为未连接ADB且未更新；单机/三机无ADB及浏览器视觉未验。完整历史账号隔离、legacy混用保护、正式更新信任仍单列，因此O10整体继续IN_PROGRESS。详见artifacts/order-delivery-20260926/report.md和artifacts/order-device-20260927/report.md。",
    "remaining_gates": [
-    "DEVICE_WAIT：新APK尚未安装；取得新鲜空闲确认并核对包名/签名/绑定后，先单机再三机断开USB与无线ADB验证真实订单、断网补传和进程恢复",
+    "DEVICE_WAIT：一加businessAcceptance v2已安装并上报新能力，等待用户拔USB/关闭无线ADB后验证真实订单、断网补传和进程恢复；两台华为仍需新鲜空闲确认与同包签名更新，不增加三台以外硬件门槛",
     "Web单测与云端资源校验已通过；浏览器空间18仍交用户，未进行视觉验收",
     "完整历史订单按账号隔离仍需独立设计，不能凭新任务冻结账号声称历史数据已迁移",
     "迟到防回退水位仅覆盖durable到durable；旧screens路径保持兼容且未核验，降级或混用旧通道的覆盖风险单列",

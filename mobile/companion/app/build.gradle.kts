@@ -100,6 +100,18 @@ android {
             buildConfigField("String", "APP_UPDATE_PUBLIC_KEY", "\"$debugUpdatePublicKey\"")
             buildConfigField("String", "RECIPE_SIGNING_PUBLIC_KEYS", "\"{}\"")
         }
+        // Controlled in-place business acceptance for the existing phase-one
+        // install. Retains its signing/update trust; never a production release.
+        create("businessAcceptance") {
+            initWith(getByName("release"))
+            isDebuggable = false
+            isMinifyEnabled = false
+            matchingFallbacks += listOf("release")
+            signingConfig = signingConfigs.getByName("debug")
+            versionNameSuffix = "-business-acceptance"
+            buildConfigField("String", "APP_UPDATE_PUBLIC_KEY", "\"$debugUpdatePublicKey\"")
+            buildConfigField("String", "RECIPE_SIGNING_PUBLIC_KEYS", "\"{}\"")
+        }
     }
 
     sourceSets {
@@ -107,6 +119,9 @@ android {
             java.srcDir("src/release/java")
         }
         getByName("heartbeatDiagnostic") {
+            java.srcDir("src/release/java")
+        }
+        getByName("businessAcceptance") {
             java.srcDir("src/release/java")
         }
     }
@@ -127,6 +142,12 @@ android {
 
     kotlinOptions {
         jvmTarget = "17"
+    }
+}
+
+androidComponents {
+    onVariants(selector().withBuildType("businessAcceptance")) { variant ->
+        variant.outputs.forEach { it.versionCode.set(2) }
     }
 }
 

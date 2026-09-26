@@ -1,0 +1,21 @@
+{
+  "apkSha256": "b882b9a7368498ea63072b1c92806c170aaf80b688a24dcce4ee37195232a086",
+  "certificateSha256": "67a6d9af9e400326e1254b87ea310f34b1a1395664ca89424f141dbabba57796",
+  "package": "com.company.cloudctl.companion",
+  "versionCode": 2,
+  "versionName": "0.1.0-business-acceptance",
+  "trustConfigUnchanged": true,
+  "permissionsUnchanged": true,
+  "debuggable": false,
+  "heartbeatDiagnostic": false,
+  "uploadHoldAllowed": false,
+  "syncServicePresent": true,
+  "tests": {
+    "tests": 1265,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "testSuites": 173,
+  "lintWarnings": 19
+}

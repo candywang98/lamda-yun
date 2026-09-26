@@ -1,0 +1,14 @@
+{
+  "startedAt": "2026-09-26T16:14:25.268676+00:00",
+  "finishedAt": "2026-09-26T16:14:31.728489+00:00",
+  "installed": true,
+  "package": "com.company.cloudctl.companion",
+  "versionCode": 2,
+  "versionName": "0.1.0-business-acceptance",
+  "apkSha256": "b882b9a7368498ea63072b1c92806c170aaf80b688a24dcce4ee37195232a086",
+  "grantsUnchanged": 11,
+  "settingsUnchanged": 4,
+  "firstInstallTimeUnchanged": true,
+  "preInstallBindingAndQueueUnchanged": true,
+  "postInstallPrivateDatabaseVerified": false
+}

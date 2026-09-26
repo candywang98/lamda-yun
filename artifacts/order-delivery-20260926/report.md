@@ -1,5 +1,10 @@
 # Durable Order Delivery, 2026-09-26
 
+Follow-up: [OnePlus business restore](../order-device-20260927/report.md) records
+the authorized in-place installation after this release. The no-install
+statements below describe this original deployment window only; OnePlus now
+has the new capability, but ADB-free business acceptance is still pending.
+
 ## Scope And Status
 
 User constraint D-12: production collection and synchronization run on Companion
