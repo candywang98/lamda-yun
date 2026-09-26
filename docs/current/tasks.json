@@ -837,7 +837,7 @@
     "ISS-16"
    ],
    "risk": "中",
-   "device_acceptance": "未完成；2026-09-26 10:47:22 一加已同包同签名安装只发心跳诊断版，数据和权限保留；20秒等待出现777.691秒空窗，持续在线未通过；11:08:32维护已恢复且设备锁释放，华为未操作",
+   "device_acceptance": "未完成；2026-09-26傍晚一加息屏停顿时读到UID freeze=1及PID frozen=1，亮屏后均为0且心跳恢复；已确认采样时内核冻结，策略发起者未知。系统允许完全后台行为关闭，待用户手工开启后单变量复验；保留只发心跳诊断版，不恢复业务",
    "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
    "dev_state": "IN_PROGRESS",
    "acceptance_state": "DEVICE_WAIT",
@@ -874,6 +874,23 @@
     "review": "主会话审查及双变体测试完成；独立reviewer此前两次403，未完成独立审查；服务生命周期端到端覆盖仍有缺口",
     "next": "保持no-send；用独立定时源或授权线程栈诊断区分调度与全进程暂停，不先加永久唤醒锁；后续设备操作重新获得锁并核查授权。稳定性、电脑独立锁屏、只读任务闭环及固定APK Recipe回滚仍未验收",
     "scope": "保留原B11 activation历史；本轮用户已授权仅一加保留数据诊断安装；诊断版当前已安装，不恢复业务版。未部署服务器、未重启或修改系统权限、未操作华为、未执行业务动作。"
+   },
+   "freezer_followup_20260926": {
+    "baseline_sha": "59f85d6",
+    "observed_window": "2026-09-26T17:53:00+08:00 至 2026-09-26T18:01:39+08:00",
+    "report": "artifacts/delivery-20260916/B11/freezer-20260926/report.md",
+    "runbook": "docs/runbooks/companion-background-freeze.md",
+    "probe": "scripts/companion_freezer_probe.py",
+    "kernel_freeze_observed": true,
+    "freezing_policy_owner": "UNKNOWN",
+    "full_background_permission": "OBSERVED_OFF_AWAITING_USER",
+    "no_send": true,
+    "apk_changed": false,
+    "production_changed": false,
+    "business_acceptance": false,
+    "software_validation": "只读探针49项+设备锁22项，共71 passed；Ruff lint/format、探针Pyright、plan_guard及diff检查通过",
+    "cleanup": "2026-09-26T18:19:46+08:00 释放一加fencing7，最终FREE；云端维护/绑定/任务未修改",
+    "next": "用户在系统界面开启允许完全后台行为后，按设备锁SOP重复息屏对照；不能把亮屏恢复或电池白名单当作持续在线通过"
    },
    "activation": {
     "delivered_at": "2026-09-17T01:20:00+08:00",

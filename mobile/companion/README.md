@@ -26,10 +26,15 @@ gateway relay, shell commands, or downloaded code. `CompanionSyncService` claims
 only the seven structured actions in `mobile-automation-task.schema.json` to a non-exported
 `AccessibilityService`.
 
-Keep-alive is the foreground service plus accessibility, not a 24-hour screen lock. After binding,
-Companion asks the operator to ignore battery optimizations and reports that flag on the 20s device
-heartbeat. Boot, unlock, package replace, and Android 14 foreground-service timeout schedule a restart
-only when a cloud binding already exists.
+The runtime uses a foreground service plus accessibility, not a 24-hour screen lock. After binding,
+Companion can ask the operator to ignore battery optimizations; that local capability is not sent in
+the current heartbeat schema. The 20s heartbeat interval is a scheduling target, not a background
+availability guarantee. Battery-optimization exemption does not prove that all system background
+restrictions are disabled. Boot, unlock, package replace, and Android 14 foreground-service timeout
+schedule a restart only when a cloud binding already exists.
+
+For observed heartbeat stalls, use the [read-only freezer diagnosis runbook](../../docs/runbooks/companion-background-freeze.md).
+Do not infer connectivity from a running foreground service alone.
 
 The production execution chain is:
 
