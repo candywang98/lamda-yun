@@ -1,26 +1,36 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { RefreshCw } from 'lucide-vue-next'
 import { controlApiConfigured, createControlApiClient } from '@/api/control'
 import { mapControlDevice } from '@/api/devices'
+import { useSessionStore } from '@/stores/session'
+import { ORDER_DELIVERY_PROTOCOL, deliveryLabel, deliveryProgress, deliveryReason } from '@/features/orders/delivery'
 import {
   ORDER_DIRECTION_OPTIONS,
   fetchOrder,
   fetchXianyuOrderRun,
   formatOrderAmount,
   formatOrderTime,
-  isXianyuOrderRunTerminal,
   listOrders,
   orderDirectionLabel,
   OrdersApiError,
+  OrdersProtocolError,
   startXianyuOrderCollect,
   type OrderDetail,
   type OrderDirection,
   type OrderRow,
+  type OrderRunIdentity,
+  type XianyuOrderCollectInput,
+  type XianyuOrderCollectResult,
   type XianyuOrderRunView,
 } from '@/api/orders'
 
 /** 契约 §4：limit 1..100 默认 20；本页按「加载更多」翻页。 */
 const PAGE_SIZE = 20
+const session = useSessionStore()
+let disposed = false
+let listRequest = 0
+let detailRequest = 0
 
 interface DeviceOption { id: string; name: string }
 
@@ -46,18 +56,21 @@ function listQuery(offset: number) {
 }
 
 async function loadPage(offset: number, append: boolean) {
+  const request = ++listRequest
   loading.value = true
   loadError.value = ''
   try {
     const result = await listOrders(listQuery(offset))
+    if (disposed || request !== listRequest) return
     orders.value = append ? [...orders.value, ...result.items] : result.items
     total.value = result.total
     if (!append) expandedId.value = null
   } catch (error) {
+    if (disposed || request !== listRequest) return
     // fail-closed：后端不可达或报错时如实展示，不渲染任何占位假数据。
     loadError.value = error instanceof OrdersApiError ? error.message : '订单列表加载失败'
   } finally {
-    loading.value = false
+    if (!disposed && request === listRequest) loading.value = false
   }
 }
 
@@ -74,7 +87,7 @@ async function loadMore() {
   await loadPage(orders.value.length, true)
 }
 
-/** 手动刷新保留已展开行；加载失败时旧数据保留但错误置顶提示。 */
+/** List refresh is independent of the collection/delivery query. */
 async function manualRefresh() {
   await loadPage(0, false)
 }
@@ -98,12 +111,13 @@ async function loadDeviceOptions() {
   }
   try {
     const rows = await createControlApiClient().devices()
+    if (disposed) return
     deviceOptions.value = rows.map((row) => {
       const mapped = mapControlDevice(row)
       return { id: mapped.id, name: mapped.name }
     })
   } catch {
-    deviceOptions.value = []
+    if (!disposed) deviceOptions.value = []
   }
 }
 
@@ -115,6 +129,7 @@ const detailLoading = ref(false)
 const detailError = ref('')
 
 async function toggleExpanded(id: string) {
+  const request = ++detailRequest
   if (expandedId.value === id) {
     expandedId.value = null
     return
@@ -126,14 +141,14 @@ async function toggleExpanded(id: string) {
   try {
     const fetched = await fetchOrder(id)
     // 展开行已切换时丢弃过期响应
-    if (expandedId.value !== id) return
+    if (disposed || request !== detailRequest || expandedId.value !== id) return
     detail.value = fetched
   } catch (error) {
-    if (expandedId.value !== id) return
+    if (disposed || request !== detailRequest || expandedId.value !== id) return
     // fail-closed：详情拉取失败如实展示，不渲染占位 raw
     detailError.value = error instanceof OrdersApiError ? error.message : '订单详情加载失败'
   } finally {
-    if (expandedId.value === id) detailLoading.value = false
+    if (!disposed && request === detailRequest && expandedId.value === id) detailLoading.value = false
   }
 }
 
@@ -141,11 +156,12 @@ function rawJson(row: OrderDetail): string {
   return JSON.stringify(row.raw ?? {}, null, 2)
 }
 
-/* ---------------- 采集入口（order-sync slice2 §4：定位器已真机验证，启用） ---------------- */
+/* ---------------- order-delivery/1 collection and independent delivery reads ---------------- */
 
 /** 契约 slice2 §2：max_rows 为每屏上限（1..10），采集取上限读满一屏。 */
 const COLLECT_MAX_ROWS_PER_SCREEN = 10
 const RUN_POLL_INTERVAL_MS = 2000
+const RUN_POLL_MAX_INTERVAL_MS = 10000
 const RUN_POLL_TIMEOUT_MS = 60000
 
 const collectDirection = ref<OrderDirection>('SOLD')
@@ -153,87 +169,170 @@ const collectScreens = ref<1 | 2 | 3>(1)
 const collectBusy = ref(false)
 const collectNote = ref('')
 const collectError = ref('')
-const collectRun = ref<XianyuOrderRunView | null>(null)
+const collectRun = ref<XianyuOrderRunView | XianyuOrderCollectResult | null>(null)
+const statusReading = ref(false)
+const polling = ref(false)
+const attempt = ref<{
+  input: XianyuOrderCollectInput
+  key: string
+  ambiguous: boolean
+  identity: OrderRunIdentity | null
+} | null>(null)
+const canCollect = computed(() => controlApiConfigured && session.can('device.control'))
+const delivery = computed(() => collectRun.value?.delivery)
+const settled = computed(() => delivery.value?.state === 'SYNCED' || delivery.value?.state === 'BLOCKED')
+const collectionLocked = computed(() => collectBusy.value || statusReading.value || (!!attempt.value && !settled.value))
+const collectionLabel = computed(() => {
+  const tasks = collectRun.value?.tasks ?? []
+  if (!tasks.length) return '采集状态未确认'
+  if (tasks.every((task) => task.state === 'SUCCEEDED')) return '采集步骤完成'
+  if (tasks.some((task) => ['FAILED', 'CANCELLED', 'EXPIRED', 'RECONCILING'].includes(task.state ?? ''))) return '采集未全部成功'
+  return '采集尚未完成'
+})
 
 let runPollTimer: number | undefined
+let pollDeadlineTimer: number | undefined
+let runRequest = 0
+let runAbort: AbortController | undefined
+let refreshedRunId: string | undefined
 
 function clearRunPoll() {
   if (runPollTimer !== undefined) window.clearTimeout(runPollTimer)
+  if (pollDeadlineTimer !== undefined) window.clearTimeout(pollDeadlineTimer)
   runPollTimer = undefined
+  pollDeadlineTimer = undefined
+  ++runRequest
+  runAbort?.abort()
+  runAbort = undefined
+  polling.value = false
+  statusReading.value = false
 }
 
-/** 终态收口：全部任务 SUCCEEDED → 刷新列表；否则逐任务如实展示 state/errorCode（fail-closed，不吞错）。 */
-function finishCollect(run: XianyuOrderRunView) {
-  collectBusy.value = false
+function showRun(run: XianyuOrderRunView | XianyuOrderCollectResult) {
   collectRun.value = run
-  const tasks = run.tasks
-  if (tasks.length > 0 && tasks.every((task) => task.state === 'SUCCEEDED')) {
-    collectNote.value = `采集完成（${tasks.length} 个任务全部成功），已刷新订单列表。`
+  if (run.delivery?.state === 'SYNCED' && refreshedRunId !== run.runId) {
+    refreshedRunId = run.runId
     void refresh()
-    return
   }
-  const problems = tasks
-    .filter((task) => task.state !== 'SUCCEEDED')
-    .map((task) => `${task.state ?? 'UNKNOWN'}${task.errorCode ? `（${task.errorCode}）` : ''}`)
-    .join('；')
-  collectError.value = `采集未全部成功：${problems || '未返回任务状态'}`
 }
 
-async function pollRun(runId: string, startedAt: number) {
-  let run: XianyuOrderRunView
-  try {
-    run = await fetchXianyuOrderRun(runId)
-  } catch (error) {
-    // fail-closed：轮询读状态失败如实展示并停止，不吞错也不假装成功。
-    collectBusy.value = false
-    collectError.value = error instanceof OrdersApiError ? error.message : '采集运行状态读取失败'
-    return
-  }
-  collectRun.value = run
-  if (isXianyuOrderRunTerminal(run)) {
-    finishCollect(run)
-    return
-  }
-  if (Date.now() - startedAt >= RUN_POLL_TIMEOUT_MS) {
-    // 超时不算失败也不算成功：任务可能仍在真机执行，如实提示后停止本页轮询。
-    collectBusy.value = false
-    collectNote.value = `采集仍在运行（已轮询超过 ${RUN_POLL_TIMEOUT_MS / 1000} 秒），结果请稍后手动刷新确认。`
-    return
-  }
-  runPollTimer = window.setTimeout(() => void pollRun(runId, startedAt), RUN_POLL_INTERVAL_MS)
-}
-
-async function startCollect() {
-  // 设备复用上方「设备」过滤下拉：未选具体设备（=全部）时按钮已禁用，此处兜底校验。
-  const deviceId = deviceFilter.value
-  if (!deviceId) {
-    collectError.value = '请先在上方「设备」下拉选择具体设备后再发起采集。'
-    return
-  }
+function pausePolling() {
   clearRunPoll()
+  collectNote.value = '自动查询已暂停，同步状态以上次查询为准。'
+}
+
+async function pollRun(request: number, reads: number) {
+  const current = attempt.value
+  if (disposed || request !== runRequest || !current?.identity) return
+  statusReading.value = true
+  runAbort = new AbortController()
+  try {
+    const run = await fetchXianyuOrderRun(current.identity.runId, {
+      expected: current.identity,
+      maxScreens: current.input.screens ?? 1,
+      durable: true,
+      signal: runAbort.signal,
+    })
+    if (disposed || request !== runRequest) return
+    collectError.value = ''
+    showRun(run)
+    if (run.delivery?.state !== 'PENDING') {
+      clearRunPoll()
+      collectNote.value = ''
+      return
+    }
+  } catch (error) {
+    if (disposed || request !== runRequest) return
+    collectError.value = error instanceof OrdersApiError ? error.message : '采集运行状态读取失败'
+    if (error instanceof OrdersProtocolError || (error instanceof OrdersApiError &&
+        error.status >= 400 && error.status < 500 && ![408, 429].includes(error.status))) {
+      pausePolling()
+      return
+    }
+  } finally {
+    if (!disposed && request === runRequest) statusReading.value = false
+  }
+  if (disposed || request !== runRequest) return
+  const delay = Math.min(RUN_POLL_INTERVAL_MS * 2 ** (reads + 1), RUN_POLL_MAX_INTERVAL_MS)
+  runPollTimer = window.setTimeout(() => void pollRun(request, reads + 1), delay)
+}
+
+function beginPolling(immediate = false) {
+  if (disposed || !attempt.value?.identity) return
+  clearRunPoll()
+  const request = runRequest
+  polling.value = true
+  collectError.value = ''
+  collectNote.value = '正在查询同步状态…'
+  // A separate deadline also bounds a stalled GET, not only scheduled retries.
+  pollDeadlineTimer = window.setTimeout(pausePolling, RUN_POLL_TIMEOUT_MS)
+  if (immediate) void pollRun(request, 0)
+  else runPollTimer = window.setTimeout(() => void pollRun(request, 0), RUN_POLL_INTERVAL_MS)
+}
+
+function manualRunRefresh() {
+  if (disposed || collectBusy.value || !attempt.value?.identity) return
+  beginPolling(true)
+}
+
+async function submitAttempt() {
+  const current = attempt.value
+  if (disposed || collectBusy.value || !canCollect.value || !current || current.identity) return
   collectBusy.value = true
   collectError.value = ''
   collectNote.value = '采集任务提交中…'
-  collectRun.value = null
   try {
-    const result = await startXianyuOrderCollect(
-      {
-        deviceId,
-        direction: collectDirection.value,
-        maxRows: COLLECT_MAX_ROWS_PER_SCREEN,
-        // 契约 slice2 §4：屏数为 1 时不发 screens 字段（后端默认 1，走 v1 入参兼容）。
-        ...(collectScreens.value === 1 ? {} : { screens: collectScreens.value }),
-      },
-      crypto.randomUUID(),
-    )
-    collectNote.value = `采集已提交（run ${result.runId.slice(0, 8)}…），每 ${RUN_POLL_INTERVAL_MS / 1000} 秒轮询运行状态…`
-    const startedAt = Date.now()
-    runPollTimer = window.setTimeout(() => void pollRun(result.runId, startedAt), RUN_POLL_INTERVAL_MS)
-  } catch (error) {
-    collectBusy.value = false
+    const result = await startXianyuOrderCollect(current.input, current.key)
+    if (disposed || attempt.value !== current) return
+    current.identity = {
+      runId: result.runId, deviceId: result.deviceId, direction: result.direction,
+      maxRows: result.maxRows, taskIds: [...result.taskIds],
+    }
+    showRun(result)
     collectNote.value = ''
-    collectError.value = error instanceof OrdersApiError ? error.message : '采集任务提交失败'
+    if (result.delivery?.state === 'PENDING') beginPolling()
+  } catch (error) {
+    if (disposed || attempt.value !== current) return
+    collectNote.value = ''
+    collectError.value = error instanceof OrdersApiError ? error.message : '采集提交结果未确认'
+    if (error instanceof OrdersProtocolError && error.acceptedIdentity) {
+      current.identity = error.acceptedIdentity
+    } else if (!current.ambiguous && error instanceof OrdersApiError && !(error instanceof OrdersProtocolError) &&
+        error.status >= 400 && error.status < 500 && ![408, 429].includes(error.status)) {
+      attempt.value = null
+    } else {
+      current.ambiguous = true
+    }
+  } finally {
+    if (!disposed) collectBusy.value = false
   }
+}
+
+async function startCollect() {
+  if (disposed || !canCollect.value || collectionLocked.value) return
+  const deviceId = deviceFilter.value
+  if (!deviceOptions.value.some((device) => device.id === deviceId)) {
+    collectError.value = '请先在上方「设备」下拉选择具体设备后再发起采集。'
+    return
+  }
+  let key: string
+  try {
+    key = crypto.randomUUID()
+  } catch {
+    collectError.value = '无法生成采集请求标识，未提交任务'
+    return
+  }
+  clearRunPoll()
+  collectRun.value = null
+  attempt.value = {
+    input: {
+      deviceId, direction: collectDirection.value, maxRows: COLLECT_MAX_ROWS_PER_SCREEN,
+      ...(collectScreens.value === 1 ? {} : { screens: collectScreens.value }),
+      orderDeliveryProtocol: ORDER_DELIVERY_PROTOCOL,
+    },
+    key, ambiguous: false, identity: null,
+  }
+  await submitAttempt()
 }
 
 onMounted(() => {
@@ -241,7 +340,12 @@ onMounted(() => {
   void loadDeviceOptions()
 })
 
-onUnmounted(clearRunPoll)
+onUnmounted(() => {
+  disposed = true
+  ++listRequest
+  ++detailRequest
+  clearRunPoll()
+})
 </script>
 
 <template>
@@ -291,7 +395,7 @@ onUnmounted(clearRunPoll)
     <div class="orders-collect">
       <label class="yy-field">
         <span>采集方向</span>
-        <select v-model="collectDirection">
+        <select v-model="collectDirection" :disabled="!canCollect || collectionLocked">
           <option v-for="option in ORDER_DIRECTION_OPTIONS" :key="option.key" :value="option.key">
             {{ option.label }}
           </option>
@@ -299,7 +403,7 @@ onUnmounted(clearRunPoll)
       </label>
       <label class="yy-field">
         <span>屏数</span>
-        <select v-model="collectScreens">
+        <select v-model="collectScreens" :disabled="!canCollect || collectionLocked">
           <option :value="1">1 屏</option>
           <option :value="2">2 屏</option>
           <option :value="3">3 屏</option>
@@ -308,19 +412,35 @@ onUnmounted(clearRunPoll)
       <button
         class="yy-btn"
         type="button"
-        :disabled="!deviceFilter || collectBusy"
+        :disabled="!deviceFilter || !canCollect || collectionLocked"
         @click="startCollect"
       >
-        {{ collectBusy ? '采集运行中…' : '开始采集' }}
+        {{ collectBusy ? '提交中…' : attempt?.identity ? '新建采集' : '开始采集' }}
+      </button>
+      <button v-if="attempt && !attempt.identity" class="yy-btn" type="button" :disabled="collectBusy || !canCollect" @click="submitAttempt">
+        <RefreshCw :size="14" aria-hidden="true" />重试提交
+      </button>
+      <button v-if="attempt?.identity" class="yy-btn" type="button" :disabled="collectBusy" @click="manualRunRefresh">
+        <RefreshCw :size="14" aria-hidden="true" />刷新同步状态
       </button>
       <span v-if="!deviceFilter" class="yy-sub">请先在上方「设备」下拉选择具体设备（「全部」不能发起采集）。</span>
-      <span v-else-if="collectNote" class="yy-sub">{{ collectNote }}</span>
+      <span v-if="collectNote" class="yy-sub" role="status">{{ collectNote }}</span>
     </div>
 
-    <p v-if="collectError" class="yy-error">{{ collectError }}</p>
+    <p v-if="!canCollect" class="yy-sub">当前身份不可创建采集任务。</p>
+    <p v-if="collectError" class="yy-error" role="alert">{{ collectError }}</p>
 
+    <div v-if="attempt" class="orders-delivery" :aria-busy="statusReading">
+      <p class="yy-sub">设备 {{ attempt.input.deviceId }} · {{ orderDirectionLabel(attempt.input.direction) }}</p>
+      <p v-if="attempt.identity" class="orders-identity">run {{ attempt.identity.runId }} · task {{ attempt.identity.taskIds.join('、') }}</p>
+      <p v-if="collectRun" role="status">{{ collectionLabel }}</p>
+      <p role="status" :data-delivery-state="delivery?.state ?? 'UNKNOWN'">{{ deliveryLabel(delivery) }}</p>
+      <p v-if="delivery && delivery.state !== 'LEGACY_UNVERIFIED'" class="yy-sub">{{ deliveryProgress(delivery) }}</p>
+      <p v-if="delivery?.stopReason" :class="delivery.state === 'BLOCKED' ? 'yy-error' : 'yy-sub'">{{ deliveryReason(delivery.stopReason) }}</p>
+      <span v-if="polling" class="yy-sub">自动查询中</span>
+    </div>
     <div v-if="collectRun" class="orders-collect-run">
-      <span class="yy-sub">run {{ collectRun.runId.slice(0, 8) }}… 任务状态：</span>
+      <span class="yy-sub">采集任务状态：</span>
       <span
         v-for="task in collectRun.tasks"
         :key="task.taskId"
@@ -410,6 +530,12 @@ onUnmounted(clearRunPoll)
   gap: 10px;
   margin-bottom: 12px;
 }
+.orders-collect .yy-btn { display: inline-flex; align-items: center; gap: 6px; }
+.orders-delivery { margin-bottom: 12px; overflow-wrap: anywhere; }
+.orders-delivery p { margin: 4px 0; }
+.orders-identity { font-family: monospace; font-size: 12px; }
+[data-delivery-state='SYNCED'] { color: #166534; }
+[data-delivery-state='BLOCKED'] { color: #991b1b; }
 .orders-collect-run {
   display: flex;
   align-items: center;

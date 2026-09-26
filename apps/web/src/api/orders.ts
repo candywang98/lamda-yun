@@ -1,4 +1,5 @@
 import { controlApiBaseUrl, controlApiConfigured, controlApiHeaders } from '@/api/control'
+import { isOrderTaskId, isRecord, validOrderDelivery, type OrderDelivery, type ORDER_DELIVERY_PROTOCOL } from '@/features/orders/delivery'
 
 // Local DTOs frozen at order-sync/20260915.1 (integration alignment, W1 afca8c2).
 // Shared generated clients are Root-owned. 订单后端按仓库 camelCase 惯例序列化行视图；
@@ -112,6 +113,7 @@ interface RequestOptions {
   method?: 'GET' | 'POST'
   body?: unknown
   idempotencyKey?: string
+  signal?: AbortSignal
 }
 
 interface RequestOutcome {
@@ -129,6 +131,7 @@ async function performRequest(path: string, options: RequestOptions = {}): Promi
     method: options.method ?? (options.body !== undefined ? 'POST' : 'GET'),
     headers,
     credentials: 'same-origin',
+    ...(options.signal ? { signal: options.signal } : {}),
     ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),
   })
   const text = await response.text()
@@ -179,6 +182,7 @@ export interface XianyuOrderCollectInput {
   direction: OrderDirection
   maxRows: number
   screens?: number
+  orderDeliveryProtocol?: typeof ORDER_DELIVERY_PROTOCOL
 }
 
 export interface XianyuOrderCollectTask {
@@ -198,6 +202,7 @@ export interface XianyuOrderCollectResult {
   targetCount: number
   taskIds: string[]
   tasks: XianyuOrderCollectTask[]
+  delivery?: OrderDelivery
   /** true = 幂等重放（HTTP 200）；false = 新建（HTTP 201）。来自 Idempotency-Replayed 响应头。 */
   idempotencyReplayed: boolean
 }
@@ -213,12 +218,24 @@ export async function startXianyuOrderCollect(
       max_rows: input.maxRows,
       // screens=1（后端默认）不发该字段，保持 slice1 v1 入参兼容。
       ...(input.screens !== undefined ? { screens: input.screens } : {}),
+      ...(input.orderDeliveryProtocol ? { orderDeliveryProtocol: input.orderDeliveryProtocol } : {}),
     },
     idempotencyKey,
   })
   const replayed = outcome.headers.get('Idempotency-Replayed')
+  const body = outcome.payload
+  const identity = readRunIdentity(body, input)
+  if (!identity || !isRecord(body) || !Array.isArray(body.taskIds) ||
+      body.targetCount !== identity.taskIds.length || body.taskIds.length !== identity.taskIds.length ||
+      !body.taskIds.every((id, index) => id === identity.taskIds[index])) {
+    throw new OrdersProtocolError('采集响应缺少有效或一致的 runId/taskId，提交结果未确认')
+  }
+  if (!deliveryMatches(body, !!input.orderDeliveryProtocol, input.screens ?? 1)) {
+    // IDs are already trustworthy: keep querying this accepted run, never POST it again.
+    throw new OrdersProtocolError('采集已受理，但同步协议响应无效', identity)
+  }
   return {
-    ...(typeof outcome.payload === 'object' && outcome.payload !== null ? outcome.payload : {}),
+    ...body,
     idempotencyReplayed: replayed === 'true',
   } as XianyuOrderCollectResult
 }
@@ -248,11 +265,63 @@ export interface XianyuOrderRunView {
   summary: Record<string, number>
   allTerminal: boolean
   tasks: XianyuOrderRunTask[]
+  delivery?: OrderDelivery
   [key: string]: unknown
 }
 
-export async function fetchXianyuOrderRun(runId: string): Promise<XianyuOrderRunView> {
-  return request<XianyuOrderRunView>(`/api/v1/xianyu/orders/runs/${encodeURIComponent(runId)}`)
+export interface OrderRunIdentity {
+  runId: string
+  deviceId: string
+  direction: OrderDirection
+  maxRows: number
+  taskIds: string[]
+}
+
+export class OrdersProtocolError extends OrdersApiError {
+  constructor(message: string, readonly acceptedIdentity?: OrderRunIdentity) {
+    super(0, message)
+  }
+}
+
+function readRunIdentity(payload: unknown, expected?: XianyuOrderCollectInput): OrderRunIdentity | null {
+  if (!isRecord(payload) || !isOrderTaskId(payload.runId) ||
+      typeof payload.deviceId !== 'string' || !payload.deviceId.trim() ||
+      (payload.direction !== 'SOLD' && payload.direction !== 'BOUGHT') ||
+      typeof payload.maxRows !== 'number' || !Number.isInteger(payload.maxRows) || payload.maxRows < 1 || payload.maxRows > 10 ||
+      !Array.isArray(payload.tasks) || payload.tasks.length === 0 ||
+      !payload.tasks.every((task) => isRecord(task) && isOrderTaskId(task.taskId) &&
+        (task.state === null || typeof task.state === 'string'))) return null
+  const taskIds = payload.tasks.map((task) => task.taskId as string)
+  if (new Set(taskIds).size !== taskIds.length) return null
+  if (expected && (payload.deviceId !== expected.deviceId || payload.direction !== expected.direction ||
+      payload.maxRows !== expected.maxRows ||
+      (payload.screens !== undefined && payload.screens !== (expected.screens ?? 1)))) return null
+  return { runId: payload.runId, deviceId: payload.deviceId, direction: payload.direction, maxRows: payload.maxRows, taskIds }
+}
+
+function deliveryMatches(body: Record<string, unknown>, durable: boolean, maxScreens: number): boolean {
+  if (body.delivery === undefined && !durable) return true
+  return validOrderDelivery(body.delivery, body.tasks as XianyuOrderCollectTask[], durable, maxScreens)
+}
+
+export async function fetchXianyuOrderRun(
+  runId: string,
+  options: { expected?: OrderRunIdentity; maxScreens?: number; durable?: boolean; signal?: AbortSignal } = {},
+): Promise<XianyuOrderRunView> {
+  const body = await request<unknown>(`/api/v1/xianyu/orders/runs/${encodeURIComponent(runId)}`, { signal: options.signal })
+  const identity = readRunIdentity(body)
+  const expected = options.expected
+  if (!identity || !isRecord(body) || identity.runId !== runId ||
+      body.taskCount !== identity.taskIds.length || typeof body.allTerminal !== 'boolean' ||
+      (expected && (identity.deviceId !== expected.deviceId || identity.direction !== expected.direction ||
+        identity.maxRows !== expected.maxRows || identity.taskIds.length !== expected.taskIds.length ||
+        !identity.taskIds.every((id) => expected.taskIds.includes(id))))) {
+    throw new OrdersProtocolError('采集运行响应身份无效或不匹配')
+  }
+  if (!deliveryMatches(body, options.durable ?? false, options.maxScreens ?? 3)) {
+    throw new OrdersProtocolError('采集运行同步协议响应无效', identity)
+  }
+  return body as unknown as XianyuOrderRunView
 }
 
 /**
