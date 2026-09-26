@@ -31,6 +31,7 @@ from .db import (
     DeviceRow,
     MobileBindingRow,
     MobileTaskRow,
+    OrderRow,
     PlatformAccountRow,
 )
 from .fleet_orders import FleetOrderPageRow, FleetOrderScreenIn, FleetOrdersService
@@ -65,6 +66,19 @@ class OrderDeliveryReceiptRow(Base):
             name="ck_order_delivery_kind_screen",
         ),
     )
+
+
+class OrderDeliveryProjectionRow(Base):
+    """Delivery provenance, without rewriting or guessing legacy row ownership."""
+
+    __tablename__ = "order_delivery_projection"
+    order_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("xianyu_order.id"), primary_key=True
+    )
+    tenant_id: Mapped[str] = mapped_column(String(36), index=True, nullable=False)
+    task_id: Mapped[str] = mapped_column(String(36), ForeignKey("mobile_task.id"), nullable=False)
+    screen: Mapped[int] = mapped_column(Integer, nullable=False)
+    __table_args__ = (CheckConstraint("screen BETWEEN 1 AND 3", name="ck_order_projection_screen"),)
 
 
 class OrderDeliveryEnvelope(BaseModel):
@@ -240,6 +254,57 @@ class OrderDeliveryService:
         self.database = database
         self.orders = FleetOrdersService(database)
 
+    async def _upsert_observed_orders(
+        self,
+        session: AsyncSession,
+        task: MobileTaskRow,
+        payload: FleetOrderScreenIn,
+        now: datetime,
+    ) -> int:
+        # Device locking serializes durable deliveries. Order by immutable
+        # server-side collection generation, not arrival time or device clock.
+        keys = {item.order_key.strip() for item in payload.rows}
+        statement = select(OrderRow).where(
+            OrderRow.tenant_id == task.tenant_id,
+            OrderRow.device_id == task.device_id,
+            OrderRow.platform == "xianyu",
+            OrderRow.order_key.in_(keys),
+        )
+        existing = list(await session.scalars(statement))
+        stale: set[str] = set()
+        generation = (_aware(task.created_at), task.id, payload.screen)
+        for order in existing:
+            source = await session.get(OrderDeliveryProjectionRow, order.id)
+            if source is None:
+                continue
+            prior_task = await session.get(MobileTaskRow, source.task_id)
+            if prior_task is None:
+                raise ConflictError("ORDER_PROJECTION_IDENTITY_MISSING")
+            if (_aware(prior_task.created_at), prior_task.id, source.screen) > generation:
+                stale.add(order.order_key)
+        accepted_rows = [row for row in payload.rows if row.order_key.strip() not in stale]
+        _, updated, _ = await self.orders._upsert_orders(
+            session, task.tenant_id, task.device_id, accepted_rows, now
+        )
+        await session.flush()
+        for order in await session.scalars(statement):
+            if order.order_key in stale:
+                continue
+            source = await session.get(OrderDeliveryProjectionRow, order.id)
+            if source is None:
+                session.add(
+                    OrderDeliveryProjectionRow(
+                        order_id=order.id,
+                        tenant_id=task.tenant_id,
+                        task_id=task.id,
+                        screen=payload.screen,
+                    )
+                )
+            else:
+                source.task_id = task.id
+                source.screen = payload.screen
+        return updated
+
     async def push(self, auth: MobileBindingRow, body: OrderDeliveryEnvelope) -> dict[str, Any]:
         conflict = False
         replayed = False
@@ -313,9 +378,7 @@ class OrderDeliveryService:
                 if isinstance(payload, FleetOrderScreenIn):
                     if screens != list(range(1, body.screen)):
                         raise ConflictError("ORDER_DELIVERY_SCREEN_GAP")
-                    _, updated, _ = await self.orders._upsert_orders(
-                        session, auth.tenant_id, auth.device_id, payload.rows, now
-                    )
+                    updated = await self._upsert_observed_orders(session, task, payload, now)
                     prior_keys = {
                         row.order_key
                         for receipt in receipts

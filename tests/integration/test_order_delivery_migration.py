@@ -24,6 +24,7 @@ async def _history(url, *, seed=False, receipt_table=False):
 
             table, names = await connection.run_sync(read_schema)
             assert ("order_delivery_receipt" in names) is receipt_table
+            assert ("order_delivery_projection" in names) is receipt_table
             if seed:
                 await connection.execute(
                     insert(table).values(
