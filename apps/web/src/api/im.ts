@@ -1,6 +1,35 @@
 import { controlApiBaseUrl, controlApiConfigured, controlApiHeaders } from '@/api/control'
 
-// Local DTOs frozen at pa-im/20260913.1. Shared generated clients are Root-owned.
+// Local DTOs: pa-im/20260913.1 + im-notify/20260926.1. Generated clients are Root-owned.
+export type ImBucket = 'all' | 'user' | 'notice' | 'review'
+export type ImCategory = 'HUMAN_MESSAGE' | 'SYSTEM_NOTICE' | 'PROMOTION' | 'UNKNOWN'
+
+export interface ImClassification {
+  category: ImCategory
+  predictedCategory: ImCategory | null
+  confidence: number | null
+  source: 'MANUAL' | 'RULE' | 'MODEL' | 'UNCLASSIFIED'
+  status: string
+  modelStatus: string | null
+  ruleCode: string | null
+  reviewedAt: string | null
+  reviewedBy: string | null
+  version: number
+}
+
+export interface ImNotificationMetadata {
+  packageName?: string | null
+  channelId?: string | null
+  category?: string | null
+}
+
+export interface ImThreadPage {
+  items: ImThread[]
+  count: number
+  // Missing on legacy servers; never infer full-result counts from a page.
+  bucketCounts: Record<ImBucket, number> | null
+}
+
 export interface ImThread {
   id: string
   deviceId: string
@@ -12,6 +41,7 @@ export interface ImThread {
   unreadCount: number
   /** 服务端返回的最近一条消息正文；线程暂无消息时为 null。 */
   lastMessageText: string | null
+  lastMessageClassification?: ImClassification | null
 }
 
 export interface ImMessage {
@@ -22,6 +52,8 @@ export interface ImMessage {
   text: string
   occurredAt: string
   replyTaskId: string | null
+  classification?: ImClassification | null
+  notificationMetadata?: ImNotificationMetadata | null
 }
 
 export interface ImMonitorConfig {
@@ -187,18 +219,29 @@ async function request<T>(path: string, body?: unknown): Promise<T> {
   return payload as T
 }
 
-export async function listImThreads(deviceId?: string, unread = false): Promise<ImThread[]> {
+export async function listImThreads(deviceId?: string, unread = false, bucket: ImBucket = 'all'): Promise<ImThreadPage> {
   const params = new URLSearchParams()
   if (deviceId) params.set('deviceId', deviceId)
   if (unread) params.set('unread', 'true')
+  params.set('bucket', bucket)
   const query = params.toString()
-  const data = await request<{ items: ImThread[] }>(`/threads${query ? `?${query}` : ''}`)
-  return (data.items ?? []).map(normalizeImThread)
+  const data = await request<ImThreadPage>(`/threads?${query}`)
+  return { ...data, items: (data.items ?? []).map(normalizeImThread), bucketCounts: data.bucketCounts ?? null }
 }
 
-export async function listImMessages(threadId: string): Promise<ImMessage[]> {
-  const data = await request<{ items: ImMessage[] }>(`/threads/${threadId}/messages?limit=200&latest=true`)
+export async function listImMessages(threadId: string, bucket: ImBucket = 'all'): Promise<ImMessage[]> {
+  const data = await request<{ items: ImMessage[] }>(
+    `/threads/${encodeURIComponent(threadId)}/messages?limit=200&latest=true&bucket=${bucket}`,
+  )
   return data.items ?? []
+}
+
+export async function classifyImMessage(messageId: string, category: ImCategory | null, expectedVersion: number): Promise<ImMessage> {
+  return request<ImMessage>(`/messages/${encodeURIComponent(messageId)}:classify`, { category, expectedVersion })
+}
+
+export async function reclassifyImMessage(messageId: string, expectedVersion: number): Promise<ImMessage> {
+  return request<ImMessage>(`/messages/${encodeURIComponent(messageId)}:reclassify`, { expectedVersion })
 }
 
 export async function markImThreadRead(threadId: string): Promise<void> {
