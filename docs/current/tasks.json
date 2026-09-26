@@ -7,6 +7,17 @@
  "activated_by": "R02 @bf6529b；2026-09-20 补记状态翻转与 WAIT_CONTRACT 重算（见 docs/current/README.md R02 补记）",
  "source_scope": "single-sheet audit + selected code + user APK/QA; R02 imports remaining workbook acceptance",
  "max_writers": 3,
+ "fleet_acceptance_scope": {
+  "decision_id": "D-11",
+  "decided_at": "2026-09-26",
+  "authorized_by": "用户确认本期三台足够，取消五台/十台数量门槛",
+  "physical_device_target": 3,
+  "requires_five_or_ten_devices": false,
+  "future_expansion_requires_full_fleet_retest": false,
+  "expansion_policy": "每台新增设备做入网、绑定、权限、实际收消息检查；新机型/系统/App版本补代表性兼容验证；容量按目标心跳/消息速率在隔离环境压测并分批接入，不要求所有设备逐台重跑完整验收",
+  "limits": "三台通过只证明已测配置与负载，不保证任意规模；模拟容量结果不等于同数量真机验收；长期耐久不阻塞本轮三台只收不发IM交付",
+  "decision_record": "docs/current/scope-decisions.md"
+ },
  "tasks": [
   {
    "id": "R00",
@@ -2170,7 +2181,7 @@
   },
   {
    "id": "Q13",
-   "name": "M1：五台设备与受控业务验收",
+   "name": "M1：三台设备与受控业务验收",
    "wave": "W3",
    "milestone": "M1",
    "lane": "DEVICE",
@@ -2228,7 +2239,7 @@
    "effort_low": 1,
    "effort_high": 2,
    "implementation": [
-    "登记5台真实设备和各自兼容profile；不足则真实数量如实记录",
+    "登记现有3台真实设备和各自兼容profile；不再要求补齐5台或10台，未实测设备不得记通过",
     "同时跑只读订单/受控草稿，逐件授权的发布串到每台各自单写队列",
     "取消/断网一台，其他台继续；测试同账号跨机写冲突与多账号各自推进",
     "未通过新版本/机型仅禁对应能力，不全局关闭云控"
@@ -2236,7 +2247,7 @@
    "acceptance_cases": [
     "建议每台30次安全往返、覆盖同机串行/异机并行/一机故障隔离",
     "发布与订单分别给软件、真机、人工步骤标签",
-    "删除功能未好不阻塞此门；不把5模拟器写成5真机"
+    "删除功能未好不阻塞此门；三台实机结果与模拟容量结果分开登记"
    ],
    "sources": [
     "S03",
@@ -2252,11 +2263,12 @@
     "FLEET-25-专家采纳：A机用户测试文案受控真发，未登录机跳过，本轮0改动"
    ],
    "risk": "高",
-   "device_acceptance": "5台授权真机；副作用动作另列逐项授权",
+   "device_acceptance": "3台授权真机；当前只收不发，副作用动作继续禁止，另行授权前不得执行",
    "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
    "dev_state": "SOFTWARE_DONE",
    "acceptance_state": "NOT_RUN",
    "evidence": "artifacts/delivery-20260916/Q13/ （matrix-progress.md FLEET-17~25：150/150安全往返、E机故障隔离、A机订单同步、发布草稿确认点、真实商品Notion ¥199在售、死锁E2E dbaf3763通过、B机跳过(闲鱼未登录)、生产工作台CloudCtl独立登录、专家结论本轮0改动只做A机受控真发）",
+   "scope_change": "D-11，2026-09-26用户将本期实机规模收敛为3台；旧证据仅代表其记录时点，不因降低数量门槛自动验收通过",
    "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
    "read_only_paths": [
     "contracts/**",
@@ -2890,7 +2902,7 @@
   },
   {
    "id": "Q15",
-   "name": "M2：十台真机、混合版本与耐久",
+   "name": "M2：三台混合版本与耐久（后续专项）",
    "wave": "W4",
    "milestone": "M2",
    "lane": "DEVICE",
@@ -2921,7 +2933,7 @@
    "effort_low": 1,
    "effort_high": 2,
    "implementation": [
-    "实际10台真机与100模拟客户端分别记数；不足10台如实卡硬件门",
+    "复用现有3台真机验证混合版本和故障恢复；取消10台硬件数量门槛，目标规模的模拟容量另行登记",
     "按兼容profile覆盖至少两类设备/系统，不虚构Note9支持",
     "建议8小时连续安全任务与24小时包含离线恢复的观察窗口，时间是验收要求不是当前工作承诺",
     "测试一机升级/故障时其他机继续、部署重启后不重复外部动作"
@@ -2941,11 +2953,12 @@
     "ISS-25"
    ],
    "risk": "高",
-   "device_acceptance": "10台授权真机；100模拟仅验证云端控制面",
+   "device_acceptance": "现有3台授权真机；后续专项，不作为本轮三台IM接入的前置。模拟客户端仅验证对应控制面负载，不要求追加实体设备凑数",
    "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
    "dev_state": "NOT_STARTED",
    "acceptance_state": "NOT_RUN",
    "evidence": "artifacts/delivery-20260916/Q15/",
+   "scope_change": "D-11，2026-09-26取消十台实机门槛；保留三台混合版本/耐久后续验证，不新增本轮长期保活工作，不承诺任意扩容无需验证",
    "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
    "read_only_paths": [
     "contracts/**",
@@ -3819,6 +3832,7 @@
     "对P00–P49以及四平台规范逐项核对现有证据与新差额任务，功能包切片不能冒充整包",
     "对所有合法开启操作按设备/版本/权限矩阵验收，blocked条目不能计done",
     "已验收切片受影响做定向回归；未变化不全仓重复采证",
+    "设备数量采用D-11的本期3台口径；不再以缺少5台/10台阻塞交付，后续扩大规模不要求全量逐台重跑完整验收",
     "交付状态分别是M0/M1/M2与完整V1；不能因先多机而宣称所有旧任务完成"
    ],
    "acceptance_cases": [
