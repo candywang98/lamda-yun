@@ -9,11 +9,13 @@ import {
   listOrders,
   orderDirectionLabel,
   OrdersApiError,
+  OrdersProtocolError,
   startXianyuOrderCollect,
   type OrderDetail,
   type OrderRow,
   type XianyuOrderRunTask,
 } from '@/api/orders'
+import { ORDER_DELIVERY_PROTOCOL, deliveryLabel, validOrderDelivery, type OrderDelivery } from '@/features/orders/delivery'
 
 const config = vi.hoisted(() => ({ configured: true }))
 vi.mock('@/api/control', () => ({
@@ -25,6 +27,25 @@ vi.mock('@/api/control', () => ({
 }))
 
 const fetcher = vi.fn()
+const runId = '018f1a2b-0000-7000-8000-000000000010'
+const taskId = '018f1a2b-0000-7000-8000-000000000020'
+const durableInput = { deviceId: 'dev-alpha-0001', direction: 'SOLD' as const, maxRows: 10, orderDeliveryProtocol: ORDER_DELIVERY_PROTOCOL }
+const identity = { runId, deviceId: durableInput.deviceId, direction: durableInput.direction, maxRows: 10, taskIds: [taskId] }
+
+function deliveryFixture(overrides: Partial<OrderDelivery> = {}): OrderDelivery {
+  return { protocolVersion: ORDER_DELIVERY_PROTOCOL, state: 'PENDING', receivedScreens: [],
+    expectedScreens: null, collectionComplete: false, stopReason: null, ...overrides }
+}
+
+function acceptedFixture(overrides: Record<string, unknown> = {}) {
+  return { ...identity, targetCount: 1, tasks: [{ taskId, state: 'QUEUED', createdAt: null }],
+    delivery: deliveryFixture(), ...overrides }
+}
+
+function durableRun(overrides: Record<string, unknown> = {}) {
+  return { ...identity, taskCount: 1, summary: { SUCCEEDED: 1 }, allTerminal: true,
+    tasks: [{ taskId, state: 'SUCCEEDED' }], delivery: deliveryFixture(), ...overrides }
+}
 
 beforeEach(() => {
   config.configured = true
@@ -179,14 +200,14 @@ describe('xianyu order collect api wiring (contract §6, W1 afca8c2 wire format)
   it('posts the collect intent with an Idempotency-Key header and snake_case body', async () => {
     respond(
       {
-        runId: '018f-run-0001',
+        runId,
         deviceId: 'dev-alpha-0001',
         direction: 'SOLD',
         maxRows: 10,
         commandType: 'xianyu.collect_orders.steps.v1',
         targetCount: 1,
-        taskIds: ['task-0001'],
-        tasks: [{ taskId: 'task-0001', state: 'QUEUED', createdAt: '2026-09-15T10:00:00.000Z' }],
+        taskIds: [taskId],
+        tasks: [{ taskId, state: 'QUEUED', createdAt: '2026-09-15T10:00:00.000Z' }],
       },
       201,
       { 'Idempotency-Replayed': 'false' },
@@ -195,8 +216,8 @@ describe('xianyu order collect api wiring (contract §6, W1 afca8c2 wire format)
       { deviceId: 'dev-alpha-0001', direction: 'SOLD', maxRows: 10 },
       'idem-key-1',
     )
-    expect(result.runId).toBe('018f-run-0001')
-    expect(result.taskIds).toEqual(['task-0001'])
+    expect(result.runId).toBe(runId)
+    expect(result.taskIds).toEqual([taskId])
     expect(result.tasks[0]?.state).toBe('QUEUED')
     expect(result.idempotencyReplayed).toBe(false)
     const [url, init] = fetcher.mock.calls[0] as [string, RequestInit]
@@ -209,14 +230,14 @@ describe('xianyu order collect api wiring (contract §6, W1 afca8c2 wire format)
   it('reports idempotent replays via the Idempotency-Replayed header', async () => {
     respond(
       {
-        runId: '018f-run-0001',
+        runId,
         deviceId: 'dev-alpha-0001',
         direction: 'SOLD',
         maxRows: 10,
         commandType: 'xianyu.collect_orders.steps.v1',
         targetCount: 1,
-        taskIds: ['task-0001'],
-        tasks: [{ taskId: 'task-0001', state: 'RUNNING', createdAt: '2026-09-15T10:00:00.000Z' }],
+        taskIds: [taskId],
+        tasks: [{ taskId, state: 'RUNNING', createdAt: '2026-09-15T10:00:00.000Z' }],
       },
       200,
       { 'Idempotency-Replayed': 'true' },
@@ -226,12 +247,12 @@ describe('xianyu order collect api wiring (contract §6, W1 afca8c2 wire format)
       'idem-key-1',
     )
     expect(result.idempotencyReplayed).toBe(true)
-    expect(result.runId).toBe('018f-run-0001')
+    expect(result.runId).toBe(runId)
   })
 
   it('reads the aggregated run state by run_id (camelCase view with tasks)', async () => {
     respond({
-      runId: '018f-run-0001',
+      runId,
       deviceId: 'dev-alpha-0001',
       direction: 'SOLD',
       maxRows: 10,
@@ -240,7 +261,7 @@ describe('xianyu order collect api wiring (contract §6, W1 afca8c2 wire format)
       summary: { SUCCEEDED: 1 },
       allTerminal: true,
       tasks: [{
-        taskId: 'task-0001',
+        taskId,
         state: 'SUCCEEDED',
         runnerStatus: 'SUCCEEDED',
         errorCode: null,
@@ -249,27 +270,27 @@ describe('xianyu order collect api wiring (contract §6, W1 afca8c2 wire format)
         completedAt: '2026-09-15T10:02:00.000Z',
       }],
     })
-    const run = await fetchXianyuOrderRun('018f-run-0001')
-    expect(run.runId).toBe('018f-run-0001')
+    const run = await fetchXianyuOrderRun(runId)
+    expect(run.runId).toBe(runId)
     expect(run.taskCount).toBe(1)
     expect(run.allTerminal).toBe(true)
     expect(run.tasks[0]?.state).toBe('SUCCEEDED')
     expect(run.tasks[0]?.runnerStatus).toBe('SUCCEEDED')
-    expect(fetcher.mock.calls[0][0]).toBe('http://control.test/api/v1/xianyu/orders/runs/018f-run-0001')
+    expect(fetcher.mock.calls[0][0]).toBe(`http://control.test/api/v1/xianyu/orders/runs/${runId}`)
     expect((fetcher.mock.calls[0][1] as RequestInit).method).toBe('GET')
   })
 
   it('sends screens only when provided (slice2 §2: omitted = backend default 1 / v1 compatible)', async () => {
     respond(
       {
-        runId: '018f-run-0002',
+        runId,
         deviceId: 'dev-alpha-0001',
         direction: 'SOLD',
         maxRows: 10,
         commandType: 'xianyu.collect_orders.steps.v2',
         targetCount: 1,
-        taskIds: ['task-0002'],
-        tasks: [{ taskId: 'task-0002', state: 'QUEUED', createdAt: '2026-09-15T10:00:00.000Z' }],
+        taskIds: [taskId],
+        tasks: [{ taskId, state: 'QUEUED', createdAt: '2026-09-15T10:00:00.000Z' }],
       },
       201,
       { 'Idempotency-Replayed': 'false' },
@@ -287,14 +308,14 @@ describe('xianyu order collect api wiring (contract §6, W1 afca8c2 wire format)
 
     respond(
       {
-        runId: '018f-run-0003',
+        runId,
         deviceId: 'dev-alpha-0001',
         direction: 'SOLD',
         maxRows: 10,
         commandType: 'xianyu.collect_orders.steps.v1',
         targetCount: 1,
-        taskIds: ['task-0003'],
-        tasks: [{ taskId: 'task-0003', state: 'QUEUED', createdAt: '2026-09-15T10:00:00.000Z' }],
+        taskIds: [taskId],
+        tasks: [{ taskId, state: 'QUEUED', createdAt: '2026-09-15T10:00:00.000Z' }],
       },
       201,
       { 'Idempotency-Replayed': 'false' },
@@ -339,5 +360,153 @@ describe('xianyu order collect api wiring (contract §6, W1 afca8c2 wire format)
     expect(isXianyuOrderRunTerminal(run(['SUCCEEDED', 'FAILED']))).toBe(true)
     expect(isXianyuOrderRunTerminal(run(['RUNNING']))).toBe(false)
     expect(isXianyuOrderRunTerminal(run([]))).toBe(false)
+  })
+})
+
+describe('order-delivery/1 API gates', () => {
+  it('opts in explicitly while retaining the existing one-screen request shape', async () => {
+    respond(acceptedFixture(), 201)
+    const result = await startXianyuOrderCollect(durableInput, 'durable-key')
+    expect(result.delivery).toEqual(deliveryFixture())
+    const [url, init] = fetcher.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('http://control.test/api/v1/xianyu/orders:collect')
+    expect(JSON.parse(String(init.body))).toEqual({
+      device_id: durableInput.deviceId, direction: 'SOLD', max_rows: 10,
+      orderDeliveryProtocol: ORDER_DELIVERY_PROTOCOL,
+    })
+    expect(new Headers(init.headers).get('Idempotency-Key')).toBe('durable-key')
+    expect(new Headers(init.headers).get('Accept')).toBe('application/json')
+    expect(init.credentials).toBe('same-origin')
+  })
+
+  it.each([409, 403, 422, 429, 503])('surfaces HTTP %s without legacy fallback or automatic POST retry', async (status) => {
+    respond({ detail: 'ACCOUNT_BINDING_REQUIRED' }, status)
+    await expect(startXianyuOrderCollect(durableInput, 'retained-key'))
+      .rejects.toMatchObject({ status, message: `ACCOUNT_BINDING_REQUIRED（HTTP ${status}）` })
+    expect(fetcher).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps exact body/key on an explicit retry after transport ambiguity', async () => {
+    fetcher.mockRejectedValueOnce(new TypeError('connection lost'))
+    await expect(startXianyuOrderCollect(durableInput, 'retained-key')).rejects.toThrow('connection lost')
+    respond(acceptedFixture(), 200, { 'Idempotency-Replayed': 'true' })
+    const result = await startXianyuOrderCollect(durableInput, 'retained-key')
+    expect(result.idempotencyReplayed).toBe(true)
+    const first = fetcher.mock.calls[0]![1] as RequestInit
+    const second = fetcher.mock.calls[1]![1] as RequestInit
+    expect(first.body).toBe(second.body)
+    expect(new Headers(first.headers).get('Idempotency-Key')).toBe(new Headers(second.headers).get('Idempotency-Key'))
+  })
+
+  it.each([
+    { runId: '' }, { runId: 'bad' }, { runId: 123 }, { runId: `${runId} ` },
+    { tasks: [] }, { tasks: [{ taskId: '', state: 'QUEUED' }], taskIds: [''] },
+    { taskIds: [] }, { taskIds: [runId] }, { targetCount: 0 },
+    { tasks: [{ taskId, state: 'QUEUED' }, { taskId, state: 'QUEUED' }], taskIds: [taskId, taskId], targetCount: 2 },
+    { deviceId: 'different-device' }, { direction: 'BOUGHT' }, { maxRows: 5 }, { screens: 3 },
+  ])('rejects malformed or mismatched creation identity: %j', async (overrides) => {
+    respond(acceptedFixture(overrides), 201)
+    await expect(startXianyuOrderCollect(durableInput, 'retained-key'))
+      .rejects.toMatchObject({ acceptedIdentity: undefined, message: expect.stringContaining('runId/taskId') })
+  })
+
+  it.each([null, [], 'not-an-object'].map((payload) => ({ payload })))('rejects malformed successful body: $payload', async ({ payload }) => {
+    respond(payload, 200)
+    await expect(startXianyuOrderCollect(durableInput, 'retained-key')).rejects.toBeInstanceOf(OrdersProtocolError)
+  })
+
+  it.each([
+    undefined, null, {}, deliveryFixture({ protocolVersion: null, state: 'LEGACY_UNVERIFIED' }),
+    { ...deliveryFixture(), protocolVersion: 'order-delivery/2' },
+    deliveryFixture({ state: 'SYNCED' }),
+  ].map((delivery) => ({ delivery })))('retains accepted identity but rejects incompatible delivery: $delivery', async ({ delivery }) => {
+    respond(acceptedFixture({ delivery }), 201)
+    await expect(startXianyuOrderCollect(durableInput, 'retained-key')).rejects.toMatchObject({
+      acceptedIdentity: identity, message: '采集已受理，但同步协议响应无效',
+    })
+  })
+
+  it('accepts terminal task success with delivery still pending', async () => {
+    respond(durableRun())
+    const result = await fetchXianyuOrderRun(runId, { expected: identity, durable: true, maxScreens: 1 })
+    expect(result.allTerminal).toBe(true)
+    expect(result.delivery?.state).toBe('PENDING')
+  })
+
+  it('accepts actual early-stop total instead of requiring the requested maximum', async () => {
+    respond(durableRun({ delivery: deliveryFixture({
+      state: 'SYNCED', collectionComplete: true, receivedScreens: [1], expectedScreens: 1, stopReason: 'STOP_EMPTY_PAGE',
+    }) }))
+    const result = await fetchXianyuOrderRun(runId, { expected: identity, durable: true, maxScreens: 3 })
+    expect(result.delivery?.expectedScreens).toBe(1)
+    expect(result.delivery?.state).toBe('SYNCED')
+  })
+
+  it.each([
+    { collectionComplete: false }, { expectedScreens: null }, { expectedScreens: 0 },
+    { receivedScreens: [] }, { receivedScreens: [2] }, { receivedScreens: [1, 1] },
+    { expectedScreens: 3, receivedScreens: [1, 3] }, { expectedScreens: 4, receivedScreens: [1, 2, 3, 4] },
+  ])('rejects SYNCED without valid completion and contiguous receipt proof: %j', async (delta) => {
+    respond(durableRun({ delivery: { ...deliveryFixture({
+      state: 'SYNCED', receivedScreens: [1], expectedScreens: 1, collectionComplete: true, stopReason: 'PLAN_FINISHED',
+    }), ...delta } }))
+    await expect(fetchXianyuOrderRun(runId, { durable: true })).rejects.toBeInstanceOf(OrdersProtocolError)
+  })
+
+  it.each(['FAILED', 'CANCELLED', 'EXPIRED', 'RECONCILING', 'RUNNING'])('rejects SYNCED for task %s', async (state) => {
+    respond(durableRun({ tasks: [{ taskId, state }], delivery: deliveryFixture({
+      state: 'SYNCED', receivedScreens: [1], expectedScreens: 1, collectionComplete: true, stopReason: 'PLAN_FINISHED',
+    }) }))
+    await expect(fetchXianyuOrderRun(runId, { durable: true })).rejects.toBeInstanceOf(OrdersProtocolError)
+  })
+
+  it.each([
+    'TASK_FAILED', 'TASK_CANCELLED', 'TASK_EXPIRED', 'COLLECTION_RECONCILING',
+    'MOBILE_BINDING_CHANGED', 'ACCOUNT_BINDING_CHANGED', 'PAYLOAD_CONFLICT',
+  ])('preserves explicit BLOCKED reason %s independently of task success', async (stopReason) => {
+    respond(durableRun({ delivery: deliveryFixture({ state: 'BLOCKED', stopReason }) }))
+    const result = await fetchXianyuOrderRun(runId, { durable: true })
+    expect(result.delivery?.state).toBe('BLOCKED')
+    expect(result.delivery?.stopReason).toBe(stopReason)
+  })
+
+  it.each([
+    { runId: taskId }, { deviceId: 'device-other' }, { direction: 'BOUGHT' }, { maxRows: 5 },
+    { tasks: [{ taskId: runId, state: 'SUCCEEDED' }] }, { tasks: [], taskCount: 0 }, { taskCount: 2 },
+  ])('rejects a run response for another accepted identity: %j', async (overrides) => {
+    respond(durableRun(overrides))
+    await expect(fetchXianyuOrderRun(runId, { expected: identity, durable: true })).rejects.toBeInstanceOf(OrdersProtocolError)
+  })
+
+  it('never upgrades legacy success into delivery success and rejects downgrade for negotiated runs', async () => {
+    const legacy = deliveryFixture({ protocolVersion: null, state: 'LEGACY_UNVERIFIED' })
+    respond(durableRun({ delivery: legacy }))
+    const result = await fetchXianyuOrderRun(runId)
+    expect(deliveryLabel(result.delivery)).toBe('旧任务：同步未核验')
+    respond(durableRun({ delivery: legacy }))
+    await expect(fetchXianyuOrderRun(runId, { durable: true })).rejects.toBeInstanceOf(OrdersProtocolError)
+    respond(durableRun({ delivery: undefined }))
+    await expect(fetchXianyuOrderRun(runId, { durable: true })).rejects.toBeInstanceOf(OrdersProtocolError)
+    expect(deliveryLabel(undefined)).toBe('同步状态未确认')
+  })
+
+  it('passes a read AbortSignal without creating or retrying a task', async () => {
+    const controller = new AbortController()
+    respond(durableRun())
+    await fetchXianyuOrderRun(runId, { expected: identity, durable: true, signal: controller.signal })
+    const init = fetcher.mock.calls[0]![1] as RequestInit
+    expect(init.method).toBe('GET')
+    expect(init.signal).toBe(controller.signal)
+    expect(init.body).toBeUndefined()
+    expect(fetcher).toHaveBeenCalledTimes(1)
+  })
+
+  it('rejects delivery with invalid field types or a missing blocked reason', () => {
+    for (const delta of [
+      { collectionComplete: 'true' }, { expectedScreens: '1' }, { receivedScreens: null },
+      { state: 'BLOCKED', stopReason: null }, { state: 'UNKNOWN' }, { stopReason: {} },
+    ]) {
+      expect(validOrderDelivery({ ...deliveryFixture(), ...delta }, [{ state: 'SUCCEEDED' }], true)).toBe(false)
+    }
   })
 })
