@@ -194,6 +194,9 @@ def _row_hash(row: ListingRowIn) -> str:
 
 def _listing_view(row: FleetListingRow) -> dict[str, Any]:
     return {
+        "id": row.id,
+        "deviceId": row.device_id,
+        "platform": row.platform,
         "itemKey": row.item_key,
         "dedupeMarker": row.dedupe_marker,
         "title": row.title,
@@ -396,7 +399,11 @@ class FleetListingsService:
                 await session.scalars(
                     select(FleetListingRow)
                     .where(*conditions)
-                    .order_by(FleetListingRow.last_seen_at.desc(), FleetListingRow.item_key)
+                    .order_by(
+                        FleetListingRow.last_seen_at.desc(),
+                        FleetListingRow.item_key,
+                        FleetListingRow.id,
+                    )
                     .offset(offset)
                     .limit(limit + 1)
                 )
