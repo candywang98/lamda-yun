@@ -297,6 +297,8 @@ class FleetOrdersService:
             checkpoint = await self._load_checkpoint(session, tenant_id, device_id, body.direction)
             replayed_page = False
             if checkpoint is None:
+                if body.screen != 1:
+                    raise ConflictError("order collection must start from screen 1")
                 checkpoint = FleetOrderCheckpointRow(
                     id=str(uuid.uuid4()),
                     tenant_id=tenant_id,
@@ -350,6 +352,10 @@ class FleetOrdersService:
                         created_at=now,
                     )
                 )
+                # Reset only for a newly accepted run, never for a historical replay.
+                if checkpoint.run_key != body.run_key:
+                    checkpoint.last_screen = 0
+                    checkpoint.seen_keys = 0
                 if body.screen > checkpoint.last_screen:
                     checkpoint.last_screen = body.screen
                     checkpoint.seen_keys += accepted
