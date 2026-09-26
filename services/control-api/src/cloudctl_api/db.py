@@ -12,6 +12,7 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     DateTime,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -945,6 +946,36 @@ class ImMessageRow(Base):
         CheckConstraint(
             "delivery_state IN ('PENDING', 'DELIVERED', 'FAILED')",
             name="ck_im_message_delivery_state",
+        ),
+    )
+
+
+class ImClassificationRow(Base):
+    __tablename__ = "im_message_classification"
+    message_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("im_message.id"), primary_key=True
+    )
+    tenant_id: Mapped[str] = mapped_column(String(36), index=True, nullable=False)
+    notification_metadata: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    notification_title: Mapped[str | None] = mapped_column(String(128))
+    machine_category: Mapped[str] = mapped_column(String(32), nullable=False)
+    machine_source: Mapped[str] = mapped_column(String(24), nullable=False)
+    machine_status: Mapped[str] = mapped_column(String(32), nullable=False)
+    predicted_category: Mapped[str | None] = mapped_column(String(32))
+    confidence: Mapped[float | None] = mapped_column(Float)
+    model_status: Mapped[str | None] = mapped_column(String(32))
+    rule_code: Mapped[str | None] = mapped_column(String(64))
+    manual_category: Mapped[str | None] = mapped_column(String(32))
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reviewed_by: Mapped[str | None] = mapped_column(String(36))
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    generation: Mapped[int] = mapped_column(Integer, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    __table_args__ = (
+        CheckConstraint("version >= 1 AND generation >= 1", name="ck_im_classification_version"),
+        CheckConstraint(
+            "confidence IS NULL OR (confidence >= 0 AND confidence <= 1)",
+            name="ck_im_classification_confidence",
         ),
     )
 

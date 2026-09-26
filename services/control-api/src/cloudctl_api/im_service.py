@@ -12,9 +12,24 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from cloudctl_domain import ConflictError, NotFoundError, Permission, require_permissions
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, func, or_, select
 
-from .db import ImMessageRow, ImMonitorConfigRow, ImThreadRow, MobileTaskRow
+from .db import (
+    AuditEventRow,
+    ImClassificationRow,
+    ImMessageRow,
+    ImMonitorConfigRow,
+    ImThreadRow,
+    MobileTaskRow,
+)
+from .im_classification import (
+    bucket_predicate,
+    classification_view,
+    new_classification,
+    notification_rule,
+    persist_assessment,
+)
+from .im_classifier import MessageAssessment
 from .im_observer import ImClassificationObserver, InboundObservation
 from .mobile_schemas import MobileTaskCreate
 from .mobile_service import MobileTaskService, _now
@@ -97,11 +112,15 @@ def _thread_view(row: ImThreadRow, last_message_text: str | None = None) -> dict
         else row.last_message_at,
         "lastDirection": row.last_direction,
         "lastMessageText": last_message_text,
+        "lastMessageClassification": None,
         "unreadCount": row.unread_count,
     }
 
 
-def _message_view(row: ImMessageRow) -> dict[str, Any]:
+def _message_view(
+    row: ImMessageRow,
+    classification: ImClassificationRow | None = None,
+) -> dict[str, Any]:
     return {
         "id": row.id,
         "threadId": row.thread_id,
@@ -113,6 +132,8 @@ def _message_view(row: ImMessageRow) -> dict[str, Any]:
         else row.occurred_at,
         "replyTaskId": row.reply_task_id,
         "deliveryState": row.delivery_state,
+        "classification": classification_view(classification) if row.direction == "IN" else None,
+        "notificationMetadata": classification.notification_metadata if classification else None,
     }
 
 
@@ -130,6 +151,25 @@ class ImService:
         self.observer = observer
         self.receive_only = receive_only
         self.legacy_xianyu_device_ids = legacy_xianyu_device_ids
+        if self.observer is not None:
+            self.observer.persist = self._persist_assessment
+
+    async def _persist_assessment(
+        self,
+        observation: InboundObservation,
+        assessment: MessageAssessment,
+    ) -> None:
+        await persist_assessment(self.database, observation, assessment)
+
+    async def _submit_observation(self, observation: InboundObservation) -> None:
+        if self.observer is None:
+            return
+        try:
+            state = self.observer.submit(observation)
+        except Exception:
+            state = "INTERNAL_ERROR"
+        if state != "PENDING":
+            await self.observer.record_result(observation, MessageAssessment(status=state))
 
     ALLOWED_PLATFORMS = {"xianyu", "xhs", "douyin", "wechat"}
 
@@ -319,6 +359,16 @@ class ImService:
                         created_at=now,
                     )
                 )
+                await session.flush()
+                classification = new_classification(
+                    message_id,
+                    binding_row.tenant_id,
+                    peer_name,
+                    text,
+                    item.get("notificationMetadata"),
+                )
+                classification.model_status = "PENDING" if self.observer else "DISABLED"
+                session.add(classification)
                 thread.peer_name = peer_name
                 latest_at = thread.last_message_at
                 if latest_at.tzinfo is None:
@@ -336,12 +386,13 @@ class ImService:
                         platform=platform,
                         title=peer_name,
                         text=text,
+                        notification_metadata=item.get("notificationMetadata"),
                     )
                 )
         # Only committed, non-duplicate messages may leave the receiving service.
         if self.observer is not None:
             for observation in observations:
-                self.observer.submit(observation)
+                await self._submit_observation(observation)
         return {"accepted": accepted, "duplicates": duplicates}
 
     async def list_threads(
@@ -351,50 +402,96 @@ class ImService:
         unread_only: bool,
         after: str | None,
         limit: int,
+        bucket: str = "all",
     ) -> list[dict[str, Any]]:
         async with self.database.unit_of_work() as session:
-            query = select(ImThreadRow).where(ImThreadRow.tenant_id == str(actor.tenant_id))
+            # Rank within the selected bucket first; unrelated newer notices must
+            # not move or replace the summary of a user-message thread.
+            ranked = (
+                select(
+                    ImMessageRow.id.label("message_id"),
+                    ImMessageRow.thread_id,
+                    ImMessageRow.occurred_at,
+                    func.row_number()
+                    .over(
+                        partition_by=ImMessageRow.thread_id,
+                        order_by=(
+                            ImMessageRow.occurred_at.desc(),
+                            ImMessageRow.created_at.desc(),
+                            ImMessageRow.id.desc(),
+                        ),
+                    )
+                    .label("rank"),
+                )
+                .outerjoin(ImClassificationRow, ImClassificationRow.message_id == ImMessageRow.id)
+                .where(ImMessageRow.tenant_id == str(actor.tenant_id), bucket_predicate(bucket))
+                .subquery()
+            )
+            query = (
+                select(ImThreadRow, ImMessageRow, ImClassificationRow)
+                .join(ranked, and_(ranked.c.thread_id == ImThreadRow.id, ranked.c.rank == 1))
+                .join(ImMessageRow, ImMessageRow.id == ranked.c.message_id)
+                .outerjoin(ImClassificationRow, ImClassificationRow.message_id == ImMessageRow.id)
+                .where(ImThreadRow.tenant_id == str(actor.tenant_id))
+            )
             if device_id:
                 query = query.where(ImThreadRow.device_id == device_id)
             if unread_only:
                 query = query.where(ImThreadRow.unread_count > 0)
             if after:
-                anchor = await session.get(ImThreadRow, after)
-                if anchor is None or anchor.tenant_id != str(actor.tenant_id):
+                anchor = (await session.execute(query.where(ImThreadRow.id == after))).first()
+                if anchor is None:
                     raise NotFoundError("thread was not found")
                 query = query.where(
                     or_(
-                        ImThreadRow.last_message_at < anchor.last_message_at,
+                        ranked.c.occurred_at < anchor[1].occurred_at,
                         and_(
-                            ImThreadRow.last_message_at == anchor.last_message_at,
-                            ImThreadRow.id < anchor.id,
+                            ranked.c.occurred_at == anchor[1].occurred_at,
+                            ImThreadRow.id < anchor[0].id,
                         ),
                     )
                 )
-            rows = list(
-                await session.scalars(
-                    query.order_by(ImThreadRow.last_message_at.desc(), ImThreadRow.id.desc()).limit(
-                        limit
-                    )
+            rows = (
+                await session.execute(
+                    query.order_by(ranked.c.occurred_at.desc(), ImThreadRow.id.desc()).limit(limit)
+                )
+            ).all()
+            views: list[dict[str, Any]] = []
+            for row, last_message, classification in rows:
+                view = _thread_view(row, last_message.text_content)
+                view["lastMessageAt"] = _message_view(last_message)["occurredAt"]
+                view["lastDirection"] = last_message.direction
+                view["lastMessageClassification"] = (
+                    classification_view(classification) if last_message.direction == "IN" else None
+                )
+                views.append(view)
+            return views
+
+    async def bucket_counts(
+        self,
+        actor: Any,
+        device_id: str | None,
+        unread_only: bool,
+    ) -> dict[str, int]:
+        async with self.database.unit_of_work() as session:
+            query = (
+                select(func.count(func.distinct(ImThreadRow.id)))
+                .select_from(ImThreadRow)
+                .join(ImMessageRow, ImMessageRow.thread_id == ImThreadRow.id)
+                .outerjoin(ImClassificationRow, ImClassificationRow.message_id == ImMessageRow.id)
+                .where(
+                    ImThreadRow.tenant_id == str(actor.tenant_id),
+                    ImMessageRow.tenant_id == str(actor.tenant_id),
                 )
             )
-            views: list[dict[str, Any]] = []
-            for row in rows:
-                last_message = await session.scalar(
-                    select(ImMessageRow)
-                    .where(
-                        ImMessageRow.tenant_id == str(actor.tenant_id),
-                        ImMessageRow.thread_id == row.id,
-                    )
-                    .order_by(
-                        ImMessageRow.occurred_at.desc(),
-                        ImMessageRow.created_at.desc(),
-                        ImMessageRow.id.desc(),
-                    )
-                    .limit(1)
-                )
-                views.append(_thread_view(row, last_message.text_content if last_message else None))
-            return views
+            if device_id:
+                query = query.where(ImThreadRow.device_id == device_id)
+            if unread_only:
+                query = query.where(ImThreadRow.unread_count > 0)
+            return {
+                bucket: int(await session.scalar(query.where(bucket_predicate(bucket))) or 0)
+                for bucket in ("all", "user", "notice", "review")
+            }
 
     async def _owned_thread(self, session: Any, actor: Any, thread_id: str) -> ImThreadRow:
         row = await session.get(ImThreadRow, thread_id, with_for_update=True)
@@ -404,13 +501,27 @@ class ImService:
         return row
 
     async def list_messages(
-        self, actor: Any, thread_id: str, after: str | None, limit: int, latest: bool = False
+        self,
+        actor: Any,
+        thread_id: str,
+        after: str | None,
+        limit: int,
+        latest: bool = False,
+        bucket: str = "all",
     ) -> list[dict[str, Any]]:
         async with self.database.unit_of_work() as session:
             thread = await self._owned_thread(session, actor, thread_id)
-            query = select(ImMessageRow).where(
-                ImMessageRow.thread_id == thread.id,
-                ImMessageRow.tenant_id == str(actor.tenant_id),
+            predicate = bucket_predicate(bucket)
+            if bucket == "user":
+                predicate = or_(predicate, ImMessageRow.direction == "OUT")
+            query = (
+                select(ImMessageRow, ImClassificationRow)
+                .outerjoin(ImClassificationRow, ImClassificationRow.message_id == ImMessageRow.id)
+                .where(
+                    ImMessageRow.thread_id == thread.id,
+                    ImMessageRow.tenant_id == str(actor.tenant_id),
+                    predicate,
+                )
             )
             if after:
                 anchor = await session.get(ImMessageRow, after)
@@ -431,10 +542,133 @@ class ImService:
                 if newest
                 else (ImMessageRow.occurred_at.asc(), ImMessageRow.id.asc())
             )
-            rows = list(await session.scalars(query.order_by(*ordering).limit(limit)))
+            rows = list((await session.execute(query.order_by(*ordering).limit(limit))).all())
             if newest:
                 rows.reverse()
-            return [_message_view(row) for row in rows]
+            return [_message_view(row, classification) for row, classification in rows]
+
+    async def _classification_target(
+        self,
+        session: Any,
+        actor: Any,
+        message_id: str,
+        expected_version: int,
+    ) -> tuple[ImMessageRow, ImClassificationRow]:
+        message = await session.scalar(
+            select(ImMessageRow)
+            .where(ImMessageRow.id == message_id, ImMessageRow.tenant_id == str(actor.tenant_id))
+            .with_for_update()
+        )
+        if message is None:
+            raise NotFoundError("message was not found")
+        if message.direction != "IN":
+            raise ConflictError("ONLY_INBOUND_CLASSIFICATION")
+        row = await session.get(ImClassificationRow, message_id)
+        if expected_version != (row.version if row else 0):
+            raise ConflictError("CLASSIFICATION_VERSION_CONFLICT")
+        if row is None:
+            row = new_classification(message.id, message.tenant_id, "", "")
+            # Creating a manual sidecar must not silently classify old history.
+            row.machine_status = "UNCLASSIFIED"
+            session.add(row)
+        else:
+            row.version += 1
+        row.updated_at = _now()
+        return message, row
+
+    async def correct_classification(
+        self,
+        actor: Any,
+        message_id: str,
+        expected_version: int,
+        category: str | None,
+    ) -> dict[str, Any]:
+        require_permissions(actor.roles, Permission.DEVICE_CONTROL)
+        async with self.database.unit_of_work() as session:
+            message, row = await self._classification_target(
+                session, actor, message_id, expected_version
+            )
+            previous = row.manual_category
+            row.manual_category = category
+            row.reviewed_at = _now()
+            row.reviewed_by = str(actor.user_id)
+            session.add(
+                AuditEventRow(
+                    id=str(uuid.uuid4()),
+                    tenant_id=str(actor.tenant_id),
+                    actor_type="user",
+                    actor_id=str(actor.user_id),
+                    action="im.message.classify",
+                    resource_type="im_message",
+                    resource_id=message_id,
+                    request_id=actor.request_id,
+                    result="SUCCESS",
+                    metadata_json={
+                        "previousManualCategory": previous,
+                        "manualCategory": category,
+                        "expectedVersion": expected_version,
+                        "version": row.version,
+                    },
+                    occurred_at=_now(),
+                )
+            )
+            return _message_view(message, row)
+
+    async def reclassify(
+        self,
+        actor: Any,
+        message_id: str,
+        expected_version: int,
+    ) -> dict[str, Any]:
+        require_permissions(actor.roles, Permission.DEVICE_CONTROL)
+        async with self.database.unit_of_work() as session:
+            message, row = await self._classification_target(
+                session, actor, message_id, expected_version
+            )
+            thread = await session.get(ImThreadRow, message.thread_id)
+            assert thread is not None
+            title = row.notification_title or thread.peer_name
+            category, rule = notification_rule(
+                title, message.text_content, row.notification_metadata
+            )
+            row.machine_category = category
+            row.machine_source = "RULE" if rule else "UNCLASSIFIED"
+            row.machine_status = "RULE_CLASSIFIED" if rule else "NEEDS_REVIEW"
+            row.rule_code = rule
+            row.generation += 1
+            row.model_status = "PENDING" if self.observer else "DISABLED"
+            observation = InboundObservation(
+                message.id,
+                thread.device_id,
+                thread.platform,
+                title,
+                message.text_content,
+                row.notification_metadata,
+                row.generation,
+            )
+            session.add(
+                AuditEventRow(
+                    id=str(uuid.uuid4()),
+                    tenant_id=str(actor.tenant_id),
+                    actor_type="user",
+                    actor_id=str(actor.user_id),
+                    action="im.message.reclassify",
+                    resource_type="im_message",
+                    resource_id=message_id,
+                    request_id=actor.request_id,
+                    result="SUCCESS",
+                    metadata_json={
+                        "expectedVersion": expected_version,
+                        "version": row.version,
+                        "generation": row.generation,
+                    },
+                    occurred_at=_now(),
+                )
+            )
+        await self._submit_observation(observation)
+        async with self.database.unit_of_work() as session:
+            updated = await session.get(ImClassificationRow, message_id)
+            return _message_view(message, updated)
 
     async def mark_read(self, actor: Any, thread_id: str) -> dict[str, Any]:
         async with self.database.unit_of_work() as session:

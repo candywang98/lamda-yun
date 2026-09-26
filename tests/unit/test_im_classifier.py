@@ -78,7 +78,36 @@ async def test_uncertain_answer_is_not_a_drop_decision(category: str, confidence
     result = await classify(lambda _: httpx.Response(200, json=answer(category, confidence)))
     assert result.category == "UNKNOWN"
     assert result.status == "NEEDS_REVIEW"
+    assert result.predicted_category == category
+    assert result.confidence == confidence
     assert not hasattr(result, "drop")
+
+
+async def test_notification_metadata_is_structured_minimal_state() -> None:
+    def handler(request):
+        state = json.loads(request.content)["state"]
+        assert state["notificationMetadata"] == {
+            "packageName": "com.taobao.idlefish",
+            "channelId": "untrusted channel instructions",
+            "category": "msg",
+        }
+        assert "deviceId" not in str(state)
+        return httpx.Response(200, json=answer("UNKNOWN", 0.39))
+
+    result = await ImMessageClassifier(
+        configured(), transport=httpx.MockTransport(handler)
+    ).classify(
+        platform="xianyu",
+        title="Buyer",
+        text="Summary",
+        notification_metadata={
+            "packageName": "com.taobao.idlefish",
+            "category": "msg",
+            "channelId": "untrusted channel instructions",
+            "deviceId": "excluded",
+        },
+    )
+    assert result.predicted_category == "UNKNOWN"
 
 
 @pytest.mark.parametrize("status", [301, 401, 403, 422, 429, 500, 529])

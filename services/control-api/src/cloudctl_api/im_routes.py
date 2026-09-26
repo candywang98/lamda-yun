@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from .auth import current_actor
+from .im_classifier import Category
 from .im_service import ImService
 from .mobile_routes import binding
 
@@ -29,6 +30,14 @@ def cast_service(value: object) -> ImService:
 
 
 Service = Annotated[ImService, Depends(service)]
+Bucket = Literal["all", "user", "notice", "review"]
+
+
+class NotificationMetadata(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    package_name: Literal["com.taobao.idlefish"] | None = Field(default=None, alias="packageName")
+    channel_id: str | None = Field(default=None, alias="channelId", max_length=256)
+    category: str | None = Field(default=None, max_length=64)
 
 
 class ImMessageIn(BaseModel):
@@ -38,6 +47,9 @@ class ImMessageIn(BaseModel):
     peer_name: str = Field(alias="peerName", min_length=1, max_length=128)
     text: str = Field(min_length=1, max_length=4000)
     occurred_at: datetime = Field(alias="occurredAt")
+    notification_metadata: NotificationMetadata | None = Field(
+        default=None, alias="notificationMetadata"
+    )
 
 
 class ImBatchIn(BaseModel):
@@ -67,6 +79,11 @@ async def push_messages(body: ImBatchIn, binding_row: BindingDep, im: Service) -
                 "peerName": item.peer_name,
                 "text": item.text,
                 "occurredAt": item.occurred_at,
+                "notificationMetadata": (
+                    item.notification_metadata.model_dump(by_alias=True, exclude_none=True)
+                    if item.notification_metadata is not None
+                    else None
+                ),
             }
             for item in body.messages
         ],
@@ -81,9 +98,11 @@ async def list_threads(
     unread: bool = Query(default=False),
     after: str | None = None,
     limit: int = Query(default=50, ge=1, le=50),
+    bucket: Bucket = "all",
 ) -> dict[str, Any]:
-    items = await im.list_threads(actor, device_id, unread, after, limit)
-    return {"items": items, "count": len(items)}
+    items = await im.list_threads(actor, device_id, unread, after, limit, bucket=bucket)
+    counts = await im.bucket_counts(actor, device_id, unread)
+    return {"items": items, "count": len(items), "bucketCounts": counts}
 
 
 @operator_router.get("/threads/{thread_id}/messages")
@@ -94,9 +113,41 @@ async def list_messages(
     after: str | None = None,
     limit: int = Query(default=100, ge=1, le=200),
     latest: bool = Query(default=False),
+    bucket: Bucket = "all",
 ) -> dict[str, Any]:
-    items = await im.list_messages(actor, thread_id, after, limit, latest=latest)
+    items = await im.list_messages(actor, thread_id, after, limit, latest=latest, bucket=bucket)
     return {"items": items, "count": len(items)}
+
+
+class ClassificationIn(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    category: Category | None
+    expected_version: int = Field(alias="expectedVersion", ge=0, strict=True)
+
+
+class ReclassificationIn(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    expected_version: int = Field(alias="expectedVersion", ge=0, strict=True)
+
+
+@operator_router.post("/messages/{message_id}:classify")
+async def classify_message(
+    message_id: str,
+    body: ClassificationIn,
+    actor: ActorDep,
+    im: Service,
+) -> dict[str, Any]:
+    return await im.correct_classification(actor, message_id, body.expected_version, body.category)
+
+
+@operator_router.post("/messages/{message_id}:reclassify")
+async def reclassify_message(
+    message_id: str,
+    body: ReclassificationIn,
+    actor: ActorDep,
+    im: Service,
+) -> dict[str, Any]:
+    return await im.reclassify(actor, message_id, body.expected_version)
 
 
 @operator_router.post("/threads/{thread_id}:mark-read", status_code=status.HTTP_200_OK)
