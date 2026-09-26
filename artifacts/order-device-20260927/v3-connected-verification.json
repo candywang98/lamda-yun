@@ -1,0 +1,24 @@
+{
+  "observedAt": "2026-09-26 16:59:28.291173+00:00",
+  "taskId": "b067fca9-7ffa-49df-85b0-6c812fe4179c",
+  "runId": "0adcb6e3-e4d0-5167-93f7-cf3b07b8d509",
+  "collectionState": "SUCCEEDED",
+  "deliveryState": "SYNCED",
+  "receiptCount": 2,
+  "receivedScreens": [
+    1
+  ],
+  "completeStopReason": "PLAN_FINISHED",
+  "capturedRows": 3,
+  "uniqueCapturedOrders": 3,
+  "partialRowCount": 0,
+  "detailApiVerifiedRows": 3,
+  "capturedRowsOnFirstApiPage": 3,
+  "deviceSoldOrderApiTotal": 7,
+  "orderKeyTypes": {
+    "composite": 3
+  },
+  "visualBrowserVerified": false,
+  "usbConnectedDuringTest": true,
+  "outgoingMessages": 23
+}

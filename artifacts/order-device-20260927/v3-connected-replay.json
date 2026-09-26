@@ -1,0 +1,14 @@
+{
+  "observedAt": "2026-09-26 17:01:51.809404+00:00",
+  "runId": "8ffc9121-00c1-561e-b57b-59c4d887c4e7",
+  "httpStatus": 200,
+  "idempotencyReplayed": true,
+  "sameRunAndTask": true,
+  "deliveryState": "SYNCED",
+  "taskCountUnchanged": 379,
+  "outgoingMessagesUnchanged": 23,
+  "deviceOrdersUnchanged": 14,
+  "deviceOrderContentDigestUnchanged": true,
+  "receiptsUnchanged": 4,
+  "idle": true
+}

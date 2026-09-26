@@ -26,6 +26,9 @@ wireless ADB disconnected and without the development computer or Edge.
 Verify the final business path in that configuration; an ADB-assisted test is
 diagnostic evidence only. Ordinary installation, login and system permission
 setup may require user interaction, but ADB must not be a runtime prerequisite.
+Connected development tests and iterative fixes should proceed when authorized.
+Do not require cable disconnection for every debugging round; record any ADB
+assistance explicitly and reserve disconnected operation for final acceptance.
 
 V1 platform scope is exactly four: 闲鱼商品, 小红书图文, 抖音视频, 微信公众号文章. Other platforms are frozen for V1.
 

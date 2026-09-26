@@ -1,5 +1,9 @@
 # Authorized OnePlus V3 In-Place Update
 
+Follow-up: the user explicitly requested connected testing. The subsequent
+[single-screen, three-screen and idempotency checks](connected-report.md)
+passed. Disconnection is reserved for final acceptance, not each debug round.
+
 The user reconnected USB and explicitly asked the controller to perform the
 replacement. Only `b0644fb5` / OnePlus LE2100 was attached. The installed
 package was versionCode2. Cloud preflight was idle; the previous failed order
