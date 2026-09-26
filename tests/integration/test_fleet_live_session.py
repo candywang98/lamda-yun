@@ -92,9 +92,7 @@ async def ack(
     )
 
 
-async def take_control(
-    client: httpx.AsyncClient, sid: str, token: str | None
-) -> httpx.Response:
+async def take_control(client: httpx.AsyncClient, sid: str, token: str | None) -> httpx.Response:
     return await client.post(
         f"/api/v1/live/sessions/{sid}:take-control", headers=live_headers(token)
     )
@@ -116,9 +114,7 @@ async def send_input(
     )
 
 
-async def create_mobile_task(
-    client: httpx.AsyncClient, device: str, suffix: str
-) -> str:
+async def create_mobile_task(client: httpx.AsyncClient, device: str, suffix: str) -> str:
     response = await client.post(
         "/api/v1/mobile/tasks",
         headers={**identity(), "Idempotency-Key": f"fleet-live-{suffix}"},
@@ -127,8 +123,14 @@ async def create_mobile_task(
             "targetPackage": "com.taobao.idlefish",
             "totalTimeoutMs": 60_000,
             "steps": [
-                {"stepId": "idle", "timeoutMs": 8000, "action": "ui.wait",
-                 "locatorRef": "xianyu_home_sell", "condition": "EXISTS", "pollMs": 200},
+                {
+                    "stepId": "idle",
+                    "timeoutMs": 8000,
+                    "action": "ui.wait",
+                    "locatorRef": "xianyu_home_sell",
+                    "condition": "EXISTS",
+                    "pollMs": 200,
+                },
             ],
         },
     )
@@ -554,9 +556,7 @@ async def test_cross_device_token_and_stale_epoch_rejected(api) -> None:  # noqa
     assert bad_token.status_code == 401
 
     # The happy path still works: accepted input reaches the companion.
-    accepted = await send_input(
-        client, device, sid, token, seq=1, frameSeq=100, epoch=remote_epoch
-    )
+    accepted = await send_input(client, device, sid, token, seq=1, frameSeq=100, epoch=remote_epoch)
     assert accepted.status_code == 200, accepted.text
     assert accepted.json() == {
         "accepted": True,
@@ -588,17 +588,13 @@ async def test_input_watermark_regression_expiry_and_rate_rules(api) -> None:  #
     assert replay.json()["code"] == "INPUT_SEQ_REGRESSION"
     assert replay.json()["fields"]["inputWatermark"] == "1"
 
-    status = await client.get(
-        f"/api/v1/live/sessions/{sid}", headers=live_headers(token)
-    )
+    status = await client.get(f"/api/v1/live/sessions/{sid}", headers=live_headers(token))
     assert status.json()["state"] == "REMOTE"
 
     # Repeated regressions in a short window sever the REMOTE grant.
     for _ in range(2):
         await send_input(client, device, sid, token, seq=1, frameSeq=100)
-    status = await client.get(
-        f"/api/v1/live/sessions/{sid}", headers=live_headers(token)
-    )
+    status = await client.get(f"/api/v1/live/sessions/{sid}", headers=live_headers(token))
     assert status.json()["state"] == "VIEWING"
 
     # Fresh grant with a new epoch; frame watermark rules next.
@@ -625,14 +621,10 @@ async def test_input_watermark_regression_expiry_and_rate_rules(api) -> None:  #
     fleet_service(app).note_frame(sid, 120)
     live = fleet_service(app).sessions[sid]
     live.input_times = [time.monotonic() - 0.05] * 10
-    flooded = await send_input(
-        client, device, sid, token, seq=30, frameSeq=120, epoch=epoch
-    )
+    flooded = await send_input(client, device, sid, token, seq=30, frameSeq=120, epoch=epoch)
     assert flooded.status_code == 429, flooded.text
     assert flooded.json()["code"] == "LIVE_RATE_LIMITED"
-    status = await client.get(
-        f"/api/v1/live/sessions/{sid}", headers=live_headers(token)
-    )
+    status = await client.get(f"/api/v1/live/sessions/{sid}", headers=live_headers(token))
     assert status.json()["state"] == "VIEWING"
 
     # Input metadata was audited (rejections included), frames never stored.
@@ -641,9 +633,7 @@ async def test_input_watermark_regression_expiry_and_rate_rules(api) -> None:  #
 
     async with app.state.database.unit_of_work() as db:
         actions = list(
-            await db.scalars(
-                select(AuditEventRow.action).where(AuditEventRow.resource_id == sid)
-            )
+            await db.scalars(select(AuditEventRow.action).where(AuditEventRow.resource_id == sid))
         )
     assert "live.session.established" in actions
     assert "live.session.tier.granted" in actions
@@ -734,9 +724,7 @@ async def test_disconnect_closes_session_reclaims_lease_and_kills_token(api) -> 
     live = fleet_service(app).sessions[sid]
     assert live.operator_lost_monotonic is not None
     live.operator_lost_monotonic -= 11.0
-    status = await client.get(
-        f"/api/v1/live/sessions/{sid}", headers=live_headers(token)
-    )
+    status = await client.get(f"/api/v1/live/sessions/{sid}", headers=live_headers(token))
     assert status.status_code == 200
     body = status.json()
     assert body["state"] == "CLOSED"
@@ -752,9 +740,7 @@ async def test_disconnect_closes_session_reclaims_lease_and_kills_token(api) -> 
         assert row.canceled_at is not None
 
     # Old token is dead for every further operation.
-    stopped = await client.post(
-        f"/api/v1/live/sessions/{sid}:stop", headers=live_headers(token)
-    )
+    stopped = await client.post(f"/api/v1/live/sessions/{sid}:stop", headers=live_headers(token))
     assert stopped.status_code == 410
     assert stopped.json()["code"] == "LIVE_SESSION_TERMINAL"
     injected = await send_input(client, device, sid, token, seq=1, frameSeq=1)

@@ -98,9 +98,7 @@ def artifact_request(
         "verdict": "CLEAN",
         "findings": [],
     }
-    validated = ApkAnalysisReport.model_validate(report).model_dump(
-        mode="json", by_alias=True
-    )
+    validated = ApkAnalysisReport.model_validate(report).model_dump(mode="json", by_alias=True)
     signature = APK_ANALYSIS_PRIVATE_KEY.sign(canonical_analysis_payload(validated))
     return {
         "sha256": validated["artifactSha256"],
@@ -240,9 +238,7 @@ async def report_installed(client: httpx.AsyncClient, auth: dict, candidate_id: 
     )
 
 
-async def set_task_state(
-    app: FastAPI, task_id: str, *, status: str, business_state: str
-) -> None:
+async def set_task_state(app: FastAPI, task_id: str, *, status: str, business_state: str) -> None:
     async with app.state.database.unit_of_work() as session:
         task = await session.get(MobileTaskRow, task_id)
         assert task is not None
@@ -292,9 +288,7 @@ async def test_release_record_fields_immutability_and_tenant_scoping(api):
 
     device = await create_device(client, "immutable")
     other_tenant = SECURITY | {"X-Tenant-Id": str(uuid.uuid4())}
-    assert (await client.get("/api/v1/apk-releases", headers=other_tenant)).json() == {
-        "items": []
-    }
+    assert (await client.get("/api/v1/apk-releases", headers=other_tenant)).json() == {"items": []}
     assert (
         await client.get(f"/api/v1/apk-releases/{release['id']}", headers=other_tenant)
     ).status_code == 404
@@ -326,9 +320,7 @@ async def test_release_record_fields_immutability_and_tenant_scoping(api):
             "/api/v1/apk-releases", headers=publisher, json=release_payload(artifact["id"])
         )
     ).status_code == 403
-    assert (
-        await client.get("/api/v1/apk-releases", headers=SECURITY)
-    ).json()["items"] == [release]
+    assert (await client.get("/api/v1/apk-releases", headers=SECURITY)).json()["items"] == [release]
     async with app.state.database.unit_of_work() as session:
         audits = list(
             await session.scalars(
@@ -379,14 +371,10 @@ async def test_ring_gating_and_capability_routing(api):
 
     # Rejected devices never receive a candidate (capability routing).
     auth = await _enroll(client, plain, "ring-plain-instance")
-    assert (await client.get("/companion/v2/apk/candidates", headers=auth)).json() == {
-        "items": []
-    }
+    assert (await client.get("/companion/v2/apk/candidates", headers=auth)).json() == {"items": []}
     # An "all" ring release still reaches a canary-labeled device.
     broad_device = await create_device(client, "ring-broad", labels=["ring:canary"])
-    await patch_device(
-        app, broad_device, capabilities={"sdkInt": 32, "abis": ["arm64-v8a"]}
-    )
+    await patch_device(app, broad_device, capabilities={"sdkInt": 32, "abis": ["arm64-v8a"]})
     broad_artifact = await register_artifact(client, sha256="1" * 64)
     broad = await create_release(client, broad_artifact["id"], ring="all")
     assert (await assign(client, broad["id"], [broad_device])).status_code == 200
@@ -420,9 +408,7 @@ async def test_per_device_versions_are_independent(api):
     # Both devices see their own candidate; versions differ per device pin.
     for device in (newer, older):
         auth = await _enroll(client, device, f"{device}-instance")
-        items = (await client.get("/companion/v2/apk/candidates", headers=auth)).json()[
-            "items"
-        ]
+        items = (await client.get("/companion/v2/apk/candidates", headers=auth)).json()["items"]
         assert [item["versionCode"] for item in items] == [83201]
 
 
@@ -489,9 +475,7 @@ async def test_busy_device_preemption_rejected(api):
     assert "PAUSED_WAITING_USER" in busy.json()["detail"]
 
     for business_state in ("PAUSED_WAITING_USER", "RECONCILING"):
-        await set_task_state(
-            app, task_id, status="RUNNING", business_state=business_state
-        )
+        await set_task_state(app, task_id, status="RUNNING", business_state=business_state)
         blocked = await assign(client, release["id"], [device])
         assert blocked.status_code == 409
         assert blocked.json()["code"] == "APK_DEVICE_BUSY"
@@ -499,12 +483,8 @@ async def test_busy_device_preemption_rejected(api):
     await set_task_state(app, task_id, status="SUCCEEDED", business_state="SUCCEEDED")
     settled = await assign(client, release["id"], [device])
     assert settled.status_code == 200, settled.text
-    items = (await client.get("/companion/v2/apk/candidates", headers=auth)).json()[
-        "items"
-    ]
-    assert [item["candidateId"] for item in items] == [
-        settled.json()["targets"][0]["id"]
-    ]
+    items = (await client.get("/companion/v2/apk/candidates", headers=auth)).json()["items"]
+    assert [item["candidateId"] for item in items] == [settled.json()["targets"][0]["id"]]
 
 
 async def test_retire_keeps_pins_and_download_hash_verification(api):
@@ -518,9 +498,7 @@ async def test_retire_keeps_pins_and_download_hash_verification(api):
 
     auth = await _enroll(client, holder, "pin-holder-instance")
     outsider_auth = await _enroll(client, outsider, "pin-outsider-instance")
-    items = (await client.get("/companion/v2/apk/candidates", headers=auth)).json()[
-        "items"
-    ]
+    items = (await client.get("/companion/v2/apk/candidates", headers=auth)).json()["items"]
     assert len(items) == 1
     candidate = items[0]
     assert candidate["candidateId"] == candidate_id
@@ -530,9 +508,9 @@ async def test_retire_keeps_pins_and_download_hash_verification(api):
     assert candidate["requiresUserConfirmation"] is True
     assert candidate["releaseStatus"] == "ACTIVE"
     # Device isolation: another device never sees this candidate.
-    assert (
-        await client.get("/companion/v2/apk/candidates", headers=outsider_auth)
-    ).json() == {"items": []}
+    assert (await client.get("/companion/v2/apk/candidates", headers=outsider_auth)).json() == {
+        "items": []
+    }
 
     retired = await client.post(
         f"/api/v1/apk-releases/{release['id']}:retire",
@@ -552,9 +530,7 @@ async def test_retire_keeps_pins_and_download_hash_verification(api):
     assert (await assign(client, release["id"], [outsider])).status_code == 409
 
     # Retire never broke the pinned candidate on the holding device.
-    items = (await client.get("/companion/v2/apk/candidates", headers=auth)).json()[
-        "items"
-    ]
+    items = (await client.get("/companion/v2/apk/candidates", headers=auth)).json()["items"]
     assert len(items) == 1
     assert items[0]["releaseStatus"] == "RETIRED"
     assert items[0]["status"] == "OFFERED"
@@ -566,9 +542,7 @@ async def test_retire_keeps_pins_and_download_hash_verification(api):
     )
     assert mismatch.status_code == 422
     assert mismatch.json()["code"] == "APK_DOWNLOAD_HASH_MISMATCH"
-    items = (await client.get("/companion/v2/apk/candidates", headers=auth)).json()[
-        "items"
-    ]
+    items = (await client.get("/companion/v2/apk/candidates", headers=auth)).json()["items"]
     assert items[0]["status"] == "OFFERED"
 
     confirmed = await client.post(
@@ -680,13 +654,9 @@ async def test_install_receipt_is_scoped_to_the_bound_device(api):
         version_code=release["versionCode"],
     )
     # Another device's binding never sees this candidate.
-    assert (
-        await report_installed(client, outsider_auth, candidate_id, receipt)
-    ).status_code == 404
+    assert (await report_installed(client, outsider_auth, candidate_id, receipt)).status_code == 404
     # Neither does an unknown candidate id.
-    assert (
-        await report_installed(client, auth, str(uuid.uuid4()), receipt)
-    ).status_code == 404
+    assert (await report_installed(client, auth, str(uuid.uuid4()), receipt)).status_code == 404
     # The owner still advances normally afterwards.
     accepted = await report_installed(client, auth, candidate_id, receipt)
     assert accepted.status_code == 200
@@ -718,9 +688,7 @@ async def test_failed_receipt_is_recorded_without_advancing(api):
     async with app.state.database.unit_of_work() as session:
         receipts = list(
             await session.scalars(
-                select(AuditEventRow).where(
-                    AuditEventRow.action == "apk.release.install_receipt"
-                )
+                select(AuditEventRow).where(AuditEventRow.action == "apk.release.install_receipt")
             )
         )
         assert len(receipts) == 1
@@ -758,9 +726,7 @@ async def test_signature_mismatch_receipt_is_recorded_but_never_success(api):
     async with app.state.database.unit_of_work() as session:
         receipts = list(
             await session.scalars(
-                select(AuditEventRow).where(
-                    AuditEventRow.action == "apk.release.install_receipt"
-                )
+                select(AuditEventRow).where(AuditEventRow.action == "apk.release.install_receipt")
             )
         )
         assert len(receipts) == 1
@@ -801,9 +767,7 @@ async def test_install_receipt_identity_mismatch_is_rejected(api):
         release_id=release["id"],
         version_code=release["versionCode"] + 1,
     )
-    assert (
-        await report_installed(client, auth, candidate_id, wrong_version)
-    ).status_code == 422
+    assert (await report_installed(client, auth, candidate_id, wrong_version)).status_code == 422
 
     unknown_outcome = install_receipt(
         candidate_id=candidate_id,
@@ -811,9 +775,7 @@ async def test_install_receipt_identity_mismatch_is_rejected(api):
         version_code=release["versionCode"],
         outcome="MAYBE",
     )
-    assert (
-        await report_installed(client, auth, candidate_id, unknown_outcome)
-    ).status_code == 422
+    assert (await report_installed(client, auth, candidate_id, unknown_outcome)).status_code == 422
 
     naive_completed_at = install_receipt(
         candidate_id=candidate_id,

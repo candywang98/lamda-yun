@@ -26,7 +26,7 @@ def test_lamda_import_is_confined_to_driver_package() -> None:
             continue
         tree = ast.parse(path.read_text(encoding="utf-8"))
         imports_lamda = any(
-            isinstance(node, (ast.Import, ast.ImportFrom))
+            isinstance(node, ast.Import | ast.ImportFrom)
             and (
                 any(
                     alias.name == "lamda" or alias.name.startswith("lamda.") for alias in node.names

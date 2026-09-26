@@ -282,12 +282,8 @@ def evaluate_executable(
         evaluated.append(("engine>=min", engine_version >= engine_min))
     executable = all(passed for _, passed in evaluated)
     order = {name: index for index, name in enumerate(EXECUTABLE_GATE_ORDER)}
-    passed_gates = sorted(
-        (name for name, passed in evaluated if passed), key=order.__getitem__
-    )
-    failed_gates = sorted(
-        (name for name, passed in evaluated if not passed), key=order.__getitem__
-    )
+    passed_gates = sorted((name for name, passed in evaluated if passed), key=order.__getitem__)
+    failed_gates = sorted((name for name, passed in evaluated if not passed), key=order.__getitem__)
     return executable, passed_gates, failed_gates
 
 
@@ -323,9 +319,7 @@ def required_capability_keys(task: MobileTaskRow) -> tuple[str, ...]:
     return LEGACY_STEPS_PACKAGE_CAPABILITIES.get(task.target_package or "", ())
 
 
-def capability_shortfall(
-    task: MobileTaskRow, capabilities: dict[str, Any]
-) -> list[str]:
+def capability_shortfall(task: MobileTaskRow, capabilities: dict[str, Any]) -> list[str]:
     """Required capability keys the negotiated table does not support."""
     return [
         key
@@ -377,7 +371,6 @@ async def account_write_conflict(
         if row.id != exclude_task_id and task_write_effect(row):
             return row
     return None
-
 
 
 # ---------------------------------------------------------------------------
@@ -473,9 +466,7 @@ async def register_session_row(
     return row
 
 
-async def active_session(
-    session: Any, tenant_id: str, binding_id: str
-) -> FleetSessionRow | None:
+async def active_session(session: Any, tenant_id: str, binding_id: str) -> FleetSessionRow | None:
     return cast(
         "FleetSessionRow | None",
         await session.scalar(

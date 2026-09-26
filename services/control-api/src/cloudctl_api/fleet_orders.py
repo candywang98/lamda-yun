@@ -45,7 +45,7 @@ import json
 import re
 import uuid
 from datetime import datetime
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, cast
 
 from cloudctl_domain import ConflictError, NotFoundError, ValidationError
 from fastapi import APIRouter, Depends, Query, Request, Response, status
@@ -61,6 +61,7 @@ from sqlalchemy import (
     func,
     select,
 )
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .auth import current_actor
@@ -107,13 +108,18 @@ class FleetOrderPageRow(Base, TimestampMixin):
     collected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     __table_args__ = (
         UniqueConstraint(
-            "tenant_id", "device_id", "run_key", "screen",
+            "tenant_id",
+            "device_id",
+            "run_key",
+            "screen",
             name="uq_fleet_order_page_screen",
         ),
         CheckConstraint("platform IN ('xianyu')", name="ck_fleet_order_page_platform"),
         CheckConstraint("direction IN ('SOLD', 'BOUGHT')", name="ck_fleet_order_page_direction"),
         CheckConstraint("screen >= 1", name="ck_fleet_order_page_screen_positive"),
-        CheckConstraint("rows_seen >= 0 AND new_keys >= 0 AND overlap >= 0", name="ck_fleet_order_page_counts"),
+        CheckConstraint(
+            "rows_seen >= 0 AND new_keys >= 0 AND overlap >= 0", name="ck_fleet_order_page_counts"
+        ),
     )
 
 
@@ -136,13 +142,20 @@ class FleetOrderCheckpointRow(Base, TimestampMixin):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     __table_args__ = (
         UniqueConstraint(
-            "tenant_id", "device_id", "platform", "direction",
+            "tenant_id",
+            "device_id",
+            "platform",
+            "direction",
             name="uq_fleet_order_checkpoint_binding",
         ),
         CheckConstraint("platform IN ('xianyu')", name="ck_fleet_order_checkpoint_platform"),
-        CheckConstraint("direction IN ('SOLD', 'BOUGHT')", name="ck_fleet_order_checkpoint_direction"),
+        CheckConstraint(
+            "direction IN ('SOLD', 'BOUGHT')", name="ck_fleet_order_checkpoint_direction"
+        ),
         CheckConstraint("schema_version >= 1", name="ck_fleet_order_checkpoint_version"),
-        CheckConstraint("last_screen >= 0 AND seen_keys >= 0", name="ck_fleet_order_checkpoint_counts"),
+        CheckConstraint(
+            "last_screen >= 0 AND seen_keys >= 0", name="ck_fleet_order_checkpoint_counts"
+        ),
     )
 
 
@@ -226,7 +239,9 @@ def _window_view(rows: list[FleetOrderPageRow]) -> dict[str, Any]:
         "startedAt": min(timestamps) if timestamps else None,
         "endedAt": max(timestamps) if timestamps else None,
         "screensPresent": screens,
-        "missingScreens": [n for n in range(1, (screens[-1] if screens else 0) + 1) if n not in present],
+        "missingScreens": [
+            n for n in range(1, (screens[-1] if screens else 0) + 1) if n not in present
+        ],
         "emptyScreens": sorted({row.screen for row in rows if row.empty_page}),
         "partialScreens": sorted({row.screen for row in rows if row.partial_rows > 0}),
         "newKeys": sum(row.new_keys for row in rows),
@@ -383,15 +398,18 @@ class FleetOrdersService:
             )
 
     async def _load_checkpoint(
-        self, session: Any, tenant_id: str, device_id: str, direction: str
+        self, session: AsyncSession, tenant_id: str, device_id: str, direction: str
     ) -> FleetOrderCheckpointRow | None:
-        return await session.scalar(
-            select(FleetOrderCheckpointRow).where(
-                FleetOrderCheckpointRow.tenant_id == tenant_id,
-                FleetOrderCheckpointRow.device_id == device_id,
-                FleetOrderCheckpointRow.platform == PLATFORM,
-                FleetOrderCheckpointRow.direction == direction,
-            )
+        return cast(
+            FleetOrderCheckpointRow | None,
+            await session.scalar(
+                select(FleetOrderCheckpointRow).where(
+                    FleetOrderCheckpointRow.tenant_id == tenant_id,
+                    FleetOrderCheckpointRow.device_id == device_id,
+                    FleetOrderCheckpointRow.platform == PLATFORM,
+                    FleetOrderCheckpointRow.direction == direction,
+                )
+            ),
         )
 
     async def _upsert_orders(
@@ -571,7 +589,7 @@ ActorDep = Annotated[Any, Depends(current_actor)]
 
 
 def service(request: Request) -> FleetOrdersService:
-    return request.app.state.fleet_orders_service
+    return cast(FleetOrdersService, request.app.state.fleet_orders_service)
 
 
 ServiceDep = Annotated[FleetOrdersService, Depends(service)]
@@ -585,9 +603,7 @@ async def push_order_screen(
     response: Response,
 ) -> dict[str, Any]:
     result = await fleet_orders.push_screen(binding_row, body)
-    response.status_code = (
-        status.HTTP_200_OK if result["replayed"] else status.HTTP_201_CREATED
-    )
+    response.status_code = status.HTTP_200_OK if result["replayed"] else status.HTTP_201_CREATED
     return result
 
 

@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, cast
 
 from cloudctl_domain import Actor, ConflictError, NotFoundError, ValidationError
 from fastapi import APIRouter, Depends, Request, Response
@@ -43,6 +43,7 @@ from sqlalchemy import (
     String,
     select,
 )
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .auth import current_actor
@@ -158,8 +159,7 @@ class XianyuDeleteResultRow(Base, TimestampMixin):
     resolution: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
     __table_args__ = (
         CheckConstraint(
-            "verdict IN ('VERIFIED_DELETED','PENDING_VERIFICATION',"
-            "'STILL_PRESENT','INCONCLUSIVE')",
+            "verdict IN ('VERIFIED_DELETED','PENDING_VERIFICATION','STILL_PRESENT','INCONCLUSIVE')",
             name="ck_xianyu_delete_result_verdict",
         ),
     )
@@ -289,7 +289,7 @@ class XianyuDeleteEvidenceService:
         self.database = database
 
     async def _owned_approval(
-        self, session: Any, tenant_id: str, approval_id: str, *, for_update: bool = True
+        self, session: AsyncSession, tenant_id: str, approval_id: str, *, for_update: bool = True
     ) -> XianyuDeleteApprovalRow:
         statement = select(XianyuDeleteApprovalRow).where(
             XianyuDeleteApprovalRow.tenant_id == tenant_id,
@@ -303,9 +303,7 @@ class XianyuDeleteEvidenceService:
         return row
 
     @staticmethod
-    def _protected(
-        approval: XianyuDeleteApprovalRow, result: XianyuDeleteResultRow | None
-    ) -> bool:
+    def _protected(approval: XianyuDeleteApprovalRow, result: XianyuDeleteResultRow | None) -> bool:
         # The target is protected exactly while a confirm was issued and the
         # outcome has not been resolved by the operator (UNKNOWN discipline).
         return approval.state == APPROVAL_CONSUMED and not (result is not None and result.resolved)
@@ -389,9 +387,7 @@ class XianyuDeleteEvidenceService:
                     "a second strike is never granted"
                 )
             if row.state != APPROVAL_APPROVED:
-                raise ConflictError(
-                    f"approval is {row.state}; no confirm can be issued"
-                )
+                raise ConflictError(f"approval is {row.state}; no confirm can be issued")
             now = _now()
             if now < _aware(row.valid_from) or now > _aware(row.valid_until):
                 raise ConflictError(
@@ -404,15 +400,15 @@ class XianyuDeleteEvidenceService:
             result = await session.get(XianyuDeleteResultRow, row.id)
             return approval_view(row, protected=self._protected(row, result))
 
-    async def abort(self, actor: Actor, approval_id: str, payload: DeleteAbortRequest) -> dict[str, Any]:
+    async def abort(
+        self, actor: Actor, approval_id: str, payload: DeleteAbortRequest
+    ) -> dict[str, Any]:
         """Cancel-loop closure: zero side effects, ABORTED_BY_OPERATOR."""
 
         async with self.database.unit_of_work() as session:
             row = await self._owned_approval(session, str(actor.tenant_id), approval_id)
             if row.state == APPROVAL_CONSUMED:
-                raise ConflictError(
-                    "a spent confirm must be reconciled, never retro-cancelled"
-                )
+                raise ConflictError("a spent confirm must be reconciled, never retro-cancelled")
             if row.state != APPROVAL_APPROVED:
                 raise ConflictError(f"approval is {row.state}; only APPROVED can be aborted")
             row.state = APPROVAL_ABORTED
@@ -472,9 +468,8 @@ class XianyuDeleteEvidenceService:
                 XianyuDeleteResultRow, payload.approval_id, with_for_update=True
             )
             if existing is not None:
-                if (
-                    existing.verdict == payload.verdict
-                    and (existing.readback or {}) == (payload.readback or {})
+                if existing.verdict == payload.verdict and (existing.readback or {}) == (
+                    payload.readback or {}
                 ):
                     return result_view(existing), False
                 raise ConflictError("delete result replay differs")
@@ -491,7 +486,9 @@ class XianyuDeleteEvidenceService:
             await session.flush()
             return result_view(row), True
 
-    async def resolve(self, actor: Actor, approval_id: str, payload: DeleteResolveRequest) -> dict[str, Any]:
+    async def resolve(
+        self, actor: Actor, approval_id: str, payload: DeleteResolveRequest
+    ) -> dict[str, Any]:
         """Operator resolution, gated on the A13 ledger's own closure proof.
 
         Reuses A13's pure ``platform_result_proven`` (read-only import): the
@@ -552,7 +549,7 @@ router = APIRouter(prefix="/api/v1/xianyu/delete", tags=["xianyu-delete-evidence
 
 
 def service(request: Request) -> XianyuDeleteEvidenceService:
-    return request.app.state.xianyu_delete_evidence_service
+    return cast(XianyuDeleteEvidenceService, request.app.state.xianyu_delete_evidence_service)
 
 
 Service = Annotated[XianyuDeleteEvidenceService, Depends(service)]
@@ -567,9 +564,7 @@ async def create_delete_approval(
 
 
 @router.get("/approvals/{approval_id}")
-async def get_delete_approval(
-    approval_id: str, actor: ActorDep, svc: Service
-) -> dict[str, Any]:
+async def get_delete_approval(approval_id: str, actor: ActorDep, svc: Service) -> dict[str, Any]:
     return await svc.get_approval(actor, approval_id)
 
 

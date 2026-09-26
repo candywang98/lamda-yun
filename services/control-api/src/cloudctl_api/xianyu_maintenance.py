@@ -83,6 +83,7 @@ def _tap_layout(step_id: str, layout_action: str, tab: str, card_index: int) -> 
         "timeoutMs": LAYOUT_TAP_TIMEOUT_MS,
     }
 
+
 def _tap_card_by_title(step_id: str, tab: str, title_contains: str) -> dict[str, Any]:
     # W4 v2 title location (AutomationTask.kt ui.tapCardByTitle): the card is
     # found on-device by its title text below the live tab strip; no
@@ -94,6 +95,7 @@ def _tap_card_by_title(step_id: str, tab: str, title_contains: str) -> dict[str,
         "tab": tab,
         "timeoutMs": LAYOUT_TAP_TIMEOUT_MS,
     }
+
 
 def _screenshot(label: str) -> dict[str, Any]:
     return {
@@ -232,9 +234,7 @@ class MaintenanceTargets(BaseModel):
     card_indices: list[int] = Field(
         default_factory=list, alias="cardIndices", max_length=MAX_RUN_TASKS
     )
-    card_limit: int | None = Field(
-        default=None, alias="cardLimit", ge=1, le=MAX_RUN_TASKS
-    )
+    card_limit: int | None = Field(default=None, alias="cardLimit", ge=1, le=MAX_RUN_TASKS)
     # v2 title-located path: one controlled task per title fragment, tapped
     # on-device by matching the published card text (contract §1). The tab is
     # derived from the action (delist -> onsale, delete -> delisted), never a
@@ -248,9 +248,7 @@ class MaintenanceTargets(BaseModel):
     @classmethod
     def bounded_titles(cls, value: list[str]) -> list[str]:
         if any(not title or len(title) > MAX_TITLE_CONTAINS for title in value):
-            raise ValueError(
-                f"titles entries must contain 1 to {MAX_TITLE_CONTAINS} characters"
-            )
+            raise ValueError(f"titles entries must contain 1 to {MAX_TITLE_CONTAINS} characters")
         if len(set(value)) != len(value):
             raise ValueError("titles must be unique")
         return value
@@ -291,7 +289,9 @@ class XianyuMaintenanceRunRequest(BaseModel):
             if targets.card_indices not in ([], [0]):
                 raise ValueError("delist currently supports only the first on-sale card (index 0)")
             if targets.all and targets.card_limit is not None and targets.card_limit > 1:
-                raise ValueError("delist currently supports only the first on-sale card (cardLimit 1)")
+                raise ValueError(
+                    "delist currently supports only the first on-sale card (cardLimit 1)"
+                )
         if self.action == "polish":
             if targets.all or targets.card_indices or targets.card_limit is not None:
                 raise ValueError("polish is a single one-tap task and takes no targets")
@@ -467,9 +467,7 @@ class XianyuMaintenanceService:
             return [("all", None, None)]
         if body.targets.all:
             return [(str(index), index, None) for index in range(body.targets.card_limit or 0)]
-        return [
-            (str(index), index, None) for index in sorted(set(body.targets.card_indices))
-        ]
+        return [(str(index), index, None) for index in sorted(set(body.targets.card_indices))]
 
     async def _stamp_run_fields(
         self,

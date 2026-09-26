@@ -129,8 +129,7 @@ async def test_pool_freeze_replays_original_selection_after_membership_changes(
 ) -> None:
     client, _, store = api
     assets = [
-        await upload_image(client, store, png_bytes((index * 20, 40, 90)))
-        for index in range(1, 5)
+        await upload_image(client, store, png_bytes((index * 20, 40, 90))) for index in range(1, 5)
     ]
     group = await client.post(
         "/api/v1/media-groups",

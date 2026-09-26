@@ -42,26 +42,74 @@ POLL_SECONDS = float(os.environ.get("Q02_POLL_SECONDS", "300"))
 POLL_INTERVAL = 5.0
 
 DELIST_STEPS = [
-    {"stepId": "open-profile", "action": "ui.tap", "locatorRef": "xianyu_profile_tab",
-     "timeoutMs": 8_000},
-    {"stepId": "open-my-published", "action": "ui.tap", "locatorRef": "xianyu_my_published",
-     "timeoutMs": 8_000},
-    {"stepId": "open-card-menu", "action": "ui.tapLayout", "layoutAction": "more",
-     "tab": "onsale", "cardIndex": 0, "timeoutMs": 10_000},
-    {"stepId": "capture-menu", "action": "ui.screenshot", "label": "xianyu_delist_menu",
-     "timeoutMs": 10_000},
-    {"stepId": "tap-delist-item", "action": "ui.tapLayout", "layoutAction": "delist_menu_item",
-     "tab": "onsale", "cardIndex": 0, "timeoutMs": 10_000},
-    {"stepId": "capture-confirm", "action": "ui.screenshot", "label": "xianyu_delist_confirm",
-     "timeoutMs": 10_000},
-    {"stepId": "confirm-delist", "action": "ui.tapLayout", "layoutAction": "confirm_delist",
-     "tab": "onsale", "cardIndex": 0, "timeoutMs": 10_000},
-    {"stepId": "assert-onsale", "action": "ui.assertBadge", "locatorRef": "xianyu_pub_tab_onsale",
-     "expectedDelta": -1, "timeoutMs": 15_000},
-    {"stepId": "capture-result", "action": "ui.screenshot", "label": "xianyu_delist_result",
-     "timeoutMs": 10_000},
-    {"stepId": "mark-done", "action": "run.log", "level": "INFO",
-     "messageCode": "XIANYU_DELIST_DONE", "timeoutMs": 1_000},
+    {
+        "stepId": "open-profile",
+        "action": "ui.tap",
+        "locatorRef": "xianyu_profile_tab",
+        "timeoutMs": 8_000,
+    },
+    {
+        "stepId": "open-my-published",
+        "action": "ui.tap",
+        "locatorRef": "xianyu_my_published",
+        "timeoutMs": 8_000,
+    },
+    {
+        "stepId": "open-card-menu",
+        "action": "ui.tapLayout",
+        "layoutAction": "more",
+        "tab": "onsale",
+        "cardIndex": 0,
+        "timeoutMs": 10_000,
+    },
+    {
+        "stepId": "capture-menu",
+        "action": "ui.screenshot",
+        "label": "xianyu_delist_menu",
+        "timeoutMs": 10_000,
+    },
+    {
+        "stepId": "tap-delist-item",
+        "action": "ui.tapLayout",
+        "layoutAction": "delist_menu_item",
+        "tab": "onsale",
+        "cardIndex": 0,
+        "timeoutMs": 10_000,
+    },
+    {
+        "stepId": "capture-confirm",
+        "action": "ui.screenshot",
+        "label": "xianyu_delist_confirm",
+        "timeoutMs": 10_000,
+    },
+    {
+        "stepId": "confirm-delist",
+        "action": "ui.tapLayout",
+        "layoutAction": "confirm_delist",
+        "tab": "onsale",
+        "cardIndex": 0,
+        "timeoutMs": 10_000,
+    },
+    {
+        "stepId": "assert-onsale",
+        "action": "ui.assertBadge",
+        "locatorRef": "xianyu_pub_tab_onsale",
+        "expectedDelta": -1,
+        "timeoutMs": 15_000,
+    },
+    {
+        "stepId": "capture-result",
+        "action": "ui.screenshot",
+        "label": "xianyu_delist_result",
+        "timeoutMs": 10_000,
+    },
+    {
+        "stepId": "mark-done",
+        "action": "run.log",
+        "level": "INFO",
+        "messageCode": "XIANYU_DELIST_DONE",
+        "timeoutMs": 1_000,
+    },
 ]
 
 
@@ -159,28 +207,47 @@ async def test_b1_device_restart_task_resumes_or_terminates_safely(
     )
 
     running = await _await_state(client, task_id, {"RUNNING", "RECONCILING", "PAUSED_WAITING_USER"})
-    ledger.record("device-pre-restart-state", taskId=task_id, state=running["state"],
-                  attempt=running["attempt"], attemptId=running["attemptId"])
+    ledger.record(
+        "device-pre-restart-state",
+        taskId=task_id,
+        state=running["state"],
+        attempt=running["attempt"],
+        attemptId=running["attemptId"],
+    )
 
     # Controller reboots the device now (DEVICE lock held); wait for recovery.
     settled = await _await_state(
         client,
         task_id,
-        {"RUNNING", "SUCCEEDED", "FAILED", "CANCELLED", "RECONCILING",
-         "PAUSED_WAITING_USER", "CANCEL_REQUESTED", "PREFLIGHT"},
+        {
+            "RUNNING",
+            "SUCCEEDED",
+            "FAILED",
+            "CANCELLED",
+            "RECONCILING",
+            "PAUSED_WAITING_USER",
+            "CANCEL_REQUESTED",
+            "PREFLIGHT",
+        },
         timeout_seconds=POLL_SECONDS * 2,
     )
     assert settled["attemptId"] == running["attemptId"], (
         "restart must continue the same task, not mint a new one"
     )
-    ledger.record("device-post-restart-state", taskId=task_id, state=settled["state"],
-                  attempt=settled["attempt"], attemptId=settled["attemptId"])
+    ledger.record(
+        "device-post-restart-state",
+        taskId=task_id,
+        state=settled["state"],
+        attempt=settled["attempt"],
+        attemptId=settled["attemptId"],
+    )
 
     # No duplicate gated strike: exactly one controlled action for the task.
     if settled["state"] in {"SUCCEEDED", "RECONCILING"}:
         detail = await _task_state(client, task_id)
         strikes = [
-            event for event in detail.get("events", [])
+            event
+            for event in detail.get("events", [])
             if "GATED" in str(event.get("payload", {})).upper()
         ]
         assert len(strikes) <= 1, "restart must not duplicate the gated destructive strike"

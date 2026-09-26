@@ -85,7 +85,10 @@ async def _claim_and_heartbeat(
 
 
 async def _settle_applied(
-    client: httpx.AsyncClient, auth: dict[str, str], task_id: str, body: dict[str, Any],
+    client: httpx.AsyncClient,
+    auth: dict[str, str],
+    task_id: str,
+    body: dict[str, Any],
     *,
     with_intent: bool = True,
 ) -> None:
@@ -253,16 +256,12 @@ async def test_replayed_run_after_partial_completion_creates_no_new_tasks(api):
 
     async with app.state.database.unit_of_work() as session:
         rows = list(
-            await session.scalars(
-                select(MobileTaskRow).where(MobileTaskRow.batch_id == run_id)
-            )
+            await session.scalars(select(MobileTaskRow).where(MobileTaskRow.batch_id == run_id))
         )
     assert len(rows) == 2  # no third task appeared
 
     # Summary keeps per-target states independent: one terminal, one not.
-    summary = await client.get(
-        f"/api/v1/xianyu/maintenance/runs/{run_id}", headers=identity()
-    )
+    summary = await client.get(f"/api/v1/xianyu/maintenance/runs/{run_id}", headers=identity())
     assert summary.status_code == 200, summary.text
     payload = summary.json()
     assert payload["taskCount"] == 2
@@ -342,9 +341,7 @@ async def test_outcome_codes_stay_independent_per_action(api):
     seen_codes: set[str] = set()
     for action, path, command_type, message_code in expectations:
         device = await create_direct_device(client, f"x11-outcome-{action}")
-        targets: dict[str, Any] = (
-            {} if action == "polish" else {"titles": ["二战史-01"]}
-        )
+        targets: dict[str, Any] = {} if action == "polish" else {"titles": ["二战史-01"]}
         response = await _run_maintenance(
             client,
             device,
@@ -357,11 +354,7 @@ async def test_outcome_codes_stay_independent_per_action(api):
         async with app.state.database.unit_of_work() as session:
             row = await session.get(MobileTaskRow, task_id)
             assert row is not None
-            logs = [
-                step
-                for step in row.steps
-                if step.get("action") == "run.log"
-            ]
+            logs = [step for step in row.steps if step.get("action") == "run.log"]
         assert [log["messageCode"] for log in logs] == [message_code]
         seen_codes.add(message_code)
     # Three actions, three distinct done codes: no unified success marker.

@@ -79,7 +79,9 @@ def test_companion_requests_notifications_and_refreshes_periodically() -> None:
     assert "delay(" in view_model
     assert "isActive" in view_model
     assert "permissions = permissionState()" in repository
-    assert "health = localHealth" in repository
+    assert "fun refreshLocalStatus()" in repository
+    assert "health = healthCollector.collect()" in repository
+    assert "refreshLocal = ::refreshLocalStatus" in repository
     assert "ServiceState.Healthy" not in repository
 
 

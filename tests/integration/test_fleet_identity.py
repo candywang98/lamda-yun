@@ -188,9 +188,7 @@ async def create_publish_task(
 
 
 async def claim_task(client: httpx.AsyncClient, auth: dict[str, str]) -> httpx.Response:
-    return await client.post(
-        "/companion/v2/tasks/claim", headers=auth, json={"leaseSeconds": 60}
-    )
+    return await client.post("/companion/v2/tasks/claim", headers=auth, json={"leaseSeconds": 60})
 
 
 async def start_task(
@@ -488,9 +486,7 @@ async def test_executable_gates_block_and_release_dispatch(api) -> None:
     task_id = await create_publish_task(client, device)
 
     # accessibility reported disabled -> device online but not executable.
-    envelope = await negotiate(
-        app, token, accessibility_enabled=False, accessibility_active=False
-    )
+    envelope = await negotiate(app, token, accessibility_enabled=False, accessibility_active=False)
     assert envelope["online"] is True
     assert envelope["executable"] is False
     assert envelope["failedGates"] == ["accessibility-enabled", "accessibility-active"]
@@ -696,9 +692,7 @@ async def test_account_rebinding_invalidates_old_task_authorization(api) -> None
 # ---------------------------------------------------------------------------
 
 
-async def register_media_asset(
-    client: httpx.AsyncClient, content: bytes
-) -> tuple[str, str]:
+async def register_media_asset(client: httpx.AsyncClient, content: bytes) -> tuple[str, str]:
     """Register an asset; returns (assetId, objectKey)."""
     object_key = f"fleet/{uuid.uuid4().hex}.bin"
     response = await client.post(
@@ -831,17 +825,14 @@ def test_fleet_session_migration_0023_updown_is_symmetric(tmp_path: Path) -> Non
     with sqlite3.connect(database_path) as connection:
         tables = {
             str(row[0])
-            for row in connection.execute(
-                "SELECT name FROM sqlite_master WHERE type = 'table'"
-            )
+            for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
         }
         assert "fleet_device_session" not in tables
 
     command.upgrade(config, "head")
     with sqlite3.connect(database_path) as connection:
         columns = {
-            str(row[1])
-            for row in connection.execute("PRAGMA table_info(fleet_device_session)")
+            str(row[1]) for row in connection.execute("PRAGMA table_info(fleet_device_session)")
         }
         assert {
             "id",
@@ -873,9 +864,7 @@ def test_fleet_session_migration_0023_updown_is_symmetric(tmp_path: Path) -> Non
     with sqlite3.connect(database_path) as connection:
         tables = {
             str(row[0])
-            for row in connection.execute(
-                "SELECT name FROM sqlite_master WHERE type = 'table'"
-            )
+            for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
         }
         assert "fleet_device_session" not in tables
     command.upgrade(config, "head")

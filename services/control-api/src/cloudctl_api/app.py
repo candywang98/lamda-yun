@@ -26,9 +26,9 @@ from .features.media_assets import MediaAssetsService
 from .features.media_assets.routes import router as media_assets_router
 from .features.schedules import FleetScheduleService
 from .features.schedules.routes import router as fleet_schedule_router
-from .fleet_live import FleetLiveService, fleet_live_router
 from .fleet_listings import FleetListingsService
 from .fleet_listings import router as fleet_listings_router
+from .fleet_live import FleetLiveService, fleet_live_router
 from .fleet_orders import FleetOrdersService
 from .fleet_orders import router as fleet_orders_router
 from .im_routes import companion_router as im_companion_router
@@ -142,9 +142,7 @@ def create_app(
     app.state.orders_service = OrderService(database)
     app.state.fleet_orders_service = FleetOrdersService(database)
     app.state.fleet_listings_service = FleetListingsService(database)
-    app.state.xianyu_orders_service = XianyuOrdersService(
-        database, app.state.mobile_task_service
-    )
+    app.state.xianyu_orders_service = XianyuOrdersService(database, app.state.mobile_task_service)
     app.state.platform_task_service = PlatformTaskService(database, app.state.mobile_task_service)
     app.state.task_schedule_service = TaskScheduleService(database, app.state.platform_task_service)
     fleet_platform = app.state.platform_task_service
@@ -224,9 +222,7 @@ def create_app(
                 parts = parts[1:]
             return ".".join(parts) or "body"
 
-        fields = {
-            field_name(error["loc"]): error["msg"] for error in exc.errors()
-        }
+        fields = {field_name(error["loc"]): error["msg"] for error in exc.errors()}
         return _problem(
             request,
             status=422,

@@ -259,9 +259,11 @@ class CSVFileConnector(SourceConnector):
     def get_external_id(self, record: dict[str, Any]) -> str:
         """Extract external ID based on entity kind."""
         if self.entity_kind == "product":
-            return record.get("product_id", "")
-        elif self.entity_kind == "media":
-            return record.get("file_name", "")
+            value = record.get("product_id", "")
+            return value if isinstance(value, str) else ""
+        if self.entity_kind == "media":
+            value = record.get("file_name", "")
+            return value if isinstance(value, str) else ""
         return ""
 
 
@@ -346,24 +348,24 @@ async def execute_sync_run(
 ) -> dict[str, Any]:
     """
     Execute a synchronization run.
-    
+
     Returns summary dict with counts and status.
     """
     from datetime import UTC, datetime
     from uuid import uuid4
-    
+
     from sqlalchemy import select
-    
+
     from .db import (
         SourceConnectionRow,
         SourceRecordLinkRow,
         SyncRunRow,
     )
-    
+
     # Create sync run record
     sync_run_id = str(uuid4())
     now = datetime.now(UTC)
-    
+
     # Get cursor from last successful run
     stmt = (
         select(SyncRunRow)
@@ -378,7 +380,7 @@ async def execute_sync_run(
     result = await session.execute(stmt)
     last_run = result.scalar_one_or_none()
     cursor_before = last_run.cursor_after if last_run and run_mode == "incremental" else None
-    
+
     sync_run = SyncRunRow(
         id=sync_run_id,
         tenant_id=tenant_id,
@@ -397,39 +399,39 @@ async def execute_sync_run(
     )
     session.add(sync_run)
     await session.flush()
-    
+
     # Get connection config
     conn_stmt = select(SourceConnectionRow).where(SourceConnectionRow.id == connection_id)
     conn_result = await session.execute(conn_stmt)
     connection = conn_result.scalar_one()
     entity_kind = connection.entity_kind
-    
+
     # Sync pages
     current_cursor = cursor_before
     total_read = 0
     total_created = 0
     total_updated = 0
     total_failed = 0
-    
+
     try:
         while True:
             # Read page
             raw_records, next_cursor = await connector.read_page(
                 cursor=current_cursor, page_size=page_size
             )
-            
+
             if not raw_records:
                 break
-            
+
             # Process each record
             for raw in raw_records:
                 total_read += 1
                 external_id = connector.get_external_id(raw)
-                
+
                 try:
                     # Normalize
                     normalized, errors = connector.normalize_record(raw)
-                    
+
                     if errors:
                         # Record error
                         await _record_sync_error(
@@ -443,14 +445,14 @@ async def execute_sync_run(
                         )
                         total_failed += 1
                         continue
-                    
+
                     # Compute record hash
                     import hashlib
                     import json
-                    
+
                     record_json = json.dumps(normalized, sort_keys=True)
                     record_hash = hashlib.sha256(record_json.encode()).hexdigest()
-                    
+
                     # Check existing link
                     link_stmt = select(SourceRecordLinkRow).where(
                         SourceRecordLinkRow.tenant_id == tenant_id,
@@ -459,11 +461,11 @@ async def execute_sync_run(
                     )
                     link_result = await session.execute(link_stmt)
                     existing_link = link_result.scalar_one_or_none()
-                    
+
                     if existing_link and existing_link.record_hash == record_hash:
                         # Same hash, skip
                         continue
-                    
+
                     # Create or update entity
                     if entity_kind == "product":
                         entity_id = await _sync_product(
@@ -483,7 +485,7 @@ async def execute_sync_run(
                             total_created += 1
                     else:
                         raise ValueError(f"Unknown entity_kind: {entity_kind}")
-                    
+
                     # Update or create link
                     if existing_link:
                         existing_link.record_hash = record_hash
@@ -502,7 +504,7 @@ async def execute_sync_run(
                             created_at=now,
                         )
                         session.add(link)
-                    
+
                 except Exception as e:
                     # Record error
                     await _record_sync_error(
@@ -515,7 +517,7 @@ async def execute_sync_run(
                         raw,
                     )
                     total_failed += 1
-            
+
             # Commit page
             sync_run.cursor_after = next_cursor
             sync_run.records_read = total_read
@@ -523,17 +525,17 @@ async def execute_sync_run(
             sync_run.records_updated = total_updated
             sync_run.records_failed = total_failed
             await session.flush()
-            
+
             # Move to next page
             current_cursor = next_cursor
             if not next_cursor:
                 break
-        
+
         # Mark completed
         sync_run.status = "completed"
         sync_run.completed_at = datetime.now(UTC)
         await session.flush()
-        
+
         return {
             "sync_run_id": sync_run_id,
             "status": "completed",
@@ -542,7 +544,7 @@ async def execute_sync_run(
             "records_updated": total_updated,
             "records_failed": total_failed,
         }
-        
+
     except Exception as e:
         sync_run.status = "failed"
         sync_run.error_summary = str(e)
@@ -563,9 +565,9 @@ async def _record_sync_error(
     """Record synchronization error."""
     from datetime import UTC, datetime
     from uuid import uuid4
-    
+
     from .db import SyncErrorRow
-    
+
     for error_msg in errors:
         error = SyncErrorRow(
             id=str(uuid4()),
@@ -594,25 +596,25 @@ async def _sync_product(
     """Sync product entity."""
     from datetime import UTC, datetime
     from uuid import uuid4
-    
+
     from sqlalchemy import select
-    
+
     from .db import MediaAssetRow, ProductMediaRow, ProductRow
-    
+
     if existing_link and existing_link.entity_id:
         # Update existing product
         stmt = select(ProductRow).where(ProductRow.id == existing_link.entity_id)
         result = await session.execute(stmt)
         product = result.scalar_one()
-        
+
         product.title = normalized["title"]
         product.description = normalized["description"]
         product.price = normalized["price"]
         product.stock = normalized.get("stock", 0)
         product.category = normalized.get("category", "")
         product.revision += 1
-        
-        entity_id = product.id
+
+        entity_id = str(product.id)
     else:
         # Create new product
         entity_id = str(uuid4())
@@ -631,16 +633,16 @@ async def _sync_product(
             created_at=datetime.now(UTC),
         )
         session.add(product)
-    
+
     # Handle media references
     media_refs = normalized.get("media_refs", [])
     if media_refs:
         # Remove old media associations
         from sqlalchemy import delete
-        
+
         del_stmt = delete(ProductMediaRow).where(ProductMediaRow.product_id == entity_id)
         await session.execute(del_stmt)
-        
+
         # Add new media associations
         for i, media_ref in enumerate(media_refs):
             # Find media asset by file name (stored in metadata_json)
@@ -650,14 +652,14 @@ async def _sync_product(
             )
             media_result = await session.execute(media_stmt)
             all_media = media_result.scalars().all()
-            
+
             # Filter by file_name in metadata
             media_asset = None
             for asset in all_media:
                 if asset.metadata_json.get("file_name") == media_ref:
                     media_asset = asset
                     break
-            
+
             if media_asset:
                 pm = ProductMediaRow(
                     id=str(uuid4()),
@@ -669,7 +671,7 @@ async def _sync_product(
                     created_at=datetime.now(UTC),
                 )
                 session.add(pm)
-    
+
     return entity_id
 
 
@@ -684,13 +686,13 @@ async def _sync_media(
     """Sync media entity with asset download."""
     from datetime import UTC, datetime
     from uuid import uuid4
-    
+
     from sqlalchemy import select
-    
+
     from .db import MediaAssetRow
-    
+
     sha256 = normalized["sha256"]
-    
+
     # Check if asset already exists by SHA256
     stmt = select(MediaAssetRow).where(
         MediaAssetRow.tenant_id == tenant_id,
@@ -698,7 +700,7 @@ async def _sync_media(
     )
     result = await session.execute(stmt)
     existing_asset = result.scalar_one_or_none()
-    
+
     if existing_asset:
         # Asset already exists, update metadata
         existing_asset.metadata_json = {
@@ -706,30 +708,30 @@ async def _sync_media(
             "width": normalized.get("width"),
             "height": normalized.get("height"),
         }
-        return existing_asset.id
-    
+        return str(existing_asset.id)
+
     # Download and verify asset
     file_name = normalized["file_name"]
     try:
         asset_data, content_type = await connector.fetch_asset(file_name)
-        
+
         # Verify SHA256
         import hashlib
-        
+
         actual_sha256 = hashlib.sha256(asset_data).hexdigest()
         if actual_sha256 != sha256:
             msg = f"SHA256 mismatch for {file_name}: expected {sha256}, got {actual_sha256}"
             raise ValueError(msg)
-            
+
     except FileNotFoundError as e:
         # Asset file not available, skip this media item
         msg = f"Media file not found: {file_name}"
         raise FileNotFoundError(msg) from e
-    
+
     # Store in object store
     object_key = f"media/{tenant_id}/{sha256[:2]}/{sha256}"
     object_store.put(object_key, asset_data, content_type)
-    
+
     # Create media asset
     entity_id = str(uuid4())
     asset = MediaAssetRow(
@@ -747,5 +749,5 @@ async def _sync_media(
         created_at=datetime.now(UTC),
     )
     session.add(asset)
-    
+
     return entity_id

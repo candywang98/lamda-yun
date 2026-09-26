@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from fleet_live_transport import default_registry
+from fleet_live_transport import default_registry  # type: ignore[import-untyped]
 
 from .debug_delivery import DebugDeliveryStore, DebugGrantDelivery
 from .debug_relay import DebugRelay, DebugRelayConfig, EdgeHubDebugTransport, create_debug_server

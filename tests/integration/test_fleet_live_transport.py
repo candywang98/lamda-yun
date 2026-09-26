@@ -96,9 +96,7 @@ def test_jpeg_adapter_needs_no_turn() -> None:
     assert plan.details["caps"]["longEdge"] <= 720
     assert plan.details["caps"]["quality"] <= 60
     with pytest.raises(TransportUnsupported):
-        adapter.prepare(
-            session_id="sid-j", device_id="dev-j", tenant_id="t-j", tier="WEBRTC"
-        )
+        adapter.prepare(session_id="sid-j", device_id="dev-j", tenant_id="t-j", tier="WEBRTC")
 
 
 def test_webrtc_adapter_refuses_without_turn_config() -> None:
@@ -129,9 +127,7 @@ def test_minted_credentials_follow_coturn_rest_shape() -> None:
     assert credentials.expires_at_unix == 1_000_000 + 600
     assert credentials.username == f"{credentials.expires_at_unix}:live-sid-0001"
     expected = base64.b64encode(
-        hmac.new(
-            TURN.shared_secret.encode(), credentials.username.encode(), hashlib.sha1
-        ).digest()
+        hmac.new(TURN.shared_secret.encode(), credentials.username.encode(), hashlib.sha1).digest()
     ).decode("ascii")
     assert credentials.password == expected
 

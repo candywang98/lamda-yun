@@ -90,13 +90,23 @@ async def test_platform_task_idempotency_pagination_and_device_isolation(
     first = await client.post(
         "/api/v1/platform-tasks",
         headers={**identity(), "Idempotency-Key": "click-once"},
-        json={"deviceId": device_a, "accountId": account, "expectedBindingVersion": bound["bindingVersion"], **PROBE},
+        json={
+            "deviceId": device_a,
+            "accountId": account,
+            "expectedBindingVersion": bound["bindingVersion"],
+            **PROBE,
+        },
     )
     assert first.status_code == 201, first.text
     replay = await client.post(
         "/api/v1/platform-tasks",
         headers={**identity(), "Idempotency-Key": "click-once"},
-        json={"deviceId": device_a, "accountId": account, "expectedBindingVersion": bound["bindingVersion"], **PROBE},
+        json={
+            "deviceId": device_a,
+            "accountId": account,
+            "expectedBindingVersion": bound["bindingVersion"],
+            **PROBE,
+        },
     )
     assert replay.status_code == 200
     assert replay.json()["items"][0]["taskId"] == first.json()["items"][0]["taskId"]
@@ -254,7 +264,9 @@ async def test_pause_event_is_not_failed_and_wrong_result_type_rejected(
     )
     token = token_resp.json()["bindingToken"]
     auth = {"Authorization": f"Bearer {token}"}
-    claimed = await client.post("/companion/v2/tasks/claim", headers=auth, json={"leaseSeconds": 60})
+    claimed = await client.post(
+        "/companion/v2/tasks/claim", headers=auth, json={"leaseSeconds": 60}
+    )
     lease_id = claimed.json()["leaseId"]
     paused = await client.post(
         f"/companion/v2/tasks/{task_id}/events",
@@ -301,7 +313,10 @@ async def test_xianyu_publish_complete_accepts_listing_result_type(
             "expectedBindingVersion": bound["bindingVersion"],
             "commandType": "xianyu.publish_listing.v1",
             "parameters": {
-                "listingBody": "Notion Business 兑换券，图示价值 $240。拍下后按说明发送兑换方式。支持当面交易。",
+                "listingBody": (
+                    "Notion Business 兑换券，图示价值 $240。拍下后按说明发送兑换方式。"
+                    "支持当面交易。"
+                ),
                 "price": "199",
             },
         },
@@ -322,7 +337,9 @@ async def test_xianyu_publish_complete_accepts_listing_result_type(
         },
     )
     auth = {"Authorization": f"Bearer {token_resp.json()['bindingToken']}"}
-    claimed = await client.post("/companion/v2/tasks/claim", headers=auth, json={"leaseSeconds": 60})
+    claimed = await client.post(
+        "/companion/v2/tasks/claim", headers=auth, json={"leaseSeconds": 60}
+    )
     assert claimed.status_code == 200, claimed.text
     assert claimed.json()["commandType"] == "xianyu.publish_listing.v1"
     lease_id = claimed.json()["leaseId"]
@@ -645,7 +662,9 @@ async def test_resume_issues_new_epoch_and_device_heartbeat_command(
         )
     ).json()["bindingToken"]
     auth = {"Authorization": f"Bearer {token}"}
-    claimed = await client.post("/companion/v2/tasks/claim", headers=auth, json={"leaseSeconds": 60})
+    claimed = await client.post(
+        "/companion/v2/tasks/claim", headers=auth, json={"leaseSeconds": 60}
+    )
     old_lease = claimed.json()["leaseId"]
     paused = await client.post(
         f"/api/v1/platform-tasks/{task_id}:pause",
@@ -708,7 +727,9 @@ async def test_resume_issues_new_epoch_and_device_heartbeat_command(
     assert continued.json()["businessState"] == "RUNNING"
     later_detail = await client.get(f"/api/v1/platform-tasks/{later_id}", headers=identity())
     assert later_detail.json()["state"] == "QUEUED"
-    blocked = await client.post("/companion/v2/tasks/claim", headers=auth, json={"leaseSeconds": 60})
+    blocked = await client.post(
+        "/companion/v2/tasks/claim", headers=auth, json={"leaseSeconds": 60}
+    )
     assert blocked.status_code == 204
     after = await client.post(
         "/companion/v2/devices/heartbeat",
@@ -753,7 +774,9 @@ async def test_heartbeat_surfaces_pause_requested_until_companion_acks(
         )
     ).json()["bindingToken"]
     auth = {"Authorization": f"Bearer {token}"}
-    claimed = await client.post("/companion/v2/tasks/claim", headers=auth, json={"leaseSeconds": 60})
+    claimed = await client.post(
+        "/companion/v2/tasks/claim", headers=auth, json={"leaseSeconds": 60}
+    )
     lease_id = claimed.json()["leaseId"]
     later = await client.post(
         "/api/v1/platform-tasks",
@@ -791,7 +814,9 @@ async def test_heartbeat_surfaces_pause_requested_until_companion_acks(
     detail = await client.get(f"/api/v1/platform-tasks/{task_id}", headers=identity())
     assert detail.json()["state"] == "PAUSED_WAITING_USER"
     assert detail.json()["controlMode"] == "REMOTE"
-    blocked = await client.post("/companion/v2/tasks/claim", headers=auth, json={"leaseSeconds": 60})
+    blocked = await client.post(
+        "/companion/v2/tasks/claim", headers=auth, json={"leaseSeconds": 60}
+    )
     assert blocked.status_code == 204
     later_detail = await client.get(f"/api/v1/platform-tasks/{later_id}", headers=identity())
     assert later_detail.json()["state"] == "QUEUED"
@@ -823,7 +848,9 @@ async def test_xianyu_publish_freezes_catalog_product_copy_and_cover(
         json={
             "spuCode": "SPU-NOTION-TEST",
             "title": "Notion Business 一年免费兑换",
-            "description": "Notion Business 兑换券，图示价值 $240。拍下后按说明发送兑换方式。支持当面交易。",
+            "description": (
+                "Notion Business 兑换券，图示价值 $240。拍下后按说明发送兑换方式。支持当面交易。"
+            ),
             "category": "虚拟",
             "price": "199",
             "stock": 1,
@@ -1190,7 +1217,9 @@ async def test_platform_claim_returns_command_v1_without_legacy_steps(
     assert created.status_code == 201, created.text
     task_id = created.json()["items"][0]["taskId"]
     auth = await _enroll(client, device_id, "instance-command-v1")
-    claimed = await client.post("/companion/v2/tasks/claim", headers=auth, json={"leaseSeconds": 60})
+    claimed = await client.post(
+        "/companion/v2/tasks/claim", headers=auth, json={"leaseSeconds": 60}
+    )
     assert claimed.status_code == 200, claimed.text
     body = claimed.json()
     assert body["protocolVersion"] == "cloudctl.command/v1"
@@ -1233,7 +1262,9 @@ async def test_platform_publish_claim_is_open_only_command_v1(
     )
     assert created.status_code == 201, created.text
     auth = await _enroll(client, device_id, "instance-command-publish")
-    claimed = await client.post("/companion/v2/tasks/claim", headers=auth, json={"leaseSeconds": 60})
+    claimed = await client.post(
+        "/companion/v2/tasks/claim", headers=auth, json={"leaseSeconds": 60}
+    )
     assert claimed.status_code == 200, claimed.text
     command = parse_command_v1(claimed.json()["command"])
     assert command["commandType"] in OPEN_ONLY_COMMAND_TYPES
@@ -1286,7 +1317,9 @@ async def test_operation_id_mints_command_v1_and_rejects_unwired_catalog(
     assert detail.status_code == 200, detail.text
     assert detail.json()["operationId"] == "device-probe"
     auth = await _enroll(client, device_id, "instance-factory")
-    claimed = await client.post("/companion/v2/tasks/claim", headers=auth, json={"leaseSeconds": 60})
+    claimed = await client.post(
+        "/companion/v2/tasks/claim", headers=auth, json={"leaseSeconds": 60}
+    )
     assert claimed.status_code == 200, claimed.text
     command = parse_command_v1(claimed.json()["command"])
     assert command["commandType"] == "device.probe_capabilities.v1"
@@ -1321,7 +1354,9 @@ async def test_k03_pause_resume_full_chain_event_sequence(
     assert created.status_code == 201, created.text
     task_id = created.json()["items"][0]["taskId"]
     auth = await _enroll(client, device_id, "instance-k03-pause")
-    claimed = await client.post("/companion/v2/tasks/claim", headers=auth, json={"leaseSeconds": 60})
+    claimed = await client.post(
+        "/companion/v2/tasks/claim", headers=auth, json={"leaseSeconds": 60}
+    )
     assert claimed.status_code == 200, claimed.text
     lease_id = claimed.json()["leaseId"]
     started = await client.post(
@@ -1443,7 +1478,9 @@ async def test_k03_cancel_reconciling_rejected_and_terminal_idempotent(
     # RUNNING task: cancel degrades to CANCEL_REQUESTED, not immediate CANCELLED.
     running_id = await mint("k03-running")
     auth = await _enroll(client, device_id, "instance-k03-cancel")
-    claimed = await client.post("/companion/v2/tasks/claim", headers=auth, json={"leaseSeconds": 60})
+    claimed = await client.post(
+        "/companion/v2/tasks/claim", headers=auth, json={"leaseSeconds": 60}
+    )
     assert claimed.status_code == 200, claimed.text
     lease_id = claimed.json()["leaseId"]
     started = await client.post(

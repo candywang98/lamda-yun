@@ -45,6 +45,4 @@ class WechatDraftCreate(BaseModel):
 class WechatPublishAuthorize(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
-    authorization_note: str | None = Field(
-        alias="authorizationNote", default=None, max_length=500
-    )
+    authorization_note: str | None = Field(alias="authorizationNote", default=None, max_length=500)

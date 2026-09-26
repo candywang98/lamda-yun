@@ -174,9 +174,7 @@ async def test_s05c_stale_lease_cannot_report_outcome(
     async with app.state.database.unit_of_work() as session:
         rows = list(
             await session.scalars(
-                select(MobileActionCommitRow).where(
-                    MobileActionCommitRow.task_id == ctx["taskId"]
-                )
+                select(MobileActionCommitRow).where(MobileActionCommitRow.task_id == ctx["taskId"])
             )
         )
         assert len(rows) == 1

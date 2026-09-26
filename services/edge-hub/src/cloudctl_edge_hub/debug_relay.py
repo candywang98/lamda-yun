@@ -19,7 +19,7 @@ from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 from cloudctl_edge_protocol import edge_control_pb2 as pb
 from websockets.exceptions import ConnectionClosedOK
@@ -465,7 +465,7 @@ def create_debug_server_from_files(
     from websockets.asyncio.server import ServerConnection
 
     async def adapter(websocket: ServerConnection) -> None:
-        await relay.handle_connection(websocket)  # type: ignore[arg-type]
+        await relay.handle_connection(cast(WebSocketLike, websocket))
 
     return websockets.asyncio.server.serve(
         adapter,

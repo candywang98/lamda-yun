@@ -95,6 +95,7 @@ object ImMonitor {
 
     /** A notification from this package is monitored only if its platform is selected. */
     fun isPackageEnabled(pkg: String): Boolean {
+        if (com.company.cloudctl.companion.BuildConfig.HEARTBEAT_DIAGNOSTIC) return false
         val platform = ImMonitorConfig.platformOfPackage(pkg) ?: return false
         return config.enabled && platform in config.platforms
     }
@@ -122,6 +123,7 @@ object ImMonitor {
      * outbox is not installed yet. Never drops an older stored row.
      */
     fun accept(deviceId: String, event: ImEvent, now: Instant = Instant.now()): Boolean {
+        if (com.company.cloudctl.companion.BuildConfig.HEARTBEAT_DIAGNOSTIC) return false
         if (deviceId.isBlank()) return false
         val store = outbox ?: return false
         if (alreadyRecorded(deviceId, event)) return false

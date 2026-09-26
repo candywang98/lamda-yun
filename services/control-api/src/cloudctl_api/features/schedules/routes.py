@@ -49,9 +49,7 @@ async def mint_due(
     result = await schedules.mint_due(actor, schedule_id, now=body.now)
     # A04 semantics: first mint answers 201, a replayed tick (same period,
     # same fire key) answers 200 and is marked as an idempotent replay.
-    response.status_code = (
-        status.HTTP_201_CREATED if result["createdAny"] else status.HTTP_200_OK
-    )
+    response.status_code = status.HTTP_201_CREATED if result["createdAny"] else status.HTTP_200_OK
     response.headers["Idempotency-Replayed"] = "false" if result["createdAny"] else "true"
     return result
 

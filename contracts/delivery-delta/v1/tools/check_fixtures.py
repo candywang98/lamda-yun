@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """delivery-delta/v1 fixture checker: expansion IDs + structural assertions."""
+
 from __future__ import annotations
 
 import hashlib
@@ -12,9 +13,7 @@ CONTRACT_DIR = HERE.parent
 
 
 def delivery_digest(asset_ids: list[str]) -> str:
-    return hashlib.sha256(
-        "\n".join(f"mediaAssetId={i}" for i in asset_ids).encode()
-    ).hexdigest()
+    return hashlib.sha256("\n".join(f"mediaAssetId={i}" for i in asset_ids).encode()).hexdigest()
 
 
 def expansion_id(tenant: str, target: str, device: str, media: str) -> str:
@@ -22,7 +21,9 @@ def expansion_id(tenant: str, target: str, device: str, media: str) -> str:
 
 
 def main() -> int:
-    pos = json.loads((CONTRACT_DIR / "fixtures/k12-positive-multidevice-expansion.json").read_text())
+    pos = json.loads(
+        (CONTRACT_DIR / "fixtures/k12-positive-multidevice-expansion.json").read_text()
+    )
     req = pos["request"]
     dd = delivery_digest(req["orderedMediaAssetIds"])
     ids = [
@@ -44,11 +45,15 @@ def main() -> int:
     accounts = [e["accountId"] for e in spray["request"]["expansions"]]
     assert len(set(accounts)) == 1 and len(accounts) == 2, "spray case must fan one account"
 
-    missing = json.loads((CONTRACT_DIR / "fixtures/k12-negative-missing-field-success.json").read_text())
+    missing = json.loads(
+        (CONTRACT_DIR / "fixtures/k12-negative-missing-field-success.json").read_text()
+    )
     assert missing["claim"]["fieldInputProofs"]["price"] == "absent"
     assert missing["expect"]["rejected"] is True
 
-    sku = json.loads((CONTRACT_DIR / "fixtures/k12-negative-sku-claimed-supported.json").read_text())
+    sku = json.loads(
+        (CONTRACT_DIR / "fixtures/k12-negative-sku-claimed-supported.json").read_text()
+    )
     assert "sku_variants:SUPPORTED" in sku["recipeRegistration"]["declaredCapabilities"]
     assert sku["expect"]["code"] == "CAPABILITY_PENDING_VERIFICATION"
 

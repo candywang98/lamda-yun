@@ -348,7 +348,7 @@ def _json_value(value: object) -> object:
         return {"base64": base64.b64encode(value).decode("ascii")}
     if isinstance(value, Mapping):
         return {str(key): _json_value(item) for key, item in value.items()}
-    if isinstance(value, (list, tuple)):
+    if isinstance(value, list | tuple):
         return [_json_value(item) for item in value]
     return str(value)
 

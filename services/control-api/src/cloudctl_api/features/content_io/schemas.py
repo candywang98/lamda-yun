@@ -20,6 +20,4 @@ class ContentImportRunRequest(StrictModel):
     items: list[ProductImportItem] = Field(min_length=1, max_length=100)
     group_id: str | None = Field(default=None, alias="groupId", min_length=1, max_length=36)
     apply: bool = False
-    import_key: str | None = Field(
-        default=None, alias="importKey", min_length=1, max_length=128
-    )
+    import_key: str | None = Field(default=None, alias="importKey", min_length=1, max_length=128)

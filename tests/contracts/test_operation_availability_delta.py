@@ -133,9 +133,7 @@ def test_ledger_states_derive_from_registrations_not_hand_waving() -> None:
             assert availability != "executable", catalog_id
             assert entry.operation_key not in BUILTIN_OPERATION_KEYS, catalog_id
     # No xy registration outside the lit row has a production mint alias.
-    xy_command_types = {
-        spec.get("commandType") for spec in xianyu_operations()
-    }
+    xy_command_types = {spec.get("commandType") for spec in xianyu_operations()}
     aliased = {
         command
         for command in xy_command_types
@@ -178,11 +176,7 @@ def test_availability_document_matches_python_ledger() -> None:
     counts = Counter(entry["state"] for entry in entries)
     assert document["state_counts"] == EXPECTED_STATE_COUNTS == dict(counts)
     # Every X12 P package is referenced somewhere (entries + adjudications).
-    referenced = {
-        package
-        for entry in entries
-        for package in entry["package_refs"]
-    } | {
+    referenced = {package for entry in entries for package in entry["package_refs"]} | {
         package
         for adjudication in document["scope_adjudications"]
         for package in adjudication["package_refs"]
@@ -274,9 +268,7 @@ def test_pending_transition_path_exists_but_is_disabled_by_default() -> None:
     assert "budget_cap" in sensitive.enable_requires
     assert "target_authorization" in sensitive.enable_requires
     assert "platform_entry_evidence" in sensitive.enable_requires
-    assert (
-        evaluate_ledger_transition(sensitive, {}, executor_available=True) == "PENDING"
-    )
+    assert evaluate_ledger_transition(sensitive, {}, executor_available=True) == "PENDING"
 
     # Policy and scope rows are terminal for evidence.
     blocked = XY_AVAILABILITY_LEDGER["xy-tasks-09"]
@@ -291,8 +283,7 @@ def test_pending_transition_path_exists_but_is_disabled_by_default() -> None:
         )
     }
     assert (
-        evaluate_ledger_transition(blocked, everything, executor_available=True)
-        == "POLICY_BLOCKED"
+        evaluate_ledger_transition(blocked, everything, executor_available=True) == "POLICY_BLOCKED"
     )
     out_of_scope = XY_AVAILABILITY_LEDGER["xy-tasks-25"]
     assert (
@@ -321,9 +312,7 @@ def test_parameter_target_and_budget_drift_are_rejected() -> None:
         )
     # Parameter drift: interval below the declared floor is rejected.
     with pytest.raises(PydanticValidationError):
-        validate_operation_parameters(
-            "xianyu.polish_goods", None, {"intervalSeconds": 1}
-        )
+        validate_operation_parameters("xianyu.polish_goods", None, {"intervalSeconds": 1})
     # Unknown parameter on a strict contract is rejected.
     with pytest.raises(PydanticValidationError):
         validate_operation_parameters(

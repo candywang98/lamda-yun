@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 from zoneinfo import ZoneInfo
 
 from cloudctl_domain import (
@@ -30,6 +30,7 @@ from cloudctl_domain import (
 )
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...db import AuditEventRow, Database, TaskScheduleFireRow, TaskScheduleRow
 from ...platform_tasks import PlatformTaskCreate, PlatformTaskService
@@ -67,7 +68,7 @@ class FleetScheduleService:
     # ------------------------------------------------------------------
 
     async def _schedule_row(
-        self, session: Any, actor: Actor, schedule_id: str, *, for_update: bool = False
+        self, session: AsyncSession, actor: Actor, schedule_id: str, *, for_update: bool = False
     ) -> TaskScheduleRow:
         statement = select(TaskScheduleRow).where(
             TaskScheduleRow.id == schedule_id,
@@ -82,12 +83,15 @@ class FleetScheduleService:
 
     @staticmethod
     async def _control_row(
-        session: Any, schedule_id: str
+        session: AsyncSession, schedule_id: str
     ) -> FleetScheduleControlRow | None:
-        return await session.scalar(
-            select(FleetScheduleControlRow).where(
-                FleetScheduleControlRow.schedule_id == schedule_id
-            )
+        return cast(
+            FleetScheduleControlRow | None,
+            await session.scalar(
+                select(FleetScheduleControlRow).where(
+                    FleetScheduleControlRow.schedule_id == schedule_id
+                )
+            ),
         )
 
     @staticmethod
@@ -96,9 +100,7 @@ class FleetScheduleService:
     ) -> dict[str, list[TaskScheduleFireRow]]:
         rows = list(
             await session.scalars(
-                select(TaskScheduleFireRow).where(
-                    TaskScheduleFireRow.schedule_id == schedule_id
-                )
+                select(TaskScheduleFireRow).where(TaskScheduleFireRow.schedule_id == schedule_id)
             )
         )
         # A ledger row for any device marks the period as decided (minted,
@@ -108,9 +110,7 @@ class FleetScheduleService:
             attempted.setdefault(period_marker(_aware(row.scheduled_for)), []).append(row)
         return attempted
 
-    def _due_occurrences(
-        self, snapshot: dict[str, Any], now: datetime
-    ) -> list[Occurrence]:
+    def _due_occurrences(self, snapshot: dict[str, Any], now: datetime) -> list[Occurrence]:
         """Grid points whose scheduled time has arrived, ascending."""
         if snapshot["kind"] == "ONCE":
             once = snapshot["once_at"]
@@ -182,9 +182,7 @@ class FleetScheduleService:
             latest = attempted_due[-1]
             replay_items = [self._fire_view(f, latest) for f in attempted[latest.marker]]
             replay_items.sort(key=lambda item: item["deviceId"])
-            task_ids.extend(
-                item["taskId"] for item in replay_items if item.get("taskId")
-            )
+            task_ids.extend(item["taskId"] for item in replay_items if item.get("taskId"))
             decisions.append(
                 {
                     "periodMarker": latest.marker,

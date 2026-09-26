@@ -66,9 +66,7 @@ async def main() -> None:
             origin="http://127.0.0.1:5173",
         ) as websocket:
             await websocket.send(
-                json.dumps(
-                    {"type": "debug.auth", "sessionId": session_id, "token": relay_token}
-                )
+                json.dumps({"type": "debug.auth", "sessionId": session_id, "token": relay_token})
             )
             ready = json.loads(await websocket.recv())
             if ready.get("type") != "ready":

@@ -15,10 +15,9 @@ from __future__ import annotations
 import json
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from pydantic import ValidationError as PydanticValidationError
-from sqlalchemy import select
 
 from .builtin_recipes import OPEN_ONLY_COMMAND_TYPES
 from .command_v1 import (
@@ -102,7 +101,7 @@ EXTRA_OPERATIONS = {
 def _load_field_map() -> dict[str, Any]:
     for path in FIELD_MAP_CANDIDATES:
         if path.is_file():
-            return json.loads(path.read_text(encoding="utf-8"))
+            return cast(dict[str, Any], json.loads(path.read_text(encoding="utf-8")))
     raise FileNotFoundError("field-map.json was not found next to the factory or under docs/phase1")
 
 
@@ -170,13 +169,16 @@ def _reject_unknown_and_forbidden(spec: dict[str, Any], parameters: dict[str, An
         raise ValueError(f"unknown operation fields: {', '.join(unknown)}")
 
 
-def mint_operation_command(operation_id: str, parameters: dict[str, Any] | None = None) -> dict[str, Any]:
+def mint_operation_command(
+    operation_id: str, parameters: dict[str, Any] | None = None
+) -> dict[str, Any]:
     spec = operation_spec(operation_id)
     payload = dict(parameters or {})
     _reject_unknown_and_forbidden(spec, payload)
     if spec.get("status") != "mapped":
         raise ValueError(
-            spec.get("reason") or f"{operation_id} is {spec.get('status')} and cannot mint a production command"
+            spec.get("reason")
+            or f"{operation_id} is {spec.get('status')} and cannot mint a production command"
         )
     catalog_type = spec.get("commandType")
     command_type = production_command_type(catalog_type if isinstance(catalog_type, str) else None)
@@ -184,10 +186,12 @@ def mint_operation_command(operation_id: str, parameters: dict[str, Any] | None 
     if command_type is None:
         availability = registration["availability"] if registration else "unregistered"
         raise ValueError(
-            f"{operation_id} is catalogued ({availability}) but not enabled for production CommandV1 claim"
+            f"{operation_id} is catalogued ({availability}) but not enabled for "
+            "production CommandV1 claim"
         )
     model = PARAMETER_MODELS[command_type]
-    aliases = {(field.alias or name) for name, field in model.model_fields.items()}
+    fields = cast(dict[str, Any], getattr(model, "model_fields", {}))
+    aliases = {(field.alias or name) for name, field in fields.items()}
     filtered = {key: value for key, value in payload.items() if key in aliases}
     typed = _typed_parameters(command_type, filtered)
     package = COMMAND_PACKAGES[command_type]
@@ -280,9 +284,7 @@ def derive_publish_target_id(
         raise ValueError("platform is not a publish platform")
     if not isinstance(revision_no, int) or isinstance(revision_no, bool) or revision_no < 1:
         raise ValueError("revision_no must be a positive integer")
-    canonical = "|".join(
-        (content_id, str(revision_no), platform, str(account_id), str(device_id))
-    )
+    canonical = "|".join((content_id, str(revision_no), platform, str(account_id), str(device_id)))
     return str(uuid.uuid5(PUBLISH_TARGET_NAMESPACE, canonical))
 
 
@@ -414,9 +416,7 @@ async def _validate_publish_media(
     if len(set(media_asset_ids)) != len(media_asset_ids):
         raise ValidationError("mediaAssetIds must preserve a duplicate-free order")
     if len(media_asset_ids) > limit:
-        raise ValidationError(
-            f"media count exceeds the {platform} platform limit of {limit}"
-        )
+        raise ValidationError(f"media count exceeds the {platform} platform limit of {limit}")
     if require_at_least_one and not media_asset_ids:
         raise ValidationError(f"{platform} publish requires at least one media asset")
     if not media_asset_ids:
@@ -450,9 +450,7 @@ async def _freeze_product_parameters(
     from .db import ProductMediaRow, ProductRow
 
     product = await session.scalar(
-        select(ProductRow).where(
-            ProductRow.id == product_id, ProductRow.tenant_id == tenant_id
-        )
+        select(ProductRow).where(ProductRow.id == product_id, ProductRow.tenant_id == tenant_id)
     )
     if product is None:
         raise NotFoundError("product was not found")
@@ -618,9 +616,7 @@ async def mint_publish_command(
         device_id=device_id,
     )
     try:
-        minted = mint_operation_command(
-            PUBLISH_OPERATION_IDS[command_type], parameters
-        )
+        minted = mint_operation_command(PUBLISH_OPERATION_IDS[command_type], parameters)
     except PydanticValidationError as exc:
         raise ValidationError(f"frozen business copy does not fit {command_type}: {exc}") from exc
     minted.update(

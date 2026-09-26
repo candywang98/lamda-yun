@@ -6,6 +6,8 @@ import com.company.cloudctl.companion.model.AuthorizedTaskStatus
 import com.company.cloudctl.companion.model.LocalRunLog
 import org.json.JSONArray
 import org.json.JSONObject
+import com.company.cloudctl.companion.model.PresenceIssue
+import java.time.Duration
 import java.time.Instant
 
 data class RuntimeSnapshot(
@@ -16,6 +18,8 @@ data class RuntimeSnapshot(
     val capabilities: Map<String, CapabilityProbeStatus> = emptyMap(),
     /** B17 SUSPECT_ORPHANED alert (control-plane/v1 §3): reported, never locally cleared. */
     val suspectOrphanedAlert: SuspectOrphanedAlert? = null,
+    val lastHeartbeatAt: Instant? = null,
+    val presenceIssue: PresenceIssue? = PresenceIssue.WAITING_HEARTBEAT,
 )
 
 data class CapabilityProbeStatus(
@@ -31,7 +35,10 @@ data class SuspectOrphanedAlert(
     val raisedAt: Instant,
 )
 
-class RuntimeStatusStore(context: Context) {
+class RuntimeStatusStore(
+    context: Context,
+    private val now: () -> Instant = Instant::now,
+) {
     private val preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
 
     @Synchronized
@@ -62,8 +69,14 @@ class RuntimeStatusStore(context: Context) {
     }
 
     @Synchronized
-    fun markPresence(online: Boolean) {
-        preferences.edit().putBoolean(PRESENCE_ONLINE, online).commit()
+    fun markPresence(online: Boolean, issue: PresenceIssue = PresenceIssue.CONNECTION_FAILED) {
+        val editor = preferences.edit().putBoolean(PRESENCE_ONLINE, online)
+        if (online) {
+            editor.putString(LAST_HEARTBEAT_AT, now().toString()).remove(PRESENCE_ISSUE)
+        } else {
+            editor.putString(PRESENCE_ISSUE, issue.name)
+        }
+        editor.commit()
     }
 
     /** B17 startup capability self-check; overwrites the previous probe result. */
@@ -105,13 +118,30 @@ class RuntimeStatusStore(context: Context) {
         preferences.edit().remove(SUSPECT_ORPHANED).commit()
     }
 
-    fun snapshot(): RuntimeSnapshot = RuntimeSnapshot(
-        task = readTask(),
-        logs = readLogs(),
-        presenceOnline = preferences.getBoolean(PRESENCE_ONLINE, false),
-        capabilities = readCapabilities(),
-        suspectOrphanedAlert = readSuspectOrphanedAlert(),
-    )
+    fun snapshot(): RuntimeSnapshot {
+        val lastHeartbeatAt = preferences.getString(LAST_HEARTBEAT_AT, null)?.let {
+            runCatching { Instant.parse(it) }.getOrNull()
+        }
+        val age = lastHeartbeatAt?.let { Duration.between(it, now()) }
+        val lastAttemptSucceeded = preferences.getBoolean(PRESENCE_ONLINE, false)
+        val online = lastAttemptSucceeded && age != null && !age.isNegative && age < PRESENCE_TTL
+        val issue = when {
+            online -> null
+            lastAttemptSucceeded && lastHeartbeatAt != null -> PresenceIssue.HEARTBEAT_EXPIRED
+            else -> preferences.getString(PRESENCE_ISSUE, null)?.let {
+                runCatching { PresenceIssue.valueOf(it) }.getOrNull()
+            } ?: PresenceIssue.WAITING_HEARTBEAT
+        }
+        return RuntimeSnapshot(
+            task = readTask(),
+            logs = readLogs(),
+            presenceOnline = online,
+            capabilities = readCapabilities(),
+            suspectOrphanedAlert = readSuspectOrphanedAlert(),
+            lastHeartbeatAt = lastHeartbeatAt,
+            presenceIssue = issue,
+        )
+    }
 
     private fun readCapabilities(): Map<String, CapabilityProbeStatus> =
         preferences.getString(CAPABILITIES, null)?.let { encoded ->
@@ -193,6 +223,9 @@ class RuntimeStatusStore(context: Context) {
         const val TASK = "task"
         const val LOGS = "logs"
         const val PRESENCE_ONLINE = "presence_online"
+        const val LAST_HEARTBEAT_AT = "last_heartbeat_at"
+        const val PRESENCE_ISSUE = "presence_issue"
+        val PRESENCE_TTL: Duration = Duration.ofSeconds(90)
         const val CAPABILITIES = "capabilities"
         const val SUSPECT_ORPHANED = "suspect_orphaned_alert"
         const val MAX_LOGS = 50

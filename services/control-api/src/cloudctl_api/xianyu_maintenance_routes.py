@@ -35,7 +35,5 @@ async def run_maintenance(
 
 
 @router.get("/maintenance/runs/{run_id}")
-async def get_maintenance_run(
-    run_id: str, actor: ActorDep, maintenance: Service
-) -> dict[str, Any]:
+async def get_maintenance_run(run_id: str, actor: ActorDep, maintenance: Service) -> dict[str, Any]:
     return await maintenance.get_run(actor, run_id)

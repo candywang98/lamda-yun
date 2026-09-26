@@ -150,9 +150,7 @@ async def test_field_level_validation_carries_loc_and_rejects_unknown_fields(
     assert response.headers["content-type"].startswith("application/problem+json")
     body = response.json()
     assert body["code"] == "PUBLISH_FIELD_VALIDATION"
-    issues = {
-        (error["field"], tuple(error["loc"]), error["code"]) for error in body["errors"]
-    }
+    issues = {(error["field"], tuple(error["loc"]), error["code"]) for error in body["errors"]}
     # 未知字段拒绝（item 内），带精确 loc。
     assert ("items.0.draftMode", ("items", 0, "draftMode"), "UNKNOWN_FIELD") in issues
     assert ("items.0.price", ("items", 0, "price"), "FIELD_PATTERN") in issues
@@ -565,9 +563,7 @@ async def test_queue_replay_with_same_items_is_idempotent(
     replay = await client.post("/api/v1/xianyu/publish/queues", headers=identity(), json=body)
     assert replay.status_code == 201
     assert replay.json()["replayed"] is True
-    assert (
-        replay.json()["targets"][0]["targetId"] == first.json()["targets"][0]["targetId"]
-    )
+    assert replay.json()["targets"][0]["targetId"] == first.json()["targets"][0]["targetId"]
     diverged = await client.post(
         "/api/v1/xianyu/publish/queues",
         headers=identity(),

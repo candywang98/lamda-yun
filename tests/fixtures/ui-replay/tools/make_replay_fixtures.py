@@ -15,6 +15,7 @@ or is fabricated — see evidence-manifest.json. Run from anywhere:
 
   python3 tests/fixtures/ui-replay/tools/make_replay_fixtures.py   # exit 0
 """
+
 from __future__ import annotations
 
 import importlib.util
@@ -82,12 +83,27 @@ def fullheight_wrapper_fixture(cf):
     nodes = [
         node(0, 0, "android.widget.FrameLayout", "", "", "", "0,0,1080,2400", False),
         node(
-            1, 1, "androidx.recyclerview.widget.RecyclerView", "recycler_list", "",
-            "如果历史是一群喵4 等 27 件商品", "0,345,1080,2337", True,
+            1,
+            1,
+            "androidx.recyclerview.widget.RecyclerView",
+            "recycler_list",
+            "",
+            "如果历史是一群喵4 等 27 件商品",
+            "0,345,1080,2337",
+            True,
         ),
         node(2, 2, "android.widget.LinearLayout", "card_root", "", "", "0,345,1080,820", True),
         node(3, 3, "android.widget.TextView", "item_price", "¥128", "", "0,764,1080,820", False),
-        node(3, 4, "android.widget.TextView", "item_title", "如果历史是一群喵4", "", "0,345,1080,764", True),
+        node(
+            3,
+            4,
+            "android.widget.TextView",
+            "item_title",
+            "如果历史是一群喵4",
+            "",
+            "0,345,1080,764",
+            True,
+        ),
     ]
     return {
         "contract": CONTRACT_ID,
@@ -111,9 +127,36 @@ def samename_ambiguous_fixture(cf):
     # Neither contains the other -> both survive -> Ambiguous (LOCATOR_AMBIGUOUS).
     nodes = [
         node(0, 0, "android.widget.FrameLayout", "", "", "", "0,0,1080,2400", False),
-        node(1, 1, "androidx.recyclerview.widget.RecyclerView", "recycler_list", "", "", "0,132,1080,2337", False),
-        node(3, 4, "android.widget.TextView", "item_title", "云控平台验收测试服务", "", "0,345,1080,500", True),
-        node(3, 9, "android.widget.TextView", "item_title", "云控平台验收测试服务", "", "0,900,1080,1055", True),
+        node(
+            1,
+            1,
+            "androidx.recyclerview.widget.RecyclerView",
+            "recycler_list",
+            "",
+            "",
+            "0,132,1080,2337",
+            False,
+        ),
+        node(
+            3,
+            4,
+            "android.widget.TextView",
+            "item_title",
+            "云控平台验收测试服务",
+            "",
+            "0,345,1080,500",
+            True,
+        ),
+        node(
+            3,
+            9,
+            "android.widget.TextView",
+            "item_title",
+            "云控平台验收测试服务",
+            "",
+            "0,900,1080,1055",
+            True,
+        ),
     ]
     return {
         "contract": CONTRACT_ID,
@@ -140,16 +183,52 @@ def banner_displacement_fixture(cf):
         # Every business node (root included) shifts uniformly by dy when the
         # banner appears; the replayer normalizes the whole subset by -dy.
         return [
-            node(0, 0, "android.widget.FrameLayout", "", "", "", f"0,{dy},1080,{2400+dy}", False),
-            node(3, 2, "android.widget.TextView", "item_title", "如果历史是一群喵4", "", f"0,{132+dy},1080,{300+dy}", True),
-            node(3, 3, "android.widget.TextView", "item_title", "如果历史是一群喵5", "", f"0,{320+dy},1080,{500+dy}", True),
-            node(4, 4, "android.widget.Button", "btn_publish", "发布", "", f"120,{2130+dy},480,{2200+dy}", True),
+            node(0, 0, "android.widget.FrameLayout", "", "", "", f"0,{dy},1080,{2400 + dy}", False),
+            node(
+                3,
+                2,
+                "android.widget.TextView",
+                "item_title",
+                "如果历史是一群喵4",
+                "",
+                f"0,{132 + dy},1080,{300 + dy}",
+                True,
+            ),
+            node(
+                3,
+                3,
+                "android.widget.TextView",
+                "item_title",
+                "如果历史是一群喵5",
+                "",
+                f"0,{320 + dy},1080,{500 + dy}",
+                True,
+            ),
+            node(
+                4,
+                4,
+                "android.widget.Button",
+                "btn_publish",
+                "发布",
+                "",
+                f"120,{2130 + dy},480,{2200 + dy}",
+                True,
+            ),
         ]
 
     frame1_nodes = business_nodes(0)
     frame2_nodes = [
         business_nodes(96)[0],
-        node(1, 1, "android.widget.LinearLayout", "banner_container", "限时活动", "", "0,0,1080,96", True),
+        node(
+            1,
+            1,
+            "android.widget.LinearLayout",
+            "banner_container",
+            "限时活动",
+            "",
+            "0,0,1080,96",
+            True,
+        ),
         *business_nodes(96)[1:],
     ]
     return {
@@ -269,7 +348,7 @@ def main() -> int:
     shutil.copytree(OUT_REPLAY, TEST_RES / "replay")
 
     # Self-verify: pinned digests recompute, mirror bytes match.
-    for name, payload in fixtures.items():
+    for _name, payload in fixtures.items():
         obs = payload.get("observation")
         frames = payload.get("frames")
         for o in ([obs] if obs else []) + [f["observation"] for f in (frames or [])]:

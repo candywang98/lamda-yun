@@ -135,6 +135,8 @@ data class CompanionState(
     val accountStatuses: List<AccountAuthorizationStatus> = emptyList(),
     val emergencyStopped: Boolean = false,
     val presenceOnline: Boolean = false,
+    val lastHeartbeatAt: Instant? = null,
+    val presenceIssue: PresenceIssue? = PresenceIssue.WAITING_HEARTBEAT,
     val busy: Boolean = false,
     val error: String? = null,
 )

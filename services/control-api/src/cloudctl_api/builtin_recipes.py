@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from typing import Any
+from typing import Any, cast
 
 _ENGINE_MIN_VERSION = 1
 
@@ -25,7 +25,7 @@ def _canonical_recipe_bytes(package: dict[str, Any]) -> bytes:
 
 
 def _freeze(package: dict[str, Any]) -> dict[str, Any]:
-    frozen = json.loads(json.dumps(package))
+    frozen = cast(dict[str, Any], json.loads(json.dumps(package)))
     frozen["manifest"]["hash"] = hashlib.sha256(_canonical_recipe_bytes(frozen)).hexdigest()
     return frozen
 
@@ -293,4 +293,4 @@ def builtin_recipe_ref(command_type: str) -> dict[str, Any]:
 
 
 def builtin_recipe_package(command_type: str) -> dict[str, Any]:
-    return json.loads(json.dumps(BUILTIN_RECIPES[command_type]))
+    return cast(dict[str, Any], json.loads(json.dumps(BUILTIN_RECIPES[command_type])))

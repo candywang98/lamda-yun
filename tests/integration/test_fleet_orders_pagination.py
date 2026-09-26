@@ -126,13 +126,35 @@ def test_fleet_orders_migration_up_down_roundtrip(tmp_path: Path) -> None:
     command.upgrade(config, "head")
     with sqlite3.connect(database_path) as connection:
         assert {
-            "id", "tenant_id", "device_id", "platform", "direction", "account_key",
-            "run_key", "screen", "rows_seen", "new_keys", "updated_keys", "overlap",
-            "partial_rows", "empty_page", "collected_at", "created_at",
+            "id",
+            "tenant_id",
+            "device_id",
+            "platform",
+            "direction",
+            "account_key",
+            "run_key",
+            "screen",
+            "rows_seen",
+            "new_keys",
+            "updated_keys",
+            "overlap",
+            "partial_rows",
+            "empty_page",
+            "collected_at",
+            "created_at",
         } == table_columns(connection, "fleet_order_page")
         assert {
-            "id", "tenant_id", "device_id", "platform", "direction", "account_key",
-            "schema_version", "run_key", "last_screen", "seen_keys", "created_at",
+            "id",
+            "tenant_id",
+            "device_id",
+            "platform",
+            "direction",
+            "account_key",
+            "schema_version",
+            "run_key",
+            "last_screen",
+            "seen_keys",
+            "created_at",
             "updated_at",
         } == table_columns(connection, "fleet_order_checkpoint")
         connection.execute(
@@ -172,9 +194,18 @@ def test_fleet_orders_migration_up_down_roundtrip(tmp_path: Path) -> None:
             connection.commit()
         connection.rollback()
         for statement in (
-            "UPDATE fleet_order_page SET direction = 'REFUNDED' WHERE id = '00000000-0000-7000-8000-00000000b001'",
-            "UPDATE fleet_order_page SET screen = 0 WHERE id = '00000000-0000-7000-8000-00000000b001'",
-            "UPDATE fleet_order_page SET platform = 'taobao' WHERE id = '00000000-0000-7000-8000-00000000b001'",
+            (
+                "UPDATE fleet_order_page SET direction = 'REFUNDED' WHERE id = "
+                "'00000000-0000-7000-8000-00000000b001'"
+            ),
+            (
+                "UPDATE fleet_order_page SET screen = 0 WHERE id = "
+                "'00000000-0000-7000-8000-00000000b001'"
+            ),
+            (
+                "UPDATE fleet_order_page SET platform = 'taobao' WHERE id = "
+                "'00000000-0000-7000-8000-00000000b001'"
+            ),
         ):
             with pytest.raises(sqlite3.IntegrityError):
                 connection.execute(statement)
@@ -197,7 +228,10 @@ async def test_push_screens_flow_with_cross_page_and_pinned_overlap(api):
     client, app = api
     device, auth = await _setup_device(client, "fleet-orders-dev")
     first = await _screens(
-        client, auth, screen=1, rows=[_order("k1"), _order("k2")],
+        client,
+        auth,
+        screen=1,
+        rows=[_order("k1"), _order("k2")],
         collected="2026-09-17T10:00:05+00:00",
     )
     assert first.status_code == 201, first.text
@@ -210,7 +244,10 @@ async def test_push_screens_flow_with_cross_page_and_pinned_overlap(api):
 
     # 跨页重复 + 置顶：k2/k1 重现，只有 k3 是新键。
     second = await _screens(
-        client, auth, screen=2, rows=[_order("k2"), _order("k1"), _order("k3")],
+        client,
+        auth,
+        screen=2,
+        rows=[_order("k2"), _order("k1"), _order("k3")],
         collected="2026-09-17T10:00:20+00:00",
     )
     assert second.status_code == 201, second.text
@@ -220,7 +257,10 @@ async def test_push_screens_flow_with_cross_page_and_pinned_overlap(api):
 
     # 断网重传：同一屏重放 → 200 + replayed，不重复计数。
     replay = await _screens(
-        client, auth, screen=2, rows=[_order("k2"), _order("k1"), _order("k3")],
+        client,
+        auth,
+        screen=2,
+        rows=[_order("k2"), _order("k1"), _order("k3")],
         collected="2026-09-17T10:00:35+00:00",
     )
     assert replay.status_code == 200, replay.text
@@ -316,9 +356,7 @@ async def test_status_change_upserts_and_dedupe_markers(api):
     assert history["dedupeMarkers"] == {"realId": 1, "missingId": 1}
 
     # 状态回退为空不算变化（页面没显示状态 ≠ 状态被清除）。
-    blank = await _screens(
-        client, auth, screen=2, rows=[_order("k1", status="已发货")]
-    )
+    blank = await _screens(client, auth, screen=2, rows=[_order("k1", status="已发货")])
     assert blank.status_code == 200, blank.text
     assert blank.json()["duplicates"] == 1
 
@@ -327,9 +365,7 @@ async def test_null_field_fill_counts_as_upsert(api):
     client, _app = api
     device, auth = await _setup_device(client, "fleet-orders-fill")
     # 第 1 屏没读到时间（occurred=None 落库）；第 2 屏补上了 → upsert。
-    first = await _screens(
-        client, auth, screen=1, rows=[_order("k1", occurred=None)]
-    )
+    first = await _screens(client, auth, screen=1, rows=[_order("k1", occurred=None)])
     assert first.status_code == 201, first.text
     filled = await _screens(
         client, auth, screen=2, rows=[_order("k1", occurred="2026-09-17T09:00:00+00:00")]
@@ -349,7 +385,9 @@ async def test_checkpoint_account_version_run_and_gap_guards(api):
     client, _app = api
     device, auth = await _setup_device(client, "fleet-orders-cp")
 
-    start = await _screens(client, auth, run="run-A", account="xianyu-alpha", screen=1, rows=[_order("k1")])
+    start = await _screens(
+        client, auth, run="run-A", account="xianyu-alpha", screen=1, rows=[_order("k1")]
+    )
     assert start.status_code == 201, start.text
 
     # A 设备订单不归 B 账号：别人的 run 换账号续推（任意屏号）→ 409。
@@ -367,7 +405,9 @@ async def test_checkpoint_account_version_run_and_gap_guards(api):
     assert rebind.status_code == 201, rebind.text
     assert rebind.json()["checkpoint"]["runKey"] == "run-B"
 
-    second = await _screens(client, auth, run="run-B", account="xianyu-beta", screen=2, rows=[_order("k3")])
+    second = await _screens(
+        client, auth, run="run-B", account="xianyu-beta", screen=2, rows=[_order("k3")]
+    )
     assert second.status_code == 201, second.text
 
     # 版本不匹配 → 409：旧断点的语义不可信。
@@ -378,7 +418,9 @@ async def test_checkpoint_account_version_run_and_gap_guards(api):
     assert "schema version" in versioned.text
 
     # 屏号跳跃 → 409：缺失页不允许被默默跳过。
-    gap = await _screens(client, auth, run="run-B", account="xianyu-beta", screen=4, rows=[_order("k4")])
+    gap = await _screens(
+        client, auth, run="run-B", account="xianyu-beta", screen=4, rows=[_order("k4")]
+    )
     assert gap.status_code == 409, gap.text
     assert "screen gap" in gap.text
 
@@ -416,13 +458,17 @@ async def test_history_account_filter_does_not_leak_other_account(api):
 
     alpha = (
         await client.get(
-            "/api/v1/fleet/orders/history", headers=identity(), params={"account_key": "xianyu-alpha"}
+            "/api/v1/fleet/orders/history",
+            headers=identity(),
+            params={"account_key": "xianyu-alpha"},
         )
     ).json()
     assert [w["accountKey"] for w in alpha["windows"]] == ["xianyu-alpha"]
     beta = (
         await client.get(
-            "/api/v1/fleet/orders/history", headers=identity(), params={"account_key": "xianyu-beta"}
+            "/api/v1/fleet/orders/history",
+            headers=identity(),
+            params={"account_key": "xianyu-beta"},
         )
     ).json()
     assert [w["accountKey"] for w in beta["windows"]] == ["xianyu-beta"]
@@ -430,7 +476,9 @@ async def test_history_account_filter_does_not_leak_other_account(api):
     # gamma 账号查不到任何窗口——A 账号采的窗口绝不归到别的账号名下。
     nobody = (
         await client.get(
-            "/api/v1/fleet/orders/history", headers=identity(), params={"account_key": "xianyu-gamma"}
+            "/api/v1/fleet/orders/history",
+            headers=identity(),
+            params={"account_key": "xianyu-gamma"},
         )
     ).json()
     assert nobody["windows"] == []
@@ -445,7 +493,9 @@ async def test_history_cursor_pagination_and_validation(api):
     client, _app = api
     device, auth = await _setup_device(client, "fleet-orders-pages")
     # 25 单分 3 屏（每屏上限 20 行）。
-    rows_screen1 = [_order(f"page-1-{n}", occurred=f"2026-09-17T0{n % 10}:00:00+00:00") for n in range(10)]
+    rows_screen1 = [
+        _order(f"page-1-{n}", occurred=f"2026-09-17T0{n % 10}:00:00+00:00") for n in range(10)
+    ]
     rows_screen2 = [_order(f"page-2-{n}") for n in range(10)]
     rows_screen3 = [_order(f"page-3-{n}") for n in range(5)]
     await _screens(client, auth, screen=1, rows=rows_screen1)
@@ -469,7 +519,9 @@ async def test_history_cursor_pagination_and_validation(api):
     assert page2["offset"] == 10
     assert len(page2["items"]) == 10
     assert "nextCursor" in page2
-    assert {item["id"] for item in page1["items"]}.isdisjoint({item["id"] for item in page2["items"]})
+    assert {item["id"] for item in page1["items"]}.isdisjoint(
+        {item["id"] for item in page2["items"]}
+    )
 
     page3 = (
         await client.get(
@@ -526,7 +578,13 @@ async def test_push_validation_and_auth_gates(api):
 
     anonymous = await client.post(
         "/companion/v2/orders/screens",
-        json={"runKey": "r", "accountKey": "a", "schemaVersion": 1, "screen": 1, "direction": "SOLD"},
+        json={
+            "runKey": "r",
+            "accountKey": "a",
+            "schemaVersion": 1,
+            "screen": 1,
+            "direction": "SOLD",
+        },
     )
     assert anonymous.status_code == 401, anonymous.text
 
@@ -535,18 +593,37 @@ async def test_push_validation_and_auth_gates(api):
         {"runKey": "r", "accountKey": "a", "schemaVersion": 0, "screen": 1, "direction": "SOLD"},
         {"runKey": "r", "accountKey": "a", "schemaVersion": 1, "screen": 0, "direction": "SOLD"},
         {"runKey": "r", "accountKey": "a", "schemaVersion": 1, "screen": 51, "direction": "SOLD"},
-        {"runKey": "r", "accountKey": "a", "schemaVersion": 1, "screen": 1, "direction": "REFUNDED"},
         {
-            "runKey": "r", "accountKey": "a", "schemaVersion": 1, "screen": 1,
-            "direction": "SOLD", "rows": [_order(f"bulk-{n}") for n in range(21)],
+            "runKey": "r",
+            "accountKey": "a",
+            "schemaVersion": 1,
+            "screen": 1,
+            "direction": "REFUNDED",
         },
         {
-            "runKey": "r", "accountKey": "a", "schemaVersion": 1, "screen": 1,
-            "direction": "SOLD", "rows": [{**_order("k"), "order_key": "   "}],
+            "runKey": "r",
+            "accountKey": "a",
+            "schemaVersion": 1,
+            "screen": 1,
+            "direction": "SOLD",
+            "rows": [_order(f"bulk-{n}") for n in range(21)],
         },
         {
-            "runKey": "r", "accountKey": "a", "schemaVersion": 1, "screen": 1,
-            "direction": "SOLD", "rows": [], "extra": 1,
+            "runKey": "r",
+            "accountKey": "a",
+            "schemaVersion": 1,
+            "screen": 1,
+            "direction": "SOLD",
+            "rows": [{**_order("k"), "order_key": "   "}],
+        },
+        {
+            "runKey": "r",
+            "accountKey": "a",
+            "schemaVersion": 1,
+            "screen": 1,
+            "direction": "SOLD",
+            "rows": [],
+            "extra": 1,
         },
     ]
     for index, payload in enumerate(bad_bodies):

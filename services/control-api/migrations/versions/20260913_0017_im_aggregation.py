@@ -14,7 +14,9 @@ def upgrade() -> None:
         "im_thread",
         sa.Column("id", sa.String(36), primary_key=True),
         sa.Column("tenant_id", sa.String(36), nullable=False, index=True),
-        sa.Column("device_id", sa.String(36), sa.ForeignKey("device.id"), nullable=False, index=True),
+        sa.Column(
+            "device_id", sa.String(36), sa.ForeignKey("device.id"), nullable=False, index=True
+        ),
         sa.Column("platform", sa.String(32), nullable=False),
         sa.Column("peer_key", sa.String(128), nullable=False),
         sa.Column("peer_name", sa.String(128), nullable=False),
@@ -31,7 +33,9 @@ def upgrade() -> None:
         "im_message",
         sa.Column("id", sa.String(36), primary_key=True),
         sa.Column("tenant_id", sa.String(36), nullable=False, index=True),
-        sa.Column("thread_id", sa.String(36), sa.ForeignKey("im_thread.id"), nullable=False, index=True),
+        sa.Column(
+            "thread_id", sa.String(36), sa.ForeignKey("im_thread.id"), nullable=False, index=True
+        ),
         sa.Column("direction", sa.String(8), nullable=False),
         sa.Column("content_type", sa.String(16), nullable=False, server_default="TEXT"),
         sa.Column("text_content", sa.Text(), nullable=False),

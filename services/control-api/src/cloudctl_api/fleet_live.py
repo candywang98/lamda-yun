@@ -31,9 +31,10 @@ import os
 import secrets
 import time
 import uuid
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, TypeVar
 
 from cloudctl_domain import (
     Actor,
@@ -43,7 +44,7 @@ from cloudctl_domain import (
     NotFoundError,
 )
 from fastapi import APIRouter, Depends, Header, Request
-from fleet_live_transport import (
+from fleet_live_transport import (  # type: ignore[import-untyped]
     TransportUnavailable,
     TransportUnsupported,
     TurnConfig,
@@ -78,6 +79,9 @@ DEFAULT_TTL_EXPIRY_MS = 2000
 DEFAULT_STALE_FRAME_THRESHOLD = 10
 SEQ_REGRESSION_WINDOW_S = 5.0
 SEQ_REGRESSION_DROP_AFTER = 3
+
+
+LiveResultT = TypeVar("LiveResultT")
 
 
 def _utcnow() -> datetime:
@@ -308,9 +312,7 @@ class FleetLiveSession:
             return "INPUT_EXPIRED"
         # Rule 5: input rate.
         rate = int(policy.get("maxInputRatePerSecond", MAX_INPUT_RATE_PER_S))
-        self.input_times = [
-            stamp for stamp in self.input_times if now_monotonic - stamp < 1.0
-        ]
+        self.input_times = [stamp for stamp in self.input_times if now_monotonic - stamp < 1.0]
         if len(self.input_times) >= rate:
             return "LIVE_RATE_LIMITED"
         self.input_times.append(now_monotonic)
@@ -427,7 +429,11 @@ class FleetLiveService:
     def _workflow_id(self, live: FleetLiveSession) -> str:
         return f"{LIVE_WORKFLOW_PREFIX}{live.sid}"
 
-    async def _transact(self, work: Any, *args: Any) -> Any:
+    async def _transact(
+        self,
+        work: Callable[..., Awaitable[LiveResultT]],
+        *args: Any,
+    ) -> LiveResultT:
         """Run work(db) in one UoW; DomainErrors re-raise AFTER commit.
 
         Rejection and close side effects (audits, lease downgrades, row
@@ -533,11 +539,7 @@ class FleetLiveService:
     ) -> dict[str, Any]:
         async with self.lock, self.database.unit_of_work() as db:
             live = self.sessions.get(sid)
-            if (
-                live is None
-                or live.tenant_id != tenant_id
-                or live.device_id != device_id
-            ):
+            if live is None or live.tenant_id != tenant_id or live.device_id != device_id:
                 raise NotFoundError("live session was not found")
             if granted:
                 live.authorization_confirmed_at = confirmed_at or _utcnow()
@@ -695,9 +697,7 @@ class FleetLiveService:
             # K13 §6: any operation riding a dead session/token is 410, stop
             # included; the terminal state is observable via GET status only.
             self._require_open(live)
-            await self._close_locked(
-                db, live, "OPERATOR_STOP", actor_id=str(actor.user_id)
-            )
+            await self._close_locked(db, live, "OPERATOR_STOP", actor_id=str(actor.user_id))
             return self.view(live)
 
         return await self._transact(work)
@@ -789,9 +789,7 @@ class FleetLiveService:
             epoch = message.get("epoch")
             if epoch is not None and int(epoch) != live.epoch:
                 # K13 §2: anything riding an old epoch is refused outright.
-                raise ConflictError(
-                    f"LIVE_EPOCH_STALE: session epoch is {live.epoch}, got {epoch}"
-                )
+                raise ConflictError(f"LIVE_EPOCH_STALE: session epoch is {live.epoch}, got {epoch}")
             now_monotonic = time.monotonic()
             code = live.check_input(message, now_monotonic)
             if code is not None:
@@ -814,9 +812,7 @@ class FleetLiveService:
                     },
                 )
                 if live.should_drop_remote(code, now_monotonic):
-                    await self._release_locked(
-                        db, live, "system", cause=f"input-{code.lower()}"
-                    )
+                    await self._release_locked(db, live, "system", cause=f"input-{code.lower()}")
                 self._raise_input_rejection(code, live)
             socket = live.companion_socket
             if socket is None:
@@ -991,14 +987,10 @@ def _service(request: Request) -> FleetLiveService:
 
 ServiceDep = Annotated[FleetLiveService, Depends(_service)]
 ActorDep = Annotated[Actor, Depends(current_actor)]
-TokenDep = Annotated[
-    str | None, Header(alias=SESSION_TOKEN_HEADER)
-]
+TokenDep = Annotated[str | None, Header(alias=SESSION_TOKEN_HEADER)]
 
 
-@fleet_live_router.post(
-    "/api/v1/live/devices/{device_id}/sessions", status_code=201
-)
+@fleet_live_router.post("/api/v1/live/devices/{device_id}/sessions", status_code=201)
 async def establish_fleet_live_session(
     device_id: str,
     body: FleetLiveEstablishRequest,

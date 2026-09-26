@@ -138,9 +138,7 @@ def artifact_request(*, sha256: str, version_code: int, package: str = PACKAGE) 
     }
 
 
-async def register_artifact(
-    client: httpx.AsyncClient, *, sha256: str, version_code: int
-) -> dict:
+async def register_artifact(client: httpx.AsyncClient, *, sha256: str, version_code: int) -> dict:
     response = await client.post(
         "/api/v1/apk-artifacts",
         headers=SECURITY,
@@ -304,9 +302,7 @@ async def device_installs(
     """
     client, app = api
     candidate = next(
-        item
-        for item in await candidates_of(client, auth)
-        if item["releaseId"] == release["id"]
+        item for item in await candidates_of(client, auth) if item["releaseId"] == release["id"]
     )
     downloaded = await client.post(
         f"/companion/v2/apk/candidates/{candidate['candidateId']}:report-downloaded",
@@ -393,9 +389,7 @@ def recipe_package(version: str) -> dict:
 
 
 async def register_recipe(client: httpx.AsyncClient, version: str) -> str:
-    response = await client.post(
-        "/api/v1/recipes", headers=DEVELOPER, json=recipe_package(version)
-    )
+    response = await client.post("/api/v1/recipes", headers=DEVELOPER, json=recipe_package(version))
     assert response.status_code == 201, response.text
     return str(response.json()["versionId"])
 
@@ -415,9 +409,7 @@ async def recipe_change(
     }
     if expected is not None:
         body["expectedCurrentVersionId"] = expected
-    return await client.post(
-        f"/api/v1/recipes/{version_id}:{action}", headers=DEVELOPER, json=body
-    )
+    return await client.post(f"/api/v1/recipes/{version_id}:{action}", headers=DEVELOPER, json=body)
 
 
 # ---------------------------------------------------------------------------
@@ -445,9 +437,7 @@ async def claim_probe(client: httpx.AsyncClient, auth: dict) -> dict:
     return response.json()
 
 
-async def set_task_state(
-    app: FastAPI, task_id: str, *, status: str, business_state: str
-) -> None:
+async def set_task_state(app: FastAPI, task_id: str, *, status: str, business_state: str) -> None:
     async with app.state.database.unit_of_work() as session:
         task = await session.get(MobileTaskRow, task_id)
         assert task is not None
@@ -501,9 +491,7 @@ async def test_ring_drill_canary_early_all_records_full_evidence(api):
     # before the fleet-wide wave.
     early_task = await create_probe_task(client, early[0], "drill-early")
     early_auth = auths[early[0]]
-    assert (
-        await claim_probe(client, early_auth)
-    )["command"]["recipe"]["versionId"] == recipe_v1
+    assert (await claim_probe(client, early_auth))["command"]["recipe"]["versionId"] == recipe_v1
     await set_task_state(app, early_task, status="SUCCEEDED", business_state="SUCCEEDED")
     wave2 = await publish_wave(
         client, sha256="2" * 64, version_code=83211, ring="early", devices=early
@@ -553,9 +541,7 @@ async def test_ring_drill_canary_early_all_records_full_evidence(api):
         assert receipt["signatureMatched"] is True
         assert receipt["packageName"] == PACKAGE
 
-    wave_hashes = {
-        download_evidence_hash(wave) for wave in (wave1, wave2, wave3)
-    }
+    wave_hashes = {download_evidence_hash(wave) for wave in (wave1, wave2, wave3)}
     assert sorted(row.device_id for row in downloaded) == expected_installed_devices
     for row in downloaded:
         assert row.after_hash in wave_hashes
@@ -599,9 +585,7 @@ async def test_canary_failure_stops_ring_expansion_and_rollback_restores(api):
     canary_auth = auths[canary[0]]
 
     recipe_v1 = await register_recipe(client, "1")
-    assert (
-        await recipe_change(client, recipe_v1, canary + early, key="v1")
-    ).status_code == 200
+    assert (await recipe_change(client, recipe_v1, canary + early, key="v1")).status_code == 200
 
     bad = await publish_wave(
         client, sha256="4" * 64, version_code=83301, ring="canary", devices=canary
@@ -783,9 +767,7 @@ async def test_mid_rollout_retire_and_schema_containment(api):
     auths = await enroll_fleet(api, fleet)
 
     recipe_v1 = await register_recipe(client, "1")
-    assert (
-        await recipe_change(client, recipe_v1, canary + early, key="v1")
-    ).status_code == 200
+    assert (await recipe_change(client, recipe_v1, canary + early, key="v1")).status_code == 200
 
     wave1 = await publish_wave(
         client, sha256="a" * 64, version_code=83501, ring="canary", devices=canary
@@ -927,9 +909,7 @@ async def test_held_artifacts_of_paused_and_unknown_tasks_survive_withdrawal(api
     assert paused_pin["versionId"] == recipe_v1
     assert unknown_pin["versionId"] == recipe_v1
 
-    await set_task_state(
-        app, paused_task, status="RUNNING", business_state="PAUSED_WAITING_USER"
-    )
+    await set_task_state(app, paused_task, status="RUNNING", business_state="PAUSED_WAITING_USER")
     await set_task_state(app, unknown_task, status="UNKNOWN", business_state="UNKNOWN")
 
     # Withdrawal storm: retire the APK release and revoke the recipe version.
@@ -1013,9 +993,7 @@ async def test_recipe_version_pin_read_regression(api):
     assert retry["attempt"] == 2
 
     # ...and a revoke does not clean the pin while the task holds it.
-    assert (
-        await recipe_change(client, v1, [device], "revoke", key="revoke")
-    ).status_code == 200
+    assert (await recipe_change(client, v1, [device], "revoke", key="revoke")).status_code == 200
     assert (await client.get(f"/companion/v2/recipes/{v1}", headers=auth)).status_code == 200
     await set_task_state(app, task_id, status="SUCCEEDED", business_state="SUCCEEDED")
     assert (await client.get(f"/companion/v2/recipes/{v1}", headers=auth)).status_code == 404

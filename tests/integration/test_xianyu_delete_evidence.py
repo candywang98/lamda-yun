@@ -27,7 +27,7 @@ from cloudctl_api.db import MobileActionCommitRow
 from cloudctl_api.settings import Settings
 from fastapi import FastAPI
 from sqlalchemy import select
-from test_platform_tasks import _enroll, create_direct_device, identity
+from test_platform_tasks import create_direct_device, identity
 from test_xianyu_maintenance import _start_task, delete_v2_steps
 
 XIANYU = "com.taobao.idlefish"
@@ -142,7 +142,9 @@ async def _delete_v2_task_with_ledger(
     )
 
 
-async def _intent(client: httpx.AsyncClient, task_id: str, auth: dict[str, str], body: dict[str, Any]):
+async def _intent(
+    client: httpx.AsyncClient, task_id: str, auth: dict[str, str], body: dict[str, Any]
+):
     return await client.post(
         f"/companion/v2/tasks/{task_id}/actions/intent", headers=auth, json=body
     )
@@ -349,9 +351,7 @@ async def test_result_lifecycle_against_a13_ledger(api):
     conflict = await _report(client, approval, task_id, "STILL_PRESENT", targetGone=False)
     assert conflict.status_code == 409, conflict.text
 
-    fetched = await client.get(
-        f"/api/v1/xianyu/delete/results/{approval}", headers=identity()
-    )
+    fetched = await client.get(f"/api/v1/xianyu/delete/results/{approval}", headers=identity())
     assert fetched.status_code == 200, fetched.text
     assert fetched.json()["resolved"] is False
 
@@ -435,9 +435,7 @@ async def test_verified_deleted_requires_target_gone_and_reported_strike(api):
 
     assert (await _outcome(client, task_id, auth, body, status="APPLIED")).status_code == 200
     # targetGone=False：机器成功绝不伪造。
-    fabricated = await _report(
-        client, approval, task_id, "VERIFIED_DELETED", targetGone=False
-    )
+    fabricated = await _report(client, approval, task_id, "VERIFIED_DELETED", targetGone=False)
     assert fabricated.status_code == 409, fabricated.text
     assert "never fabricated" in fabricated.json()["detail"]
 
@@ -457,13 +455,15 @@ async def test_result_for_another_task_is_rejected(api):
     client, app = api
     device = await create_direct_device(client, "x10-wrong-task")
     task_id, auth, body = await _delete_v2_task_with_ledger(client, app, device, "标题-05")
-    approval = (
-        await _create_approval(client, device, platform_item_id="999000111")
-    ).json()["approvalId"]
+    approval = (await _create_approval(client, device, platform_item_id="999000111")).json()[
+        "approvalId"
+    ]
     await _issue(client, approval, task_id)
     await _intent(client, task_id, auth, body)
     await _outcome(client, task_id, auth, body, status="UNKNOWN")
-    stranger = await _report(client, approval, "00000000-0000-0000-0000-000000000000", "STILL_PRESENT")
+    stranger = await _report(
+        client, approval, "00000000-0000-0000-0000-000000000000", "STILL_PRESENT"
+    )
     assert stranger.status_code == 409, stranger.text
 
 

@@ -33,9 +33,9 @@ async def api() -> AsyncIterator[tuple[httpx.AsyncClient, FastAPI]]:
             yield client, app
 
 
-
 def tab_for(ref: str) -> str:
     return "delisted" if ref in ("delete_card", "confirm_delete") else "onsale"
+
 
 def _tap(step_id: str, ref: str) -> dict[str, Any]:
     return {"stepId": step_id, "action": "ui.tap", "locatorRef": ref, "timeoutMs": 8_000}
@@ -175,12 +175,16 @@ async def _start_task(
     async with app.state.database.unit_of_work() as session:
         row = await session.get(MobileTaskRow, task_id)
         frozen = steps_action_identity(row)
-    return task_id, auth, dict(
-        leaseId=lease_id,
-        actionId=frozen["action_id"],
-        actionKey=frozen["action_key"],
-        parameterHash=frozen["parameter_hash"],
-        beforeEvidence="evidence://maintenance-before",
+    return (
+        task_id,
+        auth,
+        dict(
+            leaseId=lease_id,
+            actionId=frozen["action_id"],
+            actionKey=frozen["action_key"],
+            parameterHash=frozen["parameter_hash"],
+            beforeEvidence="evidence://maintenance-before",
+        ),
     )
 
 
@@ -324,9 +328,7 @@ async def test_delist_gated_intent_authorized_once_then_locked(api):
     assert replay.status_code == 200
     assert replay.json()["decision"] == "RECONCILE_REQUIRED"
     # A foreign action id is refused outright.
-    wrong = await client.post(
-        intent, headers=auth, json={**body, "actionId": "click-publish"}
-    )
+    wrong = await client.post(intent, headers=auth, json={**body, "actionId": "click-publish"})
     assert wrong.status_code == 409
     outcome = dict(
         leaseId=body["leaseId"],
@@ -485,16 +487,12 @@ async def test_run_batch_is_idempotent_and_queryable(api):
     assert replay.json()["taskIds"] == body["taskIds"]
     async with app.state.database.unit_of_work() as session:
         rows = list(
-            await session.scalars(
-                select(MobileTaskRow).where(MobileTaskRow.batch_id == run_id)
-            )
+            await session.scalars(select(MobileTaskRow).where(MobileTaskRow.batch_id == run_id))
         )
         assert len(rows) == 2
         assert all(row.idempotency_key.startswith("maintenance-delete-") for row in rows)
 
-    summary = await client.get(
-        f"/api/v1/xianyu/maintenance/runs/{run_id}", headers=identity()
-    )
+    summary = await client.get(f"/api/v1/xianyu/maintenance/runs/{run_id}", headers=identity())
     assert summary.status_code == 200, summary.text
     payload = summary.json()
     assert payload["taskCount"] == 2
@@ -544,9 +542,7 @@ async def test_polish_run_creates_single_task(api):
 async def test_delete_all_uses_bounded_card_limit(api):
     client, _ = api
     device = await create_direct_device(client, "delete-all")
-    response = await _run(
-        client, device, "delete", {"all": True, "cardLimit": 3}, "delete-all-key"
-    )
+    response = await _run(client, device, "delete", {"all": True, "cardLimit": 3}, "delete-all-key")
     assert response.status_code == 201, response.text
     body = response.json()
     assert [task["cardIndex"] for task in body["tasks"]] == [0, 1, 2]
@@ -804,9 +800,7 @@ async def test_v2_run_loops_two_titles_through_the_existing_batch_entry(api):
     run_id = body["runId"]
     async with app.state.database.unit_of_work() as session:
         rows = list(
-            await session.scalars(
-                select(MobileTaskRow).where(MobileTaskRow.batch_id == run_id)
-            )
+            await session.scalars(select(MobileTaskRow).where(MobileTaskRow.batch_id == run_id))
         )
         assert len(rows) == 2
         for row in rows:
@@ -835,9 +829,7 @@ async def test_v2_run_loops_two_titles_through_the_existing_batch_entry(api):
     assert replay.status_code == 200
     assert replay.json()["taskIds"] == body["taskIds"]
 
-    summary = await client.get(
-        f"/api/v1/xianyu/maintenance/runs/{run_id}", headers=identity()
-    )
+    summary = await client.get(f"/api/v1/xianyu/maintenance/runs/{run_id}", headers=identity())
     assert summary.status_code == 200, summary.text
     payload = summary.json()
     assert payload["taskCount"] == 2
@@ -852,7 +844,9 @@ async def test_v2_run_loops_two_titles_through_the_existing_batch_entry(api):
     assert claimed.json()["commandType"] == "xianyu.delist.steps.v2"
     cards = [step for step in claimed.json()["steps"] if step.get("action") == "ui.tapCardByTitle"]
     assert len(cards) == 1
-    gated = [step for step in claimed.json()["steps"] if step.get("layoutAction") == "confirm_delist"]
+    gated = [
+        step for step in claimed.json()["steps"] if step.get("layoutAction") == "confirm_delist"
+    ]
     assert len(gated) == 1
 
 

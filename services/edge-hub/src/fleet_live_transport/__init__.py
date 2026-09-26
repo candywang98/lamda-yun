@@ -68,16 +68,12 @@ class FleetLiveTransportRegistry:
     def adapters(self) -> tuple[JpegHttpsAdapter | WebRtcAdapter, ...]:
         return tuple(self._adapters.values())
 
-    def select(
-        self, tier: str, transport: str | None = None
-    ) -> JpegHttpsAdapter | WebRtcAdapter:
+    def select(self, tier: str, transport: str | None = None) -> JpegHttpsAdapter | WebRtcAdapter:
         expected = TIER_TRANSPORT_MATRIX.get(tier)
         if expected is None:
             raise TransportUnsupported(f"unknown live tier: {tier!r}")
         if transport is not None and transport != expected:
-            raise TransportUnsupported(
-                f"tier {tier} only rides {expected}, refusing {transport}"
-            )
+            raise TransportUnsupported(f"tier {tier} only rides {expected}, refusing {transport}")
         adapter = self._adapters.get(expected)
         if adapter is None:
             raise TransportUnavailable(f"no adapter registered for {expected}")
@@ -89,6 +85,4 @@ def default_registry(
     quota: ConnectionQuota | None = None,
 ) -> FleetLiveTransportRegistry:
     """JPEG default + WebRTC (TURN-gated) adapters."""
-    return FleetLiveTransportRegistry(
-        (JpegHttpsAdapter(), WebRtcAdapter(turn_config, quota=quota))
-    )
+    return FleetLiveTransportRegistry((JpegHttpsAdapter(), WebRtcAdapter(turn_config, quota=quota)))

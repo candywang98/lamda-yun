@@ -11,6 +11,7 @@ from cloudctl_automation_sdk.recipe import validate_recipe_package
 from cloudctl_domain import ConflictError, NotFoundError, ValidationError
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from .controlled_actions import OUTCOME_REPLAY, evidence_binding, outcome_guard
 from .db import (
@@ -330,9 +331,7 @@ def _maintenance_shape_error(shape: dict[str, Any], steps: list[dict[str, Any]])
                 return f"{command}: tapLayout({layout}) requires tab {rule['tab']}"
             card = hit.get("cardIndex")
             if not isinstance(card, int) or not 0 <= card <= rule["max_card"]:
-                return (
-                    f"{command}: tapLayout({layout}) cardIndex must be 0..{rule['max_card']}"
-                )
+                return f"{command}: tapLayout({layout}) cardIndex must be 0..{rule['max_card']}"
     for step in layout_steps:
         if step.get("layoutAction") not in shape["layout_taps"]:
             return f"{command}: tapLayout({step.get('layoutAction')}) is not part of the shape"
@@ -344,7 +343,10 @@ def _maintenance_shape_error(shape: dict[str, Any], steps: list[dict[str, Any]])
             return f"{command}: exactly one ui.assertBadge step is required"
         badge = badge_steps[0]
         expected = shape["badge"]
-        if badge.get("locatorRef") != expected["locator"] or badge.get("expectedDelta") != expected["delta"]:
+        if (
+            badge.get("locatorRef") != expected["locator"]
+            or badge.get("expectedDelta") != expected["delta"]
+        ):
             return (
                 f"{command}: badge assertion must verify {expected['locator']} delta "
                 f"{expected['delta']}"
@@ -357,8 +359,9 @@ def _maintenance_shape_error(shape: dict[str, Any], steps: list[dict[str, Any]])
         nav_indexes = [
             _step_index(
                 steps,
-                lambda step, ref=ref: step.get("action") == "ui.tap"
-                and step.get("locatorRef") == ref,
+                lambda step, ref=ref: (
+                    step.get("action") == "ui.tap" and step.get("locatorRef") == ref
+                ),
             )
             for ref in shape["navigation"]
         ]
@@ -381,12 +384,18 @@ def _maintenance_shape_error(shape: dict[str, Any], steps: list[dict[str, Any]])
             if not any(shot > low for shot in shots):
                 return f"{command}: a screenshot is required after {rule[1]}"
         else:  # after_badge (or after the gated confirm for badge-less shapes)
-            badge_steps = [
+            badge_positions = [
                 position
                 for position, step in enumerate(steps)
                 if step.get("action") == "ui.assertBadge"
             ]
-            anchor = badge_steps[0] if badge_steps else _layout_index(steps, shape["gated_layout"])
+            if badge_positions:
+                anchor = badge_positions[0]
+            else:
+                gated_layout = shape["gated_layout"]
+                if not isinstance(gated_layout, str):
+                    return f"{command}: a gated layout is required for the verification anchor"
+                anchor = _layout_index(steps, gated_layout)
             if not any(shot > anchor for shot in shots):
                 return f"{command}: a screenshot is required after the verification anchor"
     if not any(
@@ -472,11 +481,11 @@ def _maintenance_v2_shape_error(shape: dict[str, Any], steps: list[dict[str, Any
                 return f"{command}: step {position} must be the evidence ui.screenshot"
         elif rule["kind"] == "layout":
             if action != "ui.tapLayout" or step.get("layoutAction") != rule["layoutAction"]:
-                return f"{command}: step {position} must be the gated tapLayout {rule['layoutAction']}"
-            if step.get("tab") != rule["tab"] or step.get("cardIndex") != 0:
                 return (
-                    f"{command}: gated confirm requires tab {rule['tab']} and cardIndex 0"
+                    f"{command}: step {position} must be the gated tapLayout {rule['layoutAction']}"
                 )
+            if step.get("tab") != rule["tab"] or step.get("cardIndex") != 0:
+                return f"{command}: gated confirm requires tab {rule['tab']} and cardIndex 0"
         else:  # log
             if action != "run.log" or step.get("messageCode") != rule["messageCode"]:
                 return f"{command}: closing run.log {rule['messageCode']} is required"
@@ -542,7 +551,7 @@ def _orders_shape_error(steps: list[dict[str, Any]]) -> str | None:
         return f"{command}: ui.readOrders maxRows must be an integer in 1..10"
     if read.get("locatorRef") != ORDERS_READ_LOCATOR:
         return f"{command}: ui.readOrders must read from {ORDERS_READ_LOCATOR}"
-    expected = [
+    expected: list[tuple[str, str | None]] = [
         ("ui.tap", ORDERS_PROFILE_NAV),
         ("ui.tap", ORDERS_ENTRY_LOCATORS[direction]),
         ("ui.readOrders", None),
@@ -578,10 +587,7 @@ def _orders_shape_error_v2(steps: list[dict[str, Any]]) -> str | None:
             "(screens=1 must use the v1 shape)"
         )
     if len(swipes) != screens - 1:
-        return (
-            f"{command}: each extra screen needs exactly one ui.swipeUp "
-            "before its ui.readOrders"
-        )
+        return f"{command}: each extra screen needs exactly one ui.swipeUp before its ui.readOrders"
     direction = reads[0].get("direction")
     if direction not in ORDERS_ENTRY_LOCATORS:
         return f"{command}: ui.readOrders direction must be SOLD or BOUGHT"
@@ -593,7 +599,7 @@ def _orders_shape_error_v2(steps: list[dict[str, Any]]) -> str | None:
             return f"{command}: every ui.readOrders step must read the same direction"
         if read.get("maxRows") != max_rows:
             return f"{command}: every ui.readOrders step must use the same maxRows"
-    expected = [
+    expected: list[tuple[str, str | None]] = [
         ("ui.tap", ORDERS_PROFILE_NAV),
         ("ui.tap", ORDERS_ENTRY_LOCATORS[direction]),
         ("ui.readOrders", ORDERS_READ_LOCATOR),
@@ -703,6 +709,7 @@ def validate_review_steps(package: str, steps: list[dict[str, Any]]) -> str:
         return REVIEW_COMMAND_TYPE
     raise ValidationError(error)
 
+
 def action_view(row: MobileActionCommitRow) -> dict[str, Any]:
     names = (
         "action_key",
@@ -768,7 +775,9 @@ class MobileActionService:
         self.mobile = mobile
         self.public_keys = public_keys
 
-    async def _owned(self, session: Any, binding: MobileBindingRow, task_id: str) -> MobileTaskRow:
+    async def _owned(
+        self, session: AsyncSession, binding: MobileBindingRow, task_id: str
+    ) -> MobileTaskRow:
         # Serialize with claim/enrollment before locking the task.
         device = await session.get(DeviceRow, binding.device_id, with_for_update=True)
         if device is None or device.active_binding_id != binding.id:
@@ -779,6 +788,8 @@ class MobileActionService:
         if current is None or current.revoked_at is not None:
             raise ConflictError("Companion binding is no longer active")
         task = await session.get(MobileTaskRow, task_id, with_for_update=True)
+        if task is None:
+            raise NotFoundError("mobile task was not found")
         self.mobile._validate_owned_task(task, current)
         return task
 
@@ -845,7 +856,10 @@ class MobileActionService:
             or parsed.manifest.signing_key_id != parsed.signature.key_id
             or task.command_type not in parsed.manifest.command_types
             or action_id not in {state.state_id for state in parsed.graph.states}
-            or (parsed.graph.commit_action_id is not None and parsed.graph.commit_action_id != action_id)
+            or (
+                parsed.graph.commit_action_id is not None
+                and parsed.graph.commit_action_id != action_id
+            )
         ):
             raise ConflictError("action does not match signed claim pin")
         live = await session.scalar(
@@ -889,7 +903,9 @@ class MobileActionService:
         if any(getattr(row, name) != value for name, value in frozen.items()):
             raise ConflictError("immutable action identity changed")
 
-    async def intent(self, binding: MobileBindingRow, task_id: str, body: IntentRequest):
+    async def intent(
+        self, binding: MobileBindingRow, task_id: str, body: IntentRequest
+    ) -> tuple[dict[str, Any], bool]:
         async with self.mobile.database.unit_of_work() as session:
             task = await self._owned(session, binding, task_id)
             frozen = await self._identity(session, task, body.action_id)
@@ -936,7 +952,7 @@ class MobileActionService:
 
     async def outcome(
         self, binding: MobileBindingRow, task_id: str, key: str, body: OutcomeRequest
-    ):
+    ) -> dict[str, Any]:
         async with self.mobile.database.unit_of_work() as session:
             task = await self._owned(session, binding, task_id)
             # Scope is enforced by _identity below for both probe and steps-publish shapes.
@@ -969,7 +985,7 @@ class MobileActionService:
             audit_action(session, row, binding.id, "outcome")
             return action_view(row)
 
-    async def get(self, binding: MobileBindingRow, task_id: str, key: str):
+    async def get(self, binding: MobileBindingRow, task_id: str, key: str) -> dict[str, Any]:
         async with self.mobile.database.unit_of_work() as session:
             task = await self._owned(session, binding, task_id)
             row = await session.get(MobileActionCommitRow, key)

@@ -85,10 +85,18 @@ async def test_push_dedupe_upsert_and_replay(api):
     device = await create_direct_device(client, "listings-dev")
     auth = await _enroll(client, device, "listings-instance")
 
-    first = await _push(client, auth, _screen("run-1", 1, [
-        _row("闲置键盘|19900"),
-        _row("机械鼠标|8900", title="机械鼠标", price=8900, status="在售"),
-    ]))
+    first = await _push(
+        client,
+        auth,
+        _screen(
+            "run-1",
+            1,
+            [
+                _row("闲置键盘|19900"),
+                _row("机械鼠标|8900", title="机械鼠标", price=8900, status="在售"),
+            ],
+        ),
+    )
     assert first.status_code == 201, first.text
     assert first.json()["accepted"] == 2
     assert first.json()["updated"] == 0
@@ -101,25 +109,56 @@ async def test_push_dedupe_upsert_and_replay(api):
     # Identity is the composite key (title|price, frozen like order-sync):
     # a re-priced listing IS a new identity; a same-key STATUS change
     # upserts and appends history only for the change.
-    reprice = await _push(client, auth, _screen("run-2", 1, [
-        _row("闲置键盘|17900", price=17900),
-    ]))
+    reprice = await _push(
+        client,
+        auth,
+        _screen(
+            "run-2",
+            1,
+            [
+                _row("闲置键盘|17900", price=17900),
+            ],
+        ),
+    )
     assert reprice.status_code == 201
     assert reprice.json()["accepted"] == 1
 
-    changed = await _push(client, auth, _screen("run-2", 2, [
-        _row("闲置键盘|19900", status="已下架"),
-    ]))
+    changed = await _push(
+        client,
+        auth,
+        _screen(
+            "run-2",
+            2,
+            [
+                _row("闲置键盘|19900", status="已下架"),
+            ],
+        ),
+    )
     assert changed.status_code == 201
     assert changed.json()["updated"] == 1
 
     # Metric fields (曝光/浏览/想要) ride along and feed the content hash:
     # a metric change appends a snapshot row even when price is unchanged.
-    metric = await _push(client, auth, _screen("run-2", 3, [
-        {"item_key": "闲置键盘|19900", "title": "闲置键盘", "price_cents": 19900,
-         "price_text": "199", "status_text": "已下架",
-         "exposure_count": 5, "views_count": 9, "wants_count": 1},
-    ]))
+    metric = await _push(
+        client,
+        auth,
+        _screen(
+            "run-2",
+            3,
+            [
+                {
+                    "item_key": "闲置键盘|19900",
+                    "title": "闲置键盘",
+                    "price_cents": 19900,
+                    "price_text": "199",
+                    "status_text": "已下架",
+                    "exposure_count": 5,
+                    "views_count": 9,
+                    "wants_count": 1,
+                },
+            ],
+        ),
+    )
     assert metric.status_code == 201
     assert metric.json()["updated"] == 1
     history = await client.get("/api/v1/fleet/listings/history", headers=identity())
@@ -129,10 +168,18 @@ async def test_push_dedupe_upsert_and_replay(api):
     assert keyboard["wantsCount"] == 1
 
     # Offline replay of an already-stored screen never double-counts.
-    replay = await _push(client, auth, _screen("run-1", 1, [
-        _row("闲置键盘|19900"),
-        _row("机械鼠标|8900", title="机械鼠标", price=8900, status="在售"),
-    ]))
+    replay = await _push(
+        client,
+        auth,
+        _screen(
+            "run-1",
+            1,
+            [
+                _row("闲置键盘|19900"),
+                _row("机械鼠标|8900", title="机械鼠标", price=8900, status="在售"),
+            ],
+        ),
+    )
     assert replay.status_code == 200
     assert replay.json()["replayed"] is True
     assert replay.json()["accepted"] == 0
@@ -172,9 +219,17 @@ async def test_real_id_marker_and_empty_screen(api):
     device = await create_direct_device(client, "listings-realid")
     auth = await _enroll(client, device, "listings-realid-instance")
 
-    pushed = await _push(client, auth, _screen("run-1", 1, [
-        _row("8839217461023749152", title="有真实ID的宝贝", price=5900),
-    ]))
+    pushed = await _push(
+        client,
+        auth,
+        _screen(
+            "run-1",
+            1,
+            [
+                _row("8839217461023749152", title="有真实ID的宝贝", price=5900),
+            ],
+        ),
+    )
     assert pushed.status_code == 201
     empty = await _push(client, auth, _screen("run-1", 2, []))
     assert empty.status_code == 201

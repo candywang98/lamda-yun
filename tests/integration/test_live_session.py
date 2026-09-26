@@ -76,8 +76,14 @@ async def test_session_lifecycle_audits_and_single_writer(api):  # noqa: F811
             "targetPackage": "com.taobao.idlefish",
             "totalTimeoutMs": 60_000,
             "steps": [
-                {"stepId": "idle", "timeoutMs": 8000, "action": "ui.wait",
-                 "locatorRef": "xianyu_home_sell", "condition": "EXISTS", "pollMs": 200},
+                {
+                    "stepId": "idle",
+                    "timeoutMs": 8000,
+                    "action": "ui.wait",
+                    "locatorRef": "xianyu_home_sell",
+                    "condition": "EXISTS",
+                    "pollMs": 200,
+                },
             ],
         },
     )
@@ -88,9 +94,7 @@ async def test_session_lifecycle_audits_and_single_writer(api):  # noqa: F811
     assert refused.status_code == 409
     assert "DEVICE_REMOTE" in refused.text
 
-    released = await client.post(
-        f"/api/v1/devices/{device}/live/{sid}:release", headers=identity()
-    )
+    released = await client.post(f"/api/v1/devices/{device}/live/{sid}:release", headers=identity())
     assert released.status_code == 200
     assert released.json()["state"] == "VIEWING"
 
@@ -98,9 +102,7 @@ async def test_session_lifecycle_audits_and_single_writer(api):  # noqa: F811
     assert status.status_code == 200
     assert status.json()["state"] == "VIEWING"
 
-    stopped = await client.post(
-        f"/api/v1/devices/{device}/live/{sid}:stop", headers=identity()
-    )
+    stopped = await client.post(f"/api/v1/devices/{device}/live/{sid}:stop", headers=identity())
     assert stopped.status_code == 200
     assert stopped.json()["state"] == "CLOSED"
 
@@ -145,13 +147,13 @@ async def test_companion_discovery_and_projection_ack(api):  # noqa: F811
     unauthenticated = await client.post(f"/companion/v2/live/{sid}/ack", json={"granted": True})
     assert unauthenticated.status_code == 401
 
-    granted = await client.post(f"/companion/v2/live/{sid}/ack", headers=auth,
-                                json={"granted": True})
+    granted = await client.post(
+        f"/companion/v2/live/{sid}/ack", headers=auth, json={"granted": True}
+    )
     assert granted.status_code == 200, granted.text
     assert granted.json()["state"] == "VIEWING"
 
-    stopped = await client.post(f"/api/v1/devices/{device}/live/{sid}:stop",
-                                headers=identity())
+    stopped = await client.post(f"/api/v1/devices/{device}/live/{sid}:stop", headers=identity())
     assert stopped.status_code == 200
 
     # After close, discovery 404s again and a late ack hits SESSION_CLOSED.
@@ -168,8 +170,9 @@ async def test_projection_denial_closes_session(api):  # noqa: F811
     opened = await client.post(f"/api/v1/devices/{device}/live", headers=identity())
     sid = opened.json()["sessionId"]
 
-    denied = await client.post(f"/companion/v2/live/{sid}/ack", headers=auth,
-                               json={"granted": False})
+    denied = await client.post(
+        f"/companion/v2/live/{sid}/ack", headers=auth, json={"granted": False}
+    )
     assert denied.status_code == 200, denied.text
     assert denied.json()["state"] == "CLOSED"
 

@@ -7,6 +7,7 @@ import sqlite3
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import cast
 
 from .debug_delivery import DebugDeliveryRecord, DebugDeliveryStore
 from .session import SessionError
@@ -76,9 +77,12 @@ class SqliteDebugDeliveryStore(DebugDeliveryStore):
 
             def read() -> tuple[object, ...] | None:
                 with sqlite3.connect(self._path) as db:
-                    return db.execute(
-                        "SELECT * FROM debug_delivery WHERE session_id=?", (session_id,)
-                    ).fetchone()
+                    return cast(
+                        tuple[object, ...] | None,
+                        db.execute(
+                            "SELECT * FROM debug_delivery WHERE session_id=?", (session_id,)
+                        ).fetchone(),
+                    )
 
             row = read()
             current = self._record(row) if row is not None else None
@@ -115,7 +119,7 @@ class SqliteDebugDeliveryStore(DebugDeliveryStore):
                 row = db.execute(
                     "SELECT * FROM debug_delivery WHERE session_id=?", (session_id,)
                 ).fetchone()
-                return row
+                return cast(tuple[object, ...] | None, row)
 
         row = read()
         return self._record(row) if row is not None else None
@@ -134,15 +138,11 @@ class SqliteDebugDeliveryStore(DebugDeliveryStore):
             state=str(row[5]),
             error_code=str(row[6]) if row[6] is not None else None,
             detail=str(row[7]) if row[7] is not None else None,
-            cloud_sequence=(
-                int(cloud_seq) if isinstance(cloud_seq, (int, str)) else None  # type: ignore[arg-type]
-            )
+            cloud_sequence=(int(cloud_seq) if isinstance(cloud_seq, int | str) else None)
             if cloud_seq is not None
             else None,
             lease_id=str(row[9]) if row[9] is not None else None,
-            fencing_token=(
-                int(fencing) if isinstance(fencing, (int, str)) else None  # type: ignore[arg-type]
-            )
+            fencing_token=(int(fencing) if isinstance(fencing, int | str) else None)
             if fencing is not None
             else None,
             relay_token_digest=str(row[11]) if row[11] is not None else None,

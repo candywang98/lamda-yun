@@ -71,8 +71,7 @@ def test_status_missing_database_does_not_create(tmp_path: Path) -> None:
 
 def _snapshot(directory: Path) -> dict[str, tuple[int, int]]:
     return {
-        path.name: (path.stat().st_size, path.stat().st_mtime_ns)
-        for path in directory.iterdir()
+        path.name: (path.stat().st_size, path.stat().st_mtime_ns) for path in directory.iterdir()
     }
 
 
@@ -422,9 +421,7 @@ def test_stale_is_not_stolen_and_break_is_exact(tmp_path: Path) -> None:
     )
     assert again["fencing"] == held["fencing"] + 1
     with pytest.raises(module.LockError) as old_release:
-        store.release(
-            "serial-a", token=held["owner_token"], fencing=held["fencing"], now=later
-        )
+        store.release("serial-a", token=held["owner_token"], fencing=held["fencing"], now=later)
     assert old_release.value.code == 4
     assert store.status("serial-a", now=later)["holder"] == "next"
 
@@ -441,9 +438,7 @@ def test_old_token_cannot_release_new_owner(tmp_path: Path) -> None:
         "serial-a", holder="b", purpose="two", task_id=None, ttl_seconds=60, now=now
     )
     with pytest.raises(module.LockError) as mismatch:
-        store.release(
-            "serial-a", token=first["owner_token"], fencing=second["fencing"], now=now
-        )
+        store.release("serial-a", token=first["owner_token"], fencing=second["fencing"], now=now)
     assert mismatch.value.code == 4
     store.release("serial-a", token=second["owner_token"], fencing=second["fencing"], now=now)
     assert store.status("serial-a", now=now)["state"] == "FREE"
@@ -681,9 +676,7 @@ def test_input_validation(tmp_path: Path) -> None:
         store.acquire("ok", holder="a", purpose="p", task_id=None, ttl_seconds=59, now=now)
     with pytest.raises(module.LockError):
         store.acquire("ok", holder=" ", purpose="p", task_id=None, ttl_seconds=60, now=now)
-    held = store.acquire(
-        "ok", holder="a", purpose="p", task_id=None, ttl_seconds=60, now=now
-    )
+    held = store.acquire("ok", holder="a", purpose="p", task_id=None, ttl_seconds=60, now=now)
     with pytest.raises(module.LockError):
         store.break_stale(
             "ok",

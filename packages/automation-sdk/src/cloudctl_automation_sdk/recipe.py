@@ -112,7 +112,9 @@ class RecipePackage(StrictModel):
                 or commit.on_success != TERMINAL_ID
                 or commit.on_failure is not None
             ):
-                raise ValueError("commit requires one tap, distinct postcondition and terminal success")
+                raise ValueError(
+                    "commit requires one tap, distinct postcondition and terminal success"
+                )
         if any(
             s.locator_ref == "xianyu_publish_button" and s.state_id != commit_id
             for s in self.graph.states

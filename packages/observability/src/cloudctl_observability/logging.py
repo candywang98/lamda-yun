@@ -33,7 +33,7 @@ def redact(value: Any, *, key: str = "") -> Any:
         return "[REDACTED]"
     if isinstance(value, dict):
         return {item_key: redact(item, key=str(item_key)) for item_key, item in value.items()}
-    if isinstance(value, (list, tuple)):
+    if isinstance(value, list | tuple):
         return [redact(item) for item in value]
     if isinstance(value, str):
         return redact_text(value)

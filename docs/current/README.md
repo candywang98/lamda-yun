@@ -2,8 +2,8 @@
 
 **本目录是 fleet-first-20260916.1 计划激活后的唯一机器任务源。**
 
-- `tasks.json`：50 条差额/验收任务（来自交付包 `lamda_yun_delivery_20260916/data/tasks.json`，
-  原始 SHA256 `2e8636ec7443f837bfe4e6ad85e3ab9bc9dd77fec342dfdd34d0f281e5ad7acc`）。
+- `tasks.json`：当前 54 条任务，覆盖 P00–P49 共 50 个交付包；由原始交付包任务源演进而来
+  （原始 SHA256 `2e8636ec7443f837bfe4e6ad85e3ab9bc9dd77fec342dfdd34d0f281e5ad7acc`）。
 - `baseline.json` / `evidence-index.json` / `scope-decisions.md`：R00 产出。
 - 校验：`python scripts/plan_guard.py docs/current/tasks.json`（只读审计）。
 
@@ -35,4 +35,4 @@
 调度 READY 由控制器按合同/依赖/写域/资源/证据入口计算；WAIT_CONTRACT 候选不得因合同通过跳过写域检查。
 旧 Excel（docs/project-plans/*.xlsx）迁移验证完成前只读保留；进度文字不覆盖安全门。
 
-当前进度：R00=SOFTWARE_DONE+SOFTWARE_ACCEPTED（本地审计交付）。下一步：R01 清理、K10/K11/K12 合同差额冻结。
+当前入口：[2026-09-24 接管与只收不发边界](no-send-takeover-20260924.md)。按用户批准的 V2 优先级推进一期全范围；真实发送/发布等对外操作禁止，缺条件的验收如实保留。以 `tasks.json` 的状态和具体版本验收证据为准，不再使用 R00 时期的“下一步”作为当前队列。

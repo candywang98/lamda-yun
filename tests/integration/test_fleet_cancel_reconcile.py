@@ -26,6 +26,7 @@ the engine the row-lock guarantees are stated for.
 
 from __future__ import annotations
 
+import os
 import shutil
 import socket
 import subprocess
@@ -71,6 +72,9 @@ from test_platform_tasks import (
 )
 from test_xianyu_maintenance import _create_steps_task, delist_steps
 
+POSTGRES_ENV = {**os.environ, "LC_ALL": "C", "LANG": "C", "LANGUAGE": "C"}
+
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -99,6 +103,7 @@ def isolated_postgres(tmp_path_factory):
         ["initdb", "-D", str(root / "data"), "-A", "trust", "-U", "a12test"],  # noqa: S607
         check=True,
         capture_output=True,
+        env=POSTGRES_ENV,
     )
     subprocess.run(  # noqa: S603 - fixed PostgreSQL tools and test-owned paths
         [  # noqa: S607
@@ -114,6 +119,7 @@ def isolated_postgres(tmp_path_factory):
         ],
         check=True,
         capture_output=True,
+        env=POSTGRES_ENV,
     )
     try:
         yield port
@@ -122,6 +128,7 @@ def isolated_postgres(tmp_path_factory):
             ["pg_ctl", "-D", str(root / "data"), "-m", "immediate", "-w", "stop"],  # noqa: S607
             check=True,
             capture_output=True,
+            env=POSTGRES_ENV,
         )
 
 
@@ -132,6 +139,7 @@ def pg_url(isolated_postgres):
         ["createdb", "-h", "127.0.0.1", "-p", str(isolated_postgres), "-U", "a12test", name],  # noqa: S607
         check=True,
         capture_output=True,
+        env=POSTGRES_ENV,
     )
     return f"postgresql+asyncpg://a12test@127.0.0.1:{isolated_postgres}/{name}"
 
@@ -159,9 +167,7 @@ async def api_process(pg_url: str) -> AsyncIterator[tuple[httpx.AsyncClient, Fas
 # ---------------------------------------------------------------------------
 
 
-async def mint_probe_task(
-    client: httpx.AsyncClient, device: str, account: str, key: str
-) -> str:
+async def mint_probe_task(client: httpx.AsyncClient, device: str, account: str, key: str) -> str:
     created = await client.post(
         "/api/v1/platform-tasks",
         headers={**identity(), "Idempotency-Key": key},
@@ -187,9 +193,7 @@ async def control(
     )
 
 
-async def patch_task(
-    app: FastAPI, task_id: str, mutate: Callable[[MobileTaskRow], None]
-) -> None:
+async def patch_task(app: FastAPI, task_id: str, mutate: Callable[[MobileTaskRow], None]) -> None:
     async with app.state.database.unit_of_work() as session:
         row = await session.get(MobileTaskRow, task_id)
         assert row is not None
@@ -238,9 +242,7 @@ async def task_in_state(
         response = await control(client, task_id, "cancel", {"reason": "settle now"})
         assert response.status_code == 200, response.text
     elif state == "RECONCILING":
-        response = await control(
-            client, task_id, "mark-unknown", {"reason": "uncertain result"}
-        )
+        response = await control(client, task_id, "mark-unknown", {"reason": "uncertain result"})
         assert response.status_code == 200, response.text
     elif state in CLAIMED_STATES:
         auth = await _enroll(client, device, f"a12-{name}-inst")
@@ -355,9 +357,7 @@ async def ledger_rows(app: FastAPI, task_id: str) -> list[MobileActionCommitRow]
     async with app.state.database.unit_of_work() as session:
         return list(
             await session.scalars(
-                select(MobileActionCommitRow).where(
-                    MobileActionCommitRow.task_id == task_id
-                )
+                select(MobileActionCommitRow).where(MobileActionCommitRow.task_id == task_id)
             )
         )
 
@@ -532,9 +532,7 @@ async def test_commit_intent_redirects_cancel_and_ack_to_reconciliation(api):
 
 async def test_control_event_chain_monotonic_revision_and_audit(api):
     client, app = api
-    task_id, device, auth, lease = await task_in_state(
-        client, app, state="RUNNING", name="chain"
-    )
+    task_id, device, auth, lease = await task_in_state(client, app, state="RUNNING", name="chain")
     paused = await control(client, task_id, "pause", {"reason": "first reason"})
     assert paused.status_code == 200, paused.text
     first = await view_task(client, task_id)
@@ -632,9 +630,7 @@ async def test_cancel_paused_releases_occupation_and_no_queue_zombie(api):
 
 async def test_out_of_order_control_events_idempotent_or_refused(api):
     client, _app = api
-    task_id, device, auth, lease = await task_in_state(
-        client, _app, state="RUNNING", name="ooo"
-    )
+    task_id, device, auth, lease = await task_in_state(client, _app, state="RUNNING", name="ooo")
     soft = await control(client, task_id, "cancel", {"reason": "first cancel"})
     assert soft.status_code == 200 and soft.json()["state"] == "CANCEL_REQUESTED"
     first = await view_task(client, task_id)

@@ -81,7 +81,7 @@ class FeatureDefinition:
     reason: str
 
 
-DEFINITIONS = (
+DEFINITIONS: tuple[OperationDefinition, ...] = (
     OperationDefinition(
         "accounts.authorization.health_check",
         "accounts",
@@ -1216,9 +1216,7 @@ _LEDGER_SENSITIVE: dict[str, SensitiveDiscipline] = {
         ),
     ),
     "xy-tasks-14": SensitiveDiscipline(
-        budget_cap=(
-            "None approved — no review-volume cap is registered."
-        ),
+        budget_cap=("None approved — no review-volume cap is registered."),
         target_authorization=(
             "reviewTarget closed Literal (recent_buyers/all_unreviewed); requires a "
             "buyer relationship with the bound account."
@@ -1230,12 +1228,9 @@ _LEDGER_SENSITIVE: dict[str, SensitiveDiscipline] = {
     ),
     "xy-tasks-16": SensitiveDiscipline(
         budget_cap=(
-            "quantity is bounded to 1..100 per run; no recurring-volume budget is "
-            "approved."
+            "quantity is bounded to 1..100 per run; no recurring-volume budget is approved."
         ),
-        target_authorization=(
-            "Own-account feed items only; no third-party content."
-        ),
+        target_authorization=("Own-account feed items only; no third-party content."),
         platform_entry_evidence=(
             "unverified — the feed deletion surface has not been captured on the "
             "pinned app version (7.18.92)."
@@ -1257,12 +1252,9 @@ _LEDGER_SENSITIVE: dict[str, SensitiveDiscipline] = {
     ),
     "xy-tasks-18": SensitiveDiscipline(
         budget_cap=(
-            "quantity is bounded to 1..100 per run; no recurring-volume budget is "
-            "approved."
+            "quantity is bounded to 1..100 per run; no recurring-volume budget is approved."
         ),
-        target_authorization=(
-            "Comments on the bound account's own listings only."
-        ),
+        target_authorization=("Comments on the bound account's own listings only."),
         platform_entry_evidence=(
             "unverified — the comment deletion surface has not been captured on the "
             "pinned app version (7.18.92)."
@@ -1445,6 +1437,7 @@ def evaluate_ledger_transition(
     if missing or not executor_available:
         return "PENDING"
     return "ENABLED"
+
 
 GUIDE_TERMS = frozenset({"介绍", "问题", "工具", "日志", "公告", "教程"})
 TABLE_TERMS = frozenset({"列表", "队列", "订单", "明细", "变化", "反馈"})

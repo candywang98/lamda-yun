@@ -289,7 +289,7 @@ content_id: Mapped[str] = mapped_column(
 **问题验证**:
 在 `services.py` 的 `batch_update_product_group` 中：
 ```python
-content_id=product_id  # ❌ 错误：product_id 不是 content_item 的ID
+content_id = product_id  # ❌ 错误：product_id 不是 content_item 的ID
 ```
 
 这证实了 **B001** 报告的问题：

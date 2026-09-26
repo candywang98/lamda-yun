@@ -1,5 +1,7 @@
 package com.company.cloudctl.companion.network
 
+import com.company.cloudctl.companion.BuildConfig
+import com.company.cloudctl.companion.service.ConnectivityDiagnosticTrace
 import java.io.ByteArrayOutputStream
 import java.io.BufferedInputStream
 import java.io.File
@@ -59,6 +61,9 @@ internal object PinnedHttpsTransport {
         readTimeoutMs: Int,
         maxBodyBytes: Long,
     ): Response {
+        check(HeartbeatDiagnosticPolicy.permitsRequest(BuildConfig.HEARTBEAT_DIAGNOSTIC, method, path)) {
+            "Heartbeat diagnostic build blocks non-heartbeat requests"
+        }
         val uri = URI(baseUrl.trimEnd('/') + path)
         require(uri.scheme == "https" && uri.host != null)
         val host = uri.host
@@ -66,17 +71,23 @@ internal object PinnedHttpsTransport {
         val socket = pinnedContext(pin).socketFactory.createSocket() as SSLSocket
         try {
             socket.soTimeout = readTimeoutMs
+            ConnectivityDiagnosticTrace.record("transport_connect")
             socket.connect(InetSocketAddress(connectAddress(host), port), connectTimeoutMs)
             socket.sslParameters = SSLParameters().apply {
                 serverNames = listOf(SNIHostName(host))
                 endpointIdentificationAlgorithm = null
             }
+            ConnectivityDiagnosticTrace.record("transport_tls")
             socket.startHandshake()
             val target = uri.rawPath.ifBlank { "/" } + (uri.rawQuery?.let { "?$it" } ?: "")
             val payload = buildRequest(method, target, host, headers, body)
+            ConnectivityDiagnosticTrace.record("transport_write")
             socket.outputStream.write(payload)
             socket.outputStream.flush()
-            return readResponse(BufferedInputStream(socket.inputStream), maxBodyBytes)
+            ConnectivityDiagnosticTrace.record("transport_read")
+            return readResponse(BufferedInputStream(socket.inputStream), maxBodyBytes).also {
+                ConnectivityDiagnosticTrace.record("transport_done", "status=${it.status}")
+            }
         } finally {
             runCatching { socket.close() }
         }
@@ -94,6 +105,7 @@ internal object PinnedHttpsTransport {
         maxBodyBytes: Long,
         outputFile: File,
     ): Response {
+        check(!BuildConfig.HEARTBEAT_DIAGNOSTIC) { "Heartbeat diagnostic build blocks file transfers" }
         val uri = URI(baseUrl.trimEnd('/') + path)
         require(uri.scheme == "https" && uri.host != null)
         val host = uri.host

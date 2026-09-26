@@ -60,9 +60,7 @@ class DeviceFleetMetrics:
         self._lock = threading.Lock()
         self._max_samples = max_samples
         self._counters: dict[str, dict[str, float]] = {}
-        self._latencies: dict[str, dict[str, list[float]]] = {
-            name: {} for name in LATENCY_NAMES
-        }
+        self._latencies: dict[str, dict[str, list[float]]] = {name: {} for name in LATENCY_NAMES}
 
     def incr(self, device_id: str, name: str, value: float = 1) -> None:
         if name not in COUNTER_NAMES:
@@ -82,11 +80,11 @@ class DeviceFleetMetrics:
                 del series[: len(series) - self._max_samples + 1]
             series.append(seconds)
 
-    def snapshot(self) -> dict[str, dict]:
+    def snapshot(self) -> dict[str, object]:
         """Per-device view + fleet roll-up. Latencies report p50/p95/mean/max."""
         with self._lock:
             devices = sorted(set(self._counters) | {d for s in self._latencies.values() for d in s})
-            per_device: dict[str, dict] = {}
+            per_device: dict[str, dict[str, object]] = {}
             for device in devices:
                 view: dict[str, object] = dict(self._counters.get(device, {}))
                 for name in LATENCY_NAMES:
@@ -101,9 +99,7 @@ class DeviceFleetMetrics:
                 )
             for name in LATENCY_NAMES:
                 merged = [
-                    sample
-                for device in devices
-                for sample in self._latencies[name].get(device, [])
+                    sample for device in devices for sample in self._latencies[name].get(device, [])
                 ]
                 fleet[name] = _LatencySeries(merged).summary()
             return {"perDevice": per_device, "fleet": fleet, "deviceCount": len(devices)}

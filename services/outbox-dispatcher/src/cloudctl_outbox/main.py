@@ -13,7 +13,7 @@ from .debug_grpc_sink import DebugHubGrpcSink
 from .debug_http_sink import DebugHubHttpSink
 from .dispatcher import OutboxDispatcher
 from .operation_sink import OperationExecutionSink
-from .sinks import FanoutSink, LoggingSink
+from .sinks import EventSink, FanoutSink, LoggingSink
 from .store import OutboxStore
 
 
@@ -26,7 +26,7 @@ async def main() -> None:
     operation_sink = OperationExecutionSink(database, settings)
     debug_sink = _build_debug_sink_from_environment()
     try:
-        sinks = [LoggingSink(), operation_sink]
+        sinks: list[EventSink] = [LoggingSink(), operation_sink]
         if debug_sink is not None:
             sinks.append(debug_sink)
         dispatcher = OutboxDispatcher(

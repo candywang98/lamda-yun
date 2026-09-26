@@ -107,9 +107,7 @@ def production_settings() -> Settings:
         s3_access_key="test-access",
         s3_secret_key="test-secret",  # noqa: S106 - dummy value for shape validation
         oidc_issuer="https://oidc.example.invalid/",
-        oidc_public_key_pem=(
-            "-----BEGIN PUBLIC KEY-----\ndGVzdA==\n-----END PUBLIC KEY-----\n"
-        ),
+        oidc_public_key_pem=("-----BEGIN PUBLIC KEY-----\ndGVzdA==\n-----END PUBLIC KEY-----\n"),
         wechat_secret_encryption_key=Fernet.generate_key().decode(),
     )
 
@@ -120,9 +118,7 @@ def auth_request(headers: dict[str, str], database: Any = None) -> Request:
         "method": "GET",
         "path": "/",
         "query_string": b"",
-        "headers": [
-            (key.lower().encode(), value.encode()) for key, value in headers.items()
-        ],
+        "headers": [(key.lower().encode(), value.encode()) for key, value in headers.items()],
         "client": ("127.0.0.1", 42000),
         "app": SimpleNamespace(state=SimpleNamespace(database=database)),
         "state": {"request_id": "a14-auth-test"},
@@ -196,9 +192,7 @@ async def control_pull(
     return await client.get(f"/companion/v2/control?{query}", headers=auth)
 
 
-async def snapshot(
-    client: httpx.AsyncClient, auth: dict[str, str]
-) -> dict[str, Any]:
+async def snapshot(client: httpx.AsyncClient, auth: dict[str, str]) -> dict[str, Any]:
     response = await client.get("/companion/v2/reconcile-snapshot", headers=auth)
     assert response.status_code == 200, response.text
     return response.json()
@@ -235,9 +229,7 @@ async def device_lease_row(app: FastAPI, device: str) -> DeviceLeaseRow | None:
 
 async def test_heartbeat_carries_watermark_inline_events_and_blocking_task(api):
     client, _app = api
-    task_id, device, auth, _lease = await running_cancel_requested_task(
-        client, "hotfix-beat"
-    )
+    task_id, device, auth, _lease = await running_cancel_requested_task(client, "hotfix-beat")
 
     # Legacy client (no control fields): still 200, still carries the channel.
     beat = await device_beat(client, auth)
@@ -267,9 +259,7 @@ async def test_heartbeat_carries_watermark_inline_events_and_blocking_task(api):
     # §2.3 request extension: the safety barrier is accepted transport state.
     barrier = await device_beat(client, auth, barrier="RECONCILING")
     assert barrier["ok"] is True
-    listed = await client.get(
-        "/api/v1/devices", headers=identity(role="security_admin")
-    )
+    listed = await client.get("/api/v1/devices", headers=identity(role="security_admin"))
     assert listed.status_code == 200, listed.text
     record = next(item for item in listed.json() if item["id"] == device)
     assert record["capabilities"]["safetyBarrier"] == "RECONCILING"
@@ -290,15 +280,11 @@ async def test_heartbeat_carries_watermark_inline_events_and_blocking_task(api):
 
 async def test_control_cursor_pull_pagination_and_cursor_too_old(api):
     client, _app = api
-    task_one, device, auth, _lease = await running_cancel_requested_task(
-        client, "cursor-one"
-    )
+    task_one, device, auth, _lease = await running_cancel_requested_task(client, "cursor-one")
     # A second task on the same device settles immediately (QUEUED cancel).
     account = await create_account(client, "a14-cursor-two-acc")
     await bind(client, account, device)
-    task_two = await mint_probe_task(
-        client, device, account, f"a14-cursor-two-{uuid.uuid4()}"
-    )
+    task_two = await mint_probe_task(client, device, account, f"a14-cursor-two-{uuid.uuid4()}")
     settled = await client.post(
         f"/api/v1/platform-tasks/{task_two}:cancel",
         headers=identity(),
@@ -363,9 +349,7 @@ async def test_control_cursor_pull_pagination_and_cursor_too_old(api):
 async def test_control_cursor_all_events_compacted(api):
     """A device whose every event was pruned 410s instead of faking empty."""
     client, app = api
-    task_id, device, auth, _lease = await running_cancel_requested_task(
-        client, "compacted"
-    )
+    task_id, device, auth, _lease = await running_cancel_requested_task(client, "compacted")
     # Force the retention window empty: strip the steps header events.
     async with app.state.database.unit_of_work() as session:
         from cloudctl_api.db import MobileTaskRow
@@ -392,9 +376,7 @@ async def test_control_cursor_all_events_compacted(api):
 async def test_reconcile_snapshot_converges_and_reports_ledger_blocks(api):
     client, app = api
     # Device one: one deferred-cancel task (RECONCILING) + one settled task.
-    task_one, device, auth, _lease = await running_cancel_requested_task(
-        client, "snap-one"
-    )
+    task_one, device, auth, _lease = await running_cancel_requested_task(client, "snap-one")
     deferred = await ack(
         client,
         auth,
@@ -408,9 +390,7 @@ async def test_reconcile_snapshot_converges_and_reports_ledger_blocks(api):
     assert deferred.status_code == 200, deferred.text
     account = await create_account(client, "a14-snap-two-acc")
     await bind(client, account, device)
-    task_two = await mint_probe_task(
-        client, device, account, f"a14-snap-two-{uuid.uuid4()}"
-    )
+    task_two = await mint_probe_task(client, device, account, f"a14-snap-two-{uuid.uuid4()}")
     settled = await client.post(
         f"/api/v1/platform-tasks/{task_two}:cancel",
         headers=identity(),
@@ -448,9 +428,7 @@ async def test_reconcile_snapshot_converges_and_reports_ledger_blocks(api):
 
 async def test_cancel_ack_applied_converges_and_releases_occupation(api):
     client, app = api
-    task_id, device, auth, lease = await running_cancel_requested_task(
-        client, "ack-applied"
-    )
+    task_id, device, auth, lease = await running_cancel_requested_task(client, "ack-applied")
     lease_row = await device_lease_row(app, device)
     assert lease_row is not None and lease_row.canceled_at is None
 
@@ -496,9 +474,7 @@ async def test_cancel_ack_applied_converges_and_releases_occupation(api):
 
 async def test_cancel_ack_deferred_keeps_reconciling(api):
     client, app = api
-    task_id, device, auth, lease = await running_cancel_requested_task(
-        client, "ack-deferred"
-    )
+    task_id, device, auth, lease = await running_cancel_requested_task(client, "ack-deferred")
 
     deferred = await ack(
         client,
@@ -518,9 +494,7 @@ async def test_cancel_ack_deferred_keeps_reconciling(api):
     view = await view_task(client, task_id)
     assert view["state"] == "RECONCILING"
     assert view["stallReason"] == "irreversible submit already sent"
-    assert "platform.task.cancel_deferred_reconciling" in await audit_actions(
-        app, task_id
-    )
+    assert "platform.task.cancel_deferred_reconciling" in await audit_actions(app, task_id)
 
     # The deferred branch is visible in the device control stream (§4 name).
     beat = await device_beat(client, auth)
@@ -549,23 +523,17 @@ async def test_cancel_ack_rejections(api):
     device = await create_direct_device(client, "a14-ack-run")
     account = await create_account(client, "a14-ack-run-acc")
     await bind(client, account, device)
-    running = await mint_probe_task(
-        client, device, account, f"a14-ack-run-{uuid.uuid4()}"
-    )
+    running = await mint_probe_task(client, device, account, f"a14-ack-run-{uuid.uuid4()}")
     auth = await _enroll(client, device, "a14-ack-run-inst")
     claimed = await client.post(
         "/companion/v2/tasks/claim", headers=auth, json={"leaseSeconds": 60}
     )
     assert claimed.status_code == 200, claimed.text
-    no_cancel = await ack(
-        client, auth, {"taskId": running, "result": "CANCEL_APPLIED"}
-    )
+    no_cancel = await ack(client, auth, {"taskId": running, "result": "CANCEL_APPLIED"})
     assert no_cancel.status_code == 409, no_cancel.text
 
     # Stale taskRevision must not settle the task.
-    task_id, device2, auth2, _lease = await running_cancel_requested_task(
-        client, "ack-stale"
-    )
+    task_id, device2, auth2, _lease = await running_cancel_requested_task(client, "ack-stale")
     stale = await ack(
         client,
         auth2,
@@ -631,9 +599,7 @@ async def test_control_plane_not_gated_by_claim_blockers(api):
     assert beat["blockingTask"]["status"] == "RECONCILING"
     state = await snapshot(client, auth)
     assert state["controlHighWatermark"] == beat["controlHighWatermark"]
-    events = [
-        event for event in beat["inlineEvents"] if event["taskId"] == task_id
-    ]
+    events = [event for event in beat["inlineEvents"] if event["taskId"] == task_id]
     assert events, "the control events must ride the heartbeat channel"
     pull = await control_pull(client, auth, 0)
     assert pull.status_code == 410  # cursor below floor → snapshot bootstrap

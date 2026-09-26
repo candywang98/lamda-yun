@@ -13,12 +13,12 @@ async def session() -> AsyncIterator[AsyncSession]:
     """Provide a database session for integration tests."""
     settings = Settings(env="test", repository_mode="memory")
     db = Database(settings)
-    
+
     # Create schema
     await db.create_schema()
-    
+
     async with db.session_factory() as session:
         yield session
         await session.rollback()
-    
+
     await db.dispose()

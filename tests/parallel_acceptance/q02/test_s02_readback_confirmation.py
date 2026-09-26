@@ -163,9 +163,7 @@ async def test_s02d_outcome_replay_is_idempotent_content_locked(
     async with app.state.database.unit_of_work() as session:
         rows = list(
             await session.scalars(
-                select(MobileActionCommitRow).where(
-                    MobileActionCommitRow.task_id == ctx["taskId"]
-                )
+                select(MobileActionCommitRow).where(MobileActionCommitRow.task_id == ctx["taskId"])
             )
         )
         assert len(rows) == 1

@@ -136,9 +136,7 @@ def _parse_rrule(rrule: str) -> tuple[str, int]:
     parts = dict(item.split("=", 1) for item in rrule.split(";") if "=" in item)
     freq = parts.get("FREQ", "").upper()
     if freq not in SUPPORTED_FREQ:
-        raise ValidationError(
-            "only FREQ=HOURLY,DAILY,WEEKLY are supported", fields=RRULE_FIELD
-        )
+        raise ValidationError("only FREQ=HOURLY,DAILY,WEEKLY are supported", fields=RRULE_FIELD)
     try:
         interval = int(parts.get("INTERVAL", "1"))
     except ValueError as exc:
@@ -215,6 +213,7 @@ def occurrence_grid(
 # Missed-fire policy (explicit, window-free)
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class DueDecision:
     action: str  # MINT | SKIP
@@ -235,9 +234,7 @@ class MissPolicyDecision:
         return tuple(sorted(items, key=lambda item: item.occurrence.utc))
 
 
-def classify_due_occurrences(
-    unminted_due: list[Occurrence], policy: str
-) -> MissPolicyDecision:
+def classify_due_occurrences(unminted_due: list[Occurrence], policy: str) -> MissPolicyDecision:
     """Apply the explicit missed-fire policy to the due-but-unminted backlog.
 
     Boundary is the schedule's own next period, never a fixed wall-clock window:

@@ -8,10 +8,18 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from cloudctl_domain import Actor, ConflictError, NotFoundError, Permission, ValidationError, require_permissions
+from cloudctl_domain import (
+    Actor,
+    ConflictError,
+    NotFoundError,
+    Permission,
+    ValidationError,
+    require_permissions,
+)
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from .command_v1 import CommandType
 from .db import AccountDeviceBindingRow, Database, TaskScheduleFireRow, TaskScheduleRow
@@ -32,7 +40,9 @@ class TaskScheduleCreate(StrictModel):
     rrule: str | None = Field(default=None, max_length=255)
     enabled: bool = True
     miss_policy: MissPolicy = Field(default="QUEUE_ONE", alias="missPolicy")
-    start_deadline_minutes: int = Field(default=30, alias="startDeadlineMinutes", ge=1, le=7 * 24 * 60)
+    start_deadline_minutes: int = Field(
+        default=30, alias="startDeadlineMinutes", ge=1, le=7 * 24 * 60
+    )
     account_id: str = Field(alias="accountId", min_length=1, max_length=36)
     expected_binding_version: int | None = Field(default=None, alias="expectedBindingVersion", ge=1)
     device_ids: list[str] = Field(alias="deviceIds", min_length=1, max_length=100)
@@ -69,7 +79,9 @@ def _zone(name: str) -> ZoneInfo:
         raise ValidationError("timezone is not a valid IANA name") from exc
 
 
-def next_occurrences(timezone: str, rrule: str, *, after: datetime, count: int = 3) -> list[datetime]:
+def next_occurrences(
+    timezone: str, rrule: str, *, after: datetime, count: int = 3
+) -> list[datetime]:
     zone = _zone(timezone)
     local_after = _aware(after).astimezone(zone)
     # task-schedule/v1 §5 (ruling D3): restricted rrule subset only —
@@ -96,9 +108,7 @@ def next_occurrences(timezone: str, rrule: str, *, after: datetime, count: int =
         step = timedelta(days=7 * interval)
         cursor = (cursor + step).replace(hour=local_after.hour, minute=local_after.minute)
     else:
-        raise ValidationError(
-            "only FREQ=HOURLY,DAILY,WEEKLY are supported", fields=rrule_field
-        )
+        raise ValidationError("only FREQ=HOURLY,DAILY,WEEKLY are supported", fields=rrule_field)
     values: list[datetime] = []
     while len(values) < count:
         values.append(cursor.astimezone(UTC))
@@ -144,7 +154,10 @@ class TaskScheduleService:
                 )
                 if live is None:
                     raise ConflictError("schedule account is not bound to every selected device")
-                if body.expected_binding_version is not None and live.binding_version != body.expected_binding_version:
+                if (
+                    body.expected_binding_version is not None
+                    and live.binding_version != body.expected_binding_version
+                ):
                     raise ConflictError("binding version does not match expectedBindingVersion")
                 binding_version = live.binding_version
             row = TaskScheduleRow(
@@ -360,7 +373,9 @@ class TaskScheduleService:
                 row.enabled = False
                 row.paused_reason = reason
 
-    async def _row(self, session: Any, actor: Actor, schedule_id: str, *, for_update: bool = False) -> TaskScheduleRow:
+    async def _row(
+        self, session: AsyncSession, actor: Actor, schedule_id: str, *, for_update: bool = False
+    ) -> TaskScheduleRow:
         statement = select(TaskScheduleRow).where(
             TaskScheduleRow.id == schedule_id,
             TaskScheduleRow.tenant_id == str(actor.tenant_id),
@@ -377,7 +392,10 @@ class TaskScheduleService:
         if row.kind == "ONCE" and row.once_at is not None:
             preview = [_aware(row.once_at).isoformat()]
         elif row.rrule:
-            preview = [item.isoformat() for item in next_occurrences(row.timezone, row.rrule, after=_now(), count=3)]
+            preview = [
+                item.isoformat()
+                for item in next_occurrences(row.timezone, row.rrule, after=_now(), count=3)
+            ]
         return {
             "id": row.id,
             "timezone": row.timezone,

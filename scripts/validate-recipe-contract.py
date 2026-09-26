@@ -16,6 +16,7 @@ Exit codes: 0 = valid, 1 = contract violation(s), 2 = usage/IO error.
 A signature proves provenance, NEVER sandboxing: every rule below applies to
 signed and unsigned packages alike.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -26,8 +27,7 @@ import sys
 
 SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
 DEFAULT_SPEC = (
-    SCRIPT_DIR.parent
-    / "mobile/companion/app/src/main/java/com/company/cloudctl/companion/"
+    SCRIPT_DIR.parent / "mobile/companion/app/src/main/java/com/company/cloudctl/companion/"
     "automation/recipes/contract/recipe-contract-spec.json"
 )
 
@@ -133,7 +133,9 @@ def validate_recipe(root, spec, strict_signature=True):
     if strict_signature:
         signature = root.get("signature")
         if not isinstance(signature, dict):
-            violations.append("SIGNATURE_MISSING: packages must carry a signature block (provenance)")
+            violations.append(
+                "SIGNATURE_MISSING: packages must carry a signature block (provenance)"
+            )
         elif signature.get("algorithm") != "Ed25519":
             violations.append("SIGNATURE_ALGORITHM: signature.algorithm must be Ed25519")
 
@@ -165,28 +167,47 @@ def validate_recipe(root, spec, strict_signature=True):
         edges.setdefault(state_id, set())
         action = state.get("action", "")
         if action not in whitelist:
-            violations.append(f"ACTION_NOT_WHITELISTED: '{state_id}' action '{action}' not on whitelist")
+            violations.append(
+                f"ACTION_NOT_WHITELISTED: '{state_id}' action '{action}' not on whitelist"
+            )
         value_ref = state.get("valueRef")
         if isinstance(value_ref, str) and value_ref and not VALUE_REF_RE.match(value_ref):
-            violations.append(f"VALUE_REF_INVALID: '{state_id}' valueRef '{value_ref}' violates shape")
-        bounded_fields = [f for f in ("maxAttempts", "noProgressBudget", "deadlineMs", "onExhausted") if state.get(f) is not None]
+            violations.append(
+                f"VALUE_REF_INVALID: '{state_id}' valueRef '{value_ref}' violates shape"
+            )
+        bounded_fields = [
+            f
+            for f in ("maxAttempts", "noProgressBudget", "deadlineMs", "onExhausted")
+            if state.get(f) is not None
+        ]
         if bounded_fields:
             if action not in ("wait", "tap", "media"):
-                violations.append(f"BOUNDS_ON_NON_RETRYABLE: '{state_id}' carries retry budgets on action '{action}'")
+                violations.append(
+                    f"BOUNDS_ON_NON_RETRYABLE: '{state_id}' carries retry budgets "
+                    f"on action '{action}'"
+                )
             if "maxAttempts" in bounded_fields:
                 value = state["maxAttempts"]
                 if not (1 <= value <= caps["maxWaitAttempts"]):
-                    violations.append(f"MAX_ATTEMPTS_OUT_OF_RANGE: '{state_id}' maxAttempts {value}")
+                    violations.append(
+                        f"MAX_ATTEMPTS_OUT_OF_RANGE: '{state_id}' maxAttempts {value}"
+                    )
             if "noProgressBudget" in bounded_fields:
                 value = state["noProgressBudget"]
                 if not (1 <= value <= caps["maxNoProgressPolls"]):
-                    violations.append(f"NO_PROGRESS_OUT_OF_RANGE: '{state_id}' noProgressBudget {value}")
+                    violations.append(
+                        f"NO_PROGRESS_OUT_OF_RANGE: '{state_id}' noProgressBudget {value}"
+                    )
             if "deadlineMs" in bounded_fields:
                 value = state["deadlineMs"]
                 if not (caps["minStateDeadlineMs"] <= value <= duration):
-                    violations.append(f"STATE_DEADLINE_OUT_OF_RANGE: '{state_id}' deadlineMs {value}")
+                    violations.append(
+                        f"STATE_DEADLINE_OUT_OF_RANGE: '{state_id}' deadlineMs {value}"
+                    )
             if "onExhausted" in bounded_fields and state["onExhausted"] not in on_exhausted_values:
-                violations.append(f"ON_EXHAUSTED_INVALID: '{state_id}' onExhausted {state['onExhausted']!r}")
+                violations.append(
+                    f"ON_EXHAUSTED_INVALID: '{state_id}' onExhausted {state['onExhausted']!r}"
+                )
         for edge in ("onSuccess", "onFailure"):
             target = state.get(edge)
             if target is None or (isinstance(target, str) and not target.strip()):
@@ -203,7 +224,9 @@ def validate_recipe(root, spec, strict_signature=True):
     for state_id, targets in edges.items():
         for target in targets:
             if target not in states and target not in TERMINALS:
-                violations.append(f"EDGE_TARGET_UNKNOWN: {state_id} edge -> '{target}' resolves to nothing")
+                violations.append(
+                    f"EDGE_TARGET_UNKNOWN: {state_id} edge -> '{target}' resolves to nothing"
+                )
 
     commit_id = graph.get("commitActionId")
     if commit_id:
@@ -211,33 +234,55 @@ def validate_recipe(root, spec, strict_signature=True):
         if commit is None:
             violations.append(f"COMMIT_STATE_MISSING: commitActionId '{commit_id}' is not a state")
         else:
-            if commit.get("action") != "tap" or not commit.get("locatorRef") or not commit.get("postcondition") \
-                    or commit.get("onSuccess") != "SUCCEEDED" or commit.get("onFailure") is not None:
-                violations.append("COMMIT_SHAPE_INVALID: commit must be one tap with distinct postcondition")
-            if any(commit.get(f) is not None for f in ("maxAttempts", "noProgressBudget", "deadlineMs", "onExhausted")):
-                violations.append("COMMIT_NOT_RETRYABLE: the commit state must not carry retry budgets")
+            if (
+                commit.get("action") != "tap"
+                or not commit.get("locatorRef")
+                or not commit.get("postcondition")
+                or commit.get("onSuccess") != "SUCCEEDED"
+                or commit.get("onFailure") is not None
+            ):
+                violations.append(
+                    "COMMIT_SHAPE_INVALID: commit must be one tap with distinct postcondition"
+                )
+            if any(
+                commit.get(f) is not None
+                for f in ("maxAttempts", "noProgressBudget", "deadlineMs", "onExhausted")
+            ):
+                violations.append(
+                    "COMMIT_NOT_RETRYABLE: the commit state must not carry retry budgets"
+                )
 
     # Loop policy: bounded cycles pass; dead cycles and irreversible-in-cycle never.
     memo: dict[str, bool] = {}
     for state_id in states:
         if not can_reach_terminal(state_id, edges, memo, set()):
-            violations.append(f"LOOP_NON_TERMINATING: '{state_id}' can never reach a terminal outcome")
+            violations.append(
+                f"LOOP_NON_TERMINATING: '{state_id}' can never reach a terminal outcome"
+            )
     irreversible = set(spec["loopPolicy"]["irreversibleLocators"])
     for state_id in states:
         if not on_cycle(state_id, edges):
             continue
         locator = states[state_id].get("locatorRef")
         if locator in irreversible:
-            violations.append(f"IRREVERSIBLE_IN_LOOP: '{state_id}' taps irreversible locator '{locator}' inside a retry loop")
+            violations.append(
+                f"IRREVERSIBLE_IN_LOOP: '{state_id}' taps irreversible locator "
+                f"'{locator}' inside a retry loop"
+            )
         if state_id == commit_id:
-            violations.append(f"IRREVERSIBLE_IN_LOOP: commit state '{state_id}' sits inside a retry loop; commits are single-shot")
+            violations.append(
+                f"IRREVERSIBLE_IN_LOOP: commit state '{state_id}' sits inside a retry loop; "
+                "commits are single-shot"
+            )
     return violations
 
 
 def validate_template(root, spec):
     violations: list[str] = []
     if root.get("protocol") != spec["templateProtocol"]:
-        violations.append(f"UNSUPPORTED_PROTOCOL: template protocol must be {spec['templateProtocol']}")
+        violations.append(
+            f"UNSUPPORTED_PROTOCOL: template protocol must be {spec['templateProtocol']}"
+        )
     walk_forbidden(root, spec["forbiddenFieldFragments"], "$", violations)
     actions = set(spec["templateActions"])
     forbidden_actions = set(spec["templateForbiddenActions"])
@@ -250,13 +295,20 @@ def validate_template(root, spec):
         step_id = str(step.get("stepId", ""))
         action = step.get("action", "")
         if action not in actions or action in forbidden_actions:
-            violations.append(f"TEMPLATE_ACTION_NOT_WHITELISTED: '{step_id}' action '{action}' is not declarative")
+            violations.append(
+                f"TEMPLATE_ACTION_NOT_WHITELISTED: '{step_id}' action '{action}' is not declarative"
+            )
         if action == "submit":
-            violations.append(f"SUBMIT_FORBIDDEN_IN_TEMPLATES: '{step_id}' — irreversible submit stays a signed-recipe concern")
+            violations.append(
+                f"SUBMIT_FORBIDDEN_IN_TEMPLATES: '{step_id}' — irreversible submit "
+                "stays a signed-recipe concern"
+            )
         bounds = step.get("bounds") or {}
         if "maxAttempts" in bounds and not (1 <= bounds["maxAttempts"] <= caps["maxWaitAttempts"]):
             violations.append(f"MAX_ATTEMPTS_OUT_OF_RANGE: '{step_id}' {bounds['maxAttempts']}")
-        if "noProgressBudget" in bounds and not (1 <= bounds["noProgressBudget"] <= caps["maxNoProgressPolls"]):
+        if "noProgressBudget" in bounds and not (
+            1 <= bounds["noProgressBudget"] <= caps["maxNoProgressPolls"]
+        ):
             violations.append(f"NO_PROGRESS_OUT_OF_RANGE: '{step_id}' {bounds['noProgressBudget']}")
         value_ref = step.get("valueRef")
         if isinstance(value_ref, str) and value_ref and not VALUE_REF_RE.match(value_ref):
@@ -321,7 +373,11 @@ def _sign_sample(root):
 
 
 def self_test(spec) -> int:
-    """Bounded loops pass; dead loops, irreversible-in-loop, eval/shell fields and cap violations fail."""
+    """Bounded loops pass; dead loops, irreversible-in-loop, eval/shell fields and
+    cap violations fail.
+
+    The self-test exercises the same fail-closed validator used by the CLI.
+    """
     failures = 0
 
     def expect(name, root, should_pass, strict_signature=True):
@@ -330,58 +386,141 @@ def self_test(spec) -> int:
         passed = not violations
         if passed != should_pass:
             failures += 1
-            print(f"SELF-TEST FAIL {name}: expected {'valid' if should_pass else 'invalid'}, got {violations}")
+            print(
+                f"SELF-TEST FAIL {name}: expected "
+                f"{'valid' if should_pass else 'invalid'}, got {violations}"
+            )
         else:
             print(f"self-test ok  {name}" + ("" if should_pass else f" -> {violations[0]}"))
 
     # 1. bounded retry cycle (finite repeat with a reachable terminal) is allowed.
     expect(
         "bounded-retry-cycle-allowed",
-        _sign_sample(_sample_recipe([
-            {"stateId": "open", "action": "tap", "locatorRef": "xianyu_home_sell", "onSuccess": "await", "onFailure": "FAILED"},
-            {"stateId": "await", "action": "wait", "locatorRef": "xianyu_publish_page",
-             "onSuccess": "SUCCEEDED", "onFailure": "open", "maxAttempts": 3, "noProgressBudget": 2,
-             "deadlineMs": 20000, "onExhausted": "FAIL"},
-        ])),
+        _sign_sample(
+            _sample_recipe(
+                [
+                    {
+                        "stateId": "open",
+                        "action": "tap",
+                        "locatorRef": "xianyu_home_sell",
+                        "onSuccess": "await",
+                        "onFailure": "FAILED",
+                    },
+                    {
+                        "stateId": "await",
+                        "action": "wait",
+                        "locatorRef": "xianyu_publish_page",
+                        "onSuccess": "SUCCEEDED",
+                        "onFailure": "open",
+                        "maxAttempts": 3,
+                        "noProgressBudget": 2,
+                        "deadlineMs": 20000,
+                        "onExhausted": "FAIL",
+                    },
+                ]
+            )
+        ),
         should_pass=True,
     )
     # 2. non-terminating loop (no terminal reachable) is rejected.
     expect(
         "non-terminating-loop-rejected",
-        _sign_sample(_sample_recipe([
-            {"stateId": "a", "action": "wait", "locatorRef": "xianyu_home_sell", "onSuccess": "b", "onFailure": "b"},
-            {"stateId": "b", "action": "wait", "locatorRef": "xianyu_home_sell", "onSuccess": "a", "onFailure": "a"},
-        ])),
+        _sign_sample(
+            _sample_recipe(
+                [
+                    {
+                        "stateId": "a",
+                        "action": "wait",
+                        "locatorRef": "xianyu_home_sell",
+                        "onSuccess": "b",
+                        "onFailure": "b",
+                    },
+                    {
+                        "stateId": "b",
+                        "action": "wait",
+                        "locatorRef": "xianyu_home_sell",
+                        "onSuccess": "a",
+                        "onFailure": "a",
+                    },
+                ]
+            )
+        ),
         should_pass=False,
     )
     # 3. irreversible submit inside a loop body is rejected.
     expect(
         "irreversible-submit-in-loop-rejected",
-        _sign_sample(_sample_recipe([
-            {"stateId": "loop", "action": "tap", "locatorRef": "xianyu_publish_button", "onSuccess": "loop2", "onFailure": "FAILED"},
-            {"stateId": "loop2", "action": "wait", "locatorRef": "xianyu_home_sell", "onSuccess": "loop", "onFailure": "FAILED"},
-        ])),
+        _sign_sample(
+            _sample_recipe(
+                [
+                    {
+                        "stateId": "loop",
+                        "action": "tap",
+                        "locatorRef": "xianyu_publish_button",
+                        "onSuccess": "loop2",
+                        "onFailure": "FAILED",
+                    },
+                    {
+                        "stateId": "loop2",
+                        "action": "wait",
+                        "locatorRef": "xianyu_home_sell",
+                        "onSuccess": "loop",
+                        "onFailure": "FAILED",
+                    },
+                ]
+            )
+        ),
         should_pass=False,
     )
     # 4. eval/shell/js fields are rejected even on a signed, hash-consistent package.
-    evil = _sign_sample(_sample_recipe([
-        {"stateId": "open", "action": "wait", "locatorRef": "xianyu_home_sell", "onSuccess": "SUCCEEDED", "onFailure": None,
-         "eval": "1+1"},
-    ]))
+    evil = _sign_sample(
+        _sample_recipe(
+            [
+                {
+                    "stateId": "open",
+                    "action": "wait",
+                    "locatorRef": "xianyu_home_sell",
+                    "onSuccess": "SUCCEEDED",
+                    "onFailure": None,
+                    "eval": "1+1",
+                },
+            ]
+        )
+    )
     expect("eval-field-rejected-signature-not-sandbox", evil, should_pass=False)
     # 5. per-action cap violations are rejected.
     expect(
         "max-attempts-cap-rejected",
-        _sign_sample(_sample_recipe([
-            {"stateId": "await", "action": "wait", "locatorRef": "xianyu_publish_page",
-             "onSuccess": "SUCCEEDED", "onFailure": "FAILED", "maxAttempts": 999},
-        ])),
+        _sign_sample(
+            _sample_recipe(
+                [
+                    {
+                        "stateId": "await",
+                        "action": "wait",
+                        "locatorRef": "xianyu_publish_page",
+                        "onSuccess": "SUCCEEDED",
+                        "onFailure": "FAILED",
+                        "maxAttempts": 999,
+                    },
+                ]
+            )
+        ),
         should_pass=False,
     )
     # 6. hash mismatch (in-place byte edit of a published recipe) is rejected.
-    tampered = _sign_sample(_sample_recipe([
-        {"stateId": "open", "action": "wait", "locatorRef": "xianyu_home_sell", "onSuccess": "SUCCEEDED", "onFailure": None},
-    ]))
+    tampered = _sign_sample(
+        _sample_recipe(
+            [
+                {
+                    "stateId": "open",
+                    "action": "wait",
+                    "locatorRef": "xianyu_home_sell",
+                    "onSuccess": "SUCCEEDED",
+                    "onFailure": None,
+                },
+            ]
+        )
+    )
     tampered["graph"]["maxDurationMs"] = 600001
     expect("in-place-edit-hash-mismatch-rejected", tampered, should_pass=False)
     return 1 if failures else 0

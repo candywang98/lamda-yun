@@ -53,6 +53,7 @@ class CompanionRepository(
     val state: StateFlow<CompanionState> = mutableState.asStateFlow()
 
     init {
+        refreshLocalStatus()
         if (mutableState.value.binding != null) CompanionServiceStarter.startIfBound(context)
     }
 
@@ -64,18 +65,43 @@ class CompanionRepository(
         it.copy(binding = result.binding, emergencyStopped = false)
     }
 
-    suspend fun refresh() = runOperation { current ->
-        val localHealth = healthCollector.collect()
+    /** Cheap local-only tick: never query network, storage health or account APIs. */
+    fun refreshPresence() {
         val runtime = runtimeStatusStore.snapshot()
-        current.copy(
-            health = localHealth,
+        val current = mutableState.value
+        mutableState.value = current.copy(
+            presenceOnline = current.binding != null && runtime.presenceOnline,
+            lastHeartbeatAt = runtime.lastHeartbeatAt.takeIf { current.binding != null },
+            presenceIssue = runtime.presenceIssue.takeIf { current.binding != null },
+        )
+    }
+
+    /** Local liveness must remain observable even when an account request is stalled. */
+    fun refreshLocalStatus() {
+        val runtime = runtimeStatusStore.snapshot()
+        val current = mutableState.value
+        mutableState.value = current.copy(
+            health = healthCollector.collect(),
             permissions = permissionState(),
             task = runtime.task,
             logs = runtime.logs,
             localOperations = localOperationStore.snapshot().map(::toLocalOperationStatus),
-            presenceOnline = runtime.presenceOnline,
+            presenceOnline = current.binding != null && runtime.presenceOnline,
+            lastHeartbeatAt = runtime.lastHeartbeatAt.takeIf { current.binding != null },
+            presenceIssue = runtime.presenceIssue.takeIf { current.binding != null },
             deliveries = artifactDeliveryStore.snapshot(),
-            accountStatuses = loadAccountStatuses(current),
+        )
+    }
+
+    suspend fun refresh() {
+        if (com.company.cloudctl.companion.BuildConfig.HEARTBEAT_DIAGNOSTIC) {
+            refreshLocalStatus()
+            return
+        }
+        refreshAccountStatus(
+            state = mutableState,
+            refreshLocal = ::refreshLocalStatus,
+            loadAccounts = ::loadAccountStatuses,
         )
     }
 
@@ -208,11 +234,11 @@ class CompanionRepository(
         ).apply()
     }
 
-    private suspend fun loadAccountStatuses(current: CompanionState) = runCatching {
-        val binding = current.binding ?: return@runCatching emptyList()
-        val token = token() ?: return@runCatching emptyList()
-        cloudClient.accountStatus(binding, token)
-    }.getOrDefault(current.accountStatuses)
+    private suspend fun loadAccountStatuses(current: CompanionState): List<com.company.cloudctl.companion.model.AccountAuthorizationStatus> {
+        val binding = current.binding ?: return emptyList()
+        val token = token() ?: return emptyList()
+        return cloudClient.accountStatus(binding, token)
+    }
 
     private fun readBinding(): DeviceBinding? = preferences.getString(BINDING, null)?.let { encoded ->
         runCatching {

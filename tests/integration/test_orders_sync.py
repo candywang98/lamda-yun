@@ -725,9 +725,7 @@ async def test_collect_explicit_screens_one_keeps_v1_shape(api):
     client, app = api
     device = await create_direct_device(client, "orders-v2-screens1")
     for index, screens in enumerate((None, 1)):
-        response = await _collect(
-            client, device, f"screens-one-{index}", screens=screens
-        )
+        response = await _collect(client, device, f"screens-one-{index}", screens=screens)
         assert response.status_code == 201, response.text
         body = response.json()
         assert body["commandType"] == COLLECT_COMMAND
@@ -1032,10 +1030,7 @@ async def test_v2_run_view_aggregates_orders_read_logs(api):
     assert view.status_code == 200, view.text
     payload = view.json()
     assert payload["screens"] == 3
-    assert [
-        (entry["stepId"], entry["messageCode"])
-        for entry in payload["ordersReadLogs"]
-    ] == [
+    assert [(entry["stepId"], entry["messageCode"]) for entry in payload["ordersReadLogs"]] == [
         ("read-orders", "ORDERS_READ_1"),
         ("read-orders-2", "ORDERS_READ_2"),
         ("read-orders-3", "ORDERS_READ_3"),

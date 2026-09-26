@@ -127,6 +127,8 @@ class ScreenshotStep(StrictModel):
         if not STEP_ID_PATTERN.fullmatch(value):
             raise ValueError("stepId is invalid")
         return value
+
+
 XIANYU_TAP_LAYOUT_REFS = frozenset(
     {
         "polish_all",
@@ -182,6 +184,7 @@ class AssertBadgeStep(StrictModel):
         if not STEP_ID_PATTERN.fullmatch(value):
             raise ValueError("stepId is invalid")
         return value
+
 
 class ReadOrdersStep(LocatorStep):
     """Read order rows from the current xianyu order list screen.
@@ -489,6 +492,7 @@ class MobileDeviceHealth(StrictModel):
         if not isinstance(value, str):
             return value
         return _NETWORK_ALIASES.get(value.strip().upper().replace(" ", ""), value)
+
     temperature_celsius: float | None = Field(default=None, alias="temperatureCelsius")
     free_storage_bytes: int | None = Field(default=None, alias="freeStorageBytes", ge=0)
     manufacturer: str | None = Field(default=None, max_length=80)

@@ -180,18 +180,21 @@ class CompanionSyncService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        ConnectivityDiagnosticTrace.initialize(this)
+        ConnectivityDiagnosticTrace.record("service_create")
         store = AutomationStore(this)
         val imOutbox = ImOutboxStore(this)
         ImMonitor.outbox = imOutbox
         runtimeStatus = RuntimeStatusStore(this)
+        runtimeStatus.markPresence(false, com.company.cloudctl.companion.model.PresenceIssue.SYNC_STARTING)
         networkAvailability = NetworkAvailability(this)
         mediaDeliveryCoordinator = MediaDeliveryCoordinator(this)
-        store.recoverInterruptedRuns()
+        if (!BuildConfig.HEARTBEAT_DIAGNOSTIC) store.recoverInterruptedRuns()
         // B17 startup capability self-check (CAP_*); best-effort, never gates startup.
-        runCatching { runtimeStatus.updateCapabilities(CapabilityProbe.production(this).probe()) }
+        if (!BuildConfig.HEARTBEAT_DIAGNOSTIC) runCatching { runtimeStatus.updateCapabilities(CapabilityProbe.production(this).probe()) }
             .onFailure { android.util.Log.w("CompanionSync", "Capability probe deferred", it) }
         recipes = RecipeLifecycle(RecipePackageManager(File(filesDir, "recipes"), recipePublicKeys()), store)
-        runCatching { recipes.restore() }.onFailure {
+        if (!BuildConfig.HEARTBEAT_DIAGNOSTIC) runCatching { recipes.restore() }.onFailure {
             android.util.Log.e("CompanionSync", "Recipe restoration failed", it)
         }
         createNotificationChannel()
@@ -204,13 +207,24 @@ class CompanionSyncService : Service() {
             notification = NotificationCompat.Builder(this, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_launcher_foreground)
                 .setContentTitle("CloudCtl Companion")
-                .setContentText("Secure task synchronization is active")
+                .setContentText(if (BuildConfig.HEARTBEAT_DIAGNOSTIC) "连接诊断：仅心跳，业务执行已禁用" else "Secure task synchronization is active")
                 .setOngoing(true)
                 .build(),
         )
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (BuildConfig.HEARTBEAT_DIAGNOSTIC) {
+            ConnectivityDiagnosticTrace.record("service_start", "presenceActive=${presenceJob?.isActive}")
+            if (presenceJob?.isActive != true) {
+                presenceJob = scope.launch { presenceLoop() }.also { job ->
+                    job.invokeOnCompletion { cause ->
+                        ConnectivityDiagnosticTrace.record("presence_exit", "cause=${cause?.javaClass?.simpleName ?: "completed"}")
+                    }
+                }
+            }
+            return START_STICKY
+        }
         if (syncJob?.isActive != true) syncJob = scope.launch { syncLoop() }
         if (presenceJob?.isActive != true) presenceJob = scope.launch { presenceLoop() }
         if (outboxJob?.isActive != true) outboxJob = scope.launch { outboxLoop() }
@@ -220,8 +234,10 @@ class CompanionSyncService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
+        ConnectivityDiagnosticTrace.record("service_destroy")
         ApkInstallStatusBus.detach()
         scope.cancel()
+        runtimeStatus.markPresence(false, com.company.cloudctl.companion.model.PresenceIssue.SERVICE_STOPPED)
         store.close()
         super.onDestroy()
     }
@@ -233,12 +249,15 @@ class CompanionSyncService : Service() {
 
     private suspend fun presenceLoop() {
         android.util.Log.i("CompanionSync", "presenceLoop starting")
+        ConnectivityDiagnosticTrace.record("binding_load")
         val configured = loadConnection()
         if (configured == null) {
+            runtimeStatus.markPresence(false, com.company.cloudctl.companion.model.PresenceIssue.BINDING_MISSING)
             android.util.Log.e("CompanionSync", "loadConnection returned null - binding not found or token missing")
             return
         }
         android.util.Log.i("CompanionSync", "Connection loaded, starting heartbeat loop")
+        ConnectivityDiagnosticTrace.record("binding_ready")
         val client = CloudTaskClient(configured.first)
         val healthCollector = LocalHealthCollector(this)
         val retryPolicy = SyncRetryPolicy(
@@ -247,14 +266,16 @@ class CompanionSyncService : Service() {
         )
         while (scope.isActive) {
             try {
+                ConnectivityDiagnosticTrace.record("network_check")
                 if (networkAvailability.isValidated()) {
                     android.util.Log.d("CompanionSync", "Network validated, sending heartbeat")
+                    ConnectivityDiagnosticTrace.record("health_collect")
                     val health = healthCollector.collect()
                     val payload = JSONObject()
                         .put("companionVersion", health.companionVersion)
                         .put("androidVersion", Build.VERSION.RELEASE)
-                        .put("accessibilityEnabled", accessibilityEnabled())
-                        .put("runnerState", runnerState())
+                        .put("accessibilityEnabled", !BuildConfig.HEARTBEAT_DIAGNOSTIC && accessibilityEnabled())
+                        .put("runnerState", if (BuildConfig.HEARTBEAT_DIAGNOSTIC) "IDLE" else runnerState())
                     val healthJson = JSONObject()
                         .put("batteryPercent", health.batteryPercent)
                         .put("charging", health.charging)
@@ -267,7 +288,7 @@ class CompanionSyncService : Service() {
                     // it carries our cursor + safety barrier out and the server
                     // watermark (+ ≤2 inline events) back. Frozen contract shape:
                     // top-level request/response fields.
-                    val control = controlRuntime()
+                    val control = if (BuildConfig.HEARTBEAT_DIAGNOSTIC) null else controlRuntime()
                     control?.let {
                         val fields = it.client.heartbeatRequestFields(
                             it.state.lastAppliedControlSeq(),
@@ -277,10 +298,18 @@ class CompanionSyncService : Service() {
                         payload.put("safetyBarrier", fields.getString("safetyBarrier"))
                     }
                     android.util.Log.d("CompanionSync", "Sending heartbeat payload: $payload")
+                    ConnectivityDiagnosticTrace.record("heartbeat_request")
                     val heartbeat = withContext(Dispatchers.IO) { client.deviceHeartbeat(payload) }
                     android.util.Log.i("CompanionSync", "Heartbeat successful")
+                    ConnectivityDiagnosticTrace.record("heartbeat_ok")
                     runtimeStatus.markPresence(true)
                     retryPolicy.reset()
+                    if (BuildConfig.HEARTBEAT_DIAGNOSTIC) {
+                        // Ignore previews, resume commands, control events and update receipts.
+                        ConnectivityDiagnosticTrace.record("heartbeat_delay")
+                        delay(DEVICE_HEARTBEAT_INTERVAL_MILLIS)
+                        continue
+                    }
                     // WIRE2 (U11 task requirement 4): the first heartbeat after a
                     // disconnect re-reports every undelivered install receipt.
                     // The device heartbeat model is extra=forbid server-side, so
@@ -324,28 +353,36 @@ class CompanionSyncService : Service() {
                         continue
                     }
                 } else {
+                    ConnectivityDiagnosticTrace.record("network_unavailable")
                     android.util.Log.w("CompanionSync", "Network not validated, skipping heartbeat")
-                    runtimeStatus.markPresence(false)
+                    runtimeStatus.markPresence(false, com.company.cloudctl.companion.model.PresenceIssue.NETWORK_UNAVAILABLE)
                     lastPresenceOk = false
                 }
                 delay(DEVICE_HEARTBEAT_INTERVAL_MILLIS)
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: CloudHttpException) {
-                android.util.Log.e("CompanionSync", "HTTP error in heartbeat: ${error.message}, status: ${error.status}, body: ${error.responseBody}, auth rejected: ${error.authenticationRejected}")
+                ConnectivityDiagnosticTrace.record("heartbeat_http_error", "status=${error.status}")
+                android.util.Log.e("CompanionSync", "HTTP error in heartbeat: status=${error.status}, authRejected=${error.authenticationRejected}")
                 lastPresenceOk = false
-                runtimeStatus.markPresence(false)
+                runtimeStatus.markPresence(
+                    false,
+                    if (error.authenticationRejected) com.company.cloudctl.companion.model.PresenceIssue.AUTH_REJECTED
+                    else com.company.cloudctl.companion.model.PresenceIssue.SERVER_REJECTED,
+                )
                 if (error.authenticationRejected) return
                 delay(retryPolicy.nextDelayMillis())
             } catch (error: IOException) {
+                ConnectivityDiagnosticTrace.record("heartbeat_io_error", "type=${error.javaClass.simpleName}")
                 android.util.Log.e("CompanionSync", "IO error in heartbeat: ${error.message}")
                 lastPresenceOk = false
-                runtimeStatus.markPresence(false)
+                runtimeStatus.markPresence(false, com.company.cloudctl.companion.model.PresenceIssue.CONNECTION_FAILED)
                 delay(retryPolicy.nextDelayMillis())
             } catch (error: Exception) {
+                ConnectivityDiagnosticTrace.record("heartbeat_error", "type=${error.javaClass.simpleName}")
                 android.util.Log.e("CompanionSync", "Unexpected error in heartbeat: ${error.message}", error)
                 lastPresenceOk = false
-                runtimeStatus.markPresence(false)
+                runtimeStatus.markPresence(false, com.company.cloudctl.companion.model.PresenceIssue.SYNC_FAILED)
                 delay(retryPolicy.nextDelayMillis())
             }
         }

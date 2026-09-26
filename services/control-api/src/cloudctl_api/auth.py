@@ -289,9 +289,7 @@ async def current_actor(
         # production — those headers are stripped by the edge, so their mere
         # presence is a spoofing attempt and fails closed with 401.
         forged = sorted(
-            name
-            for name in SELF_REPORTED_IDENTITY_HEADERS
-            if request.headers.get(name, "").strip()
+            name for name in SELF_REPORTED_IDENTITY_HEADERS if request.headers.get(name, "").strip()
         )
         if forged:
             raise AuthenticationError(

@@ -52,8 +52,9 @@ The existing codebase has:
 ```python
 class DeviceLeaseRow(Base):
     """Unified write lease for AUTO/REMOTE modes"""
+
     device_id: FK(DeviceRow)
-    owner_type: Enum['AUTO', 'REMOTE']  # task vs. manual control
+    owner_type: Enum["AUTO", "REMOTE"]  # task vs. manual control
     control_epoch: int  # fencing counter
     expires_at: datetime
     task_id: str | None  # if AUTO mode
@@ -155,7 +156,7 @@ class AccountDeviceBindingRow(Base):
     device_id: FK(DeviceRow)
     platform: str  # 'xianyu' | 'xiaohongshu'
     binding_version: int
-    status: Enum['BOUND', 'UNBOUND']
+    status: Enum["BOUND", "UNBOUND"]
 ```
 
 **Constraint**: One device can have ONE active binding per platform.

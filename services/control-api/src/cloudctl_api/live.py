@@ -224,9 +224,7 @@ class LiveService:
                 raise NotFoundError("no live session for device")
             return self.view(live)
 
-    async def projection_ack(
-        self, device_id: str, sid: str, granted: bool
-    ) -> dict[str, Any]:
+    async def projection_ack(self, device_id: str, sid: str, granted: bool) -> dict[str, Any]:
         """WIRE3: the MediaProjection user-confirmation result for one session.
         A denial is terminal: the session closes and the operator panel learns
         via the state push."""
@@ -287,6 +285,7 @@ class LiveService:
 operator_router = APIRouter(prefix="/api/v1/devices/{device_id}/live", tags=["live-operator"])
 companion_router = APIRouter(prefix="/companion/v2/live", tags=["live-companion"])
 
+
 def _service(request: Request) -> LiveService:
     service = request.app.state.live_service
     assert isinstance(service, LiveService)
@@ -302,17 +301,13 @@ def _service_ws(websocket: WebSocket) -> LiveService:
     return service
 
 
-
-
 ServiceDep = Annotated[LiveService, Depends(_service)]
 WsServiceDep = Annotated[LiveService, Depends(_service_ws)]
 ActorDep = Annotated[Actor, Depends(current_actor)]
 
 
 @operator_router.post("")
-async def open_live(
-    device_id: str, actor: ActorDep, live_service: ServiceDep
-) -> dict[str, Any]:
+async def open_live(device_id: str, actor: ActorDep, live_service: ServiceDep) -> dict[str, Any]:
     return await live_service.open_session(actor, device_id)
 
 

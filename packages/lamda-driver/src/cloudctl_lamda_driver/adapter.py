@@ -16,7 +16,7 @@ class LamdaSdkBackend:
     @classmethod
     def connect(cls, *, host: str, port: int, certificate_path: Path) -> LamdaSdkBackend:
         try:
-            from lamda.client import Device  # type: ignore[import-not-found]
+            from lamda.client import Device  # type: ignore[import-untyped]
 
             device = Device(host, port=port, certificate=str(certificate_path))
             return cls(device)

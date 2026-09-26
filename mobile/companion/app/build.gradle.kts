@@ -42,6 +42,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Only the acceptance build type overrides this to true.
         buildConfigField("boolean", "IM_UPLOAD_HOLD_ALLOWED", "false")
+        buildConfigField("boolean", "HEARTBEAT_DIAGNOSTIC", "false")
     }
 
     buildTypes {
@@ -87,10 +88,25 @@ android {
             buildConfigField("String", "SOURCE_REVISION", sourceRevisionLiteral.get())
             buildConfigField("String", "RECIPE_SIGNING_PUBLIC_KEYS", "\"{}\"")
         }
+        // Explicitly authorized, in-place connectivity diagnosis only. Never a business runner.
+        create("heartbeatDiagnostic") {
+            initWith(getByName("release"))
+            isDebuggable = true
+            isMinifyEnabled = false
+            matchingFallbacks += listOf("release")
+            signingConfig = signingConfigs.getByName("debug")
+            versionNameSuffix = "-connectivity-20260926"
+            buildConfigField("boolean", "HEARTBEAT_DIAGNOSTIC", "true")
+            buildConfigField("String", "APP_UPDATE_PUBLIC_KEY", "\"$debugUpdatePublicKey\"")
+            buildConfigField("String", "RECIPE_SIGNING_PUBLIC_KEYS", "\"{}\"")
+        }
     }
 
     sourceSets {
         getByName("acceptance") {
+            java.srcDir("src/release/java")
+        }
+        getByName("heartbeatDiagnostic") {
             java.srcDir("src/release/java")
         }
     }

@@ -81,7 +81,7 @@ async function loadListings() {
     const result = await listFleetListings({ limit: 50 })
     listingResults.value = result.items
     listingTotal.value = result.total
-  } catch (error) {
+  } catch {
     listingResults.value = []
     listingTotal.value = 0
   }

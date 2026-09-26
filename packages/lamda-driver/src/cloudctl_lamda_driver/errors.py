@@ -63,7 +63,7 @@ def map_exception(exc: Exception) -> DeviceDriverError:
         return DeviceDriverError(
             DriverErrorCode.CAPABILITY_DENIED, "device capability is not permitted", retryable=False
         )
-    if isinstance(exc, (ConnectionError, OSError)):
+    if isinstance(exc, ConnectionError | OSError):
         return DeviceDriverError(
             DriverErrorCode.CONNECTION_FAILED, "device connection failed", retryable=True
         )

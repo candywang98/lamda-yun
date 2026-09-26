@@ -141,9 +141,7 @@ def floored(value: datetime) -> datetime:
     return value.replace(second=0, microsecond=0)
 
 
-async def mint_due(
-    client: httpx.AsyncClient, schedule_id: str, now: datetime
-) -> httpx.Response:
+async def mint_due(client: httpx.AsyncClient, schedule_id: str, now: datetime) -> httpx.Response:
     return await client.post(
         f"/api/v1/fleet-schedules/{schedule_id}:mint-due",
         headers=identity(),
@@ -371,9 +369,7 @@ async def test_template_edit_pins_minted_task_and_future_uses_new_revision(
     payload = frozen.json()["commandPayload"]
     assert payload["parameters"] == {"role": "ALL_VISIBLE", "limit": 3}
     assert payload["templateRevision"] == 1
-    assert parse_instant(frozen.json()["scheduledFor"]) == floored(created_at) + timedelta(
-        days=1
-    )
+    assert parse_instant(frozen.json()["scheduledFor"]) == floored(created_at) + timedelta(days=1)
     assert payload["snapshotSha256"]
 
     fresh = await client.get(f"/api/v1/platform-tasks/{second_task_id}", headers=identity())
@@ -492,9 +488,9 @@ def test_fire_key_formula_is_a04_compatible() -> None:
     assert fleet_fire_key(schedule_id, occurrence, device_id) == expected
     assert len(expected) == 64
     # Same period, same key; any other period differs.
-    assert fleet_fire_key(
-        schedule_id, occurrence + timedelta(days=1), device_id
-    ) != fleet_fire_key(schedule_id, occurrence, device_id)
+    assert fleet_fire_key(schedule_id, occurrence + timedelta(days=1), device_id) != fleet_fire_key(
+        schedule_id, occurrence, device_id
+    )
 
 
 @pytest.mark.asyncio

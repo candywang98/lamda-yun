@@ -43,9 +43,9 @@ def _assert_additive(committed: Any, live: Any, path: str = "$") -> None:
     elif isinstance(committed, list):
         assert isinstance(live, list), f"{path}: committed list changed kind"
         for position, item in enumerate(committed):
-            assert any(
-                _item_survives(item, candidate) for candidate in live
-            ), f"{path}[{position}]: committed list entry dropped or changed"
+            assert any(_item_survives(item, candidate) for candidate in live), (
+                f"{path}[{position}]: committed list entry dropped or changed"
+            )
     else:
         assert committed == live, f"{path}: committed value {committed!r} became {live!r}"
 
@@ -59,11 +59,11 @@ def test_committed_openapi_matches_application() -> None:
     assert committed["info"] == expected["info"]
     assert committed["paths"] == expected["paths"], (
         "committed OpenAPI paths diverged from the application; the controller must "
- "regenerate packages/api-contracts/openapi.json and restore strict equality"
+        "regenerate packages/api-contracts/openapi.json and restore strict equality"
     )
     assert committed["components"] == expected["components"], (
         "committed OpenAPI schemas diverged from the application; the controller must "
- "regenerate packages/api-contracts/openapi.json and restore strict equality"
+        "regenerate packages/api-contracts/openapi.json and restore strict equality"
     )
     required_paths = {
         "/api/v1/operations/features",

@@ -107,17 +107,13 @@ async def main() -> None:
             origin="http://127.0.0.1:5173",
         ) as websocket:
             await websocket.send(
-                json.dumps(
-                    {"type": "debug.auth", "sessionId": session_id, "token": relay_token}
-                )
+                json.dumps({"type": "debug.auth", "sessionId": session_id, "token": relay_token})
             )
             ready = json.loads(await asyncio.wait_for(websocket.recv(), timeout=10))
             if ready.get("type") != "ready":
                 raise RuntimeError(f"unexpected WSS ready message: {ready}")
 
-            await websocket.send(
-                json.dumps({"type": "view.layout", "sessionId": session_id})
-            )
+            await websocket.send(json.dumps({"type": "view.layout", "sessionId": session_id}))
             layout_accepted = json.loads(await asyncio.wait_for(websocket.recv(), timeout=10))
             if layout_accepted.get("type") != "debug.accepted":
                 raise RuntimeError(f"unexpected layout acceptance: {layout_accepted}")
@@ -127,9 +123,7 @@ async def main() -> None:
             if not layout["nodes"]:
                 raise RuntimeError("device UI tree is empty")
 
-            await websocket.send(
-                json.dumps({"type": "view.frame", "sessionId": session_id})
-            )
+            await websocket.send(json.dumps({"type": "view.frame", "sessionId": session_id}))
             frame_accepted = json.loads(await asyncio.wait_for(websocket.recv(), timeout=10))
             if frame_accepted.get("type") != "debug.accepted":
                 raise RuntimeError(f"unexpected frame acceptance: {frame_accepted}")

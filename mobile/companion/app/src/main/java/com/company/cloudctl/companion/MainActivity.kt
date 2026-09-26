@@ -91,6 +91,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (
+            !BuildConfig.HEARTBEAT_DIAGNOSTIC &&
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) {
@@ -167,7 +168,17 @@ private fun CompanionScreen(state: CompanionState, model: CompanionViewModel) {
                 .semantics { contentDescription = "companion_home_root" }
                 .padding(padding),
         ) {
-            if (state.binding == null) EnrollmentForm(state.busy, state.error, model)
+            if (BuildConfig.HEARTBEAT_DIAGNOSTIC) {
+                Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("连接诊断模式", style = MaterialTheme.typography.titleLarge)
+                    Text("仅健康心跳；任务、消息补传、远程预览和自动更新均已禁用。")
+                    Text("版本：${BuildConfig.VERSION_NAME}")
+                    Text("设备：${state.binding?.deviceId ?: "未绑定"}")
+                    Text(if (state.presenceOnline) "云端心跳：在线" else "云端心跳：${state.presenceIssue?.label ?: "离线"}")
+                    Text("最近成功心跳：${state.lastHeartbeatAt ?: "尚无记录"}")
+                    Text("本版本不申请权限、不重新绑定；退出诊断需经授权更新应用。")
+                }
+            } else if (state.binding == null) EnrollmentForm(state.busy, state.error, model)
             else StatusContent(state, model)
             if (state.busy) CircularProgressIndicator(Modifier.align(Alignment.Center))
         }
@@ -361,9 +372,16 @@ private fun CurrentRunStrip(state: CompanionState) {
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
                 )
+                if (!state.presenceOnline) {
+                    Text(
+                        if (state.binding == null) "尚未绑定云端" else state.presenceIssue?.label ?: "等待云端连接",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFF9A5B00),
+                    )
+                }
             }
             Text(
-                if (state.presenceOnline) "在线" else "离线",
+                if (state.binding == null) "未绑定" else if (state.presenceOnline) "在线" else "离线",
                 color = if (state.presenceOnline) Color(0xFF08766D) else Color(0xFF9A5B00),
                 fontWeight = FontWeight.SemiBold,
             )
@@ -440,7 +458,13 @@ private fun EnvironmentStatus(state: CompanionState, model: CompanionViewModel) 
         }
     }
     Section("云端连接") {
-        StatusRow("控制 API", if (state.binding != null) "已绑定" else "离线")
+        StatusRow("绑定状态", if (state.binding != null) "已绑定（不代表在线）" else "未绑定")
+        StatusRow("云端心跳", if (state.presenceOnline) "在线" else state.presenceIssue?.label ?: "离线")
+        StatusRow(
+            "最近成功心跳",
+            state.lastHeartbeatAt?.atZone(java.time.ZoneId.systemDefault())
+                ?.format(java.time.format.DateTimeFormatter.ofPattern("MM-dd HH:mm:ss")) ?: "尚无成功记录",
+        )
         StatusRow("绑定 ID", state.binding?.bindingId.orEmpty())
         StatusRow("当前任务", state.task?.taskRunId ?: "等待任务")
     }

@@ -1,5 +1,6 @@
 package com.company.cloudctl.companion.im
 
+import com.company.cloudctl.companion.BuildConfig
 import java.time.Instant
 import kotlin.test.AfterTest
 import kotlin.test.Test
@@ -35,10 +36,10 @@ class ImMonitorTest {
         assertFalse(a == event(text = "x").dedupeKey("device-1"))
     }
 
-@Test
+    @Test
     fun configGatesPackagesBySelectedPlatforms() {
         ImMonitor.applyConfig(ImMonitorConfig(platforms = setOf("xhs")))
-        assertTrue(ImMonitor.isPackageEnabled("com.xingin.xhs"))
+        assertEquals(!BuildConfig.HEARTBEAT_DIAGNOSTIC, ImMonitor.isPackageEnabled("com.xingin.xhs"))
         assertFalse(ImMonitor.isPackageEnabled("com.taobao.idlefish"))
         assertFalse(ImMonitor.isPackageEnabled("com.unknown.app"))
         ImMonitor.applyConfig(ImMonitorConfig(enabled = false, platforms = setOf("xhs")))

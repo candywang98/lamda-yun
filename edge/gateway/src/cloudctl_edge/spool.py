@@ -258,8 +258,7 @@ class EdgeSpool:
     def revoke_debug_grant(self, session_id: str) -> None:
         with self._transaction():
             self._connection.execute(
-                "UPDATE debug_grants SET revoked_at = COALESCE(revoked_at, ?) "
-                "WHERE session_id = ?",
+                "UPDATE debug_grants SET revoked_at = COALESCE(revoked_at, ?) WHERE session_id = ?",
                 (datetime.now(UTC).isoformat(), session_id),
             )
 

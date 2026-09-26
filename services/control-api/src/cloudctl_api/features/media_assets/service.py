@@ -98,14 +98,10 @@ class MediaAssetsService:
         stored = await self.object_store.get(object_key)
         if stored is None:
             raise NotFoundError("media object was not found")
-        output, width, height = await asyncio.to_thread(
-            self._render, stored.content, request
-        )
+        output, width, height = await asyncio.to_thread(self._render, stored.content, request)
         output_sha256 = hashlib.sha256(output).hexdigest()
         output_key = f"tenants/{tenant_id}/media/derivatives/{output_sha256}.png"
-        await asyncio.to_thread(
-            self.object_store.put, output_key, output, "image/png"
-        )
+        await asyncio.to_thread(self.object_store.put, output_key, output, "image/png")
 
         profile = {
             "kind": "watermark",
@@ -176,9 +172,7 @@ class MediaAssetsService:
                 "publishDerivativeSha256": output_sha256,
             }
 
-    async def freeze_pool(
-        self, actor: Actor, request: MediaPoolFreezeRequest
-    ) -> dict[str, Any]:
+    async def freeze_pool(self, actor: Actor, request: MediaPoolFreezeRequest) -> dict[str, Any]:
         require_permissions(actor.roles, Permission.CONTENT_WRITE)
         tenant_id = str(actor.tenant_id)
         async with self.database.unit_of_work() as session:
@@ -242,9 +236,7 @@ class MediaAssetsService:
             )
             ordered = sorted(
                 member_ids,
-                key=lambda asset_id: hashlib.sha256(
-                    f"{seed}\0{asset_id}".encode()
-                ).digest(),
+                key=lambda asset_id: hashlib.sha256(f"{seed}\0{asset_id}".encode()).digest(),
             )
             selected = ordered[: request.count]
             snapshot = {
@@ -264,9 +256,7 @@ class MediaAssetsService:
             )
             return {**frozen, "replayed": False}
 
-    async def preflight(
-        self, actor: Actor, request: PublishPreflightRequest
-    ) -> dict[str, Any]:
+    async def preflight(self, actor: Actor, request: PublishPreflightRequest) -> dict[str, Any]:
         require_permissions(actor.roles, Permission.PUBLISH_CREATE)
         tenant_id = str(actor.tenant_id)
         checks: list[dict[str, str]] = []
@@ -290,14 +280,18 @@ class MediaAssetsService:
                 )
             )
             media_ids = [item.media_asset_id for item in media_links]
-            media_rows = list(
-                await session.scalars(
-                    select(MediaAssetRow).where(
-                        MediaAssetRow.tenant_id == tenant_id,
-                        MediaAssetRow.id.in_(media_ids),
+            media_rows = (
+                list(
+                    await session.scalars(
+                        select(MediaAssetRow).where(
+                            MediaAssetRow.tenant_id == tenant_id,
+                            MediaAssetRow.id.in_(media_ids),
+                        )
                     )
                 )
-            ) if media_ids else []
+                if media_ids
+                else []
+            )
             account = await session.scalar(
                 select(PlatformAccountRow).where(
                     PlatformAccountRow.id == request.account_id,
@@ -401,9 +395,7 @@ class MediaAssetsService:
             )
             package = _PLATFORM_PACKAGES[request.platform]
             app_version = (
-                (device.target_app_versions or {}).get(package)
-                if device is not None
-                else None
+                (device.target_app_versions or {}).get(package) if device is not None else None
             )
             checks.append(
                 _check(

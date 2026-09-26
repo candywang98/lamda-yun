@@ -53,9 +53,7 @@ class ContentIOService:
     def __init__(self, database: Any) -> None:
         self.database = database
 
-    async def run_import(
-        self, actor: Actor, request: ContentImportRunRequest
-    ) -> dict[str, Any]:
+    async def run_import(self, actor: Actor, request: ContentImportRunRequest) -> dict[str, Any]:
         require_permissions(actor.roles, Permission.CONTENT_WRITE)
         tenant_id = str(actor.tenant_id)
         import_key = request.import_key or canonical_hash(
@@ -150,9 +148,7 @@ class ContentIOService:
             summary = {
                 "total": len(rows),
                 "importCount": sum(row["status"] == _ROW_IMPORT for row in rows),
-                "skipExistingCount": sum(
-                    row["status"] == _ROW_SKIP_EXISTING for row in rows
-                ),
+                "skipExistingCount": sum(row["status"] == _ROW_SKIP_EXISTING for row in rows),
                 "errorCount": sum(row["status"] == _ROW_ERROR for row in rows),
             }
             policy = (
@@ -259,9 +255,7 @@ class ContentIOService:
                 query = query.where(ProductRow.status == status_filter)
             if category:
                 query = query.where(ProductRow.category == category)
-            products = list(
-                await session.scalars(query.order_by(ProductRow.spu_code.asc()))
-            )
+            products = list(await session.scalars(query.order_by(ProductRow.spu_code.asc())))
             buffer = io.StringIO()
             writer = csv.writer(buffer, quoting=csv.QUOTE_ALL, lineterminator="\r\n")
             writer.writerow(_EXPORT_COLUMNS)
@@ -277,9 +271,7 @@ class ContentIOService:
                         self._csv_cell(product.status),
                         self._csv_cell(product.revision),
                         self._csv_cell(
-                            product.created_at.isoformat()
-                            if product.created_at
-                            else ""
+                            product.created_at.isoformat() if product.created_at else ""
                         ),
                     ]
                 )
@@ -332,9 +324,7 @@ class ContentIOService:
                     "requestId": event.request_id,
                     "result": event.result,
                     "afterHash": event.after_hash,
-                    "occurredAt": event.occurred_at.isoformat()
-                    if event.occurred_at
-                    else None,
+                    "occurredAt": event.occurred_at.isoformat() if event.occurred_at else None,
                     "snapshot": event.metadata_json or {},
                 }
                 for event in events

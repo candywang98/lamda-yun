@@ -51,7 +51,10 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(["device_id"], ["device.id"]),
         sa.UniqueConstraint(
-            "tenant_id", "device_id", "run_key", "screen",
+            "tenant_id",
+            "device_id",
+            "run_key",
+            "screen",
             name="uq_fleet_order_page_screen",
         ),
         sa.CheckConstraint("platform IN ('xianyu')", name="ck_fleet_order_page_platform"),
@@ -82,7 +85,10 @@ def upgrade() -> None:
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(["device_id"], ["device.id"]),
         sa.UniqueConstraint(
-            "tenant_id", "device_id", "platform", "direction",
+            "tenant_id",
+            "device_id",
+            "platform",
+            "direction",
             name="uq_fleet_order_checkpoint_binding",
         ),
         sa.CheckConstraint("platform IN ('xianyu')", name="ck_fleet_order_checkpoint_platform"),

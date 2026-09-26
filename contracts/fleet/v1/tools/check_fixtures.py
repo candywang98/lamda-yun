@@ -7,6 +7,7 @@ cross-language verified by ControlledStepsIdentityTest against
 steps-identity-golden.json), then validates K10 fixtures and fills/pins their
 expected digests. Exit 0 = pass.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -28,8 +29,12 @@ def action_key(task_id: str, recipe_sha: str, action_id: str) -> str:
 
 
 def parameter_hash(
-    task_id: str, command_type: str, account_id: str,
-    binding_version: int, snapshot_sha: str, recipe_sha: str,
+    task_id: str,
+    command_type: str,
+    account_id: str,
+    binding_version: int,
+    snapshot_sha: str,
+    recipe_sha: str,
 ) -> str:
     params = (
         f"cloudctl.action-parameters/v1\n{task_id}\n{command_type}\n{account_id}\n"
@@ -54,8 +59,12 @@ def check_algorithm_parity() -> None:
     key = action_key(g["taskId"], steps_sha, "click-publish")
     assert key == g["actionKey"], "actionKey diverged from golden"
     params = parameter_hash(
-        g["taskId"], "xianyu.publish_listing.steps.v1", g["deviceId"],
-        g["bindingVersion"], steps_sha, steps_sha,
+        g["taskId"],
+        "xianyu.publish_listing.steps.v1",
+        g["deviceId"],
+        g["bindingVersion"],
+        steps_sha,
+        steps_sha,
     )
     assert params == g["parameterHash"], "parameterHash diverged from golden"
 
@@ -72,8 +81,12 @@ def main() -> int:
     ai = pos["actionIdentity"]
     key = action_key(ai["taskId"], ai["recipeSha256"], ai["actionId"])
     params = parameter_hash(
-        ai["taskId"], ai["commandType"], pos["envelope"]["accountId"],
-        pos["envelope"]["bindingVersion"], ai["snapshotSha256"], ai["recipeSha256"],
+        ai["taskId"],
+        ai["commandType"],
+        pos["envelope"]["accountId"],
+        pos["envelope"]["bindingVersion"],
+        ai["snapshotSha256"],
+        ai["recipeSha256"],
     )
     if ai.get("expectedActionKey"):
         assert ai["expectedActionKey"] == key, "positive fixture actionKey mismatch"
@@ -90,7 +103,9 @@ def main() -> int:
     assert digest64(ai["recipeSha256"]) and digest64(ai["snapshotSha256"])
 
     # Negative fixtures: structure assertions only (rejections happen in consumers).
-    neg_epoch = json.loads((CONTRACT_DIR / "fixtures/k10-negative-actionkey-contains-epoch.json").read_text())
+    neg_epoch = json.loads(
+        (CONTRACT_DIR / "fixtures/k10-negative-actionkey-contains-epoch.json").read_text()
+    )
     assert neg_epoch["expect"] == "REJECT"
     assert "controlEpoch" in json.dumps(neg_epoch["identityInputs"])
     neg_busy = json.loads((CONTRACT_DIR / "fixtures/k10-negative-account-busy.json").read_text())
@@ -100,8 +115,13 @@ def main() -> int:
     assert running["accountId"] == neg_busy["incomingTask"]["accountId"]
     assert running["taskId"] != neg_busy["incomingTask"]["taskId"]
     assert neg_busy["incomingTask"]["writeEffect"] is True
-    neg_unknown = json.loads((CONTRACT_DIR / "fixtures/k10-negative-reclaim-open-unknown.json").read_text())
-    assert neg_unknown["expect"]["code"] == "RECONCILE_REQUIRED" and neg_unknown["expect"]["status"] == 409
+    neg_unknown = json.loads(
+        (CONTRACT_DIR / "fixtures/k10-negative-reclaim-open-unknown.json").read_text()
+    )
+    assert (
+        neg_unknown["expect"]["code"] == "RECONCILE_REQUIRED"
+        and neg_unknown["expect"]["status"] == 409
+    )
     assert any(r["status"] == "UNKNOWN" for r in neg_unknown["precondition"]["ledgerRows"])
 
     print("negative fixtures: OK")

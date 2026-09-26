@@ -47,9 +47,7 @@ async def test_s01a_gated_intent_authorized_exactly_once(
     async with app.state.database.unit_of_work() as session:
         rows = list(
             await session.scalars(
-                select(MobileActionCommitRow).where(
-                    MobileActionCommitRow.task_id == ctx["taskId"]
-                )
+                select(MobileActionCommitRow).where(MobileActionCommitRow.task_id == ctx["taskId"])
             )
         )
         assert len(rows) == 1, "GATED intent must create exactly one ledger row"
@@ -57,9 +55,7 @@ async def test_s01a_gated_intent_authorized_exactly_once(
         assert rows[0].action_key == action_view["actionKey"]
         audits = list(
             await session.scalars(
-                select(AuditEventRow).where(
-                    AuditEventRow.resource_id == action_view["actionKey"]
-                )
+                select(AuditEventRow).where(AuditEventRow.resource_id == action_view["actionKey"])
             )
         )
         assert [a.action for a in audits] == ["mobile.action.intent"], (
@@ -148,19 +144,13 @@ async def test_s01d_intent_requires_running_task_and_frozen_replay(
     assert (await client.post(intent, headers=ctx["auth"], json=body)).status_code == 201
 
     drifted = {**body, "beforeEvidence": "evidence://different"}
-    assert (
-        await client.post(intent, headers=ctx["auth"], json=drifted)
-    ).status_code == 409
+    assert (await client.post(intent, headers=ctx["auth"], json=drifted)).status_code == 409
 
     stale_lease = {**body, "leaseId": str(uuid.uuid4())}
-    assert (
-        await client.post(intent, headers=ctx["auth"], json=stale_lease)
-    ).status_code == 409
+    assert (await client.post(intent, headers=ctx["auth"], json=stale_lease)).status_code == 409
 
     wrong_action = {**body, "actionId": "not-the-gated-action"}
-    assert (
-        await client.post(intent, headers=ctx["auth"], json=wrong_action)
-    ).status_code == 409
+    assert (await client.post(intent, headers=ctx["auth"], json=wrong_action)).status_code == 409
 
     async with app.state.database.unit_of_work() as session:
         count = len(
@@ -193,9 +183,7 @@ async def test_s01e_forged_identity_never_enters_the_ledger(
     async with app.state.database.unit_of_work() as session:
         rows = list(
             await session.scalars(
-                select(MobileActionCommitRow).where(
-                    MobileActionCommitRow.task_id == ctx["taskId"]
-                )
+                select(MobileActionCommitRow).where(MobileActionCommitRow.task_id == ctx["taskId"])
             )
         )
         assert rows == []

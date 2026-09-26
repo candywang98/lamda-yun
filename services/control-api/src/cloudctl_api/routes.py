@@ -590,7 +590,7 @@ async def promote_automation_package(
 async def register_recipe_package(
     actor: ActorDependency,
     control: ServiceDependency,
-    body: dict[str, Any] = Body(...),
+    body: Annotated[dict[str, Any], Body()],
 ) -> dict[str, Any]:
     return await control.register_recipe(actor, body)
 

@@ -78,9 +78,7 @@ async def authorize_publish(
     response: Response,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> dict[str, Any]:
-    publish, created = await wechat.authorize_publish(
-        actor, draft_id, idempotency_key or "", body
-    )
+    publish, created = await wechat.authorize_publish(actor, draft_id, idempotency_key or "", body)
     response.status_code = status.HTTP_201_CREATED if created else status.HTTP_200_OK
     response.headers["Idempotency-Replayed"] = "false" if created else "true"
     return publish

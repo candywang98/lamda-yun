@@ -149,7 +149,9 @@ async def create_account(
     return str(response.json()["id"])
 
 
-async def bind_account(client: httpx.AsyncClient, account_id: str, device_id: str) -> dict[str, Any]:
+async def bind_account(
+    client: httpx.AsyncClient, account_id: str, device_id: str
+) -> dict[str, Any]:
     response = await client.post(
         f"/api/v1/accounts/{account_id}/bindings",
         headers=identity(),
@@ -994,7 +996,9 @@ async def test_rebind_fails_queued_task_with_account_changed(
     )
     assert claimed.status_code == 204, claimed.text
 
-    detail = await client.get(f"/api/v1/mobile/tasks/{created.json()['taskId']}", headers=identity())
+    detail = await client.get(
+        f"/api/v1/mobile/tasks/{created.json()['taskId']}", headers=identity()
+    )
     assert detail.status_code == 200, detail.text
     assert detail.json()["status"] == "FAILED"
     assert detail.json()["errorCode"] == "ACCOUNT_CHANGED"

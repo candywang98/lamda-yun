@@ -25,6 +25,12 @@ class CompanionViewModel(application: Application) : AndroidViewModel(applicatio
                 if (state.value.binding != null) refreshIfIdle()
             }
         }
+        viewModelScope.launch {
+            while (isActive) {
+                repository.refreshPresence()
+                delay(LOCAL_STATUS_INTERVAL_MILLIS)
+            }
+        }
     }
 
     fun enroll(cloudUrl: String, code: String, certificateSha256: String) {
@@ -53,11 +59,13 @@ class CompanionViewModel(application: Application) : AndroidViewModel(applicatio
     fun unbind() = viewModelScope.launch { repository.unbind() }
 
     private fun refreshIfIdle() {
+        repository.refreshLocalStatus()
         if (refreshJob?.isActive == true) return
         refreshJob = viewModelScope.launch { repository.refresh() }
     }
 
     private companion object {
         const val REFRESH_INTERVAL_MILLIS = 30_000L
+        const val LOCAL_STATUS_INTERVAL_MILLIS = 5_000L
     }
 }

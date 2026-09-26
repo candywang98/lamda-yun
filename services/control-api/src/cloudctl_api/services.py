@@ -852,14 +852,16 @@ class ControlService:
             for item in tags:
                 tags_by_asset.setdefault(item.media_asset_id, []).append(item.tag)
             groups_by_asset: dict[str, list[str]] = {}
-            for item in memberships:
-                groups_by_asset.setdefault(item.media_asset_id, []).append(item.group_id)
+            for membership in memberships:
+                groups_by_asset.setdefault(membership.media_asset_id, []).append(
+                    membership.group_id
+                )
             items = []
             for asset in assets:
-                item = self._media_view(asset)
-                item["tags"] = sorted(tags_by_asset.get(asset.id, []))
-                item["groupIds"] = sorted(groups_by_asset.get(asset.id, []))
-                items.append(item)
+                view = self._media_view(asset)
+                view["tags"] = sorted(tags_by_asset.get(asset.id, []))
+                view["groupIds"] = sorted(groups_by_asset.get(asset.id, []))
+                items.append(view)
             return {"items": items, "page": page, "pageSize": page_size, "total": total}
 
     async def _resolve_media_assets(
@@ -911,12 +913,13 @@ class ControlService:
                 continue
             if metadata.get("request_sha256") != request_sha256:
                 raise ConflictError("Idempotency-Key was already used for a different request")
-            return await session.scalar(
+            product = await session.scalar(
                 select(ProductRow).where(
                     ProductRow.id == row.resource_id,
                     ProductRow.tenant_id == repository.tenant_id,
                 )
             )
+            return product
         return None
 
     async def _product_media_rows(
@@ -950,9 +953,7 @@ class ControlService:
             if replayed is not None:
                 media = await self._product_media_rows(session, repository, replayed.id)
                 return (
-                    self._product_view(
-                        replayed, [row.media_asset_id for row in media], media
-                    ),
+                    self._product_view(replayed, [row.media_asset_id for row in media], media),
                     False,
                 )
             existing = await session.scalar(
@@ -1011,9 +1012,7 @@ class ControlService:
                 metadata=audit_metadata,
             )
             return (
-                self._product_view(
-                    product, [row.media_asset_id for row in media_rows], media_rows
-                ),
+                self._product_view(product, [row.media_asset_id for row in media_rows], media_rows),
                 True,
             )
 
@@ -1471,9 +1470,7 @@ class ControlService:
                 raise NotFoundError("product was not found")
             if product.status == "ARCHIVED":
                 media = await self._product_media_rows(session, repository, product.id)
-                return self._product_view(
-                    product, [row.media_asset_id for row in media], media
-                )
+                return self._product_view(product, [row.media_asset_id for row in media], media)
             active_plan = await session.scalar(
                 select(PublishPlanRow.id).where(
                     PublishPlanRow.product_id == product.id,
@@ -1569,7 +1566,7 @@ class ControlService:
             )
             if len(products) != len(request.product_ids):
                 raise ValidationError("one or more products do not exist or are archived")
-            
+
             for product in products:
                 product.price = request.price
                 product.revision += 1
@@ -1579,7 +1576,7 @@ class ControlService:
                     resource_id=product.id,
                     after={"revision": product.revision, "price": request.price},
                 )
-            
+
             return {"updated_count": len(products), "product_ids": request.product_ids}
 
     async def batch_update_product_group(
@@ -1588,12 +1585,12 @@ class ControlService:
         require_permissions(actor.roles, Permission.CONTENT_WRITE)
         async with self.database.unit_of_work() as session:
             repository = ControlRepository(session, actor)
-            
+
             # Verify group exists - 使用ProductGroupRow而不是ContentGroupRow
             group = await session.get(ProductGroupRow, request.group_id)
             if group is None or group.tenant_id != repository.tenant_id:
                 raise ValidationError("product group does not exist in tenant")
-            
+
             products = list(
                 await session.scalars(
                     select(ProductRow).where(
@@ -1605,7 +1602,7 @@ class ControlService:
             )
             if len(products) != len(request.product_ids):
                 raise ValidationError("one or more products do not exist or are archived")
-            
+
             # Remove existing group memberships - 使用ProductGroupMembershipRow
             await session.execute(
                 delete(ProductGroupMembershipRow).where(
@@ -1613,7 +1610,7 @@ class ControlService:
                     ProductGroupMembershipRow.tenant_id == repository.tenant_id,
                 )
             )
-            
+
             # Add new group memberships - 使用ProductGroupMembershipRow
             for product_id in request.product_ids:
                 repository.add(
@@ -1622,11 +1619,11 @@ class ControlService:
                         tenant_id=repository.tenant_id,
                         group_id=request.group_id,
                         product_id=product_id,
-                        added_by=repository.user_id,
+                        added_by=str(repository.actor.user_id),
                         created_at=_now(),
                     )
                 )
-            
+
             return {"updated_count": len(products), "group_id": request.group_id}
 
     async def batch_delete_products(
@@ -1646,7 +1643,7 @@ class ControlService:
             )
             if len(products) != len(request.product_ids):
                 raise ValidationError("one or more products do not exist or are already archived")
-            
+
             for product in products:
                 product.status = "ARCHIVED"
                 product.revision += 1
@@ -1656,24 +1653,22 @@ class ControlService:
                     resource_id=product.id,
                     after={"revision": product.revision, "reason": request.reason},
                 )
-            
+
             return {"archived_count": len(products), "product_ids": request.product_ids}
 
-    async def import_products(
-        self, actor: Actor, request: ProductImportRequest
-    ) -> dict[str, Any]:
+    async def import_products(self, actor: Actor, request: ProductImportRequest) -> dict[str, Any]:
         require_permissions(actor.roles, Permission.CONTENT_WRITE)
         async with self.database.unit_of_work() as session:
             repository = ControlRepository(session, actor)
-            
+
             if request.group_id:
                 group = await session.get(ContentGroupRow, request.group_id)
                 if group is None or group.tenant_id != repository.tenant_id:
                     raise ValidationError("content group does not exist in tenant")
-            
+
             imported_ids = []
             skipped_count = 0
-            
+
             for item in request.items:
                 # Check if product with same SPU code already exists
                 existing = await session.scalar(
@@ -1682,11 +1677,11 @@ class ControlService:
                         ProductRow.tenant_id == repository.tenant_id,
                     )
                 )
-                
+
                 if existing:
                     skipped_count += 1
                     continue
-                
+
                 product_id = repository.new_id()
                 product = ProductRow(
                     id=product_id,
@@ -1703,7 +1698,7 @@ class ControlService:
                     created_at=_now(),
                 )
                 repository.add(product)
-                
+
                 # Add to group if specified
                 group_id = item.group_id or request.group_id
                 if group_id:
@@ -1716,16 +1711,16 @@ class ControlService:
                             created_at=_now(),
                         )
                     )
-                
+
                 repository.audit(
                     action="product.imported",
                     resource_type="product",
                     resource_id=product_id,
                     after={"spu_code": item.spu_code, "title": item.title},
                 )
-                
+
                 imported_ids.append(product_id)
-            
+
             return {
                 "imported_count": len(imported_ids),
                 "skipped_count": skipped_count,
@@ -1738,12 +1733,12 @@ class ControlService:
         require_permissions(actor.roles, Permission.CONTENT_READ)
         async with self.database.unit_of_work() as session:
             repository = ControlRepository(session, actor)
-            
+
             query = select(ProductRow).where(ProductRow.tenant_id == repository.tenant_id)
-            
+
             if request.status and request.status != "ALL":
                 query = query.where(ProductRow.status == request.status)
-            
+
             if request.search:
                 search_pattern = f"%{request.search}%"
                 query = query.where(
@@ -1751,16 +1746,16 @@ class ControlService:
                     | (ProductRow.spu_code.ilike(search_pattern))
                     | (ProductRow.description.ilike(search_pattern))
                 )
-            
+
             if request.category:
                 query = query.where(ProductRow.category == request.category)
-            
+
             if request.min_price:
                 query = query.where(ProductRow.price >= request.min_price)
-            
+
             if request.max_price:
                 query = query.where(ProductRow.price <= request.max_price)
-            
+
             if request.group_id:
                 query = query.join(
                     ProductGroupMembershipRow,
@@ -1768,9 +1763,9 @@ class ControlService:
                     & (ProductGroupMembershipRow.tenant_id == repository.tenant_id)
                     & (ProductGroupMembershipRow.group_id == request.group_id),
                 )
-            
+
             products = list(await session.scalars(query.order_by(ProductRow.created_at.desc())))
-            
+
             result = []
             for product in products:
                 media = list(
@@ -1785,7 +1780,7 @@ class ControlService:
                 )
                 asset_ids = [m.media_asset_id for m in media]
                 result.append(self._product_view(product, asset_ids, media))
-            
+
             return result
 
     async def initiate_media_upload(
@@ -1859,7 +1854,9 @@ class ControlService:
     ) -> None:
         declared_type = content_type.split(";", 1)[0].strip() or "application/octet-stream"
         async with self.database.unit_of_work() as session:
-            upload = await session.scalar(select(MediaUploadRow).where(MediaUploadRow.id == upload_id))
+            upload = await session.scalar(
+                select(MediaUploadRow).where(MediaUploadRow.id == upload_id)
+            )
             if upload is None:
                 raise NotFoundError("media upload does not exist")
             if upload.state == "COMPLETED":
@@ -2544,7 +2541,8 @@ class ControlService:
         require_permissions(actor.roles, Permission.RECIPE_PUBLISH)
         if not isinstance(package, dict):
             raise ValidationError("recipe package must be an object")
-        signature = package.get("signature") if isinstance(package.get("signature"), dict) else {}
+        signature_value = package.get("signature")
+        signature = signature_value if isinstance(signature_value, dict) else {}
         key_id = signature.get("keyId")
         digest = signature.get("digest")
         if not isinstance(key_id, str) or not key_id:
@@ -2579,7 +2577,9 @@ class ControlService:
             )
             if existing is not None:
                 if existing.artifact_sha256 != parsed.manifest.hash:
-                    raise ConflictError("recipe name/version already registered with a different hash")
+                    raise ConflictError(
+                        "recipe name/version already registered with a different hash"
+                    )
                 return self._recipe_view(existing)
             row = AutomationVersionRow(
                 id=repository.new_id(),

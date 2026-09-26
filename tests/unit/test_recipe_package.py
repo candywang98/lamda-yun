@@ -33,16 +33,26 @@ def unsigned_package() -> dict:
             "commitActionId": "publish",
             "states": [
                 {
-                    "stateId": "open", "action": "tap", "locatorRef": "xianyu_home_sell",
-                    "onSuccess": "fill", "onFailure": "FAILED", "onPause": "WAITING_USER",
+                    "stateId": "open",
+                    "action": "tap",
+                    "locatorRef": "xianyu_home_sell",
+                    "onSuccess": "fill",
+                    "onFailure": "FAILED",
+                    "onPause": "WAITING_USER",
                 },
                 {
-                    "stateId": "fill", "action": "input", "locatorRef": "xianyu_description",
-                    "onSuccess": "publish", "onFailure": "FAILED",
+                    "stateId": "fill",
+                    "action": "input",
+                    "locatorRef": "xianyu_description",
+                    "onSuccess": "publish",
+                    "onFailure": "FAILED",
                 },
                 {
-                    "stateId": "publish", "action": "tap", "locatorRef": "xianyu_publish_button",
-                    "postcondition": "xianyu_publish_success", "onSuccess": "SUCCEEDED",
+                    "stateId": "publish",
+                    "action": "tap",
+                    "locatorRef": "xianyu_publish_button",
+                    "postcondition": "xianyu_publish_success",
+                    "onSuccess": "SUCCEEDED",
                     "terminal": True,
                 },
             ],
@@ -62,7 +72,15 @@ def test_valid_recipe_is_bounded_and_whitelisted() -> None:
     assert parsed.graph.max_iterations == 12
     assert parsed.graph.commit_action_id == "publish"
     assert {state.action for state in parsed.graph.states} <= {
-        "tap", "input", "scroll", "extract", "wait", "launch", "media", "log", "checkpoint",
+        "tap",
+        "input",
+        "scroll",
+        "extract",
+        "wait",
+        "launch",
+        "media",
+        "log",
+        "checkpoint",
     }
 
 
@@ -105,8 +123,10 @@ def test_tampered_hash_and_bad_signature_rejected() -> None:
     public = base64.b64encode(key.public_key().public_bytes_raw()).decode()
     good = unsigned_package()
     payload = package_signature_payload(
-        artifact_sha256=good["manifest"]["hash"], manifest=good["manifest"],
-        sbom_ref="recipe://local", sbom_sha256=good["manifest"]["hash"],
+        artifact_sha256=good["manifest"]["hash"],
+        manifest=good["manifest"],
+        sbom_ref="recipe://local",
+        sbom_sha256=good["manifest"]["hash"],
     )
     good["signature"]["digest"] = base64.b64encode(key.sign(payload)).decode()
     validate_recipe_package(good, public_key_base64=public)
@@ -125,11 +145,17 @@ def test_commit_cannot_run_on_old_engine_or_declare_old_minimum():
         validate_recipe_package(value)
 
 
-@pytest.mark.parametrize("field,value", [
-    ("action", "checkpoint"), ("locatorRef", None), ("postcondition", None),
-    ("postcondition", "xianyu_publish_button"), ("onSuccess", "open"),
-    ("onFailure", "open"),
-])
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("action", "checkpoint"),
+        ("locatorRef", None),
+        ("postcondition", None),
+        ("postcondition", "xianyu_publish_button"),
+        ("onSuccess", "open"),
+        ("onFailure", "open"),
+    ],
+)
 def test_invalid_commit_is_rejected(field, value):
     package = unsigned_package()
     package["graph"]["states"][-1][field] = value

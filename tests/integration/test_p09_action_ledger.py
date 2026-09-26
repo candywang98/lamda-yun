@@ -288,25 +288,53 @@ async def test_concurrent_first_grant_and_outcome(api):  # noqa: F811
 
 
 PUBLISH_STEPS = [
-    {"stepId": "find-home-sell", "locatorRef": "xianyu_home_sell", "timeoutMs": 8000, "action": "ui.find"},
-    {"stepId": "fill-description", "locatorRef": "xianyu_description", "timeoutMs": 20000, "action": "ui.input",
-     "value": "Notion Business 兑换券，图示价值 $240。拍下后按说明发送兑换方式。支持当面交易。",
-     "replace": True, "sensitive": False},
-    {"stepId": "wait-publish-button", "locatorRef": "xianyu_publish_button", "timeoutMs": 8000, "action": "ui.wait",
-     "condition": "EXISTS", "pollMs": 200},
-    {"stepId": "click-publish", "locatorRef": "xianyu_publish_button", "timeoutMs": 5000, "action": "ui.tap"},
-    {"stepId": "wait-publish-complete", "locatorRef": "xianyu_publish_success", "timeoutMs": 15000, "action": "ui.wait",
-     "condition": "EXISTS", "pollMs": 500},
+    {
+        "stepId": "find-home-sell",
+        "locatorRef": "xianyu_home_sell",
+        "timeoutMs": 8000,
+        "action": "ui.find",
+    },
+    {
+        "stepId": "fill-description",
+        "locatorRef": "xianyu_description",
+        "timeoutMs": 20000,
+        "action": "ui.input",
+        "value": "Notion Business 兑换券，图示价值 $240。拍下后按说明发送兑换方式。支持当面交易。",
+        "replace": True,
+        "sensitive": False,
+    },
+    {
+        "stepId": "wait-publish-button",
+        "locatorRef": "xianyu_publish_button",
+        "timeoutMs": 8000,
+        "action": "ui.wait",
+        "condition": "EXISTS",
+        "pollMs": 200,
+    },
+    {
+        "stepId": "click-publish",
+        "locatorRef": "xianyu_publish_button",
+        "timeoutMs": 5000,
+        "action": "ui.tap",
+    },
+    {
+        "stepId": "wait-publish-complete",
+        "locatorRef": "xianyu_publish_success",
+        "timeoutMs": 15000,
+        "action": "ui.wait",
+        "condition": "EXISTS",
+        "pollMs": 500,
+    },
 ]
 
 
 _STEPS_DEVICE_SEQ = 0
 
 
-async def _steps_running(api, steps=None, total=120_000):
+async def _steps_running(api_context, steps=None, total=120_000):
     global _STEPS_DEVICE_SEQ
     _STEPS_DEVICE_SEQ += 1
-    client, app = api
+    client, app = api_context
     suffix = str(_STEPS_DEVICE_SEQ)
     device = await create_direct_device(client, "steps-device-" + suffix)
     auth = await _enroll(client, device, "steps-instance-" + suffix)
@@ -354,15 +382,22 @@ async def test_steps_publish_intent_once_then_reconcile(api):  # noqa: F811
     replay = await client.post(intent, headers=auth, json=body)
     assert replay.status_code == 200
     assert replay.json()["decision"] == "RECONCILE_REQUIRED"
-    report = dict(leaseId=body["leaseId"], parameterHash=body["parameterHash"],
-                  status="APPLIED", evidence="sha256:" + "a" * 64)
+    report = dict(
+        leaseId=body["leaseId"],
+        parameterHash=body["parameterHash"],
+        status="APPLIED",
+        evidence="sha256:" + "a" * 64,
+    )
     outcome = await client.post(action + "/outcome", headers=auth, json=report)
     assert outcome.status_code == 200, outcome.text
     resolved = await client.post(
         f"/api/v1/platform-tasks/{task}:reconcile",
         headers=identity(),
-        json={"decision": "CONFIRMED_APPLIED", "evidence": "listing verified",
-              "platformItemId": "xianyu-listing-1"},
+        json={
+            "decision": "CONFIRMED_APPLIED",
+            "evidence": "listing verified",
+            "platformItemId": "xianyu-listing-1",
+        },
     )
     assert resolved.status_code == 200, resolved.text
     read = await client.get(action, headers=auth)
@@ -406,9 +441,20 @@ async def test_steps_without_publish_shape_stays_refused(api):  # noqa: F811
             "targetPackage": "com.taobao.idlefish",
             "totalTimeoutMs": 60_000,
             "steps": [
-                {"stepId": "find-home-sell", "locatorRef": "xianyu_home_sell", "timeoutMs": 8000, "action": "ui.find"},
-                {"stepId": "fill-description", "locatorRef": "xianyu_description", "timeoutMs": 20000,
-                 "action": "ui.input", "value": "no publish tap here", "replace": True},
+                {
+                    "stepId": "find-home-sell",
+                    "locatorRef": "xianyu_home_sell",
+                    "timeoutMs": 8000,
+                    "action": "ui.find",
+                },
+                {
+                    "stepId": "fill-description",
+                    "locatorRef": "xianyu_description",
+                    "timeoutMs": 20000,
+                    "action": "ui.input",
+                    "value": "no publish tap here",
+                    "replace": True,
+                },
             ],
         },
     )
@@ -418,27 +464,77 @@ async def test_steps_without_publish_shape_stays_refused(api):  # noqa: F811
     cross = await client.post(
         f"/companion/v2/tasks/{task}/actions/intent",
         headers=auth,
-        json=dict(leaseId=claimed["leaseId"], actionId="click-publish",
-                  actionKey="a" * 64, parameterHash="b" * 64, beforeEvidence="evidence://x"),
+        json=dict(
+            leaseId=claimed["leaseId"],
+            actionId="click-publish",
+            actionKey="a" * 64,
+            parameterHash="b" * 64,
+            beforeEvidence="evidence://x",
+        ),
     )
     assert cross.status_code == 409
     assert "G3_NOT_ACCEPTED" in cross.text
     async with app.state.database.unit_of_work() as session:
-        assert await session.scalar(select(MobileActionCommitRow).where(MobileActionCommitRow.task_id == task)) is None
+        assert (
+            await session.scalar(
+                select(MobileActionCommitRow).where(MobileActionCommitRow.task_id == task)
+            )
+            is None
+        )
 
 
 XHS_STEPS = [
-    {"stepId": "open-home-publish", "locatorRef": "xhs_home_publish", "timeoutMs": 8000, "action": "ui.tap"},
-    {"stepId": "wait-sheet", "locatorRef": "xhs_publish_sheet", "timeoutMs": 8000, "action": "ui.wait",
-     "condition": "EXISTS", "pollMs": 200},
-    {"stepId": "select-media", "locatorRef": "xhs_gallery_cell_0", "timeoutMs": 5000, "action": "ui.tap"},
-    {"stepId": "fill-body", "locatorRef": "xhs_note_body", "timeoutMs": 20000, "action": "ui.input",
-     "value": "小红书图文正文验证", "replace": True, "sensitive": False},
-    {"stepId": "wait-publish-button", "locatorRef": "xhs_publish_button", "timeoutMs": 8000, "action": "ui.wait",
-     "condition": "EXISTS", "pollMs": 200},
-    {"stepId": "click-publish", "locatorRef": "xhs_publish_button", "timeoutMs": 5000, "action": "ui.tap"},
-    {"stepId": "wait-publish-success", "locatorRef": "xhs_publish_success", "timeoutMs": 15000, "action": "ui.wait",
-     "condition": "EXISTS", "pollMs": 500},
+    {
+        "stepId": "open-home-publish",
+        "locatorRef": "xhs_home_publish",
+        "timeoutMs": 8000,
+        "action": "ui.tap",
+    },
+    {
+        "stepId": "wait-sheet",
+        "locatorRef": "xhs_publish_sheet",
+        "timeoutMs": 8000,
+        "action": "ui.wait",
+        "condition": "EXISTS",
+        "pollMs": 200,
+    },
+    {
+        "stepId": "select-media",
+        "locatorRef": "xhs_gallery_cell_0",
+        "timeoutMs": 5000,
+        "action": "ui.tap",
+    },
+    {
+        "stepId": "fill-body",
+        "locatorRef": "xhs_note_body",
+        "timeoutMs": 20000,
+        "action": "ui.input",
+        "value": "小红书图文正文验证",
+        "replace": True,
+        "sensitive": False,
+    },
+    {
+        "stepId": "wait-publish-button",
+        "locatorRef": "xhs_publish_button",
+        "timeoutMs": 8000,
+        "action": "ui.wait",
+        "condition": "EXISTS",
+        "pollMs": 200,
+    },
+    {
+        "stepId": "click-publish",
+        "locatorRef": "xhs_publish_button",
+        "timeoutMs": 5000,
+        "action": "ui.tap",
+    },
+    {
+        "stepId": "wait-publish-success",
+        "locatorRef": "xhs_publish_success",
+        "timeoutMs": 15000,
+        "action": "ui.wait",
+        "condition": "EXISTS",
+        "pollMs": 500,
+    },
 ]
 
 
@@ -471,8 +567,11 @@ async def test_xhs_steps_publish_intent_and_refused_shapes(api):  # noqa: F811
         frozen = steps_action_identity(row)
     assert frozen["action_id"] == "click-publish"
     body = dict(
-        leaseId=claimed["leaseId"], actionId=frozen["action_id"], actionKey=frozen["action_key"],
-        parameterHash=frozen["parameter_hash"], beforeEvidence="sha256:" + "c" * 64,
+        leaseId=claimed["leaseId"],
+        actionId=frozen["action_id"],
+        actionKey=frozen["action_key"],
+        parameterHash=frozen["parameter_hash"],
+        beforeEvidence="sha256:" + "c" * 64,
     )
     intent, action = paths(task, body)
     first = await client.post(intent, headers=auth, json=body)
@@ -489,9 +588,20 @@ async def test_xhs_steps_publish_intent_and_refused_shapes(api):  # noqa: F811
             "targetPackage": "com.xingin.xhs",
             "totalTimeoutMs": 60_000,
             "steps": [
-                {"stepId": "open-home-publish", "locatorRef": "xhs_home_publish", "timeoutMs": 8000, "action": "ui.tap"},
-                {"stepId": "fill-body", "locatorRef": "xhs_note_body", "timeoutMs": 20000, "action": "ui.input",
-                 "value": "no publish tap", "replace": True},
+                {
+                    "stepId": "open-home-publish",
+                    "locatorRef": "xhs_home_publish",
+                    "timeoutMs": 8000,
+                    "action": "ui.tap",
+                },
+                {
+                    "stepId": "fill-body",
+                    "locatorRef": "xhs_note_body",
+                    "timeoutMs": 20000,
+                    "action": "ui.input",
+                    "value": "no publish tap",
+                    "replace": True,
+                },
             ],
         },
     )
@@ -501,25 +611,74 @@ async def test_xhs_steps_publish_intent_and_refused_shapes(api):  # noqa: F811
     refused = await client.post(
         f"/companion/v2/tasks/{task2}/actions/intent",
         headers=auth2,
-        json=dict(leaseId=claimed2["leaseId"], actionId="click-publish",
-                  actionKey="d" * 64, parameterHash="e" * 64, beforeEvidence="evidence://x"),
+        json=dict(
+            leaseId=claimed2["leaseId"],
+            actionId="click-publish",
+            actionKey="d" * 64,
+            parameterHash="e" * 64,
+            beforeEvidence="evidence://x",
+        ),
     )
     assert refused.status_code == 409
     assert "G3_NOT_ACCEPTED" in refused.text
 
 
 DY_STEPS = [
-    {"stepId": "open-home-publish", "locatorRef": "dy_home_publish", "timeoutMs": 8000, "action": "ui.tap"},
-    {"stepId": "open-album", "locatorRef": "dy_camera_album", "timeoutMs": 8000, "action": "ui.tap"},
-    {"stepId": "select-images-tab", "locatorRef": "dy_media_images_tab", "timeoutMs": 8000, "action": "ui.tap"},
-    {"stepId": "select-media-0", "locatorRef": "dy_gallery_cell_0", "timeoutMs": 8000, "action": "ui.tap"},
-    {"stepId": "fill-body", "locatorRef": "dy_note_body", "timeoutMs": 20000, "action": "ui.input",
-     "value": "抖音图文正文验证", "replace": True, "sensitive": False},
-    {"stepId": "wait-publish-button", "locatorRef": "dy_publish_button", "timeoutMs": 8000, "action": "ui.wait",
-     "condition": "EXISTS", "pollMs": 200},
-    {"stepId": "click-publish", "locatorRef": "dy_publish_button", "timeoutMs": 5000, "action": "ui.tap"},
-    {"stepId": "wait-publish-success", "locatorRef": "dy_publish_success", "timeoutMs": 15000, "action": "ui.wait",
-     "condition": "EXISTS", "pollMs": 500},
+    {
+        "stepId": "open-home-publish",
+        "locatorRef": "dy_home_publish",
+        "timeoutMs": 8000,
+        "action": "ui.tap",
+    },
+    {
+        "stepId": "open-album",
+        "locatorRef": "dy_camera_album",
+        "timeoutMs": 8000,
+        "action": "ui.tap",
+    },
+    {
+        "stepId": "select-images-tab",
+        "locatorRef": "dy_media_images_tab",
+        "timeoutMs": 8000,
+        "action": "ui.tap",
+    },
+    {
+        "stepId": "select-media-0",
+        "locatorRef": "dy_gallery_cell_0",
+        "timeoutMs": 8000,
+        "action": "ui.tap",
+    },
+    {
+        "stepId": "fill-body",
+        "locatorRef": "dy_note_body",
+        "timeoutMs": 20000,
+        "action": "ui.input",
+        "value": "抖音图文正文验证",
+        "replace": True,
+        "sensitive": False,
+    },
+    {
+        "stepId": "wait-publish-button",
+        "locatorRef": "dy_publish_button",
+        "timeoutMs": 8000,
+        "action": "ui.wait",
+        "condition": "EXISTS",
+        "pollMs": 200,
+    },
+    {
+        "stepId": "click-publish",
+        "locatorRef": "dy_publish_button",
+        "timeoutMs": 5000,
+        "action": "ui.tap",
+    },
+    {
+        "stepId": "wait-publish-success",
+        "locatorRef": "dy_publish_success",
+        "timeoutMs": 15000,
+        "action": "ui.wait",
+        "condition": "EXISTS",
+        "pollMs": 500,
+    },
 ]
 
 
@@ -552,8 +711,11 @@ async def test_douyin_steps_publish_intent_authorized(api):  # noqa: F811
         frozen = steps_action_identity(row)
     assert frozen["action_id"] == "click-publish"
     body = dict(
-        leaseId=claimed["leaseId"], actionId=frozen["action_id"], actionKey=frozen["action_key"],
-        parameterHash=frozen["parameter_hash"], beforeEvidence="sha256:" + "f" * 64,
+        leaseId=claimed["leaseId"],
+        actionId=frozen["action_id"],
+        actionKey=frozen["action_key"],
+        parameterHash=frozen["parameter_hash"],
+        beforeEvidence="sha256:" + "f" * 64,
     )
     intent, _ = paths(task, body)
     first = await client.post(intent, headers=auth, json=body)

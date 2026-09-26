@@ -20,24 +20,26 @@ from typing import Annotated, Any
 from cloudctl_domain import Actor
 from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import JSONResponse
-from sqlalchemy import select
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    Integer,
+    String,
+    UniqueConstraint,
+    select,
+)
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Mapped, mapped_column
 
 from .auth import current_actor
 from .db import (
-    JSON,
     AuditEventRow,
     Base,
-    Boolean,
-    CheckConstraint,
     Database,
-    DateTime,
-    Integer,
-    Mapped,
     MobileTaskRow,
-    String,
     TimestampMixin,
-    UniqueConstraint,
-    mapped_column,
 )
 
 XIANYU_PACKAGE = "com.taobao.idlefish"
@@ -80,7 +82,9 @@ TEXT_PUBLISH_LOCATORS = (
 )
 
 
-def build_text_publish_steps(*, description: str, price: str, auto_publish: bool = False) -> list[dict[str, Any]]:
+def build_text_publish_steps(
+    *, description: str, price: str, auto_publish: bool = False
+) -> list[dict[str, Any]]:
     """Return allowlisted steps that fill the idlefish publish form.
 
     Args:
@@ -165,77 +169,80 @@ def build_text_publish_steps(*, description: str, price: str, auto_publish: bool
             "timeoutMs": 15_000,
         },
     ]
-    
+
     if auto_publish:
         # Add publish button click and confirmation
-        steps.extend([
+        steps.extend(
+            [
+                {
+                    "stepId": "wait-location",
+                    "action": "ui.wait",
+                    "locatorRef": "xianyu_location",
+                    "condition": "EXISTS",
+                    "pollMs": 200,
+                    "timeoutMs": 8_000,
+                },
+                {
+                    "stepId": "open-location",
+                    "action": "ui.tap",
+                    "locatorRef": "xianyu_location",
+                    "postconditionLocatorRef": "xianyu_location_page",
+                    "timeoutMs": 8_000,
+                },
+                {
+                    "stepId": "select-location",
+                    "action": "ui.tap",
+                    "locatorRef": "xianyu_location_saved_0",
+                    "postconditionLocatorRef": "xianyu_publish_page",
+                    "timeoutMs": 8_000,
+                },
+                {
+                    "stepId": "wait-publish-button",
+                    "action": "ui.wait",
+                    "locatorRef": "xianyu_publish_button",
+                    "condition": "EXISTS",
+                    "pollMs": 200,
+                    "timeoutMs": 8_000,
+                },
+                {
+                    "stepId": "click-publish",
+                    "action": "ui.tap",
+                    "locatorRef": "xianyu_publish_button",
+                    "timeoutMs": 5_000,
+                },
+                {
+                    "stepId": "wait-publish-complete",
+                    "action": "ui.wait",
+                    "locatorRef": "xianyu_publish_success",
+                    "condition": "EXISTS",
+                    "pollMs": 500,
+                    "timeoutMs": 15_000,
+                },
+                {
+                    "stepId": "capture-success",
+                    "action": "ui.screenshot",
+                    "label": "xianyu_publish_success",
+                    "timeoutMs": 5_000,
+                },
+                {
+                    "stepId": "mark-published",
+                    "action": "run.log",
+                    "level": "INFO",
+                    "messageCode": "XIANYU_PUBLISH_SUCCESS",
+                    "timeoutMs": 1_000,
+                },
+            ]
+        )
+    else:
+        steps.append(
             {
-                "stepId": "wait-location",
-                "action": "ui.wait",
-                "locatorRef": "xianyu_location",
-                "condition": "EXISTS",
-                "pollMs": 200,
-                "timeoutMs": 8_000,
-            },
-            {
-                "stepId": "open-location",
-                "action": "ui.tap",
-                "locatorRef": "xianyu_location",
-                "postconditionLocatorRef": "xianyu_location_page",
-                "timeoutMs": 8_000,
-            },
-            {
-                "stepId": "select-location",
-                "action": "ui.tap",
-                "locatorRef": "xianyu_location_saved_0",
-                "postconditionLocatorRef": "xianyu_publish_page",
-                "timeoutMs": 8_000,
-            },
-            {
-                "stepId": "wait-publish-button",
-                "action": "ui.wait",
-                "locatorRef": "xianyu_publish_button",
-                "condition": "EXISTS",
-                "pollMs": 200,
-                "timeoutMs": 8_000,
-            },
-            {
-                "stepId": "click-publish",
-                "action": "ui.tap",
-                "locatorRef": "xianyu_publish_button",
-                "timeoutMs": 5_000,
-            },
-            {
-                "stepId": "wait-publish-complete",
-                "action": "ui.wait",
-                "locatorRef": "xianyu_publish_success",
-                "condition": "EXISTS",
-                "pollMs": 500,
-                "timeoutMs": 15_000,
-            },
-            {
-                "stepId": "capture-success",
-                "action": "ui.screenshot",
-                "label": "xianyu_publish_success",
-                "timeoutMs": 5_000,
-            },
-            {
-                "stepId": "mark-published",
+                "stepId": "mark-ready",
                 "action": "run.log",
                 "level": "INFO",
-                "messageCode": "XIANYU_PUBLISH_SUCCESS",
+                "messageCode": "XIANYU_PUBLISH_FORM_READY",
                 "timeoutMs": 1_000,
-            },
-        ])
-    else:
-        steps.append({
-            "stepId": "mark-ready",
-            "action": "run.log",
-            "level": "INFO",
-            "messageCode": "XIANYU_PUBLISH_FORM_READY",
-            "timeoutMs": 1_000,
-        })
-    
+            }
+        )
 
     used = {str(step.get("locatorRef")) for step in steps if "locatorRef" in step}
     used.update(
@@ -296,9 +303,11 @@ def build_text_publish_task(
             raise ValueError("media_asset_ids must be unique and contain 1 to 50 items")
         if not delivery_id:
             raise ValueError("delivery_id is required when media assets are supplied")
-    
-    steps = build_text_publish_steps(description=description, price=price, auto_publish=auto_publish)
-    
+
+    steps = build_text_publish_steps(
+        description=description, price=price, auto_publish=auto_publish
+    )
+
     # Insert media upload steps after opening publish page (before filling description)
     if media_asset_ids:
         media_steps = [
@@ -353,11 +362,11 @@ def build_text_publish_task(
             index for index, step in enumerate(steps) if step["stepId"] == "wait-description"
         )
         steps[insert_at:insert_at] = media_steps
-    
+
     total = sum(int(step["timeoutMs"]) for step in steps)
     if total > 900_000:
         raise ValueError("publish step timeouts exceed the task budget")
-    
+
     task = {
         "deviceId": device_id,
         "targetPackage": XIANYU_PACKAGE,
@@ -471,9 +480,7 @@ def judge_completion_boundary(claimed: str, evidence: dict[str, Any]) -> dict[st
         human_commit=not flags["commitClickedByMachine"],
     )
     recorded = completion_boundary_envelope(claimed, evidence_boundary)
-    missing = sorted(
-        flag for flag in required_completion_evidence(recorded) if not flags[flag]
-    )
+    missing = sorted(flag for flag in required_completion_evidence(recorded) if not flags[flag])
     return {
         "claimed": claimed,
         "evidenceBoundary": evidence_boundary,
@@ -570,9 +577,7 @@ def _validate_item(payload: Any, loc: list[Any]) -> list[dict[str, Any]]:
             )
         elif any(not isinstance(asset, str) or not asset for asset in media):
             issues.append(
-                _issue(
-                    media_loc, "FIELD_TYPE", "every asset id must be a non-empty string"
-                )
+                _issue(media_loc, "FIELD_TYPE", "every asset id must be a non-empty string")
             )
         elif len(set(media)) != len(media):
             issues.append(_issue(media_loc, "FIELD_DUPLICATE", "asset ids must be unique"))
@@ -620,16 +625,12 @@ def validate_confirm_request(payload: Any) -> list[dict[str, Any]]:
     issues += _check_unknown_fields(payload, CONFIRM_REQUEST_FIELDS, [])
     decision = payload.get("decision")
     if decision not in {"SUCCEEDED", "FAILED"}:
-        issues.append(
-            _issue(["decision"], "FIELD_ENUM", "decision must be SUCCEEDED or FAILED")
-        )
+        issues.append(_issue(["decision"], "FIELD_ENUM", "decision must be SUCCEEDED or FAILED"))
     evidence = payload.get("evidence")
     if evidence is not None:
         if not isinstance(evidence, dict):
             issues.append(
-                _issue(
-                    ["evidence"], "FIELD_TYPE", "evidence must be an object of boolean flags"
-                )
+                _issue(["evidence"], "FIELD_TYPE", "evidence must be an object of boolean flags")
             )
         else:
             issues += _check_unknown_fields(evidence, frozenset(EVIDENCE_FLAGS), ["evidence"])
@@ -641,14 +642,10 @@ def validate_confirm_request(payload: Any) -> list[dict[str, Any]]:
                     )
     platform_item_id = payload.get("platformItemId")
     if platform_item_id is not None:
-        issues += _require_string(
-            platform_item_id, ["platformItemId"], min_length=1, max_length=64
-        )
+        issues += _require_string(platform_item_id, ["platformItemId"], min_length=1, max_length=64)
     operator_note = payload.get("operatorNote")
     if operator_note is not None:
-        issues += _require_string(
-            operator_note, ["operatorNote"], min_length=1, max_length=2000
-        )
+        issues += _require_string(operator_note, ["operatorNote"], min_length=1, max_length=2000)
     return issues
 
 
@@ -688,9 +685,7 @@ TARGET_STATES = frozenset(
     }
 )
 #: terminal targets are never re-issued by the serial queue.
-TARGET_TERMINAL = frozenset(
-    {TARGET_SUCCEEDED_CONFIRMED, TARGET_FAILED_CONFIRMED, TARGET_CANCELLED}
-)
+TARGET_TERMINAL = frozenset({TARGET_SUCCEEDED_CONFIRMED, TARGET_FAILED_CONFIRMED, TARGET_CANCELLED})
 
 
 class XianyuPublishTargetRow(Base, TimestampMixin):
@@ -772,9 +767,7 @@ def _fingerprint_item(item: dict[str, Any]) -> dict[str, Any]:
         QUEUE_ITEM_FIELDS if item.get("mediaAssetIds") else QUEUE_ITEM_FIELDS - {"deliveryId"}
     )
     return {
-        name: item.get(
-            name, DEFAULT_COMPLETION_BOUNDARY if name == "completionBoundary" else None
-        )
+        name: item.get(name, DEFAULT_COMPLETION_BOUNDARY if name == "completionBoundary" else None)
         for name in fields
     }
 
@@ -847,10 +840,8 @@ class XianyuPublishQueueService:
                                 else {}
                             ),
                             **(
-                        {"deliveryId": item["deliveryId"]}
-                        if item.get("deliveryId")
-                        else {}
-                    ),
+                                {"deliveryId": item["deliveryId"]} if item.get("deliveryId") else {}
+                            ),
                         },
                         claimed_boundary=item.get(
                             "completionBoundary", DEFAULT_COMPLETION_BOUNDARY
@@ -1108,7 +1099,7 @@ class XianyuPublishQueueService:
             return self._target_view(row)
 
     async def _locked_target(
-        self, session: Any, tenant_id: str, queue_id: str, target_id: str
+        self, session: AsyncSession, tenant_id: str, queue_id: str, target_id: str
     ) -> XianyuPublishTargetRow:
         from cloudctl_domain import NotFoundError
 
@@ -1204,8 +1195,10 @@ async def get_publish_queue(request: Request, actor: ActorDep, queue_id: str) ->
     return await _queue_service(request).get_queue(actor, queue_id)
 
 
-@xianyu_publish_router.post("/queues/{queue_id}/next")
-async def next_publish_target(request: Request, actor: ActorDep, queue_id: str) -> Response:
+@xianyu_publish_router.post("/queues/{queue_id}/next", response_model=None)
+async def next_publish_target(
+    request: Request, actor: ActorDep, queue_id: str
+) -> Response | dict[str, Any]:
     view = await _queue_service(request).next_target(actor, queue_id)
     if view is None:
         return Response(status_code=204)

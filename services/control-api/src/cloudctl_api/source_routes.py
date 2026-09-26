@@ -49,7 +49,7 @@ async def create_source_connection(
     """Create a new source connection."""
     from datetime import UTC, datetime
     from uuid import uuid4
-    
+
     async with database.session_factory() as session:
         # Check for duplicate name
         stmt = select(SourceConnectionRow).where(
@@ -58,10 +58,10 @@ async def create_source_connection(
         )
         result = await session.execute(stmt)
         existing = result.scalar_one_or_none()
-        
+
         if existing:
             raise HTTPException(status_code=409, detail="Connection name already exists")
-        
+
         # Create connection
         connection = SourceConnectionRow(
             id=str(uuid4()),
@@ -78,7 +78,7 @@ async def create_source_connection(
         )
         session.add(connection)
         await session.commit()
-        
+
         return SourceConnectionResponse(
             id=connection.id,
             tenant_id=connection.tenant_id,
@@ -103,13 +103,15 @@ async def list_source_connections(
 ) -> Any:
     """List all source connections for the tenant."""
     async with database.session_factory() as session:
-        stmt = select(SourceConnectionRow).where(
-            SourceConnectionRow.tenant_id == str(actor.tenant_id)
-        ).order_by(SourceConnectionRow.created_at.desc())
-        
+        stmt = (
+            select(SourceConnectionRow)
+            .where(SourceConnectionRow.tenant_id == str(actor.tenant_id))
+            .order_by(SourceConnectionRow.created_at.desc())
+        )
+
         result = await session.execute(stmt)
         connections = result.scalars().all()
-        
+
         return [
             SourceConnectionResponse(
                 id=conn.id,
@@ -138,7 +140,7 @@ async def preview_source_connection(
 ) -> Any:
     """Preview records from a source connection without writing to database."""
     from datetime import UTC, datetime
-    
+
     async with database.session_factory() as session:
         # Get connection
         stmt = select(SourceConnectionRow).where(
@@ -147,10 +149,10 @@ async def preview_source_connection(
         )
         result = await session.execute(stmt)
         connection = result.scalar_one_or_none()
-        
+
         if not connection:
             raise HTTPException(status_code=404, detail="Connection not found")
-        
+
         # Preview
         preview = await preview_source(
             source_kind=connection.source_kind,
@@ -158,7 +160,7 @@ async def preview_source_connection(
             secret=None,  # TODO: resolve secret_ref
             page_size=10,
         )
-        
+
         # Update test result
         connection.last_test_at = datetime.now(UTC)
         if preview.invalid_records == 0 and preview.total_read > 0:
@@ -169,9 +171,9 @@ async def preview_source_connection(
             valid = preview.valid_records
             total = preview.total_read
             connection.last_test_result = f"Partial: {valid}/{total} valid"
-        
+
         await session.commit()
-        
+
         return preview
 
 
@@ -192,17 +194,17 @@ async def start_sync_run(
         )
         result = await session.execute(stmt)
         connection = result.scalar_one_or_none()
-        
+
         if not connection:
             raise HTTPException(status_code=404, detail="Connection not found")
-        
+
         # Create connector
         connector = create_connector(
             source_kind=connection.source_kind,
             config=connection.config,
             secret=None,  # TODO: resolve secret_ref
         )
-        
+
         # Execute sync
         sync_result = await execute_sync_run(
             session=session,
@@ -214,14 +216,14 @@ async def start_sync_run(
             run_mode=body.run_mode,
             page_size=100,
         )
-        
+
         await session.commit()
-        
+
         # Get the created sync run
-        stmt = select(SyncRunRow).where(SyncRunRow.id == sync_result["sync_run_id"])
-        result = await session.execute(stmt)
-        sync_run = result.scalar_one()
-        
+        sync_stmt = select(SyncRunRow).where(SyncRunRow.id == sync_result["sync_run_id"])
+        sync_result_db = await session.execute(sync_stmt)
+        sync_run = sync_result_db.scalar_one()
+
         return SyncRunResponse(
             id=sync_run.id,
             tenant_id=sync_run.tenant_id,
@@ -256,16 +258,21 @@ async def list_sync_runs(
         conn_result = await session.execute(conn_stmt)
         if not conn_result.scalar_one_or_none():
             raise HTTPException(status_code=404, detail="Connection not found")
-        
+
         # Get runs
-        stmt = select(SyncRunRow).where(
-            SyncRunRow.connection_id == connection_id,
-            SyncRunRow.tenant_id == str(actor.tenant_id),
-        ).order_by(SyncRunRow.started_at.desc()).limit(20)
-        
+        stmt = (
+            select(SyncRunRow)
+            .where(
+                SyncRunRow.connection_id == connection_id,
+                SyncRunRow.tenant_id == str(actor.tenant_id),
+            )
+            .order_by(SyncRunRow.started_at.desc())
+            .limit(20)
+        )
+
         result = await session.execute(stmt)
         runs = result.scalars().all()
-        
+
         return [
             SyncRunResponse(
                 id=run.id,
@@ -304,23 +311,23 @@ async def list_sync_errors(
         conn_result = await session.execute(conn_stmt)
         if not conn_result.scalar_one_or_none():
             raise HTTPException(status_code=404, detail="Connection not found")
-        
+
         # Get errors
         stmt = select(SyncErrorRow).where(
             SyncErrorRow.connection_id == connection_id,
             SyncErrorRow.tenant_id == str(actor.tenant_id),
         )
-        
+
         if resolved is False:
             stmt = stmt.where(SyncErrorRow.resolved_at.is_(None))
         elif resolved is True:
             stmt = stmt.where(SyncErrorRow.resolved_at.isnot(None))
-        
+
         stmt = stmt.order_by(SyncErrorRow.created_at.desc()).limit(100)
-        
+
         result = await session.execute(stmt)
         errors = result.scalars().all()
-        
+
         return [
             SyncErrorResponse(
                 id=err.id,

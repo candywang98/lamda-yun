@@ -35,9 +35,24 @@ def _review_steps(
     dry_run: bool = True,
 ) -> list[dict[str, Any]]:
     return [
-        {"stepId": "open-profile", "action": "ui.tap", "locatorRef": "xianyu_profile_tab", "timeoutMs": 30_000},
-        {"stepId": "open-sold", "action": "ui.tap", "locatorRef": "xianyu_order_list_sold", "timeoutMs": 30_000},
-        {"stepId": "open-pending", "action": "ui.tap", "locatorRef": "xianyu_orders_tab_pending", "timeoutMs": 30_000},
+        {
+            "stepId": "open-profile",
+            "action": "ui.tap",
+            "locatorRef": "xianyu_profile_tab",
+            "timeoutMs": 30_000,
+        },
+        {
+            "stepId": "open-sold",
+            "action": "ui.tap",
+            "locatorRef": "xianyu_order_list_sold",
+            "timeoutMs": 30_000,
+        },
+        {
+            "stepId": "open-pending",
+            "action": "ui.tap",
+            "locatorRef": "xianyu_orders_tab_pending",
+            "timeoutMs": 30_000,
+        },
         {
             "stepId": "review-all",
             "action": "xianyu.reviewOrders",
@@ -46,7 +61,12 @@ def _review_steps(
             "comment": comment,
             "dryRun": dry_run,
         },
-        {"stepId": "shot", "action": "ui.screenshot", "timeoutMs": 15_000, "label": "xianyu_review"},
+        {
+            "stepId": "shot",
+            "action": "ui.screenshot",
+            "timeoutMs": 15_000,
+            "label": "xianyu_review",
+        },
         {
             "stepId": "done",
             "action": "run.log",
@@ -95,7 +115,12 @@ async def test_review_shape_gate(api):
         ],
         "extra_tap": lambda: [
             *_review_steps()[:3],
-            {"stepId": "detour", "action": "ui.tap", "locatorRef": "xianyu_messages_tab", "timeoutMs": 8_000},
+            {
+                "stepId": "detour",
+                "action": "ui.tap",
+                "locatorRef": "xianyu_messages_tab",
+                "timeoutMs": 8_000,
+            },
             *_review_steps()[3:],
         ],
         "wrong_log_code": lambda: [
@@ -158,9 +183,7 @@ async def test_review_schema_bounds(api):
 async def test_review_dry_run_real_mode_both_accepted(api):
     client, app = api
     device = await create_direct_device(client, "review-dryrun-modes")
-    dry = await _create_raw_task(
-        client, device, _review_steps(dry_run=True), "review-dry-true"
-    )
+    dry = await _create_raw_task(client, device, _review_steps(dry_run=True), "review-dry-true")
     assert dry.status_code == 201, dry.text
     real = await _create_raw_task(
         client, device, _review_steps(dry_run=False, max_orders=3), "review-dry-false"

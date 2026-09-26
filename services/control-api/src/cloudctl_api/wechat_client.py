@@ -16,14 +16,16 @@ from __future__ import annotations
 
 import asyncio
 import time
+from collections.abc import Awaitable
 from dataclasses import dataclass
 from typing import Any, Protocol
+from urllib.parse import urlencode
 
 import httpx
 
 from .settings import Settings
 
-_TOKEN_ENDPOINT = "/cgi-bin/token"
+_TOKEN_ENDPOINT = "/cgi-bin/token"  # noqa: S105 - API path, not a token value.
 _DRAFT_ADD_ENDPOINT = "/cgi-bin/draft/add"
 _FREEPUBLISH_SUBMIT_ENDPOINT = "/cgi-bin/freepublish/submit"
 _FREEPUBLISH_GET_ENDPOINT = "/cgi-bin/freepublish/get"
@@ -45,9 +47,7 @@ class WeChatApiError(Exception):
 class WeChatTransport(Protocol):
     """Minimal HTTP boundary; production uses httpx, tests use a fake."""
 
-    async def post_json(
-        self, url: str, *, json: dict[str, Any]
-    ) -> tuple[int, dict[str, Any]]: ...
+    async def post_json(self, url: str, *, json: dict[str, Any]) -> tuple[int, dict[str, Any]]: ...
 
     async def get_json(self, url: str, *, params: dict[str, str]) -> tuple[int, dict[str, Any]]: ...
 
@@ -72,9 +72,7 @@ class HttpxWeChatTransport:
             await self._client.aclose()
             self._client = None
 
-    async def post_json(
-        self, url: str, *, json: dict[str, Any]
-    ) -> tuple[int, dict[str, Any]]:
+    async def post_json(self, url: str, *, json: dict[str, Any]) -> tuple[int, dict[str, Any]]:
         try:
             response = await self._http().post(url, json=json)
         except httpx.HTTPError as exc:
@@ -115,7 +113,7 @@ class WeChatOfficialClient:
         self._transport = transport
         self._base = settings.wechat_api_base_url.rstrip("/")
 
-    async def _call(self, coroutine) -> dict[str, Any]:
+    async def _call(self, coroutine: Awaitable[tuple[int, dict[str, Any]]]) -> dict[str, Any]:
         status, body = await coroutine
         if status >= 500:
             raise WeChatTransportError(f"wechat endpoint answered HTTP {status}")
@@ -123,7 +121,17 @@ class WeChatOfficialClient:
         if isinstance(errcode, int) and errcode != 0:
             errmsg = body.get("errmsg")
             raise WeChatApiError(errcode, errmsg if isinstance(errmsg, str) else "")
+        if not 200 <= status < 300:
+            raise WeChatTransportError(f"wechat endpoint answered HTTP {status}")
         return body
+
+    async def _post(
+        self, endpoint: str, access_token: str, payload: dict[str, Any]
+    ) -> dict[str, Any]:
+        query = urlencode({"access_token": access_token})
+        return await self._call(
+            self._transport.post_json(f"{self._base}{endpoint}?{query}", json=payload)
+        )
 
     async def fetch_token(self, app_id: str, app_secret: str) -> WeChatAccessToken:
         body = await self._call(
@@ -138,7 +146,13 @@ class WeChatOfficialClient:
         )
         token = body.get("access_token")
         expires_in = body.get("expires_in")
-        if not isinstance(token, str) or not token or not isinstance(expires_in, int):
+        if (
+            not isinstance(token, str)
+            or not token
+            or not isinstance(expires_in, int)
+            or isinstance(expires_in, bool)
+            or expires_in <= 0
+        ):
             raise WeChatTransportError("wechat token response was malformed")
         return WeChatAccessToken(
             value=token,
@@ -147,36 +161,28 @@ class WeChatOfficialClient:
         )
 
     async def add_draft(self, access_token: str, articles: list[dict[str, Any]]) -> str:
-        body = await self._call(
-            self._transport.post_json(
-                f"{self._base}{_DRAFT_ADD_ENDPOINT}",
-                json={"articles": articles, "access_token": access_token},
-            )
-        )
+        official_articles = [
+            {
+                ("thumb_media_id" if key == "thumbMediaId" else key): value
+                for key, value in article.items()
+            }
+            for article in articles
+        ]
+        body = await self._post(_DRAFT_ADD_ENDPOINT, access_token, {"articles": official_articles})
         media_id = body.get("media_id")
         if not isinstance(media_id, str) or not media_id:
             raise WeChatTransportError("wechat draft response was malformed")
         return media_id
 
     async def submit_publish(self, access_token: str, media_id: str) -> str:
-        body = await self._call(
-            self._transport.post_json(
-                f"{self._base}{_FREEPUBLISH_SUBMIT_ENDPOINT}",
-                json={"media_id": media_id, "access_token": access_token},
-            )
-        )
+        body = await self._post(_FREEPUBLISH_SUBMIT_ENDPOINT, access_token, {"media_id": media_id})
         publish_id = body.get("publish_id")
         if not isinstance(publish_id, str) or not publish_id:
             raise WeChatTransportError("wechat publish submit response was malformed")
         return publish_id
 
     async def get_publish(self, access_token: str, publish_id: str) -> dict[str, Any]:
-        return await self._call(
-            self._transport.post_json(
-                f"{self._base}{_FREEPUBLISH_GET_ENDPOINT}",
-                json={"publish_id": publish_id, "access_token": access_token},
-            )
-        )
+        return await self._post(_FREEPUBLISH_GET_ENDPOINT, access_token, {"publish_id": publish_id})
 
 
 class WeChatTokenManager:

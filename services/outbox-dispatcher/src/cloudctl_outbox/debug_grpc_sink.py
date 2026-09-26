@@ -34,6 +34,7 @@ class DebugHubGrpcSink:
         timeout_seconds: float = 15.0,
         stub: _Stub | None = None,
     ) -> None:
+        self._stub: _Stub
         self._channel: grpc.aio.Channel | None = None
         if timeout_seconds <= 0:
             raise ValueError("gRPC timeout must be positive")
@@ -56,7 +57,7 @@ class DebugHubGrpcSink:
         if event.event_type not in {"debug.session.grant_requested", "debug.session.revoked"}:
             return
         payload = ParseDict(event.payload, Struct())
-        response = await self._stub.DeliverDebugEvent(  # type: ignore[attr-defined]
+        response = await self._stub.DeliverDebugEvent(
             pb.DebugEventRequest(
                 event_id=event.id,
                 tenant_id=event.tenant_id,

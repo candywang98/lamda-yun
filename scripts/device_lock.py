@@ -43,9 +43,7 @@ INIT_LOCK_ATTEMPTS = 8
 TOKEN_ENV = "CLOUDCTL_DEVICE_LOCK_TOKEN"  # noqa: S105 - env var name, not a secret
 DB_ENV = "CLOUDCTL_DEVICE_LOCK_DB"
 SERIAL_CHARS = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._:-")
-SECRET_KEYS = frozenset(
-    {"owner_token", "owner_token_sha256", "token", "token_hash", "secret"}
-)
+SECRET_KEYS = frozenset({"owner_token", "owner_token_sha256", "token", "token_hash", "secret"})
 # fstype tokens that must never hold the lock file. Matched against the
 # classified type (Darwin mount type or Linux `stat -f -c %T` / `findmnt`).
 NETWORK_FSTYPES = frozenset(
@@ -450,8 +448,7 @@ class DeviceLockStore:
         switched = connection.execute("PRAGMA journal_mode = DELETE").fetchone()
         if switched is None or str(switched[0]).lower() != "delete":
             raise sqlite3.OperationalError(
-                "journal_mode stayed "
-                f"{None if switched is None else switched[0]}; refusing WAL"
+                f"journal_mode stayed {None if switched is None else switched[0]}; refusing WAL"
             )
 
     def _refuse_journal_symlink(self) -> None:
@@ -464,8 +461,7 @@ class DeviceLockStore:
         connection.execute("BEGIN IMMEDIATE")
         try:
             connection.execute(
-                "CREATE TABLE IF NOT EXISTS schema_meta ("
-                "key TEXT PRIMARY KEY, value TEXT NOT NULL)"
+                "CREATE TABLE IF NOT EXISTS schema_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)"
             )
             connection.execute(
                 "CREATE TABLE IF NOT EXISTS locks ("

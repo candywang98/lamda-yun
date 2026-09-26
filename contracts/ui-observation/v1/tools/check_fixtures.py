@@ -5,6 +5,7 @@ Computes treeDigest/nodeDigest with the frozen canonicalization (same style as
 canonical_steps: stable node order, k=v lines, sorted keys, lowercase bools)
 and validates K11 fixtures. Exit 0 = pass.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -57,19 +58,29 @@ def main() -> int:
     )
     print(f"positive: treeDigest={tree[:16]}… nodeDigest={node_digest[:16]}… pinned")
 
-    same_name = json.loads((CONTRACT_DIR / "fixtures/k11-negative-samename-ambiguous.json").read_text())
+    same_name = json.loads(
+        (CONTRACT_DIR / "fixtures/k11-negative-samename-ambiguous.json").read_text()
+    )
     assert same_name["expect"]["result"] == "Ambiguous" and len(same_name["candidates"]) == 2
     assert same_name["expect"]["forbidden"], "forbidden strategies must be explicit"
 
-    wrapper = json.loads((CONTRACT_DIR / "fixtures/k11-negative-fullheight-wrapper.json").read_text())
-    chosen = [c for c in wrapper["candidates"] if c["index"] == wrapper["expect"]["selectedIndex"]][0]
+    wrapper = json.loads(
+        (CONTRACT_DIR / "fixtures/k11-negative-fullheight-wrapper.json").read_text()
+    )
+    chosen = [c for c in wrapper["candidates"] if c["index"] == wrapper["expect"]["selectedIndex"]][
+        0
+    ]
     wrapper_node = wrapper["candidates"][0]
+
     def height(b: str) -> int:
         _, _, _, y1 = (int(x) for x in b.split(","))
         return y1
+
     assert height(wrapper_node["bounds"]) > height(chosen["bounds"]), "wrapper must be taller"
 
-    banner = json.loads((CONTRACT_DIR / "fixtures/k11-negative-banner-displacement.json").read_text())
+    banner = json.loads(
+        (CONTRACT_DIR / "fixtures/k11-negative-banner-displacement.json").read_text()
+    )
     assert banner["frames"][0]["businessDigest"] == banner["frames"][1]["businessDigest"]
     assert banner["frames"][0]["treeDigest"] != banner["frames"][1]["treeDigest"]
 

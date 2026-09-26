@@ -42,9 +42,7 @@ def item(spu: str, **overrides: object) -> dict[str, object]:
 
 @pytest.fixture
 async def api() -> AsyncIterator[tuple[httpx.AsyncClient, FastAPI]]:
-    app = create_app(
-        Settings(env="test", repository_mode="memory", dev_auth_bypass=True)
-    )
+    app = create_app(Settings(env="test", repository_mode="memory", dev_auth_bypass=True))
     async with app.router.lifespan_context(app):
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
@@ -156,13 +154,11 @@ async def test_export_is_formula_safe_tenant_scoped_and_round_trips(
                 item("F11-EXP-2", title="+CMD()", description="@hypermagic\rformula"),
             ],
             "apply": True,
-        }
+        },
     )
     assert applied.status_code == 200, applied.text
 
-    exported = await client.get(
-        "/api/v1/content-io/products:export", headers=headers("viewer")
-    )
+    exported = await client.get("/api/v1/content-io/products:export", headers=headers("viewer"))
     assert exported.status_code == 200, exported.text
     assert exported.headers["content-type"].startswith("text/csv")
     assert "attachment" in exported.headers["content-disposition"]

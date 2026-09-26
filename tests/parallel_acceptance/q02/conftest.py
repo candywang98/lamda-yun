@@ -67,9 +67,7 @@ def pytest_configure(config: pytest.Config) -> None:
     )
 
 
-def pytest_collection_modifyitems(
-    config: pytest.Config, items: list[pytest.Item]
-) -> None:
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     """Auto-skip class-B device scenarios when no device is bound."""
     if os.environ.get(DEVICE_SERIAL_ENV) and os.environ.get(BASE_URL_ENV):
         return
@@ -105,8 +103,7 @@ def integration_sha() -> str:
     head = _git(REPO_ROOT, "rev-parse", "HEAD")
     if head.returncode != 0:
         pytest.fail(
-            "q02 same-SHA guard: git rev-parse HEAD failed in "
-            f"{REPO_ROOT}: {head.stderr.strip()}"
+            f"q02 same-SHA guard: git rev-parse HEAD failed in {REPO_ROOT}: {head.stderr.strip()}"
         )
     head_sha = head.stdout.strip()
     ancestor = _git(REPO_ROOT, "merge-base", "--is-ancestor", expected, head_sha)

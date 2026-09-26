@@ -39,6 +39,7 @@ with NULL and stay compatible.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
 from cloudctl_domain import ConflictError
@@ -239,7 +240,7 @@ ACCOUNT_SOURCE_PLATFORM = "platform_account_id"
 ACCOUNT_SOURCE_LEGACY = "legacy_account_id"
 
 
-def _iso(value: Any) -> str | None:
+def _iso(value: datetime | None) -> str | None:
     if value is None:
         return None
     return value.isoformat()

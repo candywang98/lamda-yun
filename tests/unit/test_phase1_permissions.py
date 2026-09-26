@@ -1,6 +1,6 @@
+import pytest
 from cloudctl_domain import Permission, Role, require_permissions
 from cloudctl_domain.errors import ForbiddenError
-import pytest
 
 
 def test_phase1_permissions_cover_device_control_and_recipe_publish() -> None:

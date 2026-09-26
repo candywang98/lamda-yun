@@ -88,7 +88,7 @@ def _integer(value: Any, field: str, *, minimum: int = 0) -> int:
 
 
 def _number(value: Any, field: str, *, minimum: float = 0) -> float:
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
+    if isinstance(value, bool) or not isinstance(value, int | float):
         raise EvidenceError(f"{field} must be a number")
     result = float(value)
     if not math.isfinite(result) or result < minimum:

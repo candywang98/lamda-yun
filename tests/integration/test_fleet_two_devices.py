@@ -39,6 +39,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import os
 import shutil
 import socket
 import subprocess
@@ -69,11 +70,11 @@ from test_platform_tasks import (
 )
 from test_xianyu_maintenance import XIANYU, delist_steps, polish_steps
 
+POSTGRES_ENV = {**os.environ, "LC_ALL": "C", "LANG": "C", "LANGUAGE": "C"}
+
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENARIO_FIXTURE = REPOSITORY_ROOT / "tests" / "fixtures" / "fleet" / "q10-two-devices.json"
-CROSS_TENANT_FIXTURE = (
-    REPOSITORY_ROOT / "tests" / "fixtures" / "fleet" / "q10-cross-tenant.json"
-)
+CROSS_TENANT_FIXTURE = REPOSITORY_ROOT / "tests" / "fixtures" / "fleet" / "q10-cross-tenant.json"
 
 OPERATOR = identity()
 
@@ -112,6 +113,7 @@ def isolated_postgres(tmp_path_factory):
         ["initdb", "-D", str(root / "data"), "-A", "trust", "-U", "q10test"],  # noqa: S607
         check=True,
         capture_output=True,
+        env=POSTGRES_ENV,
     )
     subprocess.run(  # noqa: S603 - fixed PostgreSQL tools and test-owned paths
         [  # noqa: S607
@@ -127,6 +129,7 @@ def isolated_postgres(tmp_path_factory):
         ],
         check=True,
         capture_output=True,
+        env=POSTGRES_ENV,
     )
     try:
         yield port
@@ -135,6 +138,7 @@ def isolated_postgres(tmp_path_factory):
             ["pg_ctl", "-D", str(root / "data"), "-m", "immediate", "-w", "stop"],  # noqa: S607
             check=True,
             capture_output=True,
+            env=POSTGRES_ENV,
         )
         shutil.rmtree(root, ignore_errors=True)
 
@@ -146,6 +150,7 @@ def pg_url(isolated_postgres):
         ["createdb", "-h", "127.0.0.1", "-p", str(isolated_postgres), "-U", "q10test", name],  # noqa: S607
         check=True,
         capture_output=True,
+        env=POSTGRES_ENV,
     )
     return f"postgresql+asyncpg://q10test@127.0.0.1:{isolated_postgres}/{name}"
 
@@ -347,11 +352,7 @@ class Companion:
 
 
 def companion_for(api: Api, scenario: dict[str, Any], role: str) -> Companion:
-    spec = next(
-        item
-        for item in scenario["topology"]["deviceClients"]
-        if item["role"] == role
-    )
+    spec = next(item for item in scenario["topology"]["deviceClients"] if item["role"] == role)
     return Companion(
         api=api,
         role=role,
@@ -551,8 +552,7 @@ async def test_q10_scenario_fixture_pins_gate_definition() -> None:
     roles = {item["role"] for item in scenario["topology"]["deviceClients"]}
     assert roles == {"deviceA", "deviceB"}
     pinned = {
-        item["role"]: item["pinnedApiProcess"]
-        for item in scenario["topology"]["deviceClients"]
+        item["role"]: item["pinnedApiProcess"] for item in scenario["topology"]["deviceClients"]
     }
     assert pinned == {"deviceA": 1, "deviceB": 2}
     # The skipped on-device items are declared (counted separately below).

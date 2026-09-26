@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """control-plane/v1 fixture checker. Exit 0 = pass."""
-import json, sys
+
+import json
+import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 D = HERE.parent / "fixtures"
+
 
 def main() -> int:
     b = json.loads((D / "k14-positive-control-batch.json").read_text())
@@ -35,6 +38,7 @@ def main() -> int:
     assert branches["DEFERRED_RECONCILING"]["serverState"].startswith("RECONCILING")
     print("positive cancel-ack: OK (two branches)")
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(main())

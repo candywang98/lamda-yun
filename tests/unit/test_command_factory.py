@@ -66,7 +66,9 @@ def test_unwired_and_pending_operations_fail_closed() -> None:
     with pytest.raises(ValueError, match="unknown operationId"):
         mint_operation_command("xy-tasks-99", {})
     with pytest.raises(ValueError, match="unauthorized"):
-        mint_operation_command("xy-tasks-01", {"listingBody": "ok", "price": "1", "shellCommand": "rm"})
+        mint_operation_command(
+            "xy-tasks-01", {"listingBody": "ok", "price": "1", "shellCommand": "rm"}
+        )
     with pytest.raises(ValueError, match="unknown operation fields"):
         mint_operation_command("device-probe", {"unexpectedFlag": True})
 
@@ -169,7 +171,9 @@ def test_open_only_result_contract_accepts_checkpoint_plus_evidence() -> None:
         },
     )
     # A failure-style result with no outcome claim is shape-neutral.
-    validate_open_only_task_result("xianyu.publish_listing.v1", {"resultType": "XianyuPublishListingResult"})
+    validate_open_only_task_result(
+        "xianyu.publish_listing.v1", {"resultType": "XianyuPublishListingResult"}
+    )
     # Non-open-only commands keep their own result identity.
     validate_open_only_task_result("device.probe_capabilities.v1", {"outcome": "ok"})
     validate_open_only_task_result("xianyu.collect_orders.v1", {"published": True})

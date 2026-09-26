@@ -210,7 +210,7 @@ def validate_feature_configuration(value: dict[str, Any]) -> dict[str, Any]:
                 raise ValueError("configuration string exceeds 8192 characters")
         elif isinstance(current, float) and not math.isfinite(current):
             raise ValueError("configuration must contain finite JSON values")
-        elif current is not None and not isinstance(current, (bool, int, float)):
+        elif current is not None and not isinstance(current, bool | int | float):
             raise ValueError("configuration must contain JSON values only")
 
     inspect(value, 1)

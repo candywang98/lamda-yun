@@ -11,7 +11,18 @@ from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class EdgeToCloud(_message.Message):
-    __slots__ = ("sequence", "hello", "heartbeat", "command_ack", "task_event", "evidence_ready", "confirmation_required", "operator_action", "artifact_delivery", "relay_frame")
+    __slots__ = (
+        "sequence",
+        "hello",
+        "heartbeat",
+        "command_ack",
+        "task_event",
+        "evidence_ready",
+        "confirmation_required",
+        "operator_action",
+        "artifact_delivery",
+        "relay_frame",
+    )
     SEQUENCE_FIELD_NUMBER: _ClassVar[int]
     HELLO_FIELD_NUMBER: _ClassVar[int]
     HEARTBEAT_FIELD_NUMBER: _ClassVar[int]
@@ -32,10 +43,32 @@ class EdgeToCloud(_message.Message):
     operator_action: OperatorAction
     artifact_delivery: ArtifactDeliveryEvent
     relay_frame: DebugRelayFrame
-    def __init__(self, sequence: _Optional[int] = ..., hello: _Optional[_Union[EdgeHello, _Mapping]] = ..., heartbeat: _Optional[_Union[Heartbeat, _Mapping]] = ..., command_ack: _Optional[_Union[CommandAck, _Mapping]] = ..., task_event: _Optional[_Union[TaskEvent, _Mapping]] = ..., evidence_ready: _Optional[_Union[EvidenceReady, _Mapping]] = ..., confirmation_required: _Optional[_Union[ConfirmationRequired, _Mapping]] = ..., operator_action: _Optional[_Union[OperatorAction, _Mapping]] = ..., artifact_delivery: _Optional[_Union[ArtifactDeliveryEvent, _Mapping]] = ..., relay_frame: _Optional[_Union[DebugRelayFrame, _Mapping]] = ...) -> None: ...
+    def __init__(
+        self,
+        sequence: _Optional[int] = ...,
+        hello: _Optional[_Union[EdgeHello, _Mapping[str, object]]] = ...,
+        heartbeat: _Optional[_Union[Heartbeat, _Mapping[str, object]]] = ...,
+        command_ack: _Optional[_Union[CommandAck, _Mapping[str, object]]] = ...,
+        task_event: _Optional[_Union[TaskEvent, _Mapping[str, object]]] = ...,
+        evidence_ready: _Optional[_Union[EvidenceReady, _Mapping[str, object]]] = ...,
+        confirmation_required: _Optional[_Union[ConfirmationRequired, _Mapping[str, object]]] = ...,
+        operator_action: _Optional[_Union[OperatorAction, _Mapping[str, object]]] = ...,
+        artifact_delivery: _Optional[_Union[ArtifactDeliveryEvent, _Mapping[str, object]]] = ...,
+        relay_frame: _Optional[_Union[DebugRelayFrame, _Mapping[str, object]]] = ...,
+    ) -> None: ...
 
 class CloudToEdge(_message.Message):
-    __slots__ = ("sequence", "hello", "start", "cancel", "debug_grant", "revocations", "confirmation_resolution", "debug_revoke", "relay_frame")
+    __slots__ = (
+        "sequence",
+        "hello",
+        "start",
+        "cancel",
+        "debug_grant",
+        "revocations",
+        "confirmation_resolution",
+        "debug_revoke",
+        "relay_frame",
+    )
     SEQUENCE_FIELD_NUMBER: _ClassVar[int]
     HELLO_FIELD_NUMBER: _ClassVar[int]
     START_FIELD_NUMBER: _ClassVar[int]
@@ -54,7 +87,20 @@ class CloudToEdge(_message.Message):
     confirmation_resolution: ConfirmationResolution
     debug_revoke: DebugSessionRevoke
     relay_frame: DebugRelayFrame
-    def __init__(self, sequence: _Optional[int] = ..., hello: _Optional[_Union[CloudHello, _Mapping]] = ..., start: _Optional[_Union[StartCommand, _Mapping]] = ..., cancel: _Optional[_Union[CancelCommand, _Mapping]] = ..., debug_grant: _Optional[_Union[DebugSessionGrant, _Mapping]] = ..., revocations: _Optional[_Union[CertificateRevocationUpdate, _Mapping]] = ..., confirmation_resolution: _Optional[_Union[ConfirmationResolution, _Mapping]] = ..., debug_revoke: _Optional[_Union[DebugSessionRevoke, _Mapping]] = ..., relay_frame: _Optional[_Union[DebugRelayFrame, _Mapping]] = ...) -> None: ...
+    def __init__(
+        self,
+        sequence: _Optional[int] = ...,
+        hello: _Optional[_Union[CloudHello, _Mapping[str, object]]] = ...,
+        start: _Optional[_Union[StartCommand, _Mapping[str, object]]] = ...,
+        cancel: _Optional[_Union[CancelCommand, _Mapping[str, object]]] = ...,
+        debug_grant: _Optional[_Union[DebugSessionGrant, _Mapping[str, object]]] = ...,
+        revocations: _Optional[_Union[CertificateRevocationUpdate, _Mapping[str, object]]] = ...,
+        confirmation_resolution: _Optional[
+            _Union[ConfirmationResolution, _Mapping[str, object]]
+        ] = ...,
+        debug_revoke: _Optional[_Union[DebugSessionRevoke, _Mapping[str, object]]] = ...,
+        relay_frame: _Optional[_Union[DebugRelayFrame, _Mapping[str, object]]] = ...,
+    ) -> None: ...
 
 class EdgeHello(_message.Message):
     __slots__ = ("edge_id", "software_version", "last_cloud_sequence_acked")
@@ -64,7 +110,12 @@ class EdgeHello(_message.Message):
     edge_id: str
     software_version: str
     last_cloud_sequence_acked: int
-    def __init__(self, edge_id: _Optional[str] = ..., software_version: _Optional[str] = ..., last_cloud_sequence_acked: _Optional[int] = ...) -> None: ...
+    def __init__(
+        self,
+        edge_id: _Optional[str] = ...,
+        software_version: _Optional[str] = ...,
+        last_cloud_sequence_acked: _Optional[int] = ...,
+    ) -> None: ...
 
 class CloudHello(_message.Message):
     __slots__ = ("last_edge_sequence_acked",)
@@ -80,10 +131,33 @@ class Heartbeat(_message.Message):
     edge_id: str
     observed_at: _timestamp_pb2.Timestamp
     devices: _containers.RepeatedCompositeFieldContainer[DeviceHealth]
-    def __init__(self, edge_id: _Optional[str] = ..., observed_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., devices: _Optional[_Iterable[_Union[DeviceHealth, _Mapping]]] = ...) -> None: ...
+    def __init__(
+        self,
+        edge_id: _Optional[str] = ...,
+        observed_at: _Optional[
+            _Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping[str, object]]
+        ] = ...,
+        devices: _Optional[_Iterable[_Union[DeviceHealth, _Mapping[str, object]]]] = ...,
+    ) -> None: ...
 
 class DeviceHealth(_message.Message):
-    __slots__ = ("device_id", "state", "android_version", "lamda_version", "app_versions", "capabilities", "battery_percent", "charging", "network_type", "temperature_celsius", "free_storage_bytes", "companion_version", "current_task_run_id", "current_task_state", "automation_stopped")
+    __slots__ = (
+        "device_id",
+        "state",
+        "android_version",
+        "lamda_version",
+        "app_versions",
+        "capabilities",
+        "battery_percent",
+        "charging",
+        "network_type",
+        "temperature_celsius",
+        "free_storage_bytes",
+        "companion_version",
+        "current_task_run_id",
+        "current_task_state",
+        "automation_stopped",
+    )
     class AppVersionsEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -91,6 +165,7 @@ class DeviceHealth(_message.Message):
         key: str
         value: str
         def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
     DEVICE_ID_FIELD_NUMBER: _ClassVar[int]
     STATE_FIELD_NUMBER: _ClassVar[int]
     ANDROID_VERSION_FIELD_NUMBER: _ClassVar[int]
@@ -121,10 +196,37 @@ class DeviceHealth(_message.Message):
     current_task_run_id: str
     current_task_state: str
     automation_stopped: bool
-    def __init__(self, device_id: _Optional[str] = ..., state: _Optional[str] = ..., android_version: _Optional[str] = ..., lamda_version: _Optional[str] = ..., app_versions: _Optional[_Mapping[str, str]] = ..., capabilities: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ..., battery_percent: _Optional[int] = ..., charging: _Optional[bool] = ..., network_type: _Optional[str] = ..., temperature_celsius: _Optional[float] = ..., free_storage_bytes: _Optional[int] = ..., companion_version: _Optional[str] = ..., current_task_run_id: _Optional[str] = ..., current_task_state: _Optional[str] = ..., automation_stopped: _Optional[bool] = ...) -> None: ...
+    def __init__(
+        self,
+        device_id: _Optional[str] = ...,
+        state: _Optional[str] = ...,
+        android_version: _Optional[str] = ...,
+        lamda_version: _Optional[str] = ...,
+        app_versions: _Optional[_Mapping[str, str]] = ...,
+        capabilities: _Optional[_Union[_struct_pb2.Struct, _Mapping[str, object]]] = ...,
+        battery_percent: _Optional[int] = ...,
+        charging: _Optional[bool] = ...,
+        network_type: _Optional[str] = ...,
+        temperature_celsius: _Optional[float] = ...,
+        free_storage_bytes: _Optional[int] = ...,
+        companion_version: _Optional[str] = ...,
+        current_task_run_id: _Optional[str] = ...,
+        current_task_state: _Optional[str] = ...,
+        automation_stopped: _Optional[bool] = ...,
+    ) -> None: ...
 
 class StartCommand(_message.Message):
-    __slots__ = ("command_id", "task_run_id", "device_id", "lease_id", "fencing_token", "deadline", "command_type", "payload", "artifacts")
+    __slots__ = (
+        "command_id",
+        "task_run_id",
+        "device_id",
+        "lease_id",
+        "fencing_token",
+        "deadline",
+        "command_type",
+        "payload",
+        "artifacts",
+    )
     COMMAND_ID_FIELD_NUMBER: _ClassVar[int]
     TASK_RUN_ID_FIELD_NUMBER: _ClassVar[int]
     DEVICE_ID_FIELD_NUMBER: _ClassVar[int]
@@ -143,10 +245,32 @@ class StartCommand(_message.Message):
     command_type: str
     payload: _struct_pb2.Struct
     artifacts: _containers.RepeatedCompositeFieldContainer[ArtifactRef]
-    def __init__(self, command_id: _Optional[str] = ..., task_run_id: _Optional[str] = ..., device_id: _Optional[str] = ..., lease_id: _Optional[str] = ..., fencing_token: _Optional[int] = ..., deadline: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., command_type: _Optional[str] = ..., payload: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ..., artifacts: _Optional[_Iterable[_Union[ArtifactRef, _Mapping]]] = ...) -> None: ...
+    def __init__(
+        self,
+        command_id: _Optional[str] = ...,
+        task_run_id: _Optional[str] = ...,
+        device_id: _Optional[str] = ...,
+        lease_id: _Optional[str] = ...,
+        fencing_token: _Optional[int] = ...,
+        deadline: _Optional[
+            _Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping[str, object]]
+        ] = ...,
+        command_type: _Optional[str] = ...,
+        payload: _Optional[_Union[_struct_pb2.Struct, _Mapping[str, object]]] = ...,
+        artifacts: _Optional[_Iterable[_Union[ArtifactRef, _Mapping[str, object]]]] = ...,
+    ) -> None: ...
 
 class ArtifactRef(_message.Message):
-    __slots__ = ("object_key", "sha256", "size", "kind", "content_type", "file_name", "split_name", "package_name")
+    __slots__ = (
+        "object_key",
+        "sha256",
+        "size",
+        "kind",
+        "content_type",
+        "file_name",
+        "split_name",
+        "package_name",
+    )
     OBJECT_KEY_FIELD_NUMBER: _ClassVar[int]
     SHA256_FIELD_NUMBER: _ClassVar[int]
     SIZE_FIELD_NUMBER: _ClassVar[int]
@@ -163,7 +287,17 @@ class ArtifactRef(_message.Message):
     file_name: str
     split_name: str
     package_name: str
-    def __init__(self, object_key: _Optional[str] = ..., sha256: _Optional[str] = ..., size: _Optional[int] = ..., kind: _Optional[str] = ..., content_type: _Optional[str] = ..., file_name: _Optional[str] = ..., split_name: _Optional[str] = ..., package_name: _Optional[str] = ...) -> None: ...
+    def __init__(
+        self,
+        object_key: _Optional[str] = ...,
+        sha256: _Optional[str] = ...,
+        size: _Optional[int] = ...,
+        kind: _Optional[str] = ...,
+        content_type: _Optional[str] = ...,
+        file_name: _Optional[str] = ...,
+        split_name: _Optional[str] = ...,
+        package_name: _Optional[str] = ...,
+    ) -> None: ...
 
 class CancelCommand(_message.Message):
     __slots__ = ("command_id", "reason")
@@ -183,7 +317,13 @@ class CommandAck(_message.Message):
     state: str
     error_code: str
     detail: str
-    def __init__(self, command_id: _Optional[str] = ..., state: _Optional[str] = ..., error_code: _Optional[str] = ..., detail: _Optional[str] = ...) -> None: ...
+    def __init__(
+        self,
+        command_id: _Optional[str] = ...,
+        state: _Optional[str] = ...,
+        error_code: _Optional[str] = ...,
+        detail: _Optional[str] = ...,
+    ) -> None: ...
 
 class TaskEvent(_message.Message):
     __slots__ = ("command_id", "task_run_id", "step", "state", "occurred_at", "attributes")
@@ -199,7 +339,17 @@ class TaskEvent(_message.Message):
     state: str
     occurred_at: _timestamp_pb2.Timestamp
     attributes: _struct_pb2.Struct
-    def __init__(self, command_id: _Optional[str] = ..., task_run_id: _Optional[str] = ..., step: _Optional[str] = ..., state: _Optional[str] = ..., occurred_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., attributes: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ...) -> None: ...
+    def __init__(
+        self,
+        command_id: _Optional[str] = ...,
+        task_run_id: _Optional[str] = ...,
+        step: _Optional[str] = ...,
+        state: _Optional[str] = ...,
+        occurred_at: _Optional[
+            _Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping[str, object]]
+        ] = ...,
+        attributes: _Optional[_Union[_struct_pb2.Struct, _Mapping[str, object]]] = ...,
+    ) -> None: ...
 
 class EvidenceReady(_message.Message):
     __slots__ = ("command_id", "evidence_id", "kind", "sha256", "size")
@@ -213,10 +363,26 @@ class EvidenceReady(_message.Message):
     kind: str
     sha256: str
     size: int
-    def __init__(self, command_id: _Optional[str] = ..., evidence_id: _Optional[str] = ..., kind: _Optional[str] = ..., sha256: _Optional[str] = ..., size: _Optional[int] = ...) -> None: ...
+    def __init__(
+        self,
+        command_id: _Optional[str] = ...,
+        evidence_id: _Optional[str] = ...,
+        kind: _Optional[str] = ...,
+        sha256: _Optional[str] = ...,
+        size: _Optional[int] = ...,
+    ) -> None: ...
 
 class ConfirmationRequired(_message.Message):
-    __slots__ = ("confirmation_id", "command_id", "task_run_id", "device_id", "title", "detail", "risk_level", "expires_at")
+    __slots__ = (
+        "confirmation_id",
+        "command_id",
+        "task_run_id",
+        "device_id",
+        "title",
+        "detail",
+        "risk_level",
+        "expires_at",
+    )
     CONFIRMATION_ID_FIELD_NUMBER: _ClassVar[int]
     COMMAND_ID_FIELD_NUMBER: _ClassVar[int]
     TASK_RUN_ID_FIELD_NUMBER: _ClassVar[int]
@@ -233,7 +399,19 @@ class ConfirmationRequired(_message.Message):
     detail: str
     risk_level: str
     expires_at: _timestamp_pb2.Timestamp
-    def __init__(self, confirmation_id: _Optional[str] = ..., command_id: _Optional[str] = ..., task_run_id: _Optional[str] = ..., device_id: _Optional[str] = ..., title: _Optional[str] = ..., detail: _Optional[str] = ..., risk_level: _Optional[str] = ..., expires_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
+    def __init__(
+        self,
+        confirmation_id: _Optional[str] = ...,
+        command_id: _Optional[str] = ...,
+        task_run_id: _Optional[str] = ...,
+        device_id: _Optional[str] = ...,
+        title: _Optional[str] = ...,
+        detail: _Optional[str] = ...,
+        risk_level: _Optional[str] = ...,
+        expires_at: _Optional[
+            _Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping[str, object]]
+        ] = ...,
+    ) -> None: ...
 
 class OperatorAction(_message.Message):
     __slots__ = ("action_id", "device_id", "command_id", "confirmation_id", "action", "occurred_at")
@@ -249,10 +427,29 @@ class OperatorAction(_message.Message):
     confirmation_id: str
     action: str
     occurred_at: _timestamp_pb2.Timestamp
-    def __init__(self, action_id: _Optional[str] = ..., device_id: _Optional[str] = ..., command_id: _Optional[str] = ..., confirmation_id: _Optional[str] = ..., action: _Optional[str] = ..., occurred_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
+    def __init__(
+        self,
+        action_id: _Optional[str] = ...,
+        device_id: _Optional[str] = ...,
+        command_id: _Optional[str] = ...,
+        confirmation_id: _Optional[str] = ...,
+        action: _Optional[str] = ...,
+        occurred_at: _Optional[
+            _Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping[str, object]]
+        ] = ...,
+    ) -> None: ...
 
 class ArtifactDeliveryEvent(_message.Message):
-    __slots__ = ("command_id", "task_run_id", "device_id", "artifact", "state", "bytes_received", "error_code", "occurred_at")
+    __slots__ = (
+        "command_id",
+        "task_run_id",
+        "device_id",
+        "artifact",
+        "state",
+        "bytes_received",
+        "error_code",
+        "occurred_at",
+    )
     COMMAND_ID_FIELD_NUMBER: _ClassVar[int]
     TASK_RUN_ID_FIELD_NUMBER: _ClassVar[int]
     DEVICE_ID_FIELD_NUMBER: _ClassVar[int]
@@ -269,10 +466,30 @@ class ArtifactDeliveryEvent(_message.Message):
     bytes_received: int
     error_code: str
     occurred_at: _timestamp_pb2.Timestamp
-    def __init__(self, command_id: _Optional[str] = ..., task_run_id: _Optional[str] = ..., device_id: _Optional[str] = ..., artifact: _Optional[_Union[ArtifactRef, _Mapping]] = ..., state: _Optional[str] = ..., bytes_received: _Optional[int] = ..., error_code: _Optional[str] = ..., occurred_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
+    def __init__(
+        self,
+        command_id: _Optional[str] = ...,
+        task_run_id: _Optional[str] = ...,
+        device_id: _Optional[str] = ...,
+        artifact: _Optional[_Union[ArtifactRef, _Mapping[str, object]]] = ...,
+        state: _Optional[str] = ...,
+        bytes_received: _Optional[int] = ...,
+        error_code: _Optional[str] = ...,
+        occurred_at: _Optional[
+            _Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping[str, object]]
+        ] = ...,
+    ) -> None: ...
 
 class DebugSessionGrant(_message.Message):
-    __slots__ = ("session_id", "device_id", "expires_at", "capabilities", "lease_id", "fencing_token", "relay_token")
+    __slots__ = (
+        "session_id",
+        "device_id",
+        "expires_at",
+        "capabilities",
+        "lease_id",
+        "fencing_token",
+        "relay_token",
+    )
     SESSION_ID_FIELD_NUMBER: _ClassVar[int]
     DEVICE_ID_FIELD_NUMBER: _ClassVar[int]
     EXPIRES_AT_FIELD_NUMBER: _ClassVar[int]
@@ -287,7 +504,18 @@ class DebugSessionGrant(_message.Message):
     lease_id: str
     fencing_token: int
     relay_token: str
-    def __init__(self, session_id: _Optional[str] = ..., device_id: _Optional[str] = ..., expires_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., capabilities: _Optional[_Iterable[str]] = ..., lease_id: _Optional[str] = ..., fencing_token: _Optional[int] = ..., relay_token: _Optional[str] = ...) -> None: ...
+    def __init__(
+        self,
+        session_id: _Optional[str] = ...,
+        device_id: _Optional[str] = ...,
+        expires_at: _Optional[
+            _Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping[str, object]]
+        ] = ...,
+        capabilities: _Optional[_Iterable[str]] = ...,
+        lease_id: _Optional[str] = ...,
+        fencing_token: _Optional[int] = ...,
+        relay_token: _Optional[str] = ...,
+    ) -> None: ...
 
 class CertificateRevocationUpdate(_message.Message):
     __slots__ = ("revoked_fingerprints",)
@@ -307,7 +535,16 @@ class ConfirmationResolution(_message.Message):
     approved: bool
     actor_id: str
     decided_at: _timestamp_pb2.Timestamp
-    def __init__(self, confirmation_id: _Optional[str] = ..., command_id: _Optional[str] = ..., approved: _Optional[bool] = ..., actor_id: _Optional[str] = ..., decided_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
+    def __init__(
+        self,
+        confirmation_id: _Optional[str] = ...,
+        command_id: _Optional[str] = ...,
+        approved: _Optional[bool] = ...,
+        actor_id: _Optional[str] = ...,
+        decided_at: _Optional[
+            _Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping[str, object]]
+        ] = ...,
+    ) -> None: ...
 
 class DebugSessionRevoke(_message.Message):
     __slots__ = ("session_id", "device_id", "reason")
@@ -317,7 +554,12 @@ class DebugSessionRevoke(_message.Message):
     session_id: str
     device_id: str
     reason: str
-    def __init__(self, session_id: _Optional[str] = ..., device_id: _Optional[str] = ..., reason: _Optional[str] = ...) -> None: ...
+    def __init__(
+        self,
+        session_id: _Optional[str] = ...,
+        device_id: _Optional[str] = ...,
+        reason: _Optional[str] = ...,
+    ) -> None: ...
 
 class DebugEventRequest(_message.Message):
     __slots__ = ("event_id", "tenant_id", "aggregate_id", "event_type", "occurred_at", "payload")
@@ -333,7 +575,17 @@ class DebugEventRequest(_message.Message):
     event_type: str
     occurred_at: _timestamp_pb2.Timestamp
     payload: _struct_pb2.Struct
-    def __init__(self, event_id: _Optional[str] = ..., tenant_id: _Optional[str] = ..., aggregate_id: _Optional[str] = ..., event_type: _Optional[str] = ..., occurred_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., payload: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ...) -> None: ...
+    def __init__(
+        self,
+        event_id: _Optional[str] = ...,
+        tenant_id: _Optional[str] = ...,
+        aggregate_id: _Optional[str] = ...,
+        event_type: _Optional[str] = ...,
+        occurred_at: _Optional[
+            _Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping[str, object]]
+        ] = ...,
+        payload: _Optional[_Union[_struct_pb2.Struct, _Mapping[str, object]]] = ...,
+    ) -> None: ...
 
 class DebugEventResponse(_message.Message):
     __slots__ = ("accepted", "detail")
@@ -359,4 +611,13 @@ class DebugRelayFrame(_message.Message):
     payload: bytes
     end: bool
     device_id: str
-    def __init__(self, session_id: _Optional[str] = ..., request_id: _Optional[str] = ..., capability: _Optional[str] = ..., kind: _Optional[str] = ..., payload: _Optional[bytes] = ..., end: _Optional[bool] = ..., device_id: _Optional[str] = ...) -> None: ...
+    def __init__(
+        self,
+        session_id: _Optional[str] = ...,
+        request_id: _Optional[str] = ...,
+        capability: _Optional[str] = ...,
+        kind: _Optional[str] = ...,
+        payload: _Optional[bytes] = ...,
+        end: _Optional[bool] = ...,
+        device_id: _Optional[str] = ...,
+    ) -> None: ...

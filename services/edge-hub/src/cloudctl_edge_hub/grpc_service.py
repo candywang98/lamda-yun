@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 
 import grpc
 from cloudctl_edge_protocol import edge_control_pb2 as pb
@@ -14,8 +14,11 @@ from .session import EdgeHub, SessionError
 
 class EdgeControlService(pb_grpc.EdgeControlServicer):
     def __init__(
-        self, hub: EdgeHub, identity_verifier: PeerIdentityVerifier, debug_event_handler=None
-    ):
+        self,
+        hub: EdgeHub,
+        identity_verifier: PeerIdentityVerifier,
+        debug_event_handler: Callable[[dict[str, object]], Awaitable[None]] | None = None,
+    ) -> None:
         self._hub = hub
         self._identity_verifier = identity_verifier
         self._debug_event_handler = debug_event_handler
@@ -27,14 +30,16 @@ class EdgeControlService(pb_grpc.EdgeControlServicer):
             self._identity_verifier.verify_control_plane(context.auth_context())
         except IdentityError as exc:
             await context.abort(grpc.StatusCode.UNAUTHENTICATED, str(exc))
-        if self._debug_event_handler is None:
+        handler = self._debug_event_handler
+        if handler is None:
             await context.abort(grpc.StatusCode.UNIMPLEMENTED, "debug event delivery is disabled")
+            return pb.DebugEventResponse(accepted=False, detail="debug event delivery is disabled")
         if not request.event_id or not request.aggregate_id or not request.event_type:
             await context.abort(grpc.StatusCode.INVALID_ARGUMENT, "event identity is required")
         if request.event_type not in {"debug.session.grant_requested", "debug.session.revoked"}:
             await context.abort(grpc.StatusCode.INVALID_ARGUMENT, "event type is not allowed")
         payload = MessageToDict(request.payload, preserving_proto_field_name=False)
-        event = {
+        event: dict[str, object] = {
             "eventId": request.event_id,
             "tenantId": request.tenant_id,
             "aggregateId": request.aggregate_id,
@@ -42,7 +47,7 @@ class EdgeControlService(pb_grpc.EdgeControlServicer):
             "payload": payload,
         }
         try:
-            await self._debug_event_handler(event)
+            await handler(event)
         except SessionError as exc:
             await context.abort(grpc.StatusCode.FAILED_PRECONDITION, str(exc))
         return pb.DebugEventResponse(accepted=True, detail="debug event accepted")

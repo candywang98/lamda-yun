@@ -29,7 +29,7 @@ import json
 import re
 import uuid
 from datetime import datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
 from cloudctl_domain import NotFoundError
 from fastapi import APIRouter, Depends, Query, Request, Response, status
@@ -71,10 +71,10 @@ class FleetListingRow(Base, TimestampMixin):
 
     __tablename__ = "fleet_listing"
     __table_args__ = (
-        UniqueConstraint("tenant_id", "device_id", "platform", "item_key",
-                         name="uq_fleet_listing_identity"),
-        CheckConstraint("price_cents is null or price_cents >= 0",
-                        name="ck_fleet_listing_price"),
+        UniqueConstraint(
+            "tenant_id", "device_id", "platform", "item_key", name="uq_fleet_listing_identity"
+        ),
+        CheckConstraint("price_cents is null or price_cents >= 0", name="ck_fleet_listing_price"),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
@@ -117,8 +117,9 @@ class FleetListingScreenRow(Base, TimestampMixin):
 
     __tablename__ = "fleet_listing_screen"
     __table_args__ = (
-        UniqueConstraint("tenant_id", "device_id", "run_key", "screen",
-                         name="uq_fleet_listing_screen"),
+        UniqueConstraint(
+            "tenant_id", "device_id", "run_key", "screen", name="uq_fleet_listing_screen"
+        ),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
@@ -421,7 +422,7 @@ operator_router = APIRouter(prefix="/api/v1/fleet/listings", tags=["fleet-listin
 
 
 def service(request: Request) -> FleetListingsService:
-    return request.app.state.fleet_listings_service
+    return cast(FleetListingsService, request.app.state.fleet_listings_service)
 
 
 ServiceDep = Annotated[FleetListingsService, Depends(service)]
@@ -437,9 +438,7 @@ async def push_listing_screen(
     response: Response,
 ) -> dict[str, Any]:
     result = await fleet_listings.push_screen(binding_row, body)
-    response.status_code = (
-        status.HTTP_200_OK if result["replayed"] else status.HTTP_201_CREATED
-    )
+    response.status_code = status.HTTP_200_OK if result["replayed"] else status.HTTP_201_CREATED
     return result
 
 

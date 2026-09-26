@@ -269,7 +269,6 @@ def _retain_control_events(events: list[dict[str, Any]]) -> list[dict[str, Any]]
     return protected + retained if protected else retained
 
 
-
 def _record_control_event(
     row: MobileTaskRow, kind: str, reason: str, actor: str, now: datetime
 ) -> int:
@@ -357,9 +356,7 @@ async def _release_occupation(session: Any, row: MobileTaskRow, now: datetime) -
 # A12 read-only window proof (fleet-identity/v1 §8, task card #4)
 # ---------------------------------------------------------------------------
 
-READONLY_WINDOW_VERDICTS = frozenset(
-    {"ALLOWED", "BLOCKED_EXECUTOR_LIVE", "BLOCKED_OCCUPANCY_LIVE"}
-)
+READONLY_WINDOW_VERDICTS = frozenset({"ALLOWED", "BLOCKED_EXECUTOR_LIVE", "BLOCKED_OCCUPANCY_LIVE"})
 
 
 async def evaluate_readonly_window(
@@ -566,6 +563,9 @@ class PlatformTaskService:
         if not key or len(key) > 100:
             raise ValidationError("Idempotency-Key is required and must be at most 100 characters")
         body = await self._freeze_publish_listing(actor, body)
+        command_type = body.command_type
+        if command_type is None:
+            raise ValidationError("commandType or operationId is required")
         batch_id = body.batch_id or str(uuid.uuid4())
         created_any = False
         views: list[dict[str, Any]] = []
@@ -580,7 +580,7 @@ class PlatformTaskService:
             )
             created_any = created_any or created
             command_payload = {
-                "commandType": body.command_type,
+                "commandType": command_type,
                 "parameters": body.parameters,
                 "accountId": body.account_id,
                 "expectedBindingVersion": body.expected_binding_version,
@@ -588,7 +588,7 @@ class PlatformTaskService:
                 "productId": body.product_id or body.parameters.get("productId"),
                 "mediaDeliveryId": body.media_delivery_id,
                 "snapshotId": f"snap-{view['taskId']}",
-                "recipe": builtin_recipe_ref(body.command_type),
+                "recipe": builtin_recipe_ref(command_type),
             }
             # task-schedule/v1 §2/D1: freeze the minting operationId into the
             # snapshot; §5: freeze the template revision the command was minted from.
@@ -601,7 +601,7 @@ class PlatformTaskService:
             ).hexdigest()
             await self._stamp_business_fields(
                 task_id=view["taskId"],
-                command_type=body.command_type,
+                command_type=command_type,
                 command_payload=command_payload,
                 batch_id=batch_id,
                 scheduled_for=body.scheduled_for,
@@ -818,11 +818,13 @@ class PlatformTaskService:
                 "RECONCILING",
             }:
                 raise ConflictError("only RECONCILING tasks can be reconciled")
-            actions = list(await session.scalars(
-                select(MobileActionCommitRow)
-                .where(MobileActionCommitRow.task_id == row.id)
-                .with_for_update()
-            ))
+            actions = list(
+                await session.scalars(
+                    select(MobileActionCommitRow)
+                    .where(MobileActionCommitRow.task_id == row.id)
+                    .with_for_update()
+                )
+            )
             if request.decision == "CONFIRMED_NOT_SUBMITTED" and any(
                 action.status == "APPLIED" for action in actions
             ):
@@ -1177,8 +1179,11 @@ class PlatformTaskService:
         )
 
     def _mobile_body(self, device_id: str, body: PlatformTaskCreate) -> MobileTaskCreate:
-        package = COMMAND_PACKAGES[body.command_type] or COMPANION_PACKAGE
-        if body.command_type == "xianyu.publish_listing.v1":
+        command_type = body.command_type
+        if command_type is None:
+            raise ValidationError("commandType or operationId is required")
+        package = COMMAND_PACKAGES[command_type] or COMPANION_PACKAGE
+        if command_type == "xianyu.publish_listing.v1":
             try:
                 listing, price = listing_copy_from_parameters(body.parameters)
             except ValueError as exc:
@@ -1191,14 +1196,14 @@ class PlatformTaskService:
                 media_asset_ids=media_ids if isinstance(media_ids, list) and media_ids else None,
                 delivery_id=body.media_delivery_id,
             )
-        elif body.command_type == "xiaohongshu.publish_note.v1":
+        elif command_type == "xiaohongshu.publish_note.v1":
             raw = {
                 "deviceId": device_id,
                 "targetPackage": XHS_PACKAGE,
                 "totalTimeoutMs": 30_000,
                 "steps": _xhs_note_steps(),
             }
-        elif body.command_type == "xianyu.collect_orders.v1":
+        elif command_type == "xianyu.collect_orders.v1":
             raw = {
                 "deviceId": device_id,
                 "targetPackage": XIANYU_PACKAGE,

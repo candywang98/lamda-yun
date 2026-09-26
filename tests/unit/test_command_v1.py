@@ -14,7 +14,9 @@ ROOT = Path(__file__).resolve().parents[2] / "contracts" / "phase1" / "fixtures"
 
 
 def test_valid_xianyu_publish_listing_parses() -> None:
-    payload = json.loads((ROOT / "valid" / "xianyu-publish-listing.json").read_text(encoding="utf-8"))
+    payload = json.loads(
+        (ROOT / "valid" / "xianyu-publish-listing.json").read_text(encoding="utf-8")
+    )
     parsed = parse_command_v1(payload)
     assert parsed["protocolVersion"] == "cloudctl.command/v1"
     assert parsed["commandType"] == "xianyu.publish_listing.v1"
@@ -36,7 +38,9 @@ def test_invalid_command_fixtures_are_rejected(name: str) -> None:
 
 
 def test_wrong_device_package_is_rejected() -> None:
-    payload = json.loads((ROOT / "valid" / "xianyu-publish-listing.json").read_text(encoding="utf-8"))
+    payload = json.loads(
+        (ROOT / "valid" / "xianyu-publish-listing.json").read_text(encoding="utf-8")
+    )
     payload["targetPackage"] = "com.example.malware"
     with pytest.raises((ValidationError, ValueError)):
         parse_command_v1(payload)

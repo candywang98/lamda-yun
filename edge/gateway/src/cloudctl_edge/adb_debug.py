@@ -83,9 +83,7 @@ class RestrictedAdbDebugDriver:
         elif frame.capability == "view.layout" and frame.kind == "layout":
             if payload:
                 raise AdbDebugError("UI tree does not accept caller parameters")
-            content = await self._runner(
-                self._argv("exec-out", "uiautomator", "dump", "/dev/tty")
-            )
+            content = await self._runner(self._argv("exec-out", "uiautomator", "dump", "/dev/tty"))
             self._validate_capture(content)
             response = {"nodes": self._parse_layout(content)}
             response_kind = frame.kind

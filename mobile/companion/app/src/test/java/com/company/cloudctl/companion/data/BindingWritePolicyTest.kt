@@ -1,5 +1,6 @@
 package com.company.cloudctl.companion.data
 
+import com.company.cloudctl.companion.BuildConfig
 import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -8,17 +9,21 @@ import kotlin.test.assertTrue
 
 /**
  * Debug and release compile different BindingWritePolicy types under the same
- * name. This test runs in the debug unit-test variant, so the type it calls is
- * the debug one. The release type is checked by reading the release source,
- * which compileReleaseKotlin also has to compile.
+ * name. Acceptance and heartbeatDiagnostic reuse the release source set, so
+ * assert the policy actually packaged by each variant rather than assuming
+ * every unit-test task is the debug variant.
  */
 class BindingWritePolicyTest {
     @Test
-    fun debugPolicyRefusesToSaveABinding() {
-        val error = kotlin.test.assertFailsWith<IllegalStateException> {
+    fun bindingPolicyMatchesThePackagedSourceSet() {
+        if (BuildConfig.APPLICATION_ID.endsWith(".debug")) {
+            val error = kotlin.test.assertFailsWith<IllegalStateException> {
+                BindingWritePolicy.beforeSave()
+            }
+            assertEquals("DEBUG_BINDING_FORBIDDEN", error.message)
+        } else {
             BindingWritePolicy.beforeSave()
         }
-        assertEquals("DEBUG_BINDING_FORBIDDEN", error.message)
     }
 
     @Test

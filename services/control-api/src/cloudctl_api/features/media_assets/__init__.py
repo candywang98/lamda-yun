@@ -2,3 +2,5 @@
 
 from .routes import router  # noqa: F401
 from .service import MediaAssetsService  # noqa: F401
+
+__all__ = ["MediaAssetsService", "router"]

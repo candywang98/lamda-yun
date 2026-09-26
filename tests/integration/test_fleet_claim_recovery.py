@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import os
 import shutil
 import socket
 import subprocess
@@ -50,8 +51,9 @@ from test_platform_tasks import (
     create_direct_device,
     identity,
 )
-from test_xianyu_maintenance import XIANYU, _create_steps_task, delist_steps, polish_steps
+from test_xianyu_maintenance import _create_steps_task, delist_steps, polish_steps
 
+POSTGRES_ENV = {**os.environ, "LC_ALL": "C", "LANG": "C", "LANGUAGE": "C"}
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -81,6 +83,7 @@ def isolated_postgres(tmp_path_factory):
         ["initdb", "-D", str(root / "data"), "-A", "trust", "-U", "a11test"],  # noqa: S607
         check=True,
         capture_output=True,
+        env=POSTGRES_ENV,
     )
     subprocess.run(  # noqa: S603 - fixed PostgreSQL tools and test-owned paths
         [  # noqa: S607
@@ -96,6 +99,7 @@ def isolated_postgres(tmp_path_factory):
         ],
         check=True,
         capture_output=True,
+        env=POSTGRES_ENV,
     )
     try:
         yield port
@@ -104,6 +108,7 @@ def isolated_postgres(tmp_path_factory):
             ["pg_ctl", "-D", str(root / "data"), "-m", "immediate", "-w", "stop"],  # noqa: S607
             check=True,
             capture_output=True,
+            env=POSTGRES_ENV,
         )
 
 
@@ -114,6 +119,7 @@ def pg_url(isolated_postgres):
         ["createdb", "-h", "127.0.0.1", "-p", str(isolated_postgres), "-U", "a11test", name],  # noqa: S607
         check=True,
         capture_output=True,
+        env=POSTGRES_ENV,
     )
     return f"postgresql+asyncpg://a11test@127.0.0.1:{isolated_postgres}/{name}"
 
@@ -154,9 +160,7 @@ def payload_identity(steps: list[dict[str, Any]]) -> str:
 
 
 async def claim(client: httpx.AsyncClient, auth: dict[str, str]) -> httpx.Response:
-    return await client.post(
-        "/companion/v2/tasks/claim", headers=auth, json={"leaseSeconds": 60}
-    )
+    return await client.post("/companion/v2/tasks/claim", headers=auth, json={"leaseSeconds": 60})
 
 
 async def release(
@@ -174,9 +178,7 @@ async def release(
     )
 
 
-async def patch_task(
-    app: FastAPI, task_id: str, mutate: Callable[[MobileTaskRow], None]
-) -> None:
+async def patch_task(app: FastAPI, task_id: str, mutate: Callable[[MobileTaskRow], None]) -> None:
     async with app.state.database.unit_of_work() as session:
         row = await session.get(MobileTaskRow, task_id)
         assert row is not None
@@ -192,9 +194,7 @@ async def frozen_steps_flow(
 ) -> tuple[str, str, dict[str, str], dict[str, Any]]:
     """Create + claim + release a frozen-steps task; ready for re-claim."""
     device = await create_direct_device(client, f"a11-{name}")
-    created = await _create_steps_task(
-        client, device, polish_steps(), f"a11-{name}-{uuid.uuid4()}"
-    )
+    created = await _create_steps_task(client, device, polish_steps(), f"a11-{name}-{uuid.uuid4()}")
     assert created.status_code == 201, created.text
     task_id = created.json()["taskId"]
     auth = await _enroll(client, device, f"a11-{name}-instance")
@@ -401,9 +401,7 @@ async def test_committed_steps_task_not_reexecuted_after_ack_loss(api):
         assert row.attempt == 1
         ledger = list(
             await session.scalars(
-                select(MobileActionCommitRow).where(
-                    MobileActionCommitRow.task_id == task_id
-                )
+                select(MobileActionCommitRow).where(MobileActionCommitRow.task_id == task_id)
             )
         )
         assert [item.status for item in ledger] == ["INTENT"]
@@ -470,9 +468,12 @@ async def test_postgres_frozen_steps_release_and_reclaim(pg_url):
 
 async def test_postgres_same_device_two_processes_single_holder(pg_url):
     """任务卡验收 3：两个 API 进程同设备并发 claim，至多一位有效持有者。"""
-    async with api_process(pg_url) as (client1, app1), api_process(pg_url) as (
-        client2,
-        _,
+    async with (
+        api_process(pg_url) as (client1, app1),
+        api_process(pg_url) as (
+            client2,
+            _,
+        ),
     ):
         device = await create_direct_device(client1, "a11-pg-race")
         created = await _create_steps_task(
@@ -510,9 +511,12 @@ async def test_postgres_same_device_two_processes_single_holder(pg_url):
 
 async def test_postgres_different_devices_do_not_wait_on_global_lock(pg_url):
     """任务卡验收 4：异设备并行——设备 A 行锁被持有时，设备 B 照常领取。"""
-    async with api_process(pg_url) as (client1, app1), api_process(pg_url) as (
-        client2,
-        _,
+    async with (
+        api_process(pg_url) as (client1, app1),
+        api_process(pg_url) as (
+            client2,
+            _,
+        ),
     ):
         device_a = await create_direct_device(client1, "a11-pg-lock-a")
         device_b = await create_direct_device(client1, "a11-pg-lock-b")

@@ -51,12 +51,8 @@ class TurnConfig:
     connection_quota: int = 2
 
     def __post_init__(self) -> None:
-        if not self.ice_servers or not all(
-            _ICE_URL_PATTERN.match(url) for url in self.ice_servers
-        ):
-            raise TurnConfigError(
-                "at least one stun:/turn:/turns: ICE server URL is required"
-            )
+        if not self.ice_servers or not all(_ICE_URL_PATTERN.match(url) for url in self.ice_servers):
+            raise TurnConfigError("at least one stun:/turn:/turns: ICE server URL is required")
         if not self.shared_secret:
             raise TurnConfigError("TURN shared secret must not be empty")
         if not TTL_MIN_SECONDS <= self.credential_ttl_seconds <= TTL_MAX_SECONDS:
@@ -113,7 +109,8 @@ def mint_turn_credentials(
         config.shared_secret.encode("utf-8"), username.encode("utf-8"), hashlib.sha1
     ).digest()
     return TurnCredentials(
-        username=username, password=base64.b64encode(digest).decode("ascii"),
+        username=username,
+        password=base64.b64encode(digest).decode("ascii"),
         expires_at_unix=expires_at,
     )
 
@@ -239,8 +236,11 @@ class WebRtcAdapter:
             turn_required=True,
             details={
                 "iceServers": [
-                    {"urls": list(config.ice_servers), "username": credentials.username,
-                     "credential": credentials.password}
+                    {
+                        "urls": list(config.ice_servers),
+                        "username": credentials.username,
+                        "credential": credentials.password,
+                    }
                 ],
                 "transportPolicy": config.transport_policy,
                 "connectionQuota": config.connection_quota,

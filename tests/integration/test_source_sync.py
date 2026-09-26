@@ -22,7 +22,7 @@ class TestSourceSync:
     async def test_sync_product_first_run(self, session, tenant_id: str, user_id: str) -> None:
         """Test first synchronization creates products."""
         from datetime import UTC, datetime
-        
+
         # Create connection
         connection = SourceConnectionRow(
             id="conn-1",
@@ -68,7 +68,7 @@ class TestSourceSync:
         print(f"Failed: {result['records_failed']}")
 
         # Check errors if any
-        if result['records_failed'] > 0:
+        if result["records_failed"] > 0:
             error_stmt = select(SyncErrorRow).where(
                 SyncErrorRow.sync_run_id == result["sync_run_id"]
             )
@@ -88,7 +88,7 @@ class TestSourceSync:
         stmt = select(SyncRunRow).where(SyncRunRow.id == result["sync_run_id"])
         sync_result = await session.execute(stmt)
         sync_run = sync_result.scalar_one()
-        
+
         assert sync_run.status == "completed"
         assert sync_run.records_read == 10
         assert sync_run.records_created == 10
@@ -97,19 +97,17 @@ class TestSourceSync:
         prod_stmt = select(ProductRow).where(ProductRow.tenant_id == tenant_id)
         prod_result = await session.execute(prod_stmt)
         products = prod_result.scalars().all()
-        
+
         assert len(products) == 10
         assert products[0].spu_code == "P001"
         assert "iPhone" in products[0].title
         assert products[0].price == "4299.0"
 
         # Verify links created
-        link_stmt = select(SourceRecordLinkRow).where(
-            SourceRecordLinkRow.tenant_id == tenant_id
-        )
+        link_stmt = select(SourceRecordLinkRow).where(SourceRecordLinkRow.tenant_id == tenant_id)
         link_result = await session.execute(link_stmt)
         links = link_result.scalars().all()
-        
+
         assert len(links) == 10
         assert links[0].external_id == "P001"
         assert links[0].entity_kind == "product"
@@ -259,16 +257,14 @@ class TestSourceSync:
         )
         prod_result = await session.execute(prod_stmt)
         product = prod_result.scalar_one()
-        
+
         assert product.price == "3999.0"
         assert product.revision == 2
 
     @pytest.mark.asyncio
-    async def test_sync_media_with_download(
-        self, session, tenant_id: str, user_id: str
-    ) -> None:
+    async def test_sync_media_with_download(self, session, tenant_id: str, user_id: str) -> None:
         """Test media synchronization with asset download.
-        
+
         Note: Demo media files don't actually exist in artifacts/v1/V1-03/demo-data/media/,
         so this test expects failures for missing files.
         """
@@ -315,12 +311,10 @@ class TestSourceSync:
         assert result["records_failed"] == 20
 
         # Verify errors recorded
-        error_stmt = select(SyncErrorRow).where(
-            SyncErrorRow.connection_id == connection.id
-        )
+        error_stmt = select(SyncErrorRow).where(SyncErrorRow.connection_id == connection.id)
         error_result = await session.execute(error_stmt)
         errors = error_result.scalars().all()
-        
+
         assert len(errors) == 20
         assert all("not found" in e.error_message.lower() for e in errors)
 
@@ -377,20 +371,16 @@ class TestSourceSync:
         assert result["records_created"] == 0
 
         # Verify errors recorded
-        error_stmt = select(SyncErrorRow).where(
-            SyncErrorRow.connection_id == connection.id
-        )
+        error_stmt = select(SyncErrorRow).where(SyncErrorRow.connection_id == connection.id)
         error_result = await session.execute(error_stmt)
         errors = error_result.scalars().all()
-        
+
         assert len(errors) >= 2
         assert any("product_id" in e.error_message for e in errors)
         assert any("price" in e.error_message.lower() for e in errors)
 
     @pytest.mark.asyncio
-    async def test_sync_cursor_persistence(
-        self, session, tenant_id: str, user_id: str
-    ) -> None:
+    async def test_sync_cursor_persistence(self, session, tenant_id: str, user_id: str) -> None:
         """Test cursor is persisted across pages."""
         connection = SourceConnectionRow(
             id="conn-6",
@@ -433,7 +423,7 @@ class TestSourceSync:
         stmt = select(SyncRunRow).where(SyncRunRow.id == result["sync_run_id"])
         sync_result = await session.execute(stmt)
         sync_run = sync_result.scalar_one()
-        
+
         # Cursor should be None (end of data)
         assert sync_run.cursor_after is None
         assert sync_run.cursor_before is None  # First run
@@ -443,9 +433,9 @@ class TestSourceSync:
 async def tenant_id(session) -> str:
     """Create test tenant."""
     from datetime import UTC, datetime
-    
+
     from cloudctl_api.db import TenantRow
-    
+
     tenant = TenantRow(
         id="test-tenant-1",
         name="Test Tenant",
@@ -460,9 +450,9 @@ async def tenant_id(session) -> str:
 async def user_id(session, tenant_id: str) -> str:
     """Create test user."""
     from datetime import UTC, datetime
-    
+
     from cloudctl_api.db import UserRow
-    
+
     user = UserRow(
         id="test-user-1",
         tenant_id=tenant_id,

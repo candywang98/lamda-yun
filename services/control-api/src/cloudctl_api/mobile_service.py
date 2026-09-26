@@ -140,9 +140,7 @@ class MobileDeviceHeartbeatV2(MobileDeviceHeartbeat):
     server-side fleet view reflects the cautious state.
     """
 
-    last_applied_control_seq: int | None = Field(
-        default=None, alias="lastAppliedControlSeq", ge=0
-    )
+    last_applied_control_seq: int | None = Field(default=None, alias="lastAppliedControlSeq", ge=0)
     safety_barrier: Literal["NONE", "UNKNOWN", "RECONCILING"] | None = Field(
         default=None, alias="safetyBarrier"
     )
@@ -262,9 +260,7 @@ def _audit_companion_control(
     )
 
 
-async def _release_task_occupation(
-    session: Any, row: MobileTaskRow, now: datetime
-) -> bool:
+async def _release_task_occupation(session: Any, row: MobileTaskRow, now: datetime) -> bool:
     """Release the device's AUTO occupation owned by this task's workflow.
 
     Thin lazy wrapper over platform_tasks._release_occupation (platform_tasks
@@ -275,9 +271,7 @@ async def _release_task_occupation(
     return await _release_occupation(session, row, now)
 
 
-async def _settle_task_reply_delivery(
-    session: Any, task_id: str, business_state: str
-) -> None:
+async def _settle_task_reply_delivery(session: Any, task_id: str, business_state: str) -> None:
     """Forward a terminal task state to the bound IM reply OUT message."""
     from .im_service import settle_reply_delivery
 
@@ -346,14 +340,14 @@ def _control_event_view(entry: DeviceControlEntry) -> dict[str, Any]:
 
 
 class MobileTaskService:
+    live_service: Any
+
     def __init__(self, database: Database, object_store: ObjectStore | None = None) -> None:
         self.database = database
         self.object_store = object_store
 
     @staticmethod
-    async def _authorized_media_asset_ids(
-        session: Any, tenant_id: str, device_id: str
-    ) -> set[str]:
+    async def _authorized_media_asset_ids(session: Any, tenant_id: str, device_id: str) -> set[str]:
         """fleet-identity/v1 task-card rule: media downloads are authorized per
         tenant AND per task — an asset is fetchable by this device only while a
         non-terminal task on this device references it through its frozen media
@@ -410,9 +404,7 @@ class MobileTaskService:
             raise NotFoundError("one or more media assets were not found in tenant")
         unauthorized = [asset_id for asset_id in asset_ids if asset_id not in allowed]
         if unauthorized:
-            raise NotFoundError(
-                "one or more media assets are not authorized for this device"
-            )
+            raise NotFoundError("one or more media assets are not authorized for this device")
         return {
             "protocolVersion": "cloudctl.media/v1",
             "deliveryId": delivery_id,
@@ -484,7 +476,9 @@ class MobileTaskService:
                     "sha256": package.artifact_sha256,
                     "commandType": row.command_type,
                     "downloadPath": f"/companion/v2/recipes/{package.id}",
-                    "engineMinVersion": package.manifest.get("manifest", {}).get("minEngineVersion", 1),
+                    "engineMinVersion": package.manifest.get("manifest", {}).get(
+                        "minEngineVersion", 1
+                    ),
                     "previousVersionId": row.previous_version_id,
                 }
             )
@@ -793,9 +787,7 @@ class MobileTaskService:
             if device is not None:
                 device.last_seen_at = now
             tenant_id, device_id = stored.tenant_id, stored.device_id
-        return session_envelope(
-            row, tenant_id=tenant_id, device_id=device_id, online=True
-        )
+        return session_envelope(row, tenant_id=tenant_id, device_id=device_id, online=True)
 
     async def fleet_device_status(self, binding: MobileBindingRow) -> dict[str, Any]:
         """FleetEnvelope view for the binding's device (online ≠ executable)."""
@@ -885,7 +877,9 @@ class MobileTaskService:
             capabilities["companionVersion"] = body.companion_version
             capabilities["accessibilityEnabled"] = body.accessibility_enabled
             capabilities["runnerState"] = body.runner_state
-            capabilities["capabilitiesVersion"] = int(capabilities.get("capabilitiesVersion") or 0) + 1
+            capabilities["capabilitiesVersion"] = (
+                int(capabilities.get("capabilitiesVersion") or 0) + 1
+            )
             if body.battery_optimization_ignored is not None:
                 capabilities["batteryOptimizationIgnored"] = body.battery_optimization_ignored
             if body.safety_barrier is not None:
@@ -953,18 +947,14 @@ class MobileTaskService:
             # is never gated by local execution state, queue state or
             # accessibility readiness (§0), so a device that cannot claim
             # still learns about cancels.
-            entries = await _device_control_entries(
-                session, stored.tenant_id, stored.device_id
-            )
+            entries = await _device_control_entries(session, stored.tenant_id, stored.device_id)
             payload["controlHighWatermark"] = entries[-1].seq if entries else 0
             if body.last_applied_control_seq is None:
                 inline = entries[-MAX_INLINE_CONTROL_EVENTS:]
             else:
-                inline = [
-                    entry
-                    for entry in entries
-                    if entry.seq > body.last_applied_control_seq
-                ][-MAX_INLINE_CONTROL_EVENTS:]
+                inline = [entry for entry in entries if entry.seq > body.last_applied_control_seq][
+                    -MAX_INLINE_CONTROL_EVENTS:
+                ]
             payload["inlineEvents"] = [_control_event_view(entry) for entry in inline]
             blocking = await session.scalar(
                 select(MobileTaskRow)
@@ -979,9 +969,7 @@ class MobileTaskService:
                 {
                     "taskId": blocking.id,
                     "status": _normalized_business_state(blocking),
-                    "taskRevision": int(
-                        _control_header(blocking).get("controlRevision") or 0
-                    ),
+                    "taskRevision": int(_control_header(blocking).get("controlRevision") or 0),
                 }
                 if blocking is not None
                 else None
@@ -999,13 +987,9 @@ class MobileTaskService:
         of returning an empty page that would pretend nothing changed.
         """
         if after < 0:
-            raise ControlSeqInvalidError(
-                "after must be a non-negative deviceControlSeq"
-            )
+            raise ControlSeqInvalidError("after must be a non-negative deviceControlSeq")
         async with self.database.unit_of_work() as session:
-            entries = await _device_control_entries(
-                session, binding.tenant_id, binding.device_id
-            )
+            entries = await _device_control_entries(session, binding.tenant_id, binding.device_id)
         if entries:
             floor = entries[0].seq
             if after < floor:
@@ -1017,8 +1001,7 @@ class MobileTaskService:
         elif after > 0:
             # Every control event of this device has been compacted away.
             raise CursorTooOldError(
-                "device control events have been compacted; converge via the "
-                "reconcile snapshot",
+                "device control events have been compacted; converge via the reconcile snapshot",
                 fields={"snapshotRequired": "true"},
             )
         page = [entry for entry in entries if entry.seq > after][:limit]
@@ -1040,9 +1023,7 @@ class MobileTaskService:
         state.
         """
         async with self.database.unit_of_work() as session:
-            entries = await _device_control_entries(
-                session, binding.tenant_id, binding.device_id
-            )
+            entries = await _device_control_entries(session, binding.tenant_id, binding.device_id)
             rows = list(
                 (
                     await session.scalars(
@@ -1075,8 +1056,7 @@ class MobileTaskService:
                     "status": row.status,
                     "businessState": _normalized_business_state(row),
                     "taskRevision": int(_control_header(row).get("controlRevision") or 0),
-                    "terminal": _normalized_business_state(row)
-                    in TERMINAL_BUSINESS_STATES,
+                    "terminal": _normalized_business_state(row) in TERMINAL_BUSINESS_STATES,
                     "ledgerBlocks": row.id in ledger_blocked,
                 }
                 for row in rows
@@ -1122,9 +1102,7 @@ class MobileTaskService:
                         "uncertain result must be reconciled before cancel acknowledgement"
                     )
                 if state != "CANCEL_REQUESTED":
-                    raise ConflictError(
-                        "cancel acknowledgement requires a pending CANCEL"
-                    )
+                    raise ConflictError("cancel acknowledgement requires a pending CANCEL")
                 task.status = "FAILED"
                 task.business_state = "CANCELLED"
                 task.error_code = "CANCELLED"
@@ -1158,9 +1136,7 @@ class MobileTaskService:
             if state == "CANCELLED":
                 raise ConflictError("cancelled task cannot defer a cancel ack")
             if state != "CANCEL_REQUESTED":
-                raise ConflictError(
-                    "cancel acknowledgement requires a pending CANCEL"
-                )
+                raise ConflictError("cancel acknowledgement requires a pending CANCEL")
             task.business_state = "RECONCILING"
             task.stall_reason = (body.reason or "cancel deferred by device")[:160]
             revision = _append_control_event(
@@ -1180,9 +1156,7 @@ class MobileTaskService:
             return self._ack_view(task, revision, "CANCEL_DEFERRED_RECONCILING", False)
 
     @staticmethod
-    def _ack_view(
-        row: MobileTaskRow, revision: int, result: str, terminal: bool
-    ) -> dict[str, Any]:
+    def _ack_view(row: MobileTaskRow, revision: int, result: str, terminal: bool) -> dict[str, Any]:
         return {
             "taskId": row.id,
             "taskRevision": revision,
@@ -1414,9 +1388,7 @@ class MobileTaskService:
                 raise AuthenticationError("companion instance is no longer the active binding")
             # fleet-identity/v1 §8: open UNKNOWN ledger rows block reclaim for
             # the whole device until reconciliation converges (KEEP_WAITING).
-            open_unknown = await open_unknown_actions(
-                session, binding.tenant_id, binding.device_id
-            )
+            open_unknown = await open_unknown_actions(session, binding.tenant_id, binding.device_id)
             if open_unknown:
                 raise ReconcileRequiredError(
                     "device has open UNKNOWN action ledger rows; "
@@ -1451,7 +1423,9 @@ class MobileTaskService:
             )
             if blocking is not None:
                 return None
-            existing_lease = await session.get(DeviceLeaseRow, binding.device_id, with_for_update=True)
+            existing_lease = await session.get(
+                DeviceLeaseRow, binding.device_id, with_for_update=True
+            )
             if (
                 existing_lease is not None
                 and existing_lease.canceled_at is None
@@ -1569,8 +1543,7 @@ class MobileTaskService:
                     )
                 if metadata["commandRegistryVersion"] != COMMAND_REGISTRY_VERSION:
                     raise ConflictError(
-                        "frozen steps command registry version changed; "
-                        "reconcile before continuing"
+                        "frozen steps command registry version changed; reconcile before continuing"
                     )
             row.status = "CLAIMED"
             row.business_state = "PREFLIGHT"
@@ -1757,10 +1730,11 @@ class MobileTaskService:
             }:
                 stored.business_state = "RUNNING"
             stored.current_step = current_step
-            stored.lease_expires_at = _now() + timedelta(seconds=lease_seconds)
+            lease_expires_at = _now() + timedelta(seconds=lease_seconds)
+            stored.lease_expires_at = lease_expires_at
             lease = await session.get(DeviceLeaseRow, binding.device_id, with_for_update=True)
             if lease is not None and lease.lease_id == stored.lease_id:
-                lease.expires_at = stored.lease_expires_at
+                lease.expires_at = lease_expires_at
             return self._task_view(stored)
 
     async def event(
@@ -1798,9 +1772,13 @@ class MobileTaskService:
                 raise ConflictError("mobile task event sequence has a gap")
             # Replays above remain idempotent even if reconciliation started later.
             if task.business_state == "RECONCILING" and event_type in {
-                "PAUSE_REQUESTED", "PAUSED_WAITING_USER", "RESUME_CHECK"
+                "PAUSE_REQUESTED",
+                "PAUSED_WAITING_USER",
+                "RESUME_CHECK",
             }:
-                raise ConflictError("uncertain result must be reconciled before changing task state")
+                raise ConflictError(
+                    "uncertain result must be reconciled before changing task state"
+                )
             if event_type == "PAUSE_REQUESTED":
                 task.business_state = "PAUSE_REQUESTED"
             elif event_type == "PAUSED_WAITING_USER":
@@ -1822,7 +1800,9 @@ class MobileTaskService:
                 sequence=sequence,
                 event_type=event_type,
                 step_index=step_index,
-                step_id=str(payload.get("stepId")) if isinstance(payload.get("stepId"), str) else None,
+                step_id=str(payload.get("stepId"))
+                if isinstance(payload.get("stepId"), str)
+                else None,
                 attempt_id=task.attempt_id,
                 payload=payload,
                 occurred_at=now,
@@ -2000,7 +1980,9 @@ class MobileTaskService:
         row = await session.get(DevicePreviewRow, device_id)
         if row is None:
             raise NotFoundError("preview session was not found")
-        return row
+        from typing import cast
+
+        return cast(DevicePreviewRow, row)
 
     @classmethod
     def _preview_view(cls, row: DevicePreviewRow, now: datetime) -> dict[str, Any]:
@@ -2089,9 +2071,7 @@ class MobileTaskService:
         return ledger is not None
 
     @staticmethod
-    async def _account_binding_mismatch(
-        session: Any, task: MobileTaskRow
-    ) -> str | None:
+    async def _account_binding_mismatch(session: Any, task: MobileTaskRow) -> str | None:
         if not task.account_id:
             return None
         live = await session.scalar(

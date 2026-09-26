@@ -176,7 +176,7 @@ class CommandV1(StrictModel):
         expected_package = COMMAND_PACKAGES[self.command_type]
         if expected_package and self.target_package != expected_package:
             raise ValueError("targetPackage does not match commandType")
-        parsers = {
+        parsers: dict[str, type[BaseModel]] = {
             "xianyu.publish_listing.v1": XianyuPublishListingParams,
             "xianyu.collect_orders.v1": XianyuCollectOrdersParams,
             "xiaohongshu.publish_note.v1": XiaohongshuPublishNoteParams,
@@ -210,7 +210,7 @@ def _lease_expires_iso(value: datetime) -> str:
 
 
 def _typed_parameters(command_type: str, parameters: dict[str, Any] | None) -> dict[str, Any]:
-    parsers = {
+    parsers: dict[str, type[BaseModel]] = {
         "xianyu.publish_listing.v1": XianyuPublishListingParams,
         "xianyu.collect_orders.v1": XianyuCollectOrdersParams,
         "xiaohongshu.publish_note.v1": XiaohongshuPublishNoteParams,

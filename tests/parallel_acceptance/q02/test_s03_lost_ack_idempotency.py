@@ -51,9 +51,7 @@ async def test_s03a_task_creation_replay_never_duplicates(
 
     async with app.state.database.unit_of_work() as session:
         rows = list(
-            await session.scalars(
-                select(MobileTaskRow).where(MobileTaskRow.device_id == device_id)
-            )
+            await session.scalars(select(MobileTaskRow).where(MobileTaskRow.device_id == device_id))
         )
         assert len(rows) == 1, "duplicate creation must not mint a second task"
 
@@ -181,9 +179,7 @@ async def test_s03d_completion_replay_absorbed_divergence_refused(
         },
     }
     assert (
-        await client.post(
-            f"/companion/v2/tasks/{task_id}/complete", headers=auth, json=wrong_type
-        )
+        await client.post(f"/companion/v2/tasks/{task_id}/complete", headers=auth, json=wrong_type)
     ).status_code == 422
 
     first = await client.post(

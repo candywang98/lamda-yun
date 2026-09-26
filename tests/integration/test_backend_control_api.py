@@ -643,7 +643,9 @@ async def test_recipe_catalog_requires_signature_and_manual_device_publish(
     tampered["graph"]["maxIterations"] = 7
     rejected = await client.post("/api/v1/recipes", headers=developer, json=tampered)
     assert rejected.status_code == 422
-    registered = await client.post("/api/v1/recipes", headers=developer, json=signed_recipe_package())
+    registered = await client.post(
+        "/api/v1/recipes", headers=developer, json=signed_recipe_package()
+    )
     assert registered.status_code == 201, registered.text
     version_id = registered.json()["versionId"]
     assert registered.json()["artifactSha256"] == signed_recipe_package()["manifest"]["hash"]

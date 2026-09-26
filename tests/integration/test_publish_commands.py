@@ -15,11 +15,10 @@ allowed publish command types:
 
 from __future__ import annotations
 
+import hashlib
 import uuid
 from collections.abc import AsyncIterator
 from typing import Any
-
-import hashlib
 
 import httpx
 import pytest
@@ -114,16 +113,16 @@ async def register_asset(
     return str(response.json()["id"])
 
 
-async def create_product(
-    client: httpx.AsyncClient, media_asset_ids: list[str]
-) -> dict[str, Any]:
+async def create_product(client: httpx.AsyncClient, media_asset_ids: list[str]) -> dict[str, Any]:
     response = await client.post(
         "/api/v1/products",
         headers=identity(role="content_editor"),
         json={
             "spuCode": f"SPU-A05-{uuid.uuid4().hex[:8]}",
             "title": "Notion Business 一年免费兑换",
-            "description": "Notion Business 兑换券，图示价值 $240。拍下后按说明发送兑换方式。支持当面交易。",
+            "description": (
+                "Notion Business 兑换券，图示价值 $240。拍下后按说明发送兑换方式。支持当面交易。"
+            ),
             "category": "虚拟",
             "price": "199",
             "stock": 1,
@@ -191,7 +190,9 @@ async def enroll_and_claim(
         )
     ).json()["bindingToken"]
     auth = {"Authorization": f"Bearer {token}"}
-    claimed = await client.post("/companion/v2/tasks/claim", headers=auth, json={"leaseSeconds": 60})
+    claimed = await client.post(
+        "/companion/v2/tasks/claim", headers=auth, json={"leaseSeconds": 60}
+    )
     assert claimed.status_code == 200, claimed.text
     return auth, claimed.json()
 

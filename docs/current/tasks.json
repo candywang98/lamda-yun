@@ -837,10 +837,10 @@
     "ISS-16"
    ],
    "risk": "中",
-   "device_acceptance": "无；仅软件验证",
+   "device_acceptance": "未完成；2026-09-26 10:47:22 一加已同包同签名安装只发心跳诊断版，数据和权限保留；20秒等待出现777.691秒空窗，持续在线未通过；11:08:32维护已恢复且设备锁释放，华为未操作",
    "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
-   "dev_state": "SOFTWARE_DONE",
-   "acceptance_state": "SOFTWARE_ACCEPTED",
+   "dev_state": "IN_PROGRESS",
+   "acceptance_state": "DEVICE_WAIT",
    "evidence": "artifacts/delivery-20260916/B11/",
    "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
    "read_only_paths": [
@@ -854,6 +854,27 @@
     "cd mobile/companion && ./gradlew testDebugUnitTest lint assembleDebug（涉及Android时）",
     "python -m pytest -q（涉及API时，在集成队列统一运行）"
    ],
+   "connectivity_followup_20260926": {
+    "observed_at": "2026-09-26T11:09:27+08:00",
+    "baseline_sha": "092c6983e2ef85cb6f7d443b5f34a73353974d17",
+    "report": "artifacts/delivery-20260916/B11/connectivity-20260926/report.md",
+    "evidence_summary": "artifacts/delivery-20260916/B11/connectivity-20260926/diagnostic-evidence.json",
+    "software_validation": "debug 169 suites/1237 tests；heartbeatDiagnostic 169 suites/1226 tests（含6项真实诊断变体传输入口测试）；均0 failures/errors/skipped，最终exit 0；安装前diagnostic lint 0 Error/Fatal、19 Warning，assemble exit 0",
+    "apk_sha256": "620faa94512d80343114d0d5febc0d30a594072de7fe9e1aed0c13eb7dd011aa",
+    "installed": true,
+    "installed_at": "2026-09-26T10:47:22+08:00",
+    "installed_version": "0.1.0-connectivity-20260926",
+    "installed_package": "com.company.cloudctl.companion",
+    "diagnostic_only": true,
+    "business_execution_enabled": false,
+    "preservation_verified": "绑定preferences摘要不变；11张数据库表schema/行数/内容摘要相同，quick_check均ok；31条本地任务不变；12条granted状态及4项secure设置不变",
+    "root_cause_confirmed": false,
+    "finding": "心跳成功后20秒delay到下一network_check跨越777691ms，elapsed/uptime增量相等；恢复后约0.5秒HTTP200。支持定位到等待/调度边界，不支持深度休眠或单个网络请求阻塞解释该空窗；协程调度与OEM机制仍待区分",
+    "cleanup": "2026-09-26T11:08:32+08:00 一加maintenance true/version3恢复false/version4，回读后释放fencing6；最终锁FREE；有效云端租约、未完成任务、启用schedule均0",
+    "review": "主会话审查及双变体测试完成；独立reviewer此前两次403，未完成独立审查；服务生命周期端到端覆盖仍有缺口",
+    "next": "保持no-send；用独立定时源或授权线程栈诊断区分调度与全进程暂停，不先加永久唤醒锁；后续设备操作重新获得锁并核查授权。稳定性、电脑独立锁屏、只读任务闭环及固定APK Recipe回滚仍未验收",
+    "scope": "保留原B11 activation历史；本轮用户已授权仅一加保留数据诊断安装；诊断版当前已安装，不恢复业务版。未部署服务器、未重启或修改系统权限、未操作华为、未执行业务动作。"
+   },
    "activation": {
     "delivered_at": "2026-09-17T01:20:00+08:00",
     "branch": "agent/fleet-b11",
@@ -3532,7 +3553,7 @@
    "risk": "高",
    "device_acceptance": "授权测试视频；未经授权仅停在发布前",
    "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
-   "dev_state": "NOT_STARTED",
+   "dev_state": "SOFTWARE_DONE",
    "acceptance_state": "NOT_RUN",
    "evidence": "artifacts/delivery-20260916/F15/",
    "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
@@ -3541,7 +3562,7 @@
     "AGENTS.md"
    ],
    "baseline_sha": "4af3698c6f31f041c957a490a48adaeb71ca5ef1",
-   "scope_note": "先复用现存实现和已合入成果，只实现差额；新增目录为拟议路径，本机核验后固定。",
+   "scope_note": "2026-09-24 已落地抖音发布前软件切片：视频身份/时长/格式/图库 cell/封面/文案预检、14 步声明式链路、有限上传等待和一次性 commit_once 决策；不接线真实发布，真机与外部账号验收仍保持 NOT_RUN。",
    "acceptance_commands": [
     "在所声明新测试文件落地后运行其定向测试；测试名由taskId登记",
     "cd mobile/companion && ./gradlew testDebugUnitTest lint assembleDebug（涉及Android时）",
@@ -3563,7 +3584,9 @@
    ],
    "integration": [],
    "owned_paths": [
-    "services/control-api/src/cloudctl_api/publishers/**",
+    "services/control-api/src/cloudctl_api/wechat_client.py",
+    "services/control-api/src/cloudctl_api/wechat_service.py",
+    "tests/integration/test_wechat_publisher.py",
     "tests/integration/test_wechat_publisher_delta.py"
    ],
    "required_locks": [
@@ -3591,20 +3614,30 @@
    "risk": "高",
    "device_acceptance": "无需手机；需要授权公众号API和明确发布授权",
    "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
-   "dev_state": "NOT_STARTED",
+   "dev_state": "IN_PROGRESS",
    "acceptance_state": "NOT_RUN",
    "evidence": "artifacts/delivery-20260916/F16/",
-   "contract": "按任务前置契约的实际版本冻结；未冻结不派发",
+   "contract": "内部WeChat账户/草稿/发布schema和数据库迁移保持现有版本；commit_intent -> commit_once -> reconcile、单次提交不变。2026-09-24只读核对微信官方draft/add、freepublish/submit、freepublish/get文档，外部兼容性仍待授权账号验收。",
    "read_only_paths": [
     "contracts/**",
     "AGENTS.md"
    ],
-   "baseline_sha": "4af3698c6f31f041c957a490a48adaeb71ca5ef1",
-   "scope_note": "先复用现存实现和已合入成果，只实现差额；新增目录为拟议路径，本机核验后固定。",
+   "baseline_sha": "092c6983e2ef85cb6f7d443b5f34a73353974d17",
+   "previous_baseline_sha": "4af3698c6f31f041c957a490a48adaeb71ca5ef1",
+   "scope_note": "2026-09-24：固定现存 wechat_client/wechat_service 及测试写域；主控制者完成请求格式、冻结意图复核、官方数字状态、对账身份与并发终态保护，F16隔离测试58项通过；追加修复五个隔离PostgreSQL fixture的C locale，A11/A12/Q10/Q12/P14定向回归99 passed/7 hardware skips；PATH=$PWD/.venv/bin:$PATH make verify exit 0（全仓pytest 1151 passed/11 skipped，Studio 16，Web 311）。未部署、未调用真实公众号业务接口。软件部分通过不代表F16整体完成。",
+   "remaining_gates": [
+    "补齐永久封面素材上传/归属校验与内容修订、发布目标关联；当前仍依赖外部提供 thumbMediaId，不能视为媒体阶段完成",
+    "隔离PostgreSQL多连接并发/崩溃恢复验收；SQLite和可控交错测试不能替代生产行锁证明",
+    "独立代码复核待指定 deepspace/gpt-5.6-sol high 可委派后完成；当前启动被拒绝，未换供应商",
+    "BLOCKED_EXTERNAL：未核验授权测试公众号的接口权限/素材；本轮禁止真实草稿上传和发布。真实 draft/publish/result 身份链须另行明确授权"
+   ],
    "acceptance_commands": [
-    "python -m pytest -q <本任务新增或复用测试路径>（实现后填实路径）",
-    "ruff check <本任务Python文件>",
-    "涉及迁移：隔离PostgreSQL升级/回退/再升级，兼容性明确后执行"
+    ".venv/bin/python -m pytest -q tests/integration/test_wechat_publisher.py tests/integration/test_wechat_publisher_delta.py --tb=short -p no:cacheprovider --basetemp \"$PI_SCRATCH_DIR/goal-20260924/f16/acceptance/pytest\" --junitxml \"$PI_SCRATCH_DIR/goal-20260924/f16/acceptance/tests.xml\"",
+    ".venv/bin/ruff check --no-cache services/control-api/src/cloudctl_api/wechat_client.py services/control-api/src/cloudctl_api/wechat_service.py tests/integration/test_wechat_publisher.py tests/integration/test_wechat_publisher_delta.py",
+    ".venv/bin/ruff format --check --no-cache services/control-api/src/cloudctl_api/wechat_client.py services/control-api/src/cloudctl_api/wechat_service.py tests/integration/test_wechat_publisher.py tests/integration/test_wechat_publisher_delta.py",
+    ".venv/bin/pyright services/control-api/src/cloudctl_api/wechat_client.py services/control-api/src/cloudctl_api/wechat_service.py",
+    ".venv/bin/mypy --cache-dir \"$PI_SCRATCH_DIR/goal-20260924/f16/acceptance/mypy-cache\" services/control-api/src/cloudctl_api/wechat_client.py services/control-api/src/cloudctl_api/wechat_service.py",
+    ".venv/bin/python scripts/plan_guard.py docs/current/tasks.json"
    ],
    "activation": "R00核验与R02计划激活后执行；E10需单独选择，不自动进入队列"
   },

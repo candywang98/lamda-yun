@@ -163,8 +163,12 @@ class ProductFilterRequest(ApiModel):
     search: str | None = Field(default=None, max_length=500)
     category: str | None = Field(default=None, max_length=160)
     group_id: str | None = Field(default=None, alias="groupId")
-    min_price: str | None = Field(default=None, alias="minPrice", pattern=r"^[0-9]+(\.[0-9]{1,2})?$")
-    max_price: str | None = Field(default=None, alias="maxPrice", pattern=r"^[0-9]+(\.[0-9]{1,2})?$")
+    min_price: str | None = Field(
+        default=None, alias="minPrice", pattern=r"^[0-9]+(\.[0-9]{1,2})?$"
+    )
+    max_price: str | None = Field(
+        default=None, alias="maxPrice", pattern=r"^[0-9]+(\.[0-9]{1,2})?$"
+    )
     status: Literal["ACTIVE", "ARCHIVED", "ALL"] | None = Field(default="ACTIVE")
 
 

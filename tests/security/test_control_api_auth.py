@@ -400,6 +400,7 @@ def test_production_configuration_is_fail_closed() -> None:
             wechat_secret_encryption_key=SecretStr("not-a-fernet-key"),
         )
 
+
 @pytest.mark.asyncio
 async def test_production_startup_does_not_create_schema() -> None:
     private_key = rsa_key()
@@ -415,7 +416,7 @@ def test_module_level_uvicorn_target_imports_with_fail_closed_defaults() -> None
     environment = {
         key: value for key, value in os.environ.items() if not key.startswith("CLOUDCTL_")
     }
-    completed = subprocess.run(
+    completed = subprocess.run(  # noqa: S603 - fixed interpreter and repository-local module
         [
             sys.executable,
             "-c",

@@ -311,9 +311,7 @@ async def complete(
         result["resultType"] = body.result_type
     if body.schema_version is not None:
         result["schemaVersion"] = body.schema_version
-    return await mobile.finish(
-        current, task_id, body.lease_id, status="SUCCEEDED", result=result
-    )
+    return await mobile.finish(current, task_id, body.lease_id, status="SUCCEEDED", result=result)
 
 
 @companion_router.post("/tasks/{task_id}/fail")

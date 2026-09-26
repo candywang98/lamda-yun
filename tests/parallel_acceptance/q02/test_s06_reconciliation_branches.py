@@ -21,9 +21,7 @@ from .harness import action_paths, intent_body, running_steps_task
 from .mock_platform import BadgeReadbackStub, PostconditionReadbackStub
 
 
-async def _unknown_task(
-    api: tuple[httpx.AsyncClient, FastAPI], *, applied: bool = False
-) -> dict:
+async def _unknown_task(api: tuple[httpx.AsyncClient, FastAPI], *, applied: bool = False) -> dict:
     """Running task with one gated action reported UNKNOWN (or APPLIED)."""
     client, _ = api
     readback = PostconditionReadbackStub(postcondition_present=applied)
@@ -115,9 +113,7 @@ async def test_s06b_confirmed_not_submitted_lands_failed(
     again = await _reconcile(client, task_id, "KEEP_WAITING", "second decision")
     assert again.status_code == 409, again.text
     assert "terminal" in again.json()["detail"].lower()
-    ledger.record(
-        "confirmed-not-submitted", taskId=task_id, actionKey=ctx["body"]["actionKey"]
-    )
+    ledger.record("confirmed-not-submitted", taskId=task_id, actionKey=ctx["body"]["actionKey"])
 
 
 async def test_s06c_confirmed_applied_requires_unique_item_then_succeeds(

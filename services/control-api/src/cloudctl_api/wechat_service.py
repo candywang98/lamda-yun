@@ -38,6 +38,7 @@ from cryptography.fernet import Fernet, InvalidToken
 from pydantic import SecretStr
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from .db import (
     AuditEventRow,
@@ -125,7 +126,8 @@ def account_view(row: WechatAccountRow) -> dict[str, Any]:
         "displayLabel": row.display_label,
         "status": row.status,
         "secretFingerprint": row.secret_fingerprint[:12],
-        "secretEncrypted": row.secret_key_id != "development-unencrypted",
+        # Metadata sentinel, not a credential or encryption key.
+        "secretEncrypted": row.secret_key_id != "development-unencrypted",  # noqa: S105
         "secretKeyId": row.secret_key_id,
         "createdAt": row.created_at,
         "updatedAt": row.updated_at,
@@ -295,7 +297,7 @@ class WeChatPublisherService:
             return [account_view(row) for row in rows]
 
     async def _owned_account(
-        self, session: Any, actor: Actor, account_id: str
+        self, session: AsyncSession, actor: Actor, account_id: str
     ) -> WechatAccountRow:
         row = await session.get(WechatAccountRow, account_id)
         if row is None or row.tenant_id != str(actor.tenant_id):
@@ -371,6 +373,8 @@ class WeChatPublisherService:
         media_id = await self._push_draft(actor, account_id, draft_id, article)
         async with self.database.unit_of_work() as session:
             stored = await session.get(WechatDraftRow, draft_id, with_for_update=True)
+            if stored is None or stored.tenant_id != str(actor.tenant_id):
+                raise NotFoundError("wechat draft was not found after draft/add")
             if media_id is None:
                 stored.status = "UNKNOWN"
                 stored.detail = "draft/add outcome is indeterminate; replay does not re-call"
@@ -403,6 +407,8 @@ class WeChatPublisherService:
         except WeChatApiError as exc:
             async with self.database.unit_of_work() as session:
                 row = await session.get(WechatDraftRow, draft_id, with_for_update=True)
+                if row is None or row.tenant_id != str(actor.tenant_id):
+                    raise NotFoundError("wechat draft was not found after draft/add") from exc
                 row.status = "FAILED"
                 row.error_code = f"WECHAT_{exc.errcode}"
                 row.detail = f"official draft/add rejected: {exc.errmsg}"
@@ -524,12 +530,31 @@ class WeChatPublisherService:
             raise ConflictError("wechat publish authorization conflict") from exc
 
     async def _owned_publish(
-        self, session: Any, actor: Actor, publish_id: str, *, for_update: bool = False
+        self, session: AsyncSession, actor: Actor, publish_id: str, *, for_update: bool = False
     ) -> WechatPublishRow:
         row = await session.get(WechatPublishRow, publish_id, with_for_update=for_update)
         if row is None or row.tenant_id != str(actor.tenant_id):
             raise NotFoundError("wechat publish was not found")
         return row
+
+    async def _publishable_media_id(
+        self, session: AsyncSession, actor: Actor, row: WechatPublishRow
+    ) -> str:
+        draft = await session.get(WechatDraftRow, row.draft_id, with_for_update=True)
+        if draft is None or draft.tenant_id != str(actor.tenant_id):
+            raise NotFoundError("wechat draft was not found")
+        if draft.status != "READY" or not draft.media_id:
+            raise ConflictError("the frozen draft is no longer publishable")
+        account = await self._owned_account(session, actor, row.account_id)
+        if account.status != "ACTIVE":
+            raise ConflictError("wechat account is not active")
+        if (
+            draft.account_id != row.account_id
+            or canonical_hash(draft.article) != draft.article_sha256
+            or _publish_parameter_hash(draft, account, row.idempotency_key) != row.parameter_hash
+        ):
+            raise ConflictError("the draft or account differs from the authorized intent")
+        return draft.media_id
 
     async def submit(self, actor: Actor, publish_id: str) -> dict[str, Any]:
         """Execute the authorized publish exactly once; never re-submit."""
@@ -543,13 +568,8 @@ class WeChatPublisherService:
                 return view
             if row.status != "INTENT":
                 raise ConflictError("publish is not awaiting its single submit attempt")
-            draft = await session.get(WechatDraftRow, row.draft_id)
-            if draft is None or draft.tenant_id != str(actor.tenant_id):
-                raise NotFoundError("wechat draft was not found")
-            if draft.status != "READY" or not draft.media_id:
-                raise ConflictError("the frozen draft is no longer publishable")
+            media_id = await self._publishable_media_id(session, actor, row)
             account_id = row.account_id
-            media_id = draft.media_id
 
         # Token acquisition happens before the attempt is consumed: a token
         # outage leaves the intent intact because nothing was submitted yet.
@@ -560,6 +580,14 @@ class WeChatPublisherService:
         except WeChatApiError as exc:
             async with self.database.unit_of_work() as session:
                 failed = await self._owned_publish(session, actor, publish_id, for_update=True)
+                if failed.submit_attempts >= 1:
+                    view = publish_view(failed)
+                    view["replayed"] = True
+                    return view
+                if failed.status != "INTENT":
+                    raise ConflictError(
+                        "publish is not awaiting its single submit attempt"
+                    ) from exc
                 failed.status = "FAILED"
                 failed.error_code = f"WECHAT_{exc.errcode}"
                 failed.detail = f"access token was rejected: {exc.errmsg}"
@@ -584,6 +612,11 @@ class WeChatPublisherService:
                 view = publish_view(spending)
                 view["replayed"] = True
                 return view
+            if spending.status != "INTENT":
+                raise ConflictError("publish is not awaiting its single submit attempt")
+            frozen_media_id = await self._publishable_media_id(session, actor, spending)
+            if frozen_media_id != media_id or spending.account_id != account_id:
+                raise ConflictError("publish identity changed while obtaining an access token")
             spending.submit_attempts = 1  # CHECK constraint caps this at one attempt
             spending.status = "SUBMITTING"
             spending.submitted_by = str(actor.user_id)
@@ -599,6 +632,7 @@ class WeChatPublisherService:
                 metadata={"attempt": 1},
             )
 
+        outcome: tuple[str, str | None, str | None, str | None]
         try:
             official_publish_id = await self.client.submit_publish(token, media_id)
             outcome = ("SUBMITTED", official_publish_id, None, None)
@@ -654,6 +688,12 @@ class WeChatPublisherService:
         except WeChatApiError as exc:
             async with self.database.unit_of_work() as session:
                 stuck = await self._owned_publish(session, actor, publish_id, for_update=True)
+                if stuck.publish_id != poll_target or stuck.account_id != account_id:
+                    raise ConflictError("publish identity changed while reconciling") from exc
+                if stuck.status in ("PUBLISHED", "FAILED"):
+                    return publish_view(stuck)
+                if stuck.status not in ("SUBMITTED", "UNKNOWN"):
+                    raise ConflictError("publish is not awaiting reconciliation") from exc
                 stuck.poll_count += 1
                 stuck.updated_at = _now()
                 _audit(
@@ -669,30 +709,55 @@ class WeChatPublisherService:
                 f"freepublish/get failed ({exc.errcode}); still reconciling"
             ) from exc
 
-        publish_status = document.get("publish_status")
-        article_url = None
-        detail_items = document.get("article_detail")
-        if isinstance(detail_items, dict):
-            items = detail_items.get("item")
-            if isinstance(items, list) and items and isinstance(items[0], dict):
-                url = items[0].get("article_url")
-                if isinstance(url, str):
-                    article_url = url
-
         async with self.database.unit_of_work() as session:
             final = await self._owned_publish(session, actor, publish_id, for_update=True)
+            if final.publish_id != poll_target or final.account_id != account_id:
+                raise ConflictError("publish identity changed while reconciling")
+            if final.status in ("PUBLISHED", "FAILED"):
+                # A concurrent poll settled this row while our request was in flight.
+                # Never overwrite confirmed evidence with a late response.
+                return publish_view(final)
+            if final.status not in ("SUBMITTED", "UNKNOWN"):
+                raise ConflictError("publish is not awaiting reconciliation")
+            if document.get("publish_id") != poll_target:
+                raise ConflictError("WECHAT_POLL_IDENTITY_MISMATCH")
+            publish_status = document.get("publish_status")
+            if (
+                not isinstance(publish_status, int)
+                or isinstance(publish_status, bool)
+                or publish_status not in range(7)
+            ):
+                raise ConflictError("WECHAT_POLL_MALFORMED: invalid publish status")
+            article_url = None
+            detail_items = document.get("article_detail")
+            if isinstance(detail_items, dict):
+                items = detail_items.get("item")
+                if isinstance(items, list) and items and isinstance(items[0], dict):
+                    url = items[0].get("article_url")
+                    if isinstance(url, str) and url.strip():
+                        article_url = url.strip()
+            if publish_status == 0 and not article_url:
+                raise ConflictError("WECHAT_POLL_MALFORMED: success has no article URL")
             final.poll_count += 1
             final.updated_at = _now()
-            if publish_status == "publish" and article_url:
+            if publish_status == 0:
                 final.status = "PUBLISHED"
                 final.article_url = article_url
+                final.error_code = None
                 final.resolved_at = _now()
                 result = "SUCCESS"
-            elif publish_status == "fail":
+            elif publish_status in (2, 3, 4, 5, 6):
+                # 5/6 mean a previously published article was removed or banned,
+                # NOT that submission did not happen. The attempt stays spent.
+                failures = {
+                    2: ("WECHAT_ORIGINALITY_REJECTED", "originality review failed"),
+                    3: ("WECHAT_PUBLISH_REJECTED", "official publishing failed"),
+                    4: ("WECHAT_REVIEW_REJECTED", "platform review failed"),
+                    5: ("WECHAT_ARTICLES_DELETED", "published, then all articles were deleted"),
+                    6: ("WECHAT_ARTICLES_BANNED", "published, then all articles were banned"),
+                }
                 final.status = "FAILED"
-                fail = document.get("fail_info")
-                final.error_code = "WECHAT_PUBLISH_REJECTED"
-                final.detail = canonical_hash(fail) if fail else "official API reported failure"
+                final.error_code, final.detail = failures[publish_status]
                 final.resolved_at = _now()
                 result = "FAILURE"
             else:

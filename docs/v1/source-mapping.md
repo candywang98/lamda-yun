@@ -75,44 +75,46 @@
 ```python
 def sync_product(row: dict) -> ProductRow:
     # 1. 验证必填字段
-    validate_required(['product_id', 'title', 'description', 'price', 'updated_at'], row)
-    
+    validate_required(["product_id", "title", "description", "price", "updated_at"], row)
+
     # 2. 类型转换
-    price_amount = Decimal(row['price'])
-    if price_amount < Decimal('0.01'):
+    price_amount = Decimal(row["price"])
+    if price_amount < Decimal("0.01"):
         raise ValueError("price must be >= 0.01")
-    
+
     # 3. 媒体引用解析
     media_refs = []
-    if row.get('media_refs'):
-        media_refs = [ref.strip() for ref in row['media_refs'].replace(';', ',').split(',') if ref.strip()]
-    
+    if row.get("media_refs"):
+        media_refs = [
+            ref.strip() for ref in row["media_refs"].replace(";", ",").split(",") if ref.strip()
+        ]
+
     # 4. 创建或更新 Product
     product = upsert_product(
-        external_id=row['product_id'],
+        external_id=row["product_id"],
         source_connection_id=connection_id,
-        title=row['title'],
-        description=row['description'],
+        title=row["title"],
+        description=row["description"],
         price_amount=price_amount,
-        price_currency='CNY',
-        stock_quantity=int(row['stock']) if row.get('stock') else None,
+        price_currency="CNY",
+        stock_quantity=int(row["stock"]) if row.get("stock") else None,
         metadata={
-            'category': row.get('category'),
-            'condition': row.get('condition'),
+            "category": row.get("category"),
+            "condition": row.get("condition"),
         },
         media_refs=media_refs,
     )
-    
+
     # 5. 记录 SourceRecordLink
     record_source_link(
         connection_id=connection_id,
-        entity_kind='product',
-        external_id=row['product_id'],
+        entity_kind="product",
+        external_id=row["product_id"],
         internal_id=product.id,
-        source_version=parse_timestamp(row['updated_at']),
+        source_version=parse_timestamp(row["updated_at"]),
         source_hash=compute_hash(row),
     )
-    
+
     return product
 ```
 
@@ -121,49 +123,49 @@ def sync_product(row: dict) -> ProductRow:
 ```python
 def sync_media(row: dict, base_path: Path) -> MediaAssetRow:
     # 1. 验证必填字段
-    validate_required(['file_name', 'file_path', 'content_type', 'size_bytes', 'sha256'], row)
-    
+    validate_required(["file_name", "file_path", "content_type", "size_bytes", "sha256"], row)
+
     # 2. 读取原文件
-    file_full_path = base_path / row['file_path']
+    file_full_path = base_path / row["file_path"]
     if not file_full_path.exists():
         raise FileNotFoundError(f"Media file not found: {file_full_path}")
-    
+
     file_content = file_full_path.read_bytes()
     actual_sha256 = hashlib.sha256(file_content).hexdigest()
-    
+
     # 3. 验证哈希
-    if actual_sha256 != row['sha256']:
+    if actual_sha256 != row["sha256"]:
         raise ValueError(f"SHA256 mismatch for {row['file_name']}")
-    
+
     # 4. 上传到 S3
     object_key = f"media/{tenant_id}/{actual_sha256[:2]}/{actual_sha256}"
     s3_client.put_object(Bucket=bucket, Key=object_key, Body=file_content)
-    
+
     # 5. 注册 MediaAsset
     asset = upsert_media_asset(
-        external_id=row['file_name'],
+        external_id=row["file_name"],
         source_connection_id=connection_id,
         sha256=actual_sha256,
         object_key=object_key,
-        content_type=row['content_type'],
-        size_bytes=int(row['size_bytes']),
+        content_type=row["content_type"],
+        size_bytes=int(row["size_bytes"]),
         metadata={
-            'file_name': row['file_name'],
-            'width': int(row['width']) if row.get('width') else None,
-            'height': int(row['height']) if row.get('height') else None,
+            "file_name": row["file_name"],
+            "width": int(row["width"]) if row.get("width") else None,
+            "height": int(row["height"]) if row.get("height") else None,
         },
     )
-    
+
     # 6. 记录 SourceRecordLink
     record_source_link(
         connection_id=connection_id,
-        entity_kind='media',
-        external_id=row['file_name'],
+        entity_kind="media",
+        external_id=row["file_name"],
         internal_id=asset.id,
-        source_version=parse_timestamp(row['file_mtime']),
+        source_version=parse_timestamp(row["file_mtime"]),
         source_hash=actual_sha256,
     )
-    
+
     return asset
 ```
 

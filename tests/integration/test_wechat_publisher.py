@@ -35,8 +35,14 @@ APPROVER = "00000000-0000-7000-8000-000000000333"
 PUBLISHER = "00000000-0000-7000-8000-000000000555"
 FOREIGN_USER = "00000000-0000-7000-8000-000000000777"
 
-SECRET_A = "super-secret-appsecret-000001"
-SECRET_B = "super-secret-appsecret-000002"
+# Generated fake credentials are shared only inside this offline test module.
+SECRET_A = uuid.uuid4().hex
+SECRET_B = uuid.uuid4().hex
+TOKEN_A = uuid.uuid4().hex
+TOKEN_B = uuid.uuid4().hex
+TOKEN_B_TENANT = uuid.uuid4().hex
+TOKEN_SHORT = uuid.uuid4().hex
+TOKEN_REFRESHED = uuid.uuid4().hex
 SECRET_FERNET_KEY = Fernet.generate_key().decode()
 
 
@@ -56,7 +62,7 @@ class FakeWeChatTransport:
 
     Responses are queued per official endpoint, so a cached token call or an
     idempotent replay cannot consume a response scripted for another endpoint.
-    The token endpoint answers with TOKEN-A when nothing else is scripted.
+    The token endpoint answers with TOKEN_A when nothing else is scripted.
     """
 
     def __init__(self) -> None:
@@ -68,7 +74,7 @@ class FakeWeChatTransport:
     def _queue(self, endpoint: str, *, status: int, body: dict | None, error: Exception | None):
         self._queues[endpoint].append((status, body if body is not None else {}, error))
 
-    def queue_token(self, *, token: str = "TOKEN-A", expires_in: int = 7200) -> None:
+    def queue_token(self, *, token: str = TOKEN_A, expires_in: int = 7200) -> None:
         self._queue(
             "token",
             status=200,
@@ -99,7 +105,7 @@ class FakeWeChatTransport:
         queue = self._queues[endpoint]
         if not queue:
             if endpoint == "token":
-                return 200, {"access_token": "TOKEN-A", "expires_in": 7200}
+                return 200, {"access_token": TOKEN_A, "expires_in": 7200}
             raise AssertionError(f"unexpected {endpoint} call; script a response first")
         status, body, error = queue.popleft()
         if error is not None:
@@ -143,9 +149,7 @@ async def api() -> AsyncIterator[tuple[httpx.AsyncClient, FastAPI, FakeWeChatTra
 
 
 @pytest.fixture
-async def encrypted_api() -> (
-    AsyncIterator[tuple[httpx.AsyncClient, FastAPI, FakeWeChatTransport]]
-):
+async def encrypted_api() -> AsyncIterator[tuple[httpx.AsyncClient, FastAPI, FakeWeChatTransport]]:
     """Same as ``api`` but with a Fernet key so secrets are encrypted at rest."""
     transport = FakeWeChatTransport()
     app = create_app(
@@ -162,6 +166,7 @@ async def encrypted_api() -> (
             transport=httpx.ASGITransport(app=app), base_url="http://test"
         ) as client:
             yield client, app, transport
+
 
 async def register_account(
     client: httpx.AsyncClient,
@@ -434,39 +439,39 @@ async def test_token_cache_is_single_flight_and_tenant_scoped(api):
     service = app.state.wechat_publisher_service
 
     # Five concurrent acquisitions for the same account: one upstream fetch.
-    transport.queue_token(token="TOKEN-A")
+    transport.queue_token(token=TOKEN_A)
     tokens = await asyncio.gather(
         *[service.tokens.get_token(TENANT, "wxaaaaaaaaaaaaaaaa", SECRET_A) for _ in range(5)]
     )
-    assert set(tokens) == {"TOKEN-A"}
+    assert set(tokens) == {TOKEN_A}
     assert transport.count("/cgi-bin/token") == 1
 
     # Cached afterwards, still no second fetch.
     again = await service.tokens.get_token(TENANT, "wxaaaaaaaaaaaaaaaa", SECRET_A)
-    assert again == "TOKEN-A"
+    assert again == TOKEN_A
     assert transport.count("/cgi-bin/token") == 1
 
     # A different account (different credential) gets its own token.
-    transport.queue_token(token="TOKEN-B")
+    transport.queue_token(token=TOKEN_B)
     token_b = await service.tokens.get_token(TENANT, "wxbbbbbbbbbbbbbbbb", SECRET_B)
-    assert token_b == "TOKEN-B"
+    assert token_b == TOKEN_B
     assert transport.count("/cgi-bin/token") == 2
 
     # Tenant isolation: another tenant with the same appId fetches separately.
-    transport.queue_token(token="TOKEN-B-TENANT")
+    transport.queue_token(token=TOKEN_B_TENANT)
     cross = await service.tokens.get_token(TENANT_B, "wxaaaaaaaaaaaaaaaa", SECRET_A)
-    assert cross == "TOKEN-B-TENANT"
+    assert cross == TOKEN_B_TENANT
     assert transport.count("/cgi-bin/token") == 3
 
     # Expiry: a token whose lifetime falls inside the refresh margin is
     # fetched again on the next use (a fresh cache key avoids the 7200s token
     # that is legitimately still cached above).
-    transport.queue_token(token="TOKEN-SHORT", expires_in=1)
+    transport.queue_token(token=TOKEN_SHORT, expires_in=1)
     short = await service.tokens.get_token(TENANT, "wxcccccccccccccccc", SECRET_A)
-    assert short == "TOKEN-SHORT"
-    transport.queue_token(token="TOKEN-REFRESHED")
+    assert short == TOKEN_SHORT
+    transport.queue_token(token=TOKEN_REFRESHED)
     refreshed = await service.tokens.get_token(TENANT, "wxcccccccccccccccc", SECRET_A)
-    assert refreshed == "TOKEN-REFRESHED"
+    assert refreshed == TOKEN_REFRESHED
     assert transport.count("/cgi-bin/token") == 5
 
 
@@ -530,7 +535,8 @@ async def test_publish_requires_authorization_then_executes_once(api):
     # Reconciliation completes only with official evidence.
     transport.queue_get(
         {
-            "publish_status": "publish",
+            "publish_id": "PUBLISH-1",
+            "publish_status": 0,
             "article_id": "ART-1",
             "article_detail": {"count": 1, "item": [{"article_url": "https://mp.example/article"}]},
         }
@@ -604,7 +610,7 @@ async def test_uncertain_submit_stays_reconciling_and_never_retries(api):
     assert submitted2.json()["status"] == "SUBMITTED"
     assert submitted2.json()["state"] == "RECONCILING"
 
-    transport.queue_get({"publish_status": "originality check"})
+    transport.queue_get({"publish_id": "PUBLISH-2", "publish_status": 1})
     pending = await client.post(
         f"/api/v1/wechat/publishes/{publish2['id']}:poll", headers=identity(role="viewer")
     )
@@ -613,7 +619,8 @@ async def test_uncertain_submit_stays_reconciling_and_never_retries(api):
 
     transport.queue_get(
         {
-            "publish_status": "publish",
+            "publish_id": "PUBLISH-2",
+            "publish_status": 0,
             "article_detail": {"count": 1, "item": [{"article_url": "https://mp.example/ok"}]},
         }
     )
@@ -638,9 +645,9 @@ async def test_tenant_isolation_returns_404_for_foreign_resources(api):
     # publisher role so the 404 proves ownership failed, not authorization.
     foreign_viewer = identity(tenant=TENANT_B, user=FOREIGN_USER, role="viewer")
     foreign_publisher = identity(tenant=TENANT_B, user=FOREIGN_USER, role="publisher")
-    assert (
-        await client.get("/api/v1/wechat/accounts", headers=foreign_viewer)
-    ).json()["count"] == 0
+    assert (await client.get("/api/v1/wechat/accounts", headers=foreign_viewer)).json()[
+        "count"
+    ] == 0
     assert (
         await client.get(f"/api/v1/wechat/accounts/{account['id']}", headers=foreign_viewer)
     ).status_code == 404
@@ -675,7 +682,8 @@ async def test_audit_trail_covers_the_full_lifecycle_without_secrets(api):
     )
     transport.queue_get(
         {
-            "publish_status": "publish",
+            "publish_id": "PUBLISH-A",
+            "publish_status": 0,
             "article_detail": {"count": 1, "item": [{"article_url": "https://mp.example/f"}]},
         }
     )
@@ -695,7 +703,7 @@ async def test_audit_trail_covers_the_full_lifecycle_without_secrets(api):
     } <= actions
     blob = json.dumps(events)
     assert SECRET_A not in blob
-    assert "TOKEN-A" not in blob  # access tokens never leak into audit records
+    assert TOKEN_A not in blob  # access tokens never leak into audit records
 
 
 # ------------------------------------------------------------- migrations

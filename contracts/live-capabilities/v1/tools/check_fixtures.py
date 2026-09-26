@@ -11,6 +11,7 @@ Mode:
 The mode actually used is printed as `mode=<jsonschema|structural>`; per the
 K13 task card the mode must be reported honestly, never silently swapped.
 """
+
 import json
 import sys
 from pathlib import Path
@@ -23,6 +24,7 @@ CONTRACT = "live-capabilities/v1@20260917.1"
 
 try:
     import jsonschema  # noqa: F401
+
     MODE = "jsonschema"
 except ImportError:
     jsonschema = None
@@ -85,7 +87,9 @@ def structural_validate(doc: dict) -> None:
             assert caps[key] == value, f"capability {key} must be {value!r} on {doc['tier']}"
         assert caps["frameDownlink"] is True
         lease = doc["lease"]
-        assert lease["purpose"] == "LIVE" and isinstance(lease["epoch"], int) and lease["epoch"] >= 1
+        assert (
+            lease["purpose"] == "LIVE" and isinstance(lease["epoch"], int) and lease["epoch"] >= 1
+        )
         assert doc["authorization"]["persistsAcrossReboot"] is False
         assert doc["authorization"]["silentResumeAllowed"] is False
         assert doc["maxDurationMinutes"] == 30
@@ -94,7 +98,10 @@ def structural_validate(doc: dict) -> None:
         assert ("turn" in doc) == (doc["tier"] == "WEBRTC")
     elif doc["doc"] == "input_rejection":
         assert doc["code"] in {
-            "INPUT_EXPIRED", "INPUT_SEQ_REGRESSION", "LIVE_INPUT_FORBIDDEN", "LIVE_RATE_LIMITED"
+            "INPUT_EXPIRED",
+            "INPUT_SEQ_REGRESSION",
+            "LIVE_INPUT_FORBIDDEN",
+            "LIVE_RATE_LIMITED",
         }
         assert doc["input"]["kind"] in {"tap", "swipe", "text"}
         assert doc["audited"] is True
@@ -107,8 +114,13 @@ def structural_validate(doc: dict) -> None:
     else:  # terminal
         assert doc["state"] == "CLOSED"
         assert doc["cause"] in {
-            "OPERATOR_STOP", "TIMEOUT_30M", "DISCONNECT_GRACE_EXPIRED",
-            "DEVICE_REBOOT", "PROJECTION_REVOKED", "SERVICE_CRASH", "SERVER_CLOSED",
+            "OPERATOR_STOP",
+            "TIMEOUT_30M",
+            "DISCONNECT_GRACE_EXPIRED",
+            "DEVICE_REBOOT",
+            "PROJECTION_REVOKED",
+            "SERVICE_CRASH",
+            "SERVER_CLOSED",
         }
         assert doc["resumable"] is False and doc["reauthorizationRequired"] is True
 
@@ -164,7 +176,9 @@ def main() -> int:
     assert h["singleWriterRestored"] is True and h["frameDownlinkContinues"] is True
     modes = {t["resumeMode"] for t in h["affectedTasks"]}
     assert modes == {"REQUEUE_AUTO", "CONFIRM_REQUIRED"}
-    print("positive handover: OK (queue eligibility restored, destructive windows need human confirm)")
+    print(
+        "positive handover: OK (queue eligibility restored, destructive windows need human confirm)"
+    )
 
     g = load("k13-negative-gesture-expired.json")["doc"]
     assert g["code"] == "INPUT_EXPIRED" and g["sessionState"] == "REMOTE"
@@ -180,7 +194,9 @@ def main() -> int:
     r = load("k13-negative-input-seq-regression.json")["doc"]
     assert r["code"] == "INPUT_SEQ_REGRESSION"
     assert r["input"]["seq"] <= r["inputWatermark"]
-    assert r["latestFrameSeq"] - r["input"]["frameSeq"] <= 10  # frame fresh: pure watermark violation
+    assert (
+        r["latestFrameSeq"] - r["input"]["frameSeq"] <= 10
+    )  # frame fresh: pure watermark violation
     print("negative input-seq-regression: OK (seq <= watermark dropped)")
 
     t = load("k13-negative-resume-after-reboot.json")["doc"]

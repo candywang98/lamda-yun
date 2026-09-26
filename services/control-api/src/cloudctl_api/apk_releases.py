@@ -31,7 +31,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, TypeGuard
 
 from cloudctl_domain import (
     Actor,
@@ -186,9 +186,7 @@ class ApkReleaseRetireRequest(_StrictModel):
 
 
 class ApkReleaseAssignRequest(_StrictModel):
-    target_device_ids: list[str] = Field(
-        alias="targetDeviceIds", min_length=1, max_length=64
-    )
+    target_device_ids: list[str] = Field(alias="targetDeviceIds", min_length=1, max_length=64)
 
 
 class ApkDownloadedReport(_StrictModel):
@@ -209,9 +207,7 @@ class ApkInstallReceiptReport(_StrictModel):
     package_name: str = Field(alias="packageName", min_length=1, max_length=255)
     attempted_version_code: int = Field(alias="attemptedVersionCode", ge=0)
     outcome: Literal["INSTALLED", "FAILED", "USER_DECLINED", "INTERRUPTED"]
-    installed_version_code: int | None = Field(
-        default=None, alias="installedVersionCode", ge=0
-    )
+    installed_version_code: int | None = Field(default=None, alias="installedVersionCode", ge=0)
     signature_matched: bool | None = Field(default=None, alias="signatureMatched")
     message: str | None = Field(default=None, max_length=1000)
     completed_at: str = Field(alias="completedAt", min_length=1, max_length=64)
@@ -241,7 +237,7 @@ def _aware(value: datetime) -> datetime:
     return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
 
 
-def _is_int(value: object) -> bool:
+def _is_int(value: object) -> TypeGuard[int]:
     return isinstance(value, int) and not isinstance(value, bool)
 
 
@@ -321,6 +317,8 @@ class ApkReleaseService:
             items = []
             for row in releases:
                 artifact = await session.get(ApkArtifactRow, row.artifact_id)
+                if artifact is None:
+                    raise NotFoundError("apk artifact was not found")
                 items.append(self._release_view(row, artifact))
             return {"items": items}
 
@@ -479,8 +477,7 @@ class ApkReleaseService:
             if target is None:
                 raise NotFoundError("apk install candidate was not found")
             if target.status == "DOWNLOADED":
-                release = await session.get(ApkReleaseRow, target.release_id)
-                artifact = await session.get(ApkArtifactRow, release.artifact_id)
+                release, artifact = await self._release_artifact(session, target.release_id)
                 return {
                     "candidateId": target.id,
                     "status": "DOWNLOADED",
@@ -491,9 +488,8 @@ class ApkReleaseService:
                 raise ApkCandidateStateError(
                     "only an OFFERED install candidate can report a download"
                 )
-            release = await session.get(ApkReleaseRow, target.release_id)
             # A RETIRED release still serves its pinned candidates (§1.3).
-            artifact = await session.get(ApkArtifactRow, release.artifact_id)
+            release, artifact = await self._release_artifact(session, target.release_id)
             observed = request.sha256.lower()
             if observed != artifact.sha256:
                 raise ApkDownloadHashMismatchError(
@@ -555,8 +551,7 @@ class ApkReleaseService:
             )
             if target is None:
                 raise NotFoundError("apk install candidate was not found")
-            release = await session.get(ApkReleaseRow, target.release_id)
-            artifact = await session.get(ApkArtifactRow, release.artifact_id)
+            release, artifact = await self._release_artifact(session, target.release_id)
             mismatched = [
                 label
                 for label, claimed, pinned in (
@@ -622,6 +617,17 @@ class ApkReleaseService:
 
     # -- shared helpers --------------------------------------------------------
 
+    async def _release_artifact(
+        self, session: Any, release_id: str
+    ) -> tuple[ApkReleaseRow, ApkArtifactRow]:
+        release = await session.get(ApkReleaseRow, release_id)
+        if release is None:
+            raise NotFoundError("apk release was not found")
+        artifact = await session.get(ApkArtifactRow, release.artifact_id)
+        if artifact is None:
+            raise NotFoundError("apk artifact was not found")
+        return release, artifact
+
     async def _release_with_artifact(
         self, session: Any, repository: ControlRepository, release_id: str
     ) -> tuple[ApkReleaseRow, ApkArtifactRow]:
@@ -672,8 +678,7 @@ class ApkReleaseService:
             device_abis = capabilities.get("abis")
             if not isinstance(device_abis, list) or not set(required_abis) <= set(device_abis):
                 raise ApkCapabilityInsufficientError(
-                    "device ABIs do not cover the required set "
-                    f"{sorted(set(required_abis))}"
+                    f"device ABIs do not cover the required set {sorted(set(required_abis))}"
                 )
 
     @staticmethod
@@ -812,9 +817,7 @@ async def list_apk_releases(actor: ActorDep, releases: Service) -> dict[str, Any
 
 
 @operator_router.get("/{release_id}")
-async def get_apk_release(
-    release_id: str, actor: ActorDep, releases: Service
-) -> dict[str, Any]:
+async def get_apk_release(release_id: str, actor: ActorDep, releases: Service) -> dict[str, Any]:
     return await releases.get_release(actor, release_id)
 
 

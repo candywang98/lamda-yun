@@ -165,9 +165,7 @@ async def test_unknown_evidence_survives_control_event_compaction() -> None:
             async with harness.app.state.database.unit_of_work() as session:
                 from cloudctl_api.db import MobileTaskRow
 
-                row = await session.scalar(
-                    select(MobileTaskRow).where(MobileTaskRow.id == task_id)
-                )
+                row = await session.scalar(select(MobileTaskRow).where(MobileTaskRow.id == task_id))
                 events = list(((row.steps or [{}])[0] or {}).get("controlEvents") or [])
         assert "MARKED_UNKNOWN" in [event.get("event") for event in events]
 
