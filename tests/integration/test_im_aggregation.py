@@ -73,8 +73,8 @@ async def test_ingest_is_idempotent_and_merges_threads(api):  # noqa: F811
     assert marked.json()["unreadCount"] == 0
 
 
-async def test_ingest_requires_supported_platform(api):  # noqa: F811
-    client, _app = api
+async def test_ingest_supports_legacy_xianyu_and_rejects_other_platforms(api):  # noqa: F811
+    client, app = api
     device = await create_direct_device(client, "im-platform-dev")
     auth = await _enroll(client, device, "im-platform-instance")
     when = datetime.now(UTC).replace(microsecond=0)
@@ -86,6 +86,16 @@ async def test_ingest_requires_supported_platform(api):  # noqa: F811
         "/companion/v2/im/messages", headers=auth, json={"messages": [missing]}
     )
     assert missing_response.status_code == 422
+    app.state.im_service.legacy_xianyu_device_ids = frozenset({device})
+    legacy_response = await client.post(
+        "/companion/v2/im/messages", headers=auth, json={"messages": [missing]}
+    )
+    assert legacy_response.status_code == 200
+    assert legacy_response.json() == {"accepted": 1, "duplicates": 0}
+    null_response = await client.post(
+        "/companion/v2/im/messages", headers=auth, json={"messages": [{**base, "platform": None}]}
+    )
+    assert null_response.status_code == 422
 
     unsupported = {**base, "platform": "xhs"}
     unsupported_response = await client.post(
@@ -94,9 +104,128 @@ async def test_ingest_requires_supported_platform(api):  # noqa: F811
     assert unsupported_response.status_code == 422
 
     assert await _push(client, auth, peer="buyer_platform", text="仅收闲鱼", when=when) == {
-        "accepted": 1,
-        "duplicates": 0,
+        "accepted": 0,
+        "duplicates": 1,
     }
+
+
+async def test_shadow_classifier_cannot_delay_intake_or_create_outbound(api):  # noqa: F811
+    import asyncio
+    from unittest.mock import AsyncMock
+
+    from cloudctl_api.db import ImMessageRow, MobileTaskRow
+    from sqlalchemy import func, select
+
+    client, app = api
+    device = await create_direct_device(client, "im-shadow-dev")
+    auth = await _enroll(client, device, "im-shadow-instance")
+    observer = app.state.im_observer
+    observer.classifier.settings = observer.classifier.settings.model_copy(
+        update={"im_classifier_enabled": True, "im_classifier_device_ids": [device]}
+    )
+    started = asyncio.Event()
+
+    async def blocked(**kwargs):
+        started.set()
+        await asyncio.Event().wait()
+
+    observer.classifier.classify = AsyncMock(side_effect=blocked)
+    observer.start()
+    when = datetime.now(UTC)
+    result = await asyncio.wait_for(_push(client, auth, when=when), 2)
+    assert result == {"accepted": 1, "duplicates": 0}
+    await asyncio.wait_for(started.wait(), 1)
+    assert await _push(client, auth, when=when) == {"accepted": 0, "duplicates": 1}
+    observer.classifier.classify.assert_awaited_once()
+    async with app.state.database.unit_of_work() as session:
+        rows = list(await session.scalars(select(ImMessageRow)))
+        assert len(rows) == 1
+        assert rows[0].direction == "IN"
+        assert await session.scalar(select(func.count()).select_from(MobileTaskRow)) == 0
+    await observer.close()
+
+
+async def test_rolled_back_batch_never_reaches_observer(api):  # noqa: F811
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+
+    from cloudctl_api.db import DeviceRow, ImMessageRow
+    from cloudctl_domain import ConflictError
+    from sqlalchemy import func, select
+
+    client, app = api
+    device = await create_direct_device(client, "im-shadow-rollback")
+    async with app.state.database.unit_of_work() as session:
+        row = await session.get(DeviceRow, device)
+        binding = SimpleNamespace(device_id=device, tenant_id=row.tenant_id)
+    observer = app.state.im_observer
+    observer.submit = Mock()
+    item = _message("rollback-peer", "Uncommitted text", datetime.now(UTC))
+    item["occurredAt"] = datetime.now(UTC)
+    with pytest.raises(ConflictError, match="platform"):
+        await app.state.im_service.ingest(binding, [item, {**item, "platform": "xhs"}])
+    observer.submit.assert_not_called()
+    async with app.state.database.unit_of_work() as session:
+        assert await session.scalar(select(func.count()).select_from(ImMessageRow)) == 0
+
+
+async def test_receive_only_rejects_reply_before_creating_task(api):  # noqa: F811
+    from cloudctl_api.db import ImMessageRow, MobileTaskRow
+    from sqlalchemy import func, select
+
+    client, app = api
+    device = await create_direct_device(client, "im-receive-only")
+    auth = await _enroll(client, device, "im-receive-only-instance")
+    await _push(client, auth)
+    app.state.im_service.receive_only = True
+    config = await client.get("/api/v1/im/config", headers=identity(), params={"deviceId": device})
+    assert config.json()["receiveOnly"] is True
+    threads = (await client.get("/api/v1/im/threads", headers=identity())).json()["items"]
+    response = await client.post(
+        f"/api/v1/im/threads/{threads[0]['id']}:reply",
+        headers=identity(),
+        json={"text": "Synthetic forbidden reply"},
+    )
+    assert response.status_code == 409
+    assert response.json()["detail"] == "IM_RECEIVE_ONLY"
+    async with app.state.database.unit_of_work() as session:
+        assert await session.scalar(select(func.count()).select_from(MobileTaskRow)) == 0
+        assert (
+            await session.scalar(
+                select(func.count())
+                .select_from(ImMessageRow)
+                .where(ImMessageRow.direction == "OUT")
+            )
+            == 0
+        )
+
+
+@pytest.mark.parametrize("text", ["Legacy message", "L" * 2001])
+async def test_old_server_dedupe_key_is_respected_without_rewriting_rows(api, text):  # noqa: F811
+    from cloudctl_api.db import ImMessageRow
+    from cloudctl_api.im_service import canonical_text
+    from sqlalchemy import select
+
+    client, app = api
+    device = await create_direct_device(client, "im-legacy-dedupe")
+    auth = await _enroll(client, device, "im-legacy-dedupe-instance")
+    when = datetime.now(UTC).replace(microsecond=0)
+    await _push(client, auth, peer="legacy-peer", text=text, when=when)
+    legacy_hash = hashlib.sha256(
+        f"{device}|legacy-peer|{int(when.timestamp())}|{canonical_text(text)}".encode()
+    ).hexdigest()
+    async with app.state.database.unit_of_work() as session:
+        row = await session.scalar(select(ImMessageRow))
+        row.dedupe_key = legacy_hash
+    for payload in (text, canonical_text(text)):
+        assert await _push(client, auth, peer="legacy-peer", text=payload, when=when) == {
+            "accepted": 0,
+            "duplicates": 1,
+        }
+    async with app.state.database.unit_of_work() as session:
+        rows = list(await session.scalars(select(ImMessageRow)))
+        assert len(rows) == 1
+        assert rows[0].dedupe_key == legacy_hash
 
 
 def test_hashes_match_shared_android_fixtures():

@@ -1,0 +1,15 @@
+{
+  "activated": true,
+  "release": "/home/ubuntu/cloudctl-mobile/releases/im-3a1d306",
+  "startedAt": "2026-09-26T11:47:26Z",
+  "apiHealth": "PASS",
+  "publicAuth": "PASS",
+  "webRelease": "PASS",
+  "receiveOnly": true,
+  "classifierMode": "SHADOW",
+  "baselineOutCount": 23,
+  "databaseMigration": "20260923_0033",
+  "oldApi": "/home/ubuntu/cloudctl-mobile/releases/p34-571ce32",
+  "oldWeb": "/var/www/cloudctl-mobile-before-im-3a1d306",
+  "dropIn": "/etc/systemd/system/cloudctl-mobile-api.service.d/99-zzzzzzzzzzz-im-receive.conf"
+}

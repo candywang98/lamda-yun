@@ -26,6 +26,7 @@ export interface ImMessage {
 
 export interface ImMonitorConfig {
   deviceId: string
+  receiveOnly?: boolean
   enabled: boolean
   platforms: string[]
   mode: 'NOTIFICATION' | 'DUTY'
@@ -34,7 +35,7 @@ export interface ImMonitorConfig {
   updatedAt: string | null
 }
 
-export type ImMonitorConfigDraft = Omit<ImMonitorConfig, 'deviceId' | 'updatedAt'>
+export type ImMonitorConfigDraft = Omit<ImMonitorConfig, 'deviceId' | 'updatedAt' | 'receiveOnly'>
 
 export const IM_PLATFORM_OPTIONS = [
   { key: 'xianyu', label: '闲鱼' },

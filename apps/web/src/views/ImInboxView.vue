@@ -125,7 +125,7 @@ function threadSummary(thread: ImThread): string {
 }
 
 async function sendReply() {
-  if (!selected.value || !replyText.value.trim()) return
+  if (!selected.value || !replyText.value.trim() || !canReply.value) return
   busy.value = true
   errorMessage.value = ''
   successMessage.value = ''
@@ -155,6 +155,12 @@ const cfgMessageIsError = ref(false)
 const cfgErrors = ref<string[]>([])
 const cfg = ref<ImMonitorConfig | null>(null)
 const deviceConfigs = ref(new Map<string, ImMonitorConfig>())
+const canReply = computed(() => {
+  const deviceId = selected.value?.deviceId
+  if (!deviceId || !session.can('device.control')) return false
+  const config = deviceConfigs.value.get(deviceId)
+  return config !== undefined && config.receiveOnly !== true
+})
 
 const configDeviceOptions = computed(() => {
   const merged = new Map<string, ConfigDeviceOption>()
@@ -355,7 +361,6 @@ onBeforeUnmount(() => {
     <header class="yy-page-head">
       <div>
         <h1>消息聚合</h1>
-        <p class="yy-sub">手机消息自动汇聚到这里；回复会生成受控任务由手机发出。</p>
       </div>
       <div class="yy-actions">
         <label class="yy-field">
@@ -489,7 +494,8 @@ onBeforeUnmount(() => {
             </div>
             <p v-if="messages.length === 0" class="yy-sub">该会话暂无消息记录。</p>
           </div>
-          <form class="im-composer" @submit.prevent="sendReply">
+          <p v-if="!canReply" class="yy-sub">只读收件箱</p>
+          <form v-else class="im-composer" @submit.prevent="sendReply">
             <textarea
               v-model="replyText"
               rows="2"

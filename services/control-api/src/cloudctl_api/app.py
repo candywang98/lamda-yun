@@ -31,6 +31,8 @@ from .fleet_listings import router as fleet_listings_router
 from .fleet_live import FleetLiveService, fleet_live_router
 from .fleet_orders import FleetOrdersService
 from .fleet_orders import router as fleet_orders_router
+from .im_classifier import ImMessageClassifier
+from .im_observer import ImClassificationObserver
 from .im_routes import companion_router as im_companion_router
 from .im_routes import operator_router as im_operator_router
 from .im_service import ImService
@@ -112,9 +114,11 @@ def create_app(
             await database.create_schema()
         if resolved_settings.auto_seed_development_data():
             await seed_development_data(database)
+        app.state.im_observer.start()
         try:
             yield
         finally:
+            await app.state.im_observer.close()
             if oidc_verifier is not None:
                 await oidc_verifier.close()
             await app.state.wechat_publisher_service.close_transport()
@@ -160,7 +164,13 @@ def create_app(
     app.state.wechat_publisher_service = WeChatPublisherService(
         database, resolved_settings, transport=wechat_transport
     )
-    app.state.im_service = ImService(app.state.mobile_task_service)
+    app.state.im_observer = ImClassificationObserver(ImMessageClassifier(resolved_settings))
+    app.state.im_service = ImService(
+        app.state.mobile_task_service,
+        observer=app.state.im_observer,
+        receive_only=resolved_settings.im_receive_only,
+        legacy_xianyu_device_ids=frozenset(resolved_settings.im_legacy_xianyu_device_ids),
+    )
     app.state.live_service = LiveService(app.state.mobile_task_service)
     app.state.mobile_task_service.live_service = app.state.live_service
     app.dependency_overrides[get_settings] = lambda: resolved_settings

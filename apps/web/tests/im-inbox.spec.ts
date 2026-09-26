@@ -148,6 +148,16 @@ describe('ImInboxView', () => {
     expect(vi.mocked(listImThreads).mock.calls.flat().join('|')).not.toContain('APH0219624006517')
   })
 
+  it('hides reply controls when the server is receive-only', async () => {
+    vi.mocked(fetchImConfig).mockImplementation(async (deviceId) => configFixture({ deviceId, receiveOnly: true }))
+    vi.mocked(listImMessages).mockResolvedValue([messageFixture('真实入站展示夹具')])
+    await renderView(['security_admin'])
+    await fireEvent.click(await screen.findByText('买家小王'))
+    expect(await screen.findByText('只读收件箱')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '发送回复' })).toBeNull()
+    expect(vi.mocked(replyImThread)).not.toHaveBeenCalled()
+  })
+
   it('badges duty-mode devices in the thread list', async () => {
     vi.mocked(fetchImConfig).mockResolvedValue(configFixture({ mode: 'DUTY', dutyStart: '00:00', dutyEnd: '23:59' }))
     await renderView(['security_admin'])

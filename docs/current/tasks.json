@@ -1975,13 +1975,25 @@
     "apps/web/src/features/im/**",
     "tests/integration/test_im_fleet_ownership.py",
     "services/control-api/src/cloudctl_api/im_classifier.py",
+    "services/control-api/src/cloudctl_api/im_observer.py",
+    "services/control-api/src/cloudctl_api/im_service.py",
+    "services/control-api/src/cloudctl_api/im_routes.py",
+    "services/control-api/src/cloudctl_api/app.py",
     "services/control-api/src/cloudctl_api/settings.py",
+    "apps/web/src/api/im.ts",
+    "apps/web/src/views/ImInboxView.vue",
+    "apps/web/tests/im-inbox.spec.ts",
     "scripts/check_im_classifier.py",
-    "tests/unit/test_im_classifier.py"
+    "tests/unit/test_im_classifier.py",
+    "tests/unit/test_im_observer.py",
+    "tests/integration/test_im_aggregation.py"
    ],
    "required_locks": [
     "APK:IM",
-    "WEB:IM"
+    "WEB:IM",
+    "API:IM",
+    "DEPLOY:seoul",
+    "DB_MIGRATION"
    ],
    "effort_low": 1,
    "effort_high": 2,
@@ -2005,7 +2017,7 @@
     "ISS-21"
    ],
    "risk": "高",
-   "device_acceptance": "2026-09-26新增单台闲鱼真实外部入站到网页验收，先VOG后扩三台；只收不发，后台长期稳定性不作前置。VOG已安装业务版且无障碍Bound，云端有5条历史IN但未据此认定新真实用户样本；网页认证待用户登录，单机闭环未通过",
+   "device_acceptance": "2026-09-26单台闲鱼真实外部入站到网页优先，先VOG后扩三台；后台长期稳定性不作前置。19:47已部署只收不发和Jev旁路观察；VOG有5条历史IN但在另一租户，当前工作台不可见，须正常重新入网且写手机前确认物理空闲。不能解除租户隔离、把历史记录或HTTP检查当新真实消息闭环；单机仍未通过",
    "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
    "dev_state": "IN_PROGRESS",
    "acceptance_state": "DEVICE_WAIT",
@@ -2030,9 +2042,17 @@
     "jev_model": "jev-latest",
     "jev_native_endpoint_verified": true,
     "jev_live_filter_enabled": false,
-    "cloud_deployed": false,
-    "software_validation": "新增分类客户端及原IM聚合/设备隔离定向回归78 passed；少量虚构样本不构成中文通知精度或单机真机验收",
-    "next": "用户正常登录现有网页，确认VOG闲鱼账号并由用户安排一条真实外部测试消息；核对采集、服务器与网页同条证据，不绕过认证、不代发"
+    "cloud_deployed": true,
+    "cloud_release": "im-3a1d306",
+    "cloud_deployed_at": "2026-09-26T19:47:29+08:00",
+    "cloud_report": "artifacts/im-cloud-20260926/report.md",
+    "cloud_readcheck": "artifacts/im-cloud-20260926/postdeploy-readcheck.json",
+    "cloud_classifier_mode": "SHADOW_VOG_ONLY",
+    "cloud_receive_only": true,
+    "cloud_migration": "20260923_0033",
+    "candidate_tenant_matches_workbench": false,
+    "software_validation": "聚焦发布基于线上571ce32：后端95 passed，迁移3 passed，Web IM 22 passed及生产构建通过；66表快照备份还原一致，隔离升级/降级/再升级后65业务表摘要不变；Jev云端合成系统样本HTTP200。主分支Web全套312 passed。上述不构成新真实消息到网页验收",
+    "next": "确认VOG物理空闲并按标准流程重新入网到当前工作台，保留历史消息及待上传数据；随后由用户安排一条新的真实外部闲鱼消息，核对手机、云端和网页，不改认证、不代发。浏览器空间18仍交由用户"
    },
    "acceptance_commands": [
     "在所声明新测试文件落地后运行其定向测试；测试名由taskId登记",

@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from .auth import current_actor
@@ -33,7 +33,7 @@ Service = Annotated[ImService, Depends(service)]
 
 class ImMessageIn(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
-    platform: Literal["xianyu"]
+    platform: Literal["xianyu"] | None = None
     peer_key: str = Field(alias="peerKey", min_length=1, max_length=128)
     peer_name: str = Field(alias="peerName", min_length=1, max_length=128)
     text: str = Field(min_length=1, max_length=4000)
@@ -52,11 +52,17 @@ class ImReplyIn(BaseModel):
 
 @companion_router.post("/messages")
 async def push_messages(body: ImBatchIn, binding_row: BindingDep, im: Service) -> dict[str, int]:
+    for item in body.messages:
+        if item.platform is None and (
+            "platform" in item.model_fields_set
+            or binding_row.device_id not in im.legacy_xianyu_device_ids
+        ):
+            raise HTTPException(status_code=422, detail="platform is required")
     return await im.ingest(
         binding_row,
         [
             {
-                "platform": item.platform,
+                "platform": item.platform or "xianyu",
                 "peerKey": item.peer_key,
                 "peerName": item.peer_name,
                 "text": item.text,

@@ -2560,9 +2560,16 @@
             "type": "string"
           },
           "platform": {
-            "const": "xianyu",
-            "title": "Platform",
-            "type": "string"
+            "anyOf": [
+              {
+                "const": "xianyu",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Platform"
           },
           "text": {
             "maxLength": 4000,
@@ -2572,7 +2579,6 @@
           }
         },
         "required": [
-          "platform",
           "peerKey",
           "peerName",
           "text",

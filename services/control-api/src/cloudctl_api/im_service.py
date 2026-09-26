@@ -15,6 +15,7 @@ from cloudctl_domain import ConflictError, NotFoundError, Permission, require_pe
 from sqlalchemy import and_, or_, select
 
 from .db import ImMessageRow, ImMonitorConfigRow, ImThreadRow, MobileTaskRow
+from .im_observer import ImClassificationObserver, InboundObservation
 from .mobile_schemas import MobileTaskCreate
 from .mobile_service import MobileTaskService, _now
 
@@ -116,9 +117,19 @@ def _message_view(row: ImMessageRow) -> dict[str, Any]:
 
 
 class ImService:
-    def __init__(self, mobile: MobileTaskService) -> None:
+    def __init__(
+        self,
+        mobile: MobileTaskService,
+        *,
+        observer: ImClassificationObserver | None = None,
+        receive_only: bool = False,
+        legacy_xianyu_device_ids: frozenset[str] = frozenset(),
+    ) -> None:
         self.mobile = mobile
         self.database = mobile.database
+        self.observer = observer
+        self.receive_only = receive_only
+        self.legacy_xianyu_device_ids = legacy_xianyu_device_ids
 
     ALLOWED_PLATFORMS = {"xianyu", "xhs", "douyin", "wechat"}
 
@@ -193,11 +204,11 @@ class ImService:
             raise ConflictError("duty window is invalid")
         return value
 
-    @staticmethod
-    def _config_view(row: ImMonitorConfigRow | None, device_id: str) -> dict[str, Any]:
+    def _config_view(self, row: ImMonitorConfigRow | None, device_id: str) -> dict[str, Any]:
         if row is None:
             return {
                 "deviceId": device_id,
+                "receiveOnly": self.receive_only,
                 "enabled": True,
                 "platforms": ["xianyu"],
                 "mode": "NOTIFICATION",
@@ -207,6 +218,7 @@ class ImService:
             }
         return {
             "deviceId": row.device_id,
+            "receiveOnly": self.receive_only,
             "enabled": row.enabled,
             "platforms": row.platforms,
             "mode": row.mode,
@@ -221,6 +233,7 @@ class ImService:
         now = _now()
         accepted = 0
         duplicates = 0
+        observations: list[InboundObservation] = []
         async with self.database.unit_of_work() as session:
             for item in items:
                 platform = item["platform"]
@@ -237,8 +250,29 @@ class ImService:
                 if occurred.tzinfo is None:
                     occurred = occurred.replace(tzinfo=UTC)
                 key = _dedupe_key(binding_row.device_id, platform, peer_key, occurred, text)
+                # Recognize old server hashes without rewriting historical evidence.
+                legacy_text = item["text"]
+                if len(legacy_text) > MAX_TEXT:
+                    legacy_text = TRUNCATED_PREFIX + legacy_text[:MAX_TEXT]
+                legacy_keys = {
+                    hashlib.sha256(
+                        (
+                            f"{binding_row.device_id}|{peer_key}|{int(occurred.timestamp())}|{body}"
+                        ).encode()
+                    ).hexdigest()
+                    for body in (text, legacy_text)
+                }
                 existing = await session.scalar(
-                    select(ImMessageRow).where(ImMessageRow.dedupe_key == key)
+                    select(ImMessageRow)
+                    .join(ImThreadRow, ImMessageRow.thread_id == ImThreadRow.id)
+                    .where(
+                        ImMessageRow.dedupe_key.in_({key, *legacy_keys}),
+                        ImMessageRow.tenant_id == binding_row.tenant_id,
+                        ImThreadRow.device_id == binding_row.device_id,
+                        ImThreadRow.platform == platform,
+                        ImThreadRow.peer_key == peer_key,
+                    )
+                    .limit(1)
                 )
                 if existing is not None:
                     duplicates += 1
@@ -269,9 +303,10 @@ class ImService:
                     )
                     session.add(thread)
                     await session.flush()
+                message_id = str(uuid.uuid4())
                 session.add(
                     ImMessageRow(
-                        id=str(uuid.uuid4()),
+                        id=message_id,
                         tenant_id=binding_row.tenant_id,
                         thread_id=thread.id,
                         direction="IN",
@@ -294,6 +329,19 @@ class ImService:
                 thread.unread_count += 1
                 thread.updated_at = now
                 accepted += 1
+                observations.append(
+                    InboundObservation(
+                        message_id=message_id,
+                        device_id=binding_row.device_id,
+                        platform=platform,
+                        title=peer_name,
+                        text=text,
+                    )
+                )
+        # Only committed, non-duplicate messages may leave the receiving service.
+        if self.observer is not None:
+            for observation in observations:
+                self.observer.submit(observation)
         return {"accepted": accepted, "duplicates": duplicates}
 
     async def list_threads(
@@ -399,6 +447,8 @@ class ImService:
         # A reply sends a real outbound message through the device: require the
         # same ``device.control`` write permission the operator inbox UI uses.
         require_permissions(actor.roles, Permission.DEVICE_CONTROL)
+        if self.receive_only:
+            raise ConflictError("IM_RECEIVE_ONLY")
         text = text.strip()
         if not text or len(text) > MAX_REPLY:
             raise ConflictError(f"reply text must be 1..{MAX_REPLY} characters")

@@ -66,6 +66,9 @@ class Settings(BaseSettings):
     wechat_token_expiry_margin_seconds: int = Field(default=120, ge=30, le=600)
     wechat_secret_encryption_key: SecretStr | None = None
     im_classifier_enabled: bool = False
+    im_classifier_device_ids: list[str] = Field(default_factory=list)
+    im_receive_only: bool = False
+    im_legacy_xianyu_device_ids: list[str] = Field(default_factory=list)
     im_classifier_base_url: str | None = Field(default=None, min_length=8, max_length=512)
     im_classifier_model: str = Field(default="jev-latest", min_length=1, max_length=128)
     im_classifier_api_key: SecretStr | None = None

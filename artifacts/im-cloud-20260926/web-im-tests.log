@@ -1,0 +1,14 @@
+
+ RUN  v3.2.7 /Users/wangziheng/Desktop/01-主战场/LAMDA云控系统/cloudctl-source/apps/web
+
+(node:78450) Warning: `--localstorage-file` was provided without a valid path
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:78451) Warning: `--localstorage-file` was provided without a valid path
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/im-api.spec.ts (9 tests) 6ms
+ ✓ tests/im-inbox.spec.ts (13 tests) 430ms
+
+ Test Files  2 passed (2)
+      Tests  22 passed (22)
+   Start at  19:53:46
+   Duration  1.67s (transform 210ms, setup 463ms, collect 247ms, tests 436ms, environment 752ms, prepare 141ms)
