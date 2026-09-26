@@ -224,14 +224,20 @@ class XianyuOrdersService:
                 command_type=command,
                 screens=body.screens,
             )
+        async with self.database.unit_of_work() as session:
+            row = await session.get(MobileTaskRow, view["taskId"])
+            assert row is not None
+            delivery = await order_delivery_view(session, row)
+            task_state = row.business_state or row.status
+            task_created_at = row.created_at
         task = {
             "taskId": view["taskId"],
             "idempotencyKey": task_key,
             "commandType": command,
             "direction": body.direction,
             "maxRows": body.max_rows,
-            "state": view.get("businessState") or view.get("status"),
-            "createdAt": view.get("createdAt"),
+            "state": task_state,
+            "createdAt": task_created_at,
         }
         run_view = {
             "runId": run_id,
@@ -242,14 +248,11 @@ class XianyuOrdersService:
             "targetCount": 1,
             "taskIds": [task["taskId"]],
             "tasks": [task],
+            "delivery": delivery,
         }
         if body.screens != 1:
             task["screens"] = body.screens
             run_view["screens"] = body.screens
-        async with self.database.unit_of_work() as session:
-            row = await session.get(MobileTaskRow, view["taskId"])
-            assert row is not None
-            run_view["delivery"] = await order_delivery_view(session, row)
         return (run_view, created)
 
     async def get_run(self, actor: Actor, run_id: str) -> dict[str, Any]:

@@ -424,6 +424,61 @@ async def test_runs_have_independent_contiguous_ordinals(api):  # noqa: F811
     assert await _count_pages(app) == 3
 
 
+async def test_late_old_run_retains_receipts_without_reverting_newer_order(api):  # noqa: F811
+    client, app = api
+    device, account, auth, old_run, old = await _start(client, screens=1)
+    await _set_state(app, old, "SUCCEEDED")
+    created = await _collect(client, device, key="newer", screens=1)
+    assert created.status_code == 201
+    newer_run = created.json()
+    claim = await client.post(
+        "/companion/v2/tasks/claim", headers=auth, json={"orderDeliveryProtocol": PROTOCOL}
+    )
+    assert claim.status_code == 200
+    newer = claim.json()
+    await _set_state(app, newer, "SUCCEEDED")
+    for task, status, observed in (
+        (newer, "COMPLETED", "2026-09-26T12:00:00Z"),
+        # An old outbox remains older even if the device clock was ahead.
+        (old, "AWAITING_SHIPMENT", "2026-09-27T12:00:00Z"),
+    ):
+        result = await _push(
+            client,
+            auth,
+            task,
+            _payload(task, account, rows=[_order("shared", status=status)], collectedAt=observed),
+        )
+        assert result.status_code == 201, result.text
+        assert (await _complete(client, auth, task, account)).status_code == 201
+    async with app.state.database.unit_of_work() as session:
+        row = await session.scalar(select(OrderRow).where(OrderRow.order_key == "shared"))
+        assert row.status_text == "COMPLETED"
+        assert await session.scalar(select(func.count()).select_from(OrderDeliveryReceiptRow)) == 4
+    assert (await _view(client, old_run))["delivery"]["state"] == "SYNCED"
+    assert (await _view(client, newer_run))["delivery"]["state"] == "SYNCED"
+    assert await _count_pages(app) == 2
+
+
+async def test_post_replay_uses_same_task_snapshot_as_delivery(api, monkeypatch):  # noqa: F811
+    client, app = api
+    device, account, auth, run, task = await _start(client, screens=1)
+    assert (await _push(client, auth, task, _payload(task, account))).status_code == 201
+    assert (await _complete(client, auth, task, account)).status_code == 201
+    await _set_state(app, task, "SUCCEEDED")
+    original = app.state.mobile_task_service._insert_task
+
+    async def stale_insert_view(**kwargs):
+        view, created = await original(**kwargs)
+        return {**view, "status": "QUEUED", "businessState": "QUEUED"}, created
+
+    monkeypatch.setattr(app.state.mobile_task_service, "_insert_task", stale_insert_view)
+    replay = await _collect(client, device, screens=1)
+    assert replay.status_code == 200, replay.text
+    assert replay.json()["runId"] == run["runId"]
+    assert replay.json()["tasks"][0]["state"] == "SUCCEEDED"
+    assert replay.json()["delivery"]["state"] == "SYNCED"
+
+
 async def test_order_upsert_failure_rolls_back_receipt_and_page(api, monkeypatch):  # noqa: F811
     client, app = api
     _, account, auth, _, task = await _start(client)

@@ -32,7 +32,19 @@ def upgrade() -> None:
     )
     op.create_index("ix_order_delivery_receipt_tenant_id", "order_delivery_receipt", ["tenant_id"])
     op.create_index("ix_order_delivery_receipt_task_id", "order_delivery_receipt", ["task_id"])
+    op.create_table(
+        "order_delivery_projection",
+        sa.Column("order_id", sa.String(36), sa.ForeignKey("xianyu_order.id"), primary_key=True),
+        sa.Column("tenant_id", sa.String(36), nullable=False),
+        sa.Column("task_id", sa.String(36), sa.ForeignKey("mobile_task.id"), nullable=False),
+        sa.Column("screen", sa.Integer(), nullable=False),
+        sa.CheckConstraint("screen BETWEEN 1 AND 3", name="ck_order_projection_screen"),
+    )
+    op.create_index(
+        "ix_order_delivery_projection_tenant_id", "order_delivery_projection", ["tenant_id"]
+    )
 
 
 def downgrade() -> None:
+    op.drop_table("order_delivery_projection")
     op.drop_table("order_delivery_receipt")
