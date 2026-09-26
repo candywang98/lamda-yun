@@ -9,7 +9,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from cloudctl_api.db import AccountDeviceBindingRow, MobileTaskRow, OrderRow
-from cloudctl_api.order_delivery import OrderDeliveryReceiptRow
+from cloudctl_api.order_delivery import OrderDeliveryProjectionRow, OrderDeliveryReceiptRow
 from sqlalchemy import func, select
 from test_fleet_orders_pagination import OTHER_TENANT, _count_pages, _order, _screens, _setup_device
 from test_p14_recipe_versions import api, isolated_postgres, pg_url  # noqa: F401
@@ -479,6 +479,48 @@ async def test_post_replay_uses_same_task_snapshot_as_delivery(api, monkeypatch)
     assert replay.json()["delivery"]["state"] == "SYNCED"
 
 
+async def test_unchanged_snapshot_advances_per_order_watermark_with_ties(api):  # noqa: F811
+    client, app = api
+    device, account, auth = await _setup(client)
+    tasks = []
+    for index in range(3):
+        assert (await _collect(client, device, key=f"tie-{index}")).status_code == 201
+        response = await client.post(
+            "/companion/v2/tasks/claim", headers=auth, json={"orderDeliveryProtocol": PROTOCOL}
+        )
+        assert response.status_code == 200
+        task = response.json()
+        tasks.append(task)
+        await _set_state(app, task, "SUCCEEDED")
+        async with app.state.database.unit_of_work() as session:
+            stored = await session.get(MobileTaskRow, task["taskId"])
+            stored.created_at = datetime(2026, 9, 26, tzinfo=UTC)
+    oldest, middle, newest = sorted(tasks, key=lambda item: item["taskId"])
+    for task, rows in (
+        (oldest, [_order("shared", status="COMPLETED")]),
+        (newest, [_order("shared", status="COMPLETED")]),
+        (middle, [_order("shared", status="AWAITING_SHIPMENT"), _order("unseen")]),
+    ):
+        response = await _push(client, auth, task, _payload(task, account, rows=rows))
+        assert response.status_code == 201, response.text
+    async with app.state.database.unit_of_work() as session:
+        rows = {row.order_key: row for row in await session.scalars(select(OrderRow))}
+        assert rows["shared"].status_text == "COMPLETED"
+        assert "unseen" in rows
+        source = await session.get(OrderDeliveryProjectionRow, rows["shared"].id)
+        assert source.task_id == newest["taskId"]
+    response = await _push(
+        client,
+        auth,
+        newest,
+        _payload(newest, account, screen=2, rows=[_order("shared", status="REFUNDED")]),
+    )
+    assert response.status_code == 201
+    async with app.state.database.unit_of_work() as session:
+        row = await session.scalar(select(OrderRow).where(OrderRow.order_key == "shared"))
+        assert row.status_text == "REFUNDED"
+
+
 async def test_order_upsert_failure_rolls_back_receipt_and_page(api, monkeypatch):  # noqa: F811
     client, app = api
     _, account, auth, _, task = await _start(client)
@@ -495,6 +537,9 @@ async def test_order_upsert_failure_rolls_back_receipt_and_page(api, monkeypatch
     async with app.state.database.unit_of_work() as session:
         assert await session.scalar(select(func.count()).select_from(OrderRow)) == 0
         assert await session.scalar(select(func.count()).select_from(OrderDeliveryReceiptRow)) == 0
+        assert (
+            await session.scalar(select(func.count()).select_from(OrderDeliveryProjectionRow)) == 0
+        )
     assert await _count_pages(app) == 0
     monkeypatch.setattr(service.orders, "_upsert_orders", original)
     assert (await _push(client, auth, task, _payload(task, account))).status_code == 201
