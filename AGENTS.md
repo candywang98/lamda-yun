@@ -19,6 +19,14 @@ This repository implements the architecture in `docs/reference/`. Keep the follo
 **Development/diagnostic only**:
 - **Edge + LAMDA** (`edge/gateway`, `packages/lamda-driver`): Studio live layout inspection and evidence preview. Not required for production task delivery. Must not hold a write lease when Companion is enrolled.
 
+User-confirmed delivery constraint (2026-09-26, D-12): ADB is provided only for
+development/debugging. Production collection, synchronization and authorized
+automation must run through the enrolled Companion and cloud with USB and
+wireless ADB disconnected and without the development computer or Edge.
+Verify the final business path in that configuration; an ADB-assisted test is
+diagnostic evidence only. Ordinary installation, login and system permission
+setup may require user interaction, but ADB must not be a runtime prerequisite.
+
 V1 platform scope is exactly four: 闲鱼商品, 小红书图文, 抖音视频, 微信公众号文章. Other platforms are frozen for V1.
 
 Keep edits inside your assigned component paths when parallel agents are active.
@@ -139,4 +147,3 @@ fields. Validate changes with `python scripts/plan_guard.py
 docs/current/tasks.json`. Legacy Excel plans under `docs/project-plans/` are
 read-only baselines until their migration is verified; progress text never
 overrides safety gates.
-

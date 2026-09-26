@@ -7,6 +7,17 @@
  "activated_by": "R02 @bf6529b；2026-09-20 补记状态翻转与 WAIT_CONTRACT 重算（见 docs/current/README.md R02 补记）",
  "source_scope": "single-sheet audit + selected code + user APK/QA; R02 imports remaining workbook acceptance",
  "max_writers": 3,
+ "production_runtime_constraint": {
+  "decision_id": "D-12",
+  "decided_at": "2026-09-26",
+  "adb_purpose": "DEVELOPMENT_DEBUG_ONLY",
+  "runtime_requires_adb": false,
+  "runtime_requires_development_computer_or_edge": false,
+  "business_acceptance_requires_adb_disconnected": true,
+  "production_path": "网页/云端通过网络与已入网Companion通信，手机本地执行；系统安装、账号登录与权限由用户正常操作",
+  "limits": "这是交付约束，不是各业务已通过的声明；不得用ADB辅助结果替代脱离ADB的端到端验收，也不据此立即断开调试连接",
+  "decision_record": "docs/current/scope-decisions.md"
+ },
  "current_application_release": {
   "release": "listing-sync-b3bd1f3",
   "deployed_at": "2026-09-26T22:39:14+08:00",
