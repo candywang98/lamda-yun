@@ -276,6 +276,7 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         orderReporter: OrderReporter? = null,
         orderScreensReporter: OrderScreensReporter? = null,
         listingScreensReporter: ListingScreensReporter? = null,
+        orderDelivery: com.company.cloudctl.companion.features.xianyu.orders.OrderDeliverySession? = null,
         journal: (AutomationStep, String) -> Unit,
     ) {
         if (active !== this) throw ExecutorFailure("ACCESSIBILITY_NOT_ACTIVE", "Accessibility service is not active")
@@ -287,6 +288,7 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
             orderReporter = orderReporter,
             listingScreensReporter = listingScreensReporter,
             orderScreensReporter = orderScreensReporter,
+            orderDelivery = orderDelivery,
         )
             .execute(task, control, startAfterIndex, journal)
     }

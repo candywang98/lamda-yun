@@ -5,6 +5,8 @@ import com.company.cloudctl.companion.features.xianyu.orders.OrderPageSummary
 import com.company.cloudctl.companion.features.xianyu.orders.OrderScrollDecision
 import com.company.cloudctl.companion.features.xianyu.orders.OrderScrollPolicy
 import com.company.cloudctl.companion.features.xianyu.orders.OrderSeenRegistry
+import com.company.cloudctl.companion.features.xianyu.orders.OrderDeliverySession
+import com.company.cloudctl.companion.features.xianyu.orders.SavedOrderRead
 import com.company.cloudctl.companion.features.xianyu.orders.absorbPage
 import com.company.cloudctl.companion.features.xianyu.orders.isPartiallyVisible
 import com.company.cloudctl.companion.features.xianyu.orders.toSummary
@@ -374,6 +376,7 @@ class LocalAutomationExecutor(
     private val orderReporter: OrderReporter? = null,
     private val orderScreensReporter: OrderScreensReporter? = null,
     private val listingScreensReporter: ListingScreensReporter? = null,
+    private val orderDelivery: OrderDeliverySession? = null,
 ) {
     /** Badge baselines (tab locator -> count at the strike) captured during one run. */
     private val badgeBaselines = mutableMapOf<String, Int>()
@@ -395,8 +398,9 @@ class LocalAutomationExecutor(
     /** O10 three-stop reason once OrderScrollPolicy ended this run's pagination; null while scrolling. */
     private var ordersScrollStopReason: String? = null
 
-    /** 1-based readOrders screen counter for this run (log material only). */
+    /** 1-based readOrders screen counter; durable runs also bind it to the plan. */
     private var ordersScreensRead = 0
+    private var pendingDurableRead: SavedOrderRead? = null
 
     suspend fun execute(
         task: AutomationTask,
@@ -411,8 +415,13 @@ class LocalAutomationExecutor(
         orderPageSummaries.clear()
         ordersScrollStopReason = null
         ordersScreensRead = 0
+        pendingDurableRead = null
         MaintenanceBadgeSnapshots.clear(task.taskId)
         if (!task.expiresAt.isAfter(now())) throw ExecutorFailure("TASK_EXPIRED", "Task has expired")
+        if (orderDelivery != null) {
+            throwIfControlRequested(control, task.steps.getOrNull(startAfterIndex), startAfterIndex)
+            restoreOrderDelivery(task, startAfterIndex)
+        }
         val runDeadline = elapsedMs() + task.maxRunSeconds * 1_000L
         // Fresh runs start from the target root page; resumed runs keep their
         // verified in-page state (ResumeValidator guards those separately).
@@ -435,6 +444,7 @@ class LocalAutomationExecutor(
                     is OrderScrollDecision.Continue -> Unit
                     is OrderScrollDecision.Stop -> {
                         ordersScrollStopReason = decision.reason
+                        orderDelivery?.recordStop?.invoke(decision.reason)
                         ui.log(LogLevel.INFO, decision.reason)
                     }
                 }
@@ -483,16 +493,53 @@ class LocalAutomationExecutor(
                 throw ExecutorFailure("STEP_EXECUTION_FAILED", "Step ${step.stepId} failed safely", failure)
             }
             if (stepControl == StepControl.STOP_RECONCILING) return
-            journal(step, "SUCCEEDED")
+            val durableRead = pendingDurableRead
+            if (step is AutomationStep.ReadOrders && orderDelivery != null) {
+                checkNotNull(durableRead) { "ORDER_CAPTURE_MISSING" }
+                // The committer owns both the durable payload and the success journal/event.
+                orderDelivery.commitRead(durableRead)
+                pendingDurableRead = null
+            } else {
+                journal(step, "SUCCEEDED")
+            }
             lastCompleted = step
             lastCompletedIndex = index
             // §5: the collected-order batch report fires immediately after the
             // readOrders step is journaled SUCCEEDED — outside the step's UI
             // timeout, so upload latency can never surface as STEP_TIMEOUT.
-            reportPendingOrders(task)
+            if (orderDelivery == null) reportPendingOrders(task)
             throwIfControlRequested(control, lastCompleted, lastCompletedIndex)
             if (stepControl == StepControl.STOP_AFTER_SUCCESS) return
         }
+    }
+
+    private fun restoreOrderDelivery(task: AutomationTask, startAfterIndex: Int) {
+        val session = orderDelivery ?: return
+        val state = session.restored
+        fun unverified(): Nothing = throw ExecutorFailure("RESUME_PAGE_UNVERIFIED", "Order page recovery is not established")
+        if (startAfterIndex !in -1..task.steps.lastIndex) unverified()
+        if (state.inFlightStepIndex != null || state.lastStepIndex != startAfterIndex) unverified()
+        val planned = task.steps.withIndex().filter { it.value is AutomationStep.ReadOrders }
+        if (state.stopReason == null && state.reads.size != planned.count { it.index <= startAfterIndex }) unverified()
+        state.reads.forEachIndexed { index, read ->
+            val step = planned.getOrNull(index) ?: unverified()
+            if (read.screen != index + 1 || read.stepId != step.value.stepId || read.stepIndex != step.index) unverified()
+            val (rows, skipped) = read.parsed(session.identity.direction)
+            orderPageSummaries += seenRegistry.absorbPage(read.screen, rows, skipped).toSummary(read.collectedAt)
+        }
+        ordersScreensRead = state.reads.size
+        ordersScrollStopReason = state.stopReason
+        if (startAfterIndex < 0 || state.reads.isEmpty()) return
+        val moreOrderUi = task.steps.drop(startAfterIndex + 1).any {
+            it is AutomationStep.ReadOrders || it is AutomationStep.SwipeUp
+        }
+        if (!moreOrderUi || state.stopReason != null) return
+        val last = state.reads.last()
+        // A completed/uncertain swipe cannot be reconstructed from a read ordinal.
+        if (last.stepIndex != startAfterIndex || last.rawRows.isEmpty()) unverified()
+        val step = task.steps[last.stepIndex] as AutomationStep.ReadOrders
+        ui.ensureReady(task.targetPackage)
+        if (ui.readOrderRows(task.targetPackage, step.locatorRef, step.maxRows) != last.rawRows) unverified()
     }
 
     private suspend fun executeStep(
@@ -661,7 +708,9 @@ class LocalAutomationExecutor(
                 null
             }
         }
-        val screen = ordersScreensRead + 1
+        val screen = if (orderDelivery != null) {
+            task.steps.take(task.steps.indexOf(step) + 1).count { it is AutomationStep.ReadOrders }
+        } else ordersScreensRead + 1
         val parsed = mutableListOf<OrderRowSnapshot>()
         val skipped = mutableListOf<SkippedOrderRow>()
         rows.forEachIndexed { index, lines ->
@@ -670,7 +719,7 @@ class LocalAutomationExecutor(
                 is OrderRowParseOutcome.Skipped -> skipped += SkippedOrderRow(index, outcome.reason)
             }
         }
-        if (!isMultiScreenOrdersTask(task)) {
+        if (orderDelivery == null && !isMultiScreenOrdersTask(task)) {
             // v1 single-read (contract order-sync-slice2 §1: screens=1 forever
             // stays v1): the slice1 semantics are frozen — same-screen
             // duplicate rows all report (the server-side idempotent key
@@ -690,6 +739,12 @@ class LocalAutomationExecutor(
         val summary = page.toSummary(now().toString())
         orderPageSummaries += summary
         ordersScreensRead = screen
+        if (orderDelivery != null) {
+            check(screen == orderPageSummaries.size) { "ORDER_SCREEN_GAP" }
+            pendingDurableRead = SavedOrderRead(
+                screen, step.stepId, task.steps.indexOf(step), summary.collectedAt, rows,
+            )
+        }
         val reportable = page.newRows + page.updatedRows
         ui.log(LogLevel.INFO, "ORDERS_READ_${reportable.size}")
         if (skipped.isNotEmpty()) ui.log(LogLevel.WARN, "ORDERS_SKIPPED_${skipped.size}")

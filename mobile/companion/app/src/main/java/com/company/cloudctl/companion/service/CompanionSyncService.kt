@@ -1,5 +1,13 @@
 package com.company.cloudctl.companion.service
 
+import com.company.cloudctl.companion.features.xianyu.orders.OrderDeliveryIdentity
+import com.company.cloudctl.companion.features.xianyu.orders.OrderDeliverySession
+import com.company.cloudctl.companion.features.xianyu.orders.OrderDeliverySender
+import com.company.cloudctl.companion.features.xianyu.orders.orderConnectionScope
+import com.company.cloudctl.companion.features.xianyu.orders.parseOrderAwareTask
+import com.company.cloudctl.companion.features.xianyu.orders.orderAwareCommandOrNull
+import com.company.cloudctl.companion.network.addOrderDeliveryCapability
+
 import android.app.KeyguardManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -137,6 +145,7 @@ class CompanionSyncService : Service() {
     private var syncJob: Job? = null
     private var presenceJob: Job? = null
     private var outboxJob: Job? = null
+    private var orderDeliveryJob: Job? = null
     @Volatile
     private var pendingResume: ResumeCommand? = null
 
@@ -228,6 +237,7 @@ class CompanionSyncService : Service() {
         if (syncJob?.isActive != true) syncJob = scope.launch { syncLoop() }
         if (presenceJob?.isActive != true) presenceJob = scope.launch { presenceLoop() }
         if (outboxJob?.isActive != true) outboxJob = scope.launch { outboxLoop() }
+        if (orderDeliveryJob?.isActive != true) orderDeliveryJob = scope.launch { orderDeliveryLoop() }
         return START_STICKY
     }
 
@@ -276,6 +286,7 @@ class CompanionSyncService : Service() {
                         .put("androidVersion", Build.VERSION.RELEASE)
                         .put("accessibilityEnabled", !BuildConfig.HEARTBEAT_DIAGNOSTIC && accessibilityEnabled())
                         .put("runnerState", if (BuildConfig.HEARTBEAT_DIAGNOSTIC) "IDLE" else runnerState())
+                    addOrderDeliveryCapability(payload, BuildConfig.HEARTBEAT_DIAGNOSTIC)
                     val healthJson = JSONObject()
                         .put("batteryPercent", health.batteryPercent)
                         .put("charging", health.charging)
@@ -310,6 +321,7 @@ class CompanionSyncService : Service() {
                         delay(DEVICE_HEARTBEAT_INTERVAL_MILLIS)
                         continue
                     }
+                    store.resumeOrderAuthentication(orderConnectionScope(configured.first, configured.second))
                     // WIRE2 (U11 task requirement 4): the first heartbeat after a
                     // disconnect re-reports every undelivered install receipt.
                     // The device heartbeat model is extra=forbid server-side, so
@@ -668,7 +680,7 @@ class CompanionSyncService : Service() {
         client: CloudTaskClient,
     ): Boolean {
         val pending = store.claimNext() ?: return false
-        val command = runCatching { ClaimedTaskInterpreter.commandOrNull(pending.payload) }
+        val command = runCatching { orderAwareCommandOrNull(pending.payload) }
             .getOrElse {
                 failTask(pending.taskId, "TASK_CONTRACT_REJECTED", "任务指令校验未通过")
                 return true
@@ -677,7 +689,7 @@ class CompanionSyncService : Service() {
             val service = acquireFreshClaimAccessibility(client, pending) ?: return true
             return runCommandV1(client, pending, command, freshService = service)
         }
-        val task = runCatching { AutomationTaskParser.parse(pending.payload) }
+        val task = runCatching { parseOrderAwareTask(pending.payload) }
             .getOrElse {
                 failTask(pending.taskId, "TASK_CONTRACT_REJECTED", "任务指令校验未通过")
                 return true
@@ -691,8 +703,14 @@ class CompanionSyncService : Service() {
         val control = ExecutionControl()
         val commitGate = buildStepsPublishGate(service, task)
         val destructiveGate = buildMaintenanceDestructiveGate(service, task)
-        val orderReporter = if (task.steps.any { it is AutomationStep.ReadOrders }) orderReporterFor(client) else null
-        val orderScreensReporter = if (task.steps.any { it is AutomationStep.ReadOrders }) {
+        val orderDelivery = try {
+            orderDeliveryFor(pending, task, resume = false)
+        } catch (_: Exception) {
+            failTask(task.taskId, "ORDER_DELIVERY_IDENTITY_REJECTED", "Order delivery identity is invalid")
+            return true
+        }
+        val orderReporter = if (orderDelivery == null && task.steps.any { it is AutomationStep.ReadOrders }) orderReporterFor(client) else null
+        val orderScreensReporter = if (orderDelivery == null && task.steps.any { it is AutomationStep.ReadOrders }) {
             orderScreensReporterFor(client, pending, task)
         } else {
             null
@@ -753,6 +771,7 @@ class CompanionSyncService : Service() {
                                 destructiveGate = destructiveGate, orderReporter = orderReporter,
                                 orderScreensReporter = orderScreensReporter,
                                 listingScreensReporter = listingScreensReporter,
+                                orderDelivery = orderDelivery,
                             ) { step, state ->
                                 val stepIndex = task.steps.indexOf(step)
                                 currentStep.set(stepIndex)
@@ -847,7 +866,7 @@ class CompanionSyncService : Service() {
     private suspend fun runResume(client: CloudTaskClient, command: ResumeCommand) {
         if (!store.markResumeCheck(command.taskId, command.leaseId)) return
         val pending = store.claimResume(command.taskId) ?: return
-        val claimedCommand = runCatching { ClaimedTaskInterpreter.commandOrNull(pending.payload) }
+        val claimedCommand = runCatching { orderAwareCommandOrNull(pending.payload) }
             .getOrElse {
                 failTask(pending.taskId, "TASK_CONTRACT_REJECTED", "任务指令校验未通过")
                 return
@@ -856,7 +875,7 @@ class CompanionSyncService : Service() {
             runCommandV1(client, pending, claimedCommand, resume = command)
             return
         }
-        val task = runCatching { AutomationTaskParser.parse(pending.payload) }
+        val task = runCatching { parseOrderAwareTask(pending.payload) }
             .getOrElse {
                 failTask(pending.taskId, "TASK_CONTRACT_REJECTED", "任务指令校验未通过")
                 return
@@ -869,8 +888,14 @@ class CompanionSyncService : Service() {
         val service = awaitAccessibilityService(task.taskId) ?: return
         val commitGate = buildStepsPublishGate(service, task)
         val destructiveGate = buildMaintenanceDestructiveGate(service, task)
-        val orderReporter = if (task.steps.any { it is AutomationStep.ReadOrders }) orderReporterFor(client) else null
-        val orderScreensReporter = if (task.steps.any { it is AutomationStep.ReadOrders }) {
+        val orderDelivery = try {
+            orderDeliveryFor(pending, task, resume = true)
+        } catch (_: Exception) {
+            persistPaused(task.taskId, pending, TaskPausedException(null, -1, "Order recovery identity or state is unavailable"))
+            return
+        }
+        val orderReporter = if (orderDelivery == null && task.steps.any { it is AutomationStep.ReadOrders }) orderReporterFor(client) else null
+        val orderScreensReporter = if (orderDelivery == null && task.steps.any { it is AutomationStep.ReadOrders }) {
             orderScreensReporterFor(client, pending, task)
         } else {
             null
@@ -880,7 +905,12 @@ class CompanionSyncService : Service() {
         } else {
             null
         }
-        val checkpoint = store.latestCheckpoint(task.taskId)
+        val checkpoint = orderDelivery?.let { delivery ->
+            JSONObject().put("loopCursor", delivery.restored.lastStepIndex)
+                .put("accountId", delivery.identity.accountId)
+                .put("bindingVersion", delivery.identity.bindingVersion)
+                .put("itemId", task.steps.getOrNull(delivery.restored.lastStepIndex)?.stepId ?: "preflight")
+        } ?: store.latestCheckpoint(task.taskId)
         if (checkpoint == null) {
             persistPaused(task.taskId, pending, TaskPausedException(null, -1, "resume checkpoint missing"))
             return
@@ -925,6 +955,7 @@ class CompanionSyncService : Service() {
                             destructiveGate = destructiveGate, orderReporter = orderReporter,
                             orderScreensReporter = orderScreensReporter,
                             listingScreensReporter = listingScreensReporter,
+                            orderDelivery = orderDelivery,
                         ) { step, state ->
                             val stepIndex = task.steps.indexOf(step)
                             currentStep.set(stepIndex)
@@ -1728,6 +1759,42 @@ class CompanionSyncService : Service() {
             message,
             code,
         )
+    }
+
+    private fun orderDeliveryFor(pending: PendingTask, task: AutomationTask, resume: Boolean): OrderDeliverySession? {
+        val identity = OrderDeliveryIdentity.fromTask(JSONObject(pending.payload), task) ?: return null
+        val connection = loadConnection() ?: error("ORDER_CONNECTION_MISSING")
+        check(connection.second == identity.deviceId) { "ORDER_DEVICE_CHANGED" }
+        val restored = store.openOrderRun(identity, orderConnectionScope(connection.first, connection.second), resume)
+        return OrderDeliverySession(
+            identity, restored,
+            commitRead = { read -> store.commitOrderRead(identity, read) },
+            recordStop = { reason -> store.recordOrderStop(task.taskId, reason) },
+        )
+    }
+
+    private suspend fun orderDeliveryLoop() {
+        val sender = OrderDeliverySender(store)
+        while (scope.isActive) {
+            try {
+                val connection = loadConnection()
+                if (connection != null && networkAvailability.isValidated()) {
+                    val client = CloudTaskClient(connection.first)
+                    withContext(Dispatchers.IO) {
+                        sender.flush(orderConnectionScope(connection.first, connection.second)) { envelope ->
+                            // Do not cross a binding change between selecting a record and sending it.
+                            check(loadConnection() == connection) { "ORDER_CONNECTION_CHANGED" }
+                            client.sendOrderDelivery(envelope)
+                        }
+                    }
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                // Retained records are retried on the next pass; never log payload or identity content.
+            }
+            delay(OUTBOX_POLL_INTERVAL_MILLIS)
+        }
     }
 
     private suspend fun outboxLoop() {

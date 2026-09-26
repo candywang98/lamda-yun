@@ -12,6 +12,11 @@ import com.company.cloudctl.companion.updates.RecipeLifecycleStore
 import com.company.cloudctl.companion.automation.CanonicalJson
 import java.security.MessageDigest
 import java.time.Instant
+import com.company.cloudctl.companion.features.xianyu.orders.OrderDeliveryIdentity
+import com.company.cloudctl.companion.features.xianyu.orders.OrderResumeState
+import com.company.cloudctl.companion.features.xianyu.orders.PendingOrderDelivery
+import com.company.cloudctl.companion.features.xianyu.orders.SavedOrderRead
+import com.company.cloudctl.companion.features.xianyu.orders.orderPayloadHash
 
 data class PendingTask(val taskId: String, val payload: String, val leaseId: String)
 
@@ -62,6 +67,7 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
         // commits atomically with mirror changes, without bumping the schema
         // version contract other upgrade tests pin.
         createControlPlaneTables(db)
+        createOrderDeliveryTables(db)
     }
 
     private fun SQLiteDatabase.hasUnresolvedAction(taskId: String? = null): Boolean =
@@ -107,6 +113,7 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
         createIndexes(db)
         createRecipeCatalogTable(db)
         createControlledActionTables(db)
+        createOrderDeliveryTables(db)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
@@ -324,6 +331,16 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
         if (eventType == STATE_RECONCILING) markReconcilingLocked(taskId)
         insertJournalLocked(taskId, stepId, state, detailCode, now)
         enqueueStepEventLocked(taskId, eventType, stepIndex, payload, now)
+        if (stepIndex != null) {
+            if (state == "STARTED") {
+                execSQL("UPDATE order_delivery_run SET in_flight_step=? WHERE task_id=?", arrayOf(stepIndex, taskId))
+            } else if (state == "SUCCEEDED") {
+                execSQL(
+                    "UPDATE order_delivery_run SET last_step=?,in_flight_step=NULL WHERE task_id=?",
+                    arrayOf(stepIndex, taskId),
+                )
+            }
+        }
     }
 
     fun enqueueStepEvent(
@@ -520,6 +537,7 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
                 current == STATE_RELEASED ||
                 current == STATE_START_BLOCKED
             ) return@transaction
+            if (succeeded) enqueueOrderCompletionLocked(taskId)
             val leaseId = row("SELECT lease_id FROM task_inbox WHERE task_id=?", arrayOf(taskId))
                 ?: error("Unknown task")
             val now = Instant.now().toString()
@@ -1164,6 +1182,189 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
 
     private fun SQLiteDatabase.row(sql: String, args: Array<String>): String? =
         rawQuery(sql, args).use { if (it.moveToFirst()) it.getString(0) else null }
+
+    private fun createOrderDeliveryTables(db: SQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS order_delivery_run(" +
+                "task_id TEXT PRIMARY KEY,identity_json TEXT NOT NULL,connection_scope TEXT NOT NULL," +
+                "last_step INTEGER NOT NULL DEFAULT -1,in_flight_step INTEGER,stop_reason TEXT," +
+                "FOREIGN KEY(task_id) REFERENCES task_inbox(task_id))",
+        )
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS order_delivery_outbox(" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT,task_id TEXT NOT NULL,kind TEXT NOT NULL,screen INTEGER NOT NULL," +
+                "payload_json TEXT NOT NULL,payload_sha256 TEXT NOT NULL,read_json TEXT," +
+                "attempt_count INTEGER NOT NULL DEFAULT 0,next_attempt_at TEXT NOT NULL," +
+                "delivery_state TEXT NOT NULL DEFAULT 'PENDING',last_error TEXT," +
+                "UNIQUE(task_id,kind,screen),FOREIGN KEY(task_id) REFERENCES order_delivery_run(task_id))",
+        )
+    }
+
+    fun openOrderRun(identity: OrderDeliveryIdentity, connectionScope: String, resume: Boolean): OrderResumeState =
+        transaction {
+            val prior = row("SELECT identity_json FROM order_delivery_run WHERE task_id=?", arrayOf(identity.taskId))
+            if (prior == null) {
+                check(!resume) { "ORDER_RESUME_STATE_MISSING" }
+                insertOrThrow("order_delivery_run", null, ContentValues().apply {
+                    put("task_id", identity.taskId)
+                    put("identity_json", identity.encode())
+                    put("connection_scope", connectionScope)
+                })
+            } else {
+                check(OrderDeliveryIdentity.decode(prior) == identity) { "ORDER_IDENTITY_CHANGED" }
+                check(row("SELECT connection_scope FROM order_delivery_run WHERE task_id=?", arrayOf(identity.taskId)) ==
+                    connectionScope) { "ORDER_CONNECTION_CHANGED" }
+            }
+            val reads = orderReadsLocked(identity.taskId)
+            check(reads.size <= identity.maxScreens)
+            reads.forEachIndexed { index, read -> check(read.screen == index + 1) { "ORDER_SCREEN_GAP" } }
+            rawQuery(
+                "SELECT last_step,in_flight_step,stop_reason FROM order_delivery_run WHERE task_id=?",
+                arrayOf(identity.taskId),
+            ).use {
+                check(it.moveToFirst())
+                val last = it.getInt(0)
+                check(reads.all { read -> read.stepIndex <= last }) { "ORDER_CURSOR_INCONSISTENT" }
+                OrderResumeState(reads, last, if (it.isNull(1)) null else it.getInt(1), it.getString(2))
+            }
+        }
+
+    private fun SQLiteDatabase.orderReadsLocked(taskId: String): List<SavedOrderRead> {
+        val identity = OrderDeliveryIdentity.decode(
+            row("SELECT identity_json FROM order_delivery_run WHERE task_id=?", arrayOf(taskId))
+                ?: error("ORDER_RUN_MISSING"),
+        )
+        return rawQuery(
+            "SELECT read_json,payload_json,payload_sha256,screen FROM order_delivery_outbox " +
+                "WHERE task_id=? AND kind='SCREEN' ORDER BY screen", arrayOf(taskId),
+        ).use { cursor ->
+            buildList {
+                while (cursor.moveToNext()) {
+                    check(orderPayloadHash(cursor.getString(1)) == cursor.getString(2)) { "ORDER_PAYLOAD_CORRUPT" }
+                    val read = SavedOrderRead.decode(cursor.getString(0))
+                    check(read.screen == cursor.getInt(3) &&
+                        orderPayloadHash(read.payload(identity)) == cursor.getString(2)) { "ORDER_RECOVERY_INCONSISTENT" }
+                    add(read)
+                }
+            }
+        }
+    }
+
+    /** Screen, recovery evidence, step journal and event share this SQLite commit. */
+    fun commitOrderRead(identity: OrderDeliveryIdentity, read: SavedOrderRead) = transaction {
+        check(OrderDeliveryIdentity.decode(
+            row("SELECT identity_json FROM order_delivery_run WHERE task_id=?", arrayOf(identity.taskId))
+                ?: error("ORDER_RUN_MISSING"),
+        ) == identity)
+        check(read.screen in 1..identity.maxScreens)
+        val taskPayload = JSONObject(row("SELECT payload FROM task_inbox WHERE task_id=?", arrayOf(identity.taskId))
+            ?: error("ORDER_TASK_MISSING"))
+        val steps = taskPayload.getJSONArray("steps")
+        val step = steps.getJSONObject(read.stepIndex)
+        check(step.getString("stepId") == read.stepId && step.getString("action") == "ui.readOrders")
+        check(step.getString("direction") == identity.direction.name)
+        check((0..read.stepIndex).count { steps.getJSONObject(it).getString("action") == "ui.readOrders" } == read.screen)
+        check(read.rawRows.size <= step.getInt("maxRows"))
+        Instant.parse(read.collectedAt)
+        check(row("SELECT id FROM order_delivery_outbox WHERE task_id=? AND kind='COMPLETE'",
+            arrayOf(identity.taskId)) == null) { "ORDER_RUN_SEALED" }
+        val existing = orderReadsLocked(identity.taskId)
+        val previous = existing.getOrNull(read.screen - 1)
+        if (previous != null) {
+            check(previous == read) { "ORDER_READ_CONFLICT" }
+            return@transaction
+        }
+        check(read.screen == existing.size + 1) { "ORDER_SCREEN_GAP" }
+        val now = Instant.now().toString()
+        insertOrderUploadLocked(identity.taskId, "SCREEN", read.screen, read.payload(identity), read.encode(), now)
+        insertJournalLocked(identity.taskId, read.stepId, "SUCCEEDED", "STEP_SUCCEEDED", now)
+        enqueueStepEventLocked(identity.taskId, "STEP_SUCCEEDED", read.stepIndex,
+            JSONObject().put("detailCode", "STEP_SUCCEEDED"), now)
+        execSQL("UPDATE order_delivery_run SET last_step=?,in_flight_step=NULL WHERE task_id=?",
+            arrayOf(read.stepIndex, identity.taskId))
+    }
+
+    fun recordOrderStop(taskId: String, reason: String) = transaction {
+        require(reason in setOf("STOP_EMPTY_PAGE", "STOP_STAGNANT", "STOP_MAX_SCREENS"))
+        execSQL("UPDATE order_delivery_run SET stop_reason=? WHERE task_id=?", arrayOf(reason, taskId))
+    }
+
+    private fun SQLiteDatabase.enqueueOrderCompletionLocked(taskId: String) {
+        val encoded = row("SELECT identity_json FROM order_delivery_run WHERE task_id=?", arrayOf(taskId))
+        if (encoded == null) {
+            val payload = row("SELECT payload FROM task_inbox WHERE task_id=?", arrayOf(taskId))
+            check(payload == null || runCatching { !JSONObject(payload).has("orderDelivery") }.getOrDefault(true)) {
+                "ORDER_RUN_MISSING"
+            }
+            return
+        }
+        val identity = OrderDeliveryIdentity.decode(encoded)
+        val reads = orderReadsLocked(taskId)
+        check(reads.size in 1..identity.maxScreens) { "ORDER_READS_MISSING" }
+        reads.forEachIndexed { index, read -> check(read.screen == index + 1) }
+        check(row("SELECT in_flight_step FROM order_delivery_run WHERE task_id=?", arrayOf(taskId)) == null)
+        val stop = row("SELECT stop_reason FROM order_delivery_run WHERE task_id=?", arrayOf(taskId)) ?: "PLAN_FINISHED"
+        check(stop != "PLAN_FINISHED" || reads.size == identity.maxScreens) { "ORDER_PLAN_INCOMPLETE" }
+        val payload = JSONObject().put("runKey", taskId).put("accountKey", identity.accountId)
+            .put("direction", identity.direction.name).put("totalScreens", reads.size).put("stopReason", stop).toString()
+        insertOrderUploadLocked(taskId, "COMPLETE", 0, payload, null, Instant.now().toString())
+    }
+
+    private fun SQLiteDatabase.insertOrderUploadLocked(
+        taskId: String, kind: String, screen: Int, payload: String, read: String?, now: String,
+    ) {
+        require(payload.toByteArray(Charsets.UTF_8).size <= 200_000) { "ORDER_PAYLOAD_TOO_LARGE" }
+        val hash = orderPayloadHash(payload)
+        val previous = row(
+            "SELECT payload_sha256 FROM order_delivery_outbox WHERE task_id=? AND kind=? AND screen=?",
+            arrayOf(taskId, kind, screen.toString()),
+        )
+        if (previous != null) {
+            check(previous == hash) { "ORDER_PAYLOAD_CONFLICT" }
+            return
+        }
+        insertOrThrow("order_delivery_outbox", null, ContentValues().apply {
+            put("task_id", taskId); put("kind", kind); put("screen", screen)
+            put("payload_json", payload); put("payload_sha256", hash); put("read_json", read)
+            put("next_attempt_at", now)
+        })
+    }
+
+    /** Select one head per task; delayed, blocked or auth-paused heads never let later pages overtake. */
+    fun dueOrderDeliveries(scope: String, now: Instant = Instant.now()): List<PendingOrderDelivery> =
+        readableDatabase.rawQuery(
+            "SELECT o.id,o.task_id,o.kind,o.screen,o.payload_json,o.payload_sha256,o.attempt_count " +
+                "FROM order_delivery_outbox o JOIN order_delivery_run r ON r.task_id=o.task_id " +
+                "WHERE r.connection_scope=? AND o.delivery_state='PENDING' AND o.next_attempt_at<=? " +
+                "AND NOT EXISTS(SELECT 1 FROM order_delivery_outbox p WHERE p.task_id=o.task_id " +
+                "AND p.delivery_state!='ACKED' AND p.id<o.id) ORDER BY o.id LIMIT 20",
+            arrayOf(scope, now.toString()),
+        ).use { cursor ->
+            buildList {
+                while (cursor.moveToNext()) add(PendingOrderDelivery(
+                    cursor.getLong(0), cursor.getString(1), cursor.getString(2), cursor.getInt(3),
+                    cursor.getString(4), cursor.getString(5), cursor.getInt(6),
+                ))
+            }
+        }
+
+    fun acknowledgeOrderDelivery(record: PendingOrderDelivery) = transaction {
+        execSQL("UPDATE order_delivery_outbox SET delivery_state='ACKED',last_error=NULL " +
+            "WHERE id=? AND payload_sha256=? AND delivery_state='PENDING'",
+            arrayOf(record.id, record.payloadSha256))
+    }
+
+    fun deferOrderDelivery(record: PendingOrderDelivery, state: String, code: String, next: Instant) = transaction {
+        require(state in setOf("PENDING", "AUTH_REQUIRED", "BLOCKED"))
+        execSQL("UPDATE order_delivery_outbox SET delivery_state=?,last_error=?,attempt_count=attempt_count+1," +
+            "next_attempt_at=? WHERE id=? AND delivery_state='PENDING'",
+            arrayOf(state, code, next.toString(), record.id))
+    }
+
+    fun resumeOrderAuthentication(scope: String) = transaction {
+        execSQL("UPDATE order_delivery_outbox SET delivery_state='PENDING' WHERE delivery_state='AUTH_REQUIRED' " +
+            "AND task_id IN (SELECT task_id FROM order_delivery_run WHERE connection_scope=?)", arrayOf(scope))
+    }
 
     private fun <T> transaction(block: SQLiteDatabase.() -> T): T {
         val db = writableDatabase

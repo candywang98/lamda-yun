@@ -15,6 +15,8 @@ import java.io.IOException
 import java.io.OutputStream
 import com.company.cloudctl.companion.media.MediaManifest
 import com.company.cloudctl.companion.media.MediaManifestParser
+import com.company.cloudctl.companion.BuildConfig
+import com.company.cloudctl.companion.features.xianyu.orders.ORDER_DELIVERY_PROTOCOL
 
 data class CloudConnection(val baseUrl: String, val bearerToken: String, val certificateSha256: String)
 data class CloudBinaryResponse(val status: Int, val headers: Map<String, String>, val body: ByteArray)
@@ -66,7 +68,8 @@ class CloudTaskClient(private val connection: CloudConnection) : ApkReleaseClien
     }
 
     fun claim(): ClaimedTask? {
-        val response = request("/companion/v2/tasks/claim", JSONObject().put("leaseSeconds", 60)) ?: return null
+        val response = request("/companion/v2/tasks/claim",
+            addOrderDeliveryCapability(JSONObject().put("leaseSeconds", 60), BuildConfig.HEARTBEAT_DIAGNOSTIC)) ?: return null
         val task = buildClaimedTaskPayload(response)
         return ClaimedTask(
             task.toString(), response.getString("taskId"), response.getString("deviceId"),
@@ -142,6 +145,9 @@ class CloudTaskClient(private val connection: CloudConnection) : ApkReleaseClien
     fun sendOrdersScreen(payload: JSONObject): JSONObject {
         return request("/companion/v2/orders/screens", payload) ?: JSONObject()
     }
+
+    fun sendOrderDelivery(envelope: JSONObject): JSONObject =
+        request("/companion/v2/orders/delivery", envelope) ?: JSONObject()
 
     /**
      * P43/P44 (listing-collect/20260920.1) per-screen listing push:
@@ -504,6 +510,9 @@ internal fun buildClaimedTaskPayload(response: JSONObject): JSONObject {
     command?.let { task.put("command", JSONObject(it.toString())) }
     optionalNonBlank(response, "commandType")?.let { task.put("commandType", it) }
     optionalNonBlank(response, "accountId")?.let { task.put("accountId", it) }
+    if (response.has("orderDelivery")) {
+        task.put("orderDelivery", JSONObject(response.getJSONObject("orderDelivery").toString()))
+    }
     if (response.has("bindingVersion") && !response.isNull("bindingVersion")) {
         task.put("bindingVersion", response.getInt("bindingVersion"))
     }
@@ -523,6 +532,12 @@ internal fun buildClaimedTaskPayload(response: JSONObject): JSONObject {
         }
     }
     return task
+}
+
+internal fun addOrderDeliveryCapability(payload: JSONObject, diagnostic: Boolean): JSONObject {
+    if (!diagnostic) payload.put("orderDeliveryProtocol", ORDER_DELIVERY_PROTOCOL)
+    else payload.remove("orderDeliveryProtocol")
+    return payload
 }
 
 internal fun optionalNonBlank(value: JSONObject, key: String): String? {
