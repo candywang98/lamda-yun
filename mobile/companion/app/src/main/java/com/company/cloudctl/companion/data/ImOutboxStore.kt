@@ -11,7 +11,9 @@ import com.company.cloudctl.companion.im.ImEnqueueOutcome
 import com.company.cloudctl.companion.im.ImEnqueueResult
 import com.company.cloudctl.companion.im.ImEvent
 import com.company.cloudctl.companion.im.ImInboundEvent
+import com.company.cloudctl.companion.im.ImNotificationMetadata
 import java.time.Instant
+import org.json.JSONObject
 
 /**
  * Persistent IM inbound outbox (pa-im-m3/20260922.1 §4). Separate from the
@@ -47,7 +49,8 @@ class ImOutboxStore(context: Context) : SQLiteOpenHelper(
                 "last_error TEXT," +
                 "permanent_failure_at TEXT," +
                 "confirmed_at TEXT," +
-                "created_at TEXT NOT NULL)",
+                "created_at TEXT NOT NULL," +
+                "notification_metadata TEXT)",
         )
         db.execSQL(
             "CREATE TABLE im_outbox_meta(key TEXT PRIMARY KEY, value TEXT NOT NULL)",
@@ -60,6 +63,10 @@ class ImOutboxStore(context: Context) : SQLiteOpenHelper(
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         check(newVersion == VERSION) { "Unsupported IM outbox version $newVersion" }
+        if (oldVersion < 2) {
+            // Additive migration preserves pending rows, retry state and dedupe identity.
+            db.execSQL("ALTER TABLE im_outbox ADD COLUMN notification_metadata TEXT")
+        }
     }
 
     /**
@@ -75,7 +82,9 @@ class ImOutboxStore(context: Context) : SQLiteOpenHelper(
         val peerName = event.peerName.trim()
         val peerKey = peerName
         val text = ImCanonicalText.canonical(event.text)
-        if (platform != PLATFORM_XIANYU || peerKey.isEmpty() || peerKey.length > 128 || text.isEmpty()) {
+        if (platform != PLATFORM_XIANYU || peerKey.isEmpty() ||
+            ImCanonicalText.codePointCount(peerKey) > 128 || text.isEmpty()
+        ) {
             Log.w(TAG, "IM_OUTBOX_REJECTED platform=$platform peerLen=${peerKey.length}")
             return ImEnqueueOutcome(ImEnqueueResult.REJECTED, null)
         }
@@ -112,6 +121,7 @@ class ImOutboxStore(context: Context) : SQLiteOpenHelper(
                 put("attempt_count", 0)
                 put("next_attempt_at", created)
                 put("created_at", created)
+                put("notification_metadata", event.notificationMetadata?.toJson()?.toString())
             }
             val id = db.insert("im_outbox", null, values)
             check(id > 0) { "IM outbox insert failed" }
@@ -313,6 +323,7 @@ class ImOutboxStore(context: Context) : SQLiteOpenHelper(
         lastError = cursor.getString(10),
         permanentFailureAt = cursor.getString(11)?.let(Instant::parse),
         confirmedAt = cursor.getString(12)?.let(Instant::parse),
+        notificationMetadata = cursor.getString(13)?.let { ImNotificationMetadata.fromJson(JSONObject(it)) },
     )
 
     private fun <T> query(
@@ -349,13 +360,13 @@ class ImOutboxStore(context: Context) : SQLiteOpenHelper(
          * [sealUnbound] rewrites them with the device that owns the upload.
          */
         const val UNBOUND_DEVICE = ""
-        private const val VERSION = 1
+        private const val VERSION = 2
         private const val META_UPLOAD_HOLD = "upload_hold"
         private const val MAX_ERROR = 240
         private const val TAG = "ImOutbox"
         private const val COLUMNS =
             "id,dedupe_key,device_id,platform,peer_key,peer_name,text,occurred_at," +
-                "attempt_count,next_attempt_at,last_error,permanent_failure_at,confirmed_at"
+                "attempt_count,next_attempt_at,last_error,permanent_failure_at,confirmed_at,notification_metadata"
     }
 }
 

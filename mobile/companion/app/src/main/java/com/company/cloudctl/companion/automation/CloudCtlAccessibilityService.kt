@@ -194,6 +194,8 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         }
         if (event.eventType != AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED) return
         if (!com.company.cloudctl.companion.im.ImMonitor.isPackageEnabled(pkg)) return
+        val platform = com.company.cloudctl.companion.im.ImMonitorConfig.platformOfPackage(pkg) ?: return
+        if (platform != com.company.cloudctl.companion.im.ImMonitorConfig.PLATFORM_XIANYU) return
         val notification = event.parcelableData as? android.app.Notification ?: return
         val extras = notification.extras
         val title = (extras.getCharSequence(android.app.Notification.EXTRA_TITLE)?.toString()
@@ -203,25 +205,8 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
             ?: extras.getCharSequence(android.app.Notification.EXTRA_BIG_TEXT)?.toString()
             ?: "").trim()
         if (title.isEmpty() || text.isEmpty()) return
-        val platform = com.company.cloudctl.companion.im.ImMonitorConfig.platformOfPackage(pkg) ?: return
-        // im-feed-noise (2026-09-14): every monitored notification is logged with
-        // package + channel id + a truncated title so one on-device capture can
-        // calibrate the xianyu DM vs feed channel ids (ImFeedNoiseFilter).
-        Log.i(TAG, "IM_NOTIF pkg=$pkg channel=${notification.channelId} title=${title.take(24)}")
-        val dropped = com.company.cloudctl.companion.im.ImFeedNoiseFilter.dropReason(
-            platform, notification.channelId, title,
-        )
-        if (dropped != null) {
-            Log.i(
-                TAG,
-                "${com.company.cloudctl.companion.im.ImFeedNoiseFilter.DROP_EVENT} " +
-                    "platform=$platform reason=${dropped.reason} channel=${notification.channelId} title=${title.take(48)}",
-            )
-            return
-        }
-        if (!com.company.cloudctl.companion.im.ImMonitorConfig.isChannelAllowed(
-                platform, notification.channelId)
-        ) return
+        // Purpose is classified in the cloud. Channel/name guesses must not discard input.
+        Log.i(TAG, "IM_NOTIF pkg=$pkg")
         // pa-im-m3/20260922.1: production inbound is this notification only.
         // A missing binding still persists the row; it is sealed to the binding
         // device id at upload and is never keyed by an ADB serial.
@@ -236,9 +221,14 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
             body = text,
             whenMillis = notification.`when`,
             arrivedAtMillis = System.currentTimeMillis(),
+            notificationMetadata = com.company.cloudctl.companion.im.ImNotificationMetadata(
+                packageName = pkg,
+                channelId = notification.channelId,
+                category = notification.category,
+            ),
         ) ?: return
         if (observed.occurredAtSynthesized) {
-            Log.i(TAG, "OCCURRED_AT_SYNTHESIZED pkg=$pkg title=${title.take(24)}")
+            Log.i(TAG, "OCCURRED_AT_SYNTHESIZED pkg=$pkg")
         }
         val store = com.company.cloudctl.companion.im.ImMonitor.outbox
             ?: com.company.cloudctl.companion.data.ImOutboxStore(this).also {
@@ -250,7 +240,7 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
             observed,
         )
         if (outcome.result == com.company.cloudctl.companion.im.ImEnqueueResult.ENQUEUED) {
-            Log.i(TAG, "IM event queued from $title")
+            Log.i(TAG, "IM event queued platform=$platform")
         }
     }
     override fun onInterrupt() = Unit

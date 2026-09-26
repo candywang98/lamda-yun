@@ -16,6 +16,7 @@ object ImNotificationIntake {
         val text: String,
         val occurredAt: Instant,
         val occurredAtSynthesized: Boolean,
+        val notificationMetadata: ImNotificationMetadata? = null,
     )
 
     fun observe(
@@ -24,11 +25,12 @@ object ImNotificationIntake {
         body: String,
         whenMillis: Long,
         arrivedAtMillis: Long,
+        notificationMetadata: ImNotificationMetadata? = null,
     ): Observed? {
         val peerName = title.trim()
         val text = body.trim()
         if (platform != ImMonitorConfig.PLATFORM_XIANYU) return null
-        if (peerName.isEmpty() || peerName.length > 128 || text.isEmpty()) return null
+        if (peerName.isEmpty() || ImCanonicalText.codePointCount(peerName) > 128 || text.isEmpty()) return null
         val synthesized = whenMillis <= 0L
         val occurredAt = Instant.ofEpochMilli(if (synthesized) arrivedAtMillis else whenMillis)
         return Observed(
@@ -37,6 +39,7 @@ object ImNotificationIntake {
             text = ImCanonicalText.canonical(text),
             occurredAt = occurredAt,
             occurredAtSynthesized = synthesized,
+            notificationMetadata = notificationMetadata?.bounded(),
         )
     }
 
@@ -51,6 +54,7 @@ object ImNotificationIntake {
             peerName = observed.peerName,
             text = observed.text,
             occurredAt = observed.occurredAt,
+            notificationMetadata = observed.notificationMetadata,
         )
         val outcome = store.enqueue(deviceId, event, now)
         if (outcome.result == ImEnqueueResult.ENQUEUED || outcome.result == ImEnqueueResult.DUPLICATE) {

@@ -14,6 +14,7 @@ data class ImEvent(
     val peerName: String,
     val text: String,
     val occurredAt: Instant,
+    val notificationMetadata: ImNotificationMetadata? = null,
 ) {
     val peerKey: String get() = peerName.trim()
 
@@ -49,9 +50,8 @@ data class ImMonitorConfig(
 
         /**
          * DM-like channels only for platforms whose push feed also notifies.
-         * Xianyu is governed by [ImFeedNoiseFilter] (channel calibration +
-         * peer-name shape); this check accepts it and other platforms filter
-         * by channel-id substring.
+         * Xianyu notifications reach cloud classification without channel or
+         * peer-name filtering. Other platforms filter by channel-id substring.
          */
         fun isChannelAllowed(platform: String, channelId: String?): Boolean {
             if (platform == PLATFORM_XIANYU) return true

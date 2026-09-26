@@ -23,6 +23,7 @@ data class ImInboundEvent(
     val lastError: String?,
     val permanentFailureAt: Instant?,
     val confirmedAt: Instant?,
+    val notificationMetadata: ImNotificationMetadata? = null,
 ) {
     val pending: Boolean get() = confirmedAt == null && permanentFailureAt == null
 
@@ -32,6 +33,7 @@ data class ImInboundEvent(
         .put("peerName", peerName)
         .put("text", text)
         .put("occurredAt", occurredAt.toString())
+        .apply { notificationMetadata?.let { put("notificationMetadata", it.toJson()) } }
 }
 
 enum class ImEnqueueResult {
