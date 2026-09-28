@@ -5,6 +5,8 @@
 - Baseline: `80171144e3032cfac80924151a7d76839b9a20b5`
 - Branch: `agent/sol-preflight-20260928`
 - Delivery commit: this evidence file's commit (resolve from the delivered branch tip)
+- Original delivery commit: `de2b6d9ba248dcda68440e19147f1b6e1bac625d`
+- Review-fix commit: this evidence file's commit (resolve from the delivered branch tip)
 - Frozen execution plan: `docs/current/three-device-execution-20260928.md`
 
 ## Implemented scope
@@ -23,6 +25,16 @@
 - Accepts a bound accessibility service only when the expected full component
   identity is present. A CloudCtl-like label without the component is reported
   as `AMBIGUOUS_LABEL_ONLY`, not as bound.
+- Matches the accessibility component on exact token boundaries, so a different
+  class such as `CloudCtlAccessibilityServiceOther` cannot satisfy readiness.
+- When `dumpsys accessibility` contains Android user scopes, reads only the
+  unique user 0 scope. Another user's enabled or bound service cannot prove
+  user 0 readiness; missing or duplicate user 0 scopes fail closed.
+- Parses user 0 package `hidden` and `suspended` flags into readiness. Unknown
+  values remain unknown, while `true` values are explicit not-ready reasons.
+- Accepts only Android enabled-state enum values 0 through 4. It retains an
+  observed unknown numeric value for diagnosis but does not interpret it as
+  enabled.
 - Performs no mutation, uses no shell, and makes no hardware or business
   acceptance claim.
 
@@ -33,7 +45,8 @@ shared read-only Python executable.
 
 | Command | Exit | Result |
 | --- | ---: | --- |
-| `/Users/wangziheng/Desktop/01-主战场/LAMDA云控系统/cloudctl-source/.venv/bin/python -m pytest -q tests/ops/test_three_device_preflight.py` | 0 | 24 passed in 0.03s |
+| `/Users/wangziheng/Desktop/01-主战场/LAMDA云控系统/cloudctl-source/.venv/bin/python -m pytest -q tests/ops/test_three_device_preflight.py -k 'longer_class_name or user_zero_scope or unknown_enabled_enum or hidden_or_suspended'` before implementation | 1 | 5 failed, reproducing all reviewed cases |
+| `/Users/wangziheng/Desktop/01-主战场/LAMDA云控系统/cloudctl-source/.venv/bin/python -m pytest -q tests/ops/test_three_device_preflight.py` | 0 | 29 passed in 0.02s |
 | `/Users/wangziheng/Desktop/01-主战场/LAMDA云控系统/cloudctl-source/.venv/bin/python -m ruff check scripts/three_device_preflight.py tests/ops/test_three_device_preflight.py` | 0 | All checks passed |
 | `/Users/wangziheng/Desktop/01-主战场/LAMDA云控系统/cloudctl-source/.venv/bin/python -m ruff format --check scripts/three_device_preflight.py tests/ops/test_three_device_preflight.py` | 0 | 2 files already formatted |
 | `/Users/wangziheng/Desktop/01-主战场/LAMDA云控系统/cloudctl-source/.venv/bin/python scripts/three_device_preflight.py --help` | 0 | Help rendered; no ADB command executed |

@@ -33,8 +33,10 @@ def package_dump(
     *,
     version_code: int,
     version_name: str,
-    enabled: int,
+    enabled: int | str,
     stopped: bool,
+    hidden: bool = False,
+    suspended: bool = False,
     debuggable: bool = False,
 ) -> str:
     flags = " DEBUGGABLE" if debuggable else ""
@@ -43,7 +45,8 @@ def package_dump(
         f"  versionCode={version_code} minSdk=26 targetSdk=35\n"
         f"  versionName={version_name}\n"
         f"  pkgFlags=[ HAS_CODE{flags} ]\n"
-        "  User 0: installed=true hidden=false suspended=false "
+        f"  User 0: installed=true hidden={str(hidden).lower()} "
+        f"suspended={str(suspended).lower()} "
         f"stopped={str(stopped).lower()} notLaunched=false enabled={enabled}\n"
     )
 
@@ -335,6 +338,40 @@ def test_accessibility_sections_do_not_absorb_later_component_text() -> None:
     assert parsed == {"enabled": "NO", "binding": "NOT_BOUND", "crashed": "NO"}
 
 
+def test_accessibility_component_match_rejects_longer_class_name() -> None:
+    other_service = f"{SERVICE}Other"
+
+    parsed = preflight.parse_accessibility(
+        result(
+            accessibility(
+                bound=f"{{{other_service}}}",
+                enabled=f"{{{other_service}}}",
+                crashed=f"{{{other_service}}}",
+            )
+        ),
+        PACKAGE,
+    )
+
+    assert parsed == {"enabled": "NO", "binding": "NOT_BOUND", "crashed": "NO"}
+
+
+def test_accessibility_uses_only_user_zero_scope() -> None:
+    dump = (
+        "User state[attributes:{id=10, currentUser=false}]\n"
+        f"  Bound services:{{{SERVICE}}}\n"
+        f"  Enabled services:{{{SERVICE}}}\n"
+        "  Crashed services:{}\n"
+        "User state[attributes:{id=0, currentUser=true}]\n"
+        "  Bound services:{}\n"
+        "  Enabled services:{}\n"
+        "  Crashed services:{}\n"
+    )
+
+    parsed = preflight.parse_accessibility(result(dump), PACKAGE)
+
+    assert parsed == {"enabled": "NO", "binding": "NOT_BOUND", "crashed": "NO"}
+
+
 def test_disabled_listing_is_definitive_even_if_enabled_field_is_unknown() -> None:
     dump = package_dump(version_code=3, version_name="0.1.0", enabled=0, stopped=False)
     dump = dump.replace("enabled=0", "enabled=unknown")
@@ -342,6 +379,60 @@ def test_disabled_listing_is_definitive_even_if_enabled_field_is_unknown() -> No
     parsed = preflight.parse_package(PACKAGE, result(dump), result(f"package:{PACKAGE}\n"))
 
     assert parsed["disabled"] is True
+
+
+def test_unknown_enabled_enum_fails_closed() -> None:
+    package = preflight.parse_package(
+        PACKAGE,
+        result(package_dump(version_code=3, version_name="0.1.0", enabled=99, stopped=False)),
+        result(),
+    )
+
+    readiness = preflight.local_readiness(
+        package,
+        {"state": "RUNNING"},
+        {"enabled": "YES", "binding": "BOUND", "crashed": "NO"},
+    )
+
+    assert package["enabledState"] == 99
+    assert package["disabled"] is None
+    assert readiness == {
+        "state": "UNKNOWN",
+        "ready": False,
+        "reasons": ["PACKAGE_DISABLED_STATE_UNKNOWN"],
+    }
+
+
+@pytest.mark.parametrize(
+    ("field", "reason"),
+    [
+        ("hidden", "PACKAGE_HIDDEN"),
+        ("suspended", "PACKAGE_SUSPENDED"),
+    ],
+)
+def test_hidden_or_suspended_package_is_not_ready(field: str, reason: str) -> None:
+    package = preflight.parse_package(
+        PACKAGE,
+        result(
+            package_dump(
+                version_code=3,
+                version_name="0.1.0",
+                enabled=0,
+                stopped=False,
+                **{field: True},
+            )
+        ),
+        result(),
+    )
+
+    readiness = preflight.local_readiness(
+        package,
+        {"state": "RUNNING"},
+        {"enabled": "YES", "binding": "BOUND", "crashed": "NO"},
+    )
+
+    assert package[field] is True
+    assert readiness == {"state": "NOT_READY", "ready": False, "reasons": [reason]}
 
 
 @pytest.mark.parametrize(
