@@ -170,6 +170,81 @@ input only, exited 0: 115 passed, 3 SQLite-only skips in 41.93 seconds.
 This candidate has not been uploaded, activated or deployed. Production API
 remains `order-delivery-557f547`; no production service was restarted.
 
+## Authorized OnePlus V4 Installation
+
+The user explicitly confirmed the free-device window and the data-preserving
+in-place v4 update. At 14:08 UTC all cloud occupancy checks were empty,
+maintenance was false/version8, and the original binding was active. Local
+lock was FREE and no scrcpy/LAMDA writer was observed.
+
+`install-oneplus-v4.py --approved-idle-window` exited 0:
+
+- Exact serial `b0644fb5`, model LE2100, Android user0; fencing14.
+- Server-side private identity snapshot retained the binding credential digest,
+  app instance and account binding for comparison; none is printed or committed.
+- Maintenance changed false/version8 to true/version9 through the normal
+  expectedVersion-checked operator API.
+- One `adb install -r` ran from 14:13:58.755583 to 14:14:02.425942 UTC.
+- Pulled installed v3 and v4 signatures and APK hashes matched the frozen values.
+- All 12 permission entries, four secure settings, UID and first-install times
+  matched. No uninstall, data clearing, explicit force-stop or permission write.
+  PackageManager recorded its normal PACKAGE UPDATED process exit; this was
+  not a controller-issued `am force-stop`.
+- The non-debuggable phone's private SQLite data was not read; no byte-for-byte
+  preservation claim is made.
+- Original binding/credential/account identity remained unchanged; task379,
+  OUT23, device order14 and receipt6 counts remained unchanged.
+- Maintenance restored false/version10 and fencing14 released at 14:14:09Z.
+
+Public summaries: `v4-install-summary.json`, `v4-cloud-after-install.json`.
+Raw APK/package/settings backups remain in private local storage; the cloud
+identity snapshot stays in the server's private backup directory.
+
+## Post-Install Maintenance Failure And Recovery
+
+The automatic v4 start sent a successful heartbeat at 14:14:04Z. However,
+follow-up cloud reads at 14:15:39Z still had the same last_seen timestamp;
+the exact accessibility component remained bound in process23518 while
+CompanionSyncService was absent.
+
+Server journal confirms `/companion/v2/devices/heartbeat` HTTP200 followed by
+`/companion/v2/tasks/claim` HTTP409 during the maintenance window. Source
+`CompanionSyncService.syncLoop` stops the whole service on non-retryable HTTP
+errors, and CloudHttpException treats 409 as non-retryable. This is a separate
+maintenance-recovery defect, not a continued TLS failure. The detailed
+maintenance response was not captured on-device; its exact detail is verified
+from the deployed server implementation and the active maintenance state.
+
+Under fencing15 and fresh cloud idle checks, `resume-oneplus-v4.py` issued one
+normal MainActivity launch at 14:19:40.868191Z. No maintenance/identity mutation
+or business task was performed. Phone logs show Heartbeat successful at:
+
+- 14:19:42.586Z
+- 14:20:03.511Z
+- 14:20:24.674Z
+- 14:20:46.483Z
+
+Exact service inspection showed foreground CompanionSyncService and
+CloudCtlAccessibilityService with `requested=true received=true hasBound=true`
+in process23518. The generic accessibility parser reported label ambiguity,
+not failure of this exact-component observation.
+
+`v4-recovery-summary.json` records three distinct fresh cloud activity samples.
+Its field name was corrected from the initial private output's
+`distinctFreshHeartbeats`: authentication of other requests also advances
+last_seen, so only the separate phone log events above prove heartbeat count.
+
+At 14:21:45Z the cloud was still idle, the latest authenticated activity was
+14:21:43Z, maintenance false/version10, original identities unchanged, and
+counts remained task379/OUT23/order14/receipt6. Fencing15 was released at
+14:20:07Z; a subsequent independent lock status read confirmed FREE.
+
+These are connected diagnostic results with one ADB normal launch after
+installation, not automatic maintenance recovery, long-duration background
+stability, fault-injection or disconnected business acceptance.
+Sol High's bounded fix is frozen in
+`contracts/phase1/claim-maintenance-recovery-20260928.md`, baseline `29c4820`.
+
 ## Remaining Gates
 
 Certificate-compatible APK and signature checks, OnePlus accessibility recovery,

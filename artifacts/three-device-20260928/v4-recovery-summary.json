@@ -1,0 +1,38 @@
+{
+  "manualLaunch": true,
+  "fencing": 15,
+  "startedAt": "2026-09-28T14:19:40.868191+00:00",
+  "last": {
+    "observedAt": "2026-09-28T14:20:07.826250+00:00",
+    "device": {
+      "tenant_id": "00000000-0000-7000-8000-000000001111",
+      "active_binding_id": "202ff9cb-6b6d-4ccc-bbf7-31bd91edb51e",
+      "maintenance": false,
+      "version": 10,
+      "last_seen_at": "2026-09-28 14:20:07.154227+00:00"
+    },
+    "counts": {
+      "tasks": 379,
+      "outgoingMessages": 23
+    },
+    "orders": {
+      "orders": 14,
+      "receipts": 6
+    },
+    "action": "verify",
+    "idle": true,
+    "bindingAndCredentialRetained": true,
+    "accountBindingsRetained": true,
+    "receiveOnly": true,
+    "mode": "NOTIFICATION",
+    "capabilities": {
+      "companionVersion": "0.1.0-business-acceptance.4",
+      "accessibilityEnabled": true,
+      "runnerState": "IDLE",
+      "safetyBarrier": "NONE",
+      "orderDeliveryProtocol": "order-delivery/1"
+    }
+  },
+  "disconnectedAcceptance": false,
+  "distinctFreshCloudActivitySamples": 3
+}

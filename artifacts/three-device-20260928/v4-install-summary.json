@@ -1,0 +1,18 @@
+{
+  "installed": true,
+  "serial": "b0644fb5",
+  "package": "com.company.cloudctl.companion",
+  "startedAt": "2026-09-28T14:13:58.755583+00:00",
+  "finishedAt": "2026-09-28T14:14:02.425942+00:00",
+  "versionCode": 4,
+  "versionName": "0.1.0-business-acceptance.4",
+  "apkSha256": "cff3b03a72f56781a73d2713bd68a968f1d47a6c21f27c528629f72f6e9fcf70",
+  "signatureUnchanged": true,
+  "grantEntriesUnchanged": 12,
+  "settingsUnchanged": 4,
+  "firstInstallTimeUnchanged": true,
+  "appIdUnchanged": true,
+  "privateDatabaseReread": false,
+  "deviceLockFencing": 14,
+  "manualLaunch": false
+}

@@ -1,0 +1,31 @@
+{
+  "observedAt": "2026-09-28T14:14:09.735809+00:00",
+  "device": {
+    "tenant_id": "00000000-0000-7000-8000-000000001111",
+    "active_binding_id": "202ff9cb-6b6d-4ccc-bbf7-31bd91edb51e",
+    "maintenance": false,
+    "version": 10,
+    "last_seen_at": "2026-09-28 14:14:04.837416+00:00"
+  },
+  "counts": {
+    "tasks": 379,
+    "outgoingMessages": 23
+  },
+  "orders": {
+    "orders": 14,
+    "receipts": 6
+  },
+  "action": "finish",
+  "idle": true,
+  "bindingAndCredentialRetained": true,
+  "accountBindingsRetained": true,
+  "receiveOnly": true,
+  "mode": "NOTIFICATION",
+  "capabilities": {
+    "companionVersion": "0.1.0-business-acceptance.4",
+    "accessibilityEnabled": true,
+    "runnerState": "IDLE",
+    "safetyBarrier": "NONE",
+    "orderDeliveryProtocol": "order-delivery/1"
+  }
+}

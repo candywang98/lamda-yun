@@ -69,7 +69,7 @@ def main():
             "manualLaunch": True,
             "fencing": lock["fencing"],
             "startedAt": started,
-            "distinctFreshHeartbeats": len(fresh_seen),
+            "distinctFreshCloudActivitySamples": len(fresh_seen),
             "last": observations[-1],
             "disconnectedAcceptance": False,
         }
