@@ -22,6 +22,15 @@ describe('im-notify/20260926.1 API contract', () => {
   })
   afterEach(() => vi.unstubAllGlobals())
 
+  it('keeps the same filters when fetching an older conversation page', async () => {
+    respond({ items: [], count: 0 })
+    await listImThreads('device / one', true, 'review', 'thread / last')
+    const url = new URL(fetchMock.mock.calls[0]![0] as string)
+    expect(Object.fromEntries(url.searchParams)).toEqual({
+      deviceId: 'device / one', unread: 'true', bucket: 'review', after: 'thread / last',
+    })
+  })
+
   it.each<ImBucket>(['all', 'user', 'notice', 'review'])('queries bucket %s server-side on both reads', async (bucket) => {
     const bucketCounts = { all: 120, user: 84, notice: 67, review: 20 }
     respond({ items: [{ id: 'mixed-thread', lastMessageText: '服务端分类摘要' }], count: 1, bucketCounts })

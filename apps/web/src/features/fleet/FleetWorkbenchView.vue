@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useSessionStore } from '@/stores/session'
 import PageHeader from '@/components/PageHeader.vue'
 import QueryState from '@/components/QueryState.vue'
@@ -31,11 +31,12 @@ const snapshot = ref<FleetSnapshot | null>(null)
 const selectedIds = ref<string[]>([])
 const expanded = ref(false)
 const detailDeviceId = ref<string | null>(null)
-const cancelBusyId = ref('')
+const cancelBusyIds = ref<string[]>([])
 const cancelErrorByDevice = ref<Record<string, string>>({})
 const cancelDoneByDevice = ref<Record<string, string>>({})
 
 const devices = computed<FleetDeviceCard[]>(() => snapshot.value?.devices ?? [])
+const detailDevice = computed(() => devices.value.find((device) => device.deviceId === detailDeviceId.value))
 const selectedDevices = computed(() => devices.value.filter((device) => selectedIds.value.includes(device.deviceId)))
 const batchCommand = { commandType: 'xianyu.publish_listing.steps.v1', requiredCapabilities: ['accessibility', 'ime'] }
 const targets = computed<FleetDeviceTarget[]>(() =>
@@ -44,6 +45,8 @@ const targets = computed<FleetDeviceTarget[]>(() =>
 const canCancel = computed(() => session.can('task.create'))
 const selectDisabled = computed(() => mode === 'unavailable')
 const expandDisabled = computed(() => mode === 'unavailable' || selectedDevices.value.length === 0)
+let refreshRequest = 0
+let disposed = false
 
 function toggleDevice(deviceId: string) {
   selectedIds.value = selectedIds.value.includes(deviceId)
@@ -56,6 +59,7 @@ function toggleDetail(deviceId: string) {
 }
 
 async function refresh() {
+  const request = ++refreshRequest
   if (mode === 'unavailable') {
     loadError.value = '未配置 VITE_CONTROL_API_URL，设备工作台不允许自动回退 Mock 数据。'
     return
@@ -68,35 +72,44 @@ async function refresh() {
   loading.value = true
   loadError.value = ''
   try {
-    snapshot.value = await fetchFleetSnapshot()
+    const next = await fetchFleetSnapshot()
+    if (disposed || request !== refreshRequest) return
+    snapshot.value = next
+    selectedIds.value = selectedIds.value.filter((id) => next.devices.some((device) => device.deviceId === id))
+    if (!detailDevice.value) detailDeviceId.value = null
   } catch (error) {
+    if (disposed || request !== refreshRequest) return
     // fail-closed：API 失败不回退 Mock，保持错误态。
     snapshot.value = null
+    detailDeviceId.value = null
     loadError.value = `Control API 请求失败：${error instanceof Error ? error.message : String(error)}`
   } finally {
-    loading.value = false
+    if (!disposed && request === refreshRequest) loading.value = false
   }
 }
 
 async function cancelTarget(target: FleetDeviceTarget) {
   const task = target.currentTask
-  if (!task || !canCancel.value || !cancellableTask(task).cancellable) return
-  cancelBusyId.value = target.deviceId
+  if (disposed || !task || !canCancel.value || !cancellableTask(task).cancellable || cancelBusyIds.value.includes(target.deviceId)) return
+  cancelBusyIds.value = [...cancelBusyIds.value, target.deviceId]
   cancelErrorByDevice.value[target.deviceId] = ''
   cancelDoneByDevice.value[target.deviceId] = ''
   try {
     const updated = await cancelFleetTask(task.taskId, `operator canceled from fleet workbench (${target.deviceId})`)
+    if (disposed) return
     cancelDoneByDevice.value[target.deviceId] = `已请求取消：${updated.state}`
     await refresh()
   } catch (error) {
+    if (disposed) return
     // 服务端负例（409 对账/终态、404、403 等）按设备渲染错误态，不显示成功。
     cancelErrorByDevice.value[target.deviceId] = error instanceof Error ? error.message : '取消失败'
   } finally {
-    cancelBusyId.value = ''
+    cancelBusyIds.value = cancelBusyIds.value.filter((id) => id !== target.deviceId)
   }
 }
 
 onMounted(() => { void refresh() })
+onUnmounted(() => { disposed = true; ++refreshRequest })
 </script>
 
 <template>
@@ -114,16 +127,16 @@ onMounted(() => { void refresh() })
     <div v-if="snapshot?.taskLoadError" class="notice notice-info">{{ snapshot.taskLoadError }}</div>
     <div v-if="loadError" class="notice notice-danger" role="alert" data-testid="fleet-load-error">{{ loadError }}</div>
 
-    <QueryState :loading="loading" :error="null" :empty="devices.length === 0 && !loading && !loadError" empty-text="当前租户还没有已接入的设备。">
-      <div class="fleet-toolbar page-actions">
-        <button class="button" type="button" :disabled="mode === 'unavailable' || loading" @click="refresh">刷新设备状态</button>
-        <button class="button button-primary" type="button" :disabled="expandDisabled" @click="expanded = !expanded">
-          {{ expanded ? '收起逐设备目标' : `展开为逐设备目标（${selectedDevices.length} 台）` }}
-        </button>
-        <button v-if="mode === 'unavailable'" class="button" type="button" disabled title="未配置 Control API，生产操作已关闭">Control API 不可用</button>
-        <span class="cell-sub">已选 {{ selectedDevices.length }} 台 · 在线 {{ devices.filter((item) => item.online).length }} 台</span>
-      </div>
+    <div class="fleet-toolbar page-actions">
+      <button class="button" type="button" :disabled="mode === 'unavailable' || loading" @click="refresh">刷新设备状态</button>
+      <button class="button button-primary" type="button" :disabled="expandDisabled" @click="expanded = !expanded">
+        {{ expanded ? '收起逐设备目标' : `展开为逐设备目标（${selectedDevices.length} 台）` }}
+      </button>
+      <button v-if="mode === 'unavailable'" class="button" type="button" disabled title="未配置 Control API，生产操作已关闭">Control API 不可用</button>
+      <span class="cell-sub">已选 {{ selectedDevices.length }} 台 · 在线 {{ devices.filter((item) => item.online).length }} 台</span>
+    </div>
 
+    <QueryState :loading="loading" :error="null" :empty="devices.length === 0 && !loading && !loadError" empty-text="当前租户还没有已接入的设备。">
       <section v-if="expanded" class="panel fleet-targets" data-testid="fleet-targets">
         <h3>批量选择已展开为显式逐设备目标</h3>
         <p class="cell-sub">每台设备独立判定与操作；离线/门禁未过/能力缺口均表示「不派发」，不是任务失败。</p>
@@ -140,11 +153,11 @@ onMounted(() => { void refresh() })
             <button
               class="button button-danger"
               type="button"
-              :disabled="!canCancel || !cancellableTask(target.currentTask).cancellable || cancelBusyId === target.deviceId"
+              :disabled="!canCancel || !cancellableTask(target.currentTask).cancellable || cancelBusyIds.includes(target.deviceId)"
               :title="!canCancel ? '当前身份缺少 task.create 权限' : (cancellableTask(target.currentTask).reason ?? '取消该设备当前任务')"
               @click="cancelTarget(target)"
             >
-              {{ cancelBusyId === target.deviceId ? '取消中…' : '取消任务' }}
+              {{ cancelBusyIds.includes(target.deviceId) ? '取消中…' : '取消任务' }}
             </button>
           </div>
           <p v-if="cancelErrorByDevice[target.deviceId]" class="cell-sub fleet-target-error" role="alert" data-testid="fleet-cancel-error" :data-cancel-error="target.deviceId">
@@ -154,8 +167,8 @@ onMounted(() => { void refresh() })
         </div>
       </section>
 
-      <section v-if="detailDeviceId" class="fleet-detail">
-        <FleetDeviceCardView :device="devices.find((item) => item.deviceId === detailDeviceId)!" />
+      <section v-if="detailDevice" class="fleet-detail">
+        <FleetDeviceCardView :device="detailDevice" />
       </section>
 
       <div class="fleet-grid">

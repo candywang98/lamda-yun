@@ -313,6 +313,88 @@ describe('ImInboxView', () => {
     })
   })
 
+  it.each(['resolve', 'reject'] as const)('ignores a late config save %s after switching devices', async (outcome) => {
+    const pending = deferred<ImMonitorConfig>()
+    const otherConfig = configFixture({ deviceId: 'dev-huawei-vog', enabled: false })
+    vi.mocked(fetchImConfig).mockImplementation(async (deviceId) =>
+      deviceId === otherConfig.deviceId ? otherConfig : configFixture({ deviceId }))
+    vi.mocked(saveImConfig).mockReturnValueOnce(pending.promise).mockResolvedValueOnce(otherConfig)
+    const { container } = await renderView(['security_admin'])
+    await screen.findByText('监听总开关')
+    await fireEvent.click(screen.getByRole('button', { name: '保存设置' }))
+    await fireEvent.update(container.querySelector('.im-config select')!, otherConfig.deviceId)
+    await flushPromises()
+    expect((screen.getByLabelText('监听总开关') as HTMLInputElement).checked).toBe(false)
+
+    if (outcome === 'resolve') pending.resolve(configFixture())
+    else pending.reject(new ImApiError(503, 'old device save failed'))
+    await flushPromises()
+
+    expect((screen.getByLabelText('监听总开关') as HTMLInputElement).checked).toBe(false)
+    expect(screen.queryByText(/已保存，手机下一轮同步生效|old device save failed/)).toBeNull()
+    await fireEvent.click(screen.getByRole('button', { name: '保存设置' }))
+    expect(saveImConfig).toHaveBeenLastCalledWith(otherConfig.deviceId, expect.objectContaining({ enabled: false }))
+  })
+
+  it('shows a config fetch failure even without a form and allows retry', async () => {
+    vi.mocked(fetchImConfig).mockRejectedValue(new ImApiError(503, '监控配置暂不可用'))
+    await renderView(['device_operator'])
+    expect((await screen.findByRole('alert')).textContent).toContain('监控配置暂不可用')
+    expect(screen.queryByLabelText('监听总开关')).toBeNull()
+    expect(screen.getByText('买家小王')).toBeTruthy()
+
+    vi.mocked(fetchImConfig).mockImplementation(async (deviceId) => configFixture({ deviceId }))
+    await fireEvent.click(screen.getByRole('button', { name: '重试加载设置' }))
+    expect(await screen.findByLabelText('监听总开关')).toBeTruthy()
+    expect(screen.queryByText('监控配置暂不可用')).toBeNull()
+  })
+
+  it('loads older conversations and preserves the loaded pages on refresh', async () => {
+    const first = Array.from({ length: 50 }, (_, index) => threadFixture({
+      id: `thread-${index}`, peerName: `买家-${index}`, unreadCount: 0,
+    }))
+    const older = threadFixture({ id: 'thread-older', peerName: '较早的买家', unreadCount: 0 })
+    const counts = { all: 51, user: 51, notice: 0, review: 0 }
+    vi.mocked(listImThreads).mockResolvedValueOnce(pageFixture(first, counts))
+      .mockResolvedValueOnce(pageFixture([older], counts))
+    vi.mocked(listImMessages).mockResolvedValue([messageFixture('较早的会话正文')])
+    await renderView(['viewer'])
+    await flushPromises()
+    await fireEvent.click(await screen.findByRole('button', { name: '加载更多会话' }))
+    expect(listImThreads).toHaveBeenLastCalledWith(undefined, false, 'user', 'thread-49')
+    await fireEvent.click(await screen.findByText('较早的买家'))
+    await screen.findAllByText('较早的会话正文')
+    expect(screen.queryByRole('button', { name: '加载更多会话' })).toBeNull()
+
+    vi.mocked(listImThreads).mockResolvedValueOnce(pageFixture(first, counts))
+      .mockResolvedValueOnce(pageFixture([older], counts))
+    await fireEvent.click(screen.getByRole('button', { name: '刷新收件箱' }))
+    await flushPromises()
+    expect(document.querySelectorAll('.im-thread')).toHaveLength(51)
+    expect(document.querySelector('.im-thread.active')?.textContent).toContain('较早的买家')
+    expect(screen.getAllByText('较早的会话正文').length).toBeGreaterThan(0)
+  })
+
+  it.each(['resolve', 'reject'] as const)('ignores a stale older-page %s after switching buckets', async (outcome) => {
+    const first = Array.from({ length: 50 }, (_, index) => threadFixture({ id: `page-${index}`, peerName: `初始买家-${index}` }))
+    const pending = deferred<ImThreadPage>()
+    vi.mocked(listImThreads).mockResolvedValueOnce(pageFixture(first))
+      .mockReturnValueOnce(pending.promise)
+      .mockResolvedValueOnce(pageFixture([threadFixture({ peerName: '新分类买家' })]))
+    await renderView(['viewer'])
+    await flushPromises()
+    await fireEvent.click(screen.getByRole('button', { name: '加载更多会话' }))
+    await fireEvent.click(screen.getByRole('tab', { name: '通知 / 营销 5' }))
+    await screen.findByText('新分类买家')
+    if (outcome === 'resolve') pending.resolve(pageFixture([threadFixture({ peerName: '过期买家' })]))
+    else pending.reject(new ImApiError(503, 'stale page failure'))
+    await flushPromises()
+    expect(screen.getByText('新分类买家')).toBeTruthy()
+    expect(screen.queryByText('过期买家')).toBeNull()
+    expect(screen.queryByText('stale page failure')).toBeNull()
+    expect(document.querySelectorAll('.im-thread')).toHaveLength(1)
+  })
+
   it('exposes the DM-channel filter note with the affected platforms', async () => {
     vi.mocked(fetchImConfig).mockResolvedValue(configFixture({ platforms: ['xhs', 'wechat'] }))
     await renderView(['viewer'])

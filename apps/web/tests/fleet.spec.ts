@@ -1,4 +1,5 @@
 import { createPinia } from 'pinia'
+import { flushPromises } from '@vue/test-utils'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { JsonObject } from '@cloudctl/api-contracts'
@@ -271,6 +272,35 @@ afterEach(() => {
 })
 
 describe('C10 acceptance B: fleet workbench mock indicator and fail-closed behavior', () => {
+  it.each(['error', 'removed'] as const)('closes device detail when the next snapshot is %s', async (outcome) => {
+    setMode(true, false)
+    primeApiSuccess()
+    const errors = vi.fn()
+    render(FleetWorkbenchView, { global: { plugins: [createPinia()], config: { errorHandler: errors } } })
+    const target = await selectDeviceBAndExpand()
+    await fireEvent.click(target.getByRole('button', { name: '查看' }))
+    expect(document.querySelector('.fleet-detail')).not.toBeNull()
+    if (outcome === 'error') api.devices.mockRejectedValueOnce(new Error('offline'))
+    else api.devices.mockResolvedValueOnce([deviceAFixture()])
+
+    await fireEvent.click(screen.getByRole('button', { name: '刷新设备状态' }))
+    await flushPromises()
+    await waitFor(() => expect(document.querySelector('.fleet-detail')).toBeNull())
+    expect(errors).not.toHaveBeenCalled()
+    if (outcome === 'error') expect(screen.getByTestId('fleet-load-error').textContent).toContain('offline')
+    expect((screen.getByRole('button', { name: '刷新设备状态' }) as HTMLButtonElement).disabled).toBe(false)
+  })
+
+  it('keeps refresh available when no devices are enrolled', async () => {
+    setMode(true, false)
+    api.devices.mockResolvedValue([])
+    api.listPlatformTasks.mockResolvedValue({ items: [] })
+    render(FleetWorkbenchView, { global: { plugins: [createPinia()] } })
+    await flushPromises()
+    await screen.findByText('当前租户还没有已接入的设备。')
+    expect((screen.getByRole('button', { name: '刷新设备状态' }) as HTMLButtonElement).disabled).toBe(false)
+  })
+
   it('stays fail-closed when production has no API configured (no mock fallback, disabled actions)', async () => {
     setMode(false, false)
     render(FleetWorkbenchView, { global: { plugins: [createPinia()] } })
@@ -327,6 +357,53 @@ describe('C10 acceptance B: fleet workbench mock indicator and fail-closed behav
 })
 
 describe('C10 acceptance C: permission gating and server-side rejection of cancel', () => {
+  it.each(['resolve', 'reject'] as const)('ignores a stale refresh %s after concurrent per-device cancellations', async (outcome) => {
+    setMode(true, false)
+    const onlineA = rawFleetDeviceFixture({ deviceId: DEVICE_A, logicalName: 'device-A' })
+    let oldResolve!: (rows: JsonObject[]) => void
+    let oldReject!: (error: Error) => void
+    const oldRefresh = new Promise<JsonObject[]>((resolve, reject) => { oldResolve = resolve; oldReject = reject })
+    api.devices.mockResolvedValueOnce([onlineA, deviceBFixture()])
+      .mockReturnValueOnce(oldRefresh)
+      .mockResolvedValueOnce([onlineA, { ...deviceBFixture(), logicalName: 'latest-device-B' }])
+    const running = {
+      items: [
+        platformTaskFixture({ taskId: 'task-a', deviceId: DEVICE_A }),
+        platformTaskFixture({ taskId: 'task-b', deviceId: DEVICE_B }),
+      ],
+    }
+    api.listPlatformTasks.mockResolvedValueOnce(running).mockResolvedValueOnce(running).mockResolvedValueOnce({ items: [] })
+    let resolveCancelA!: (response: Response) => void
+    let resolveCancelB!: (response: Response) => void
+    const fetchMock = vi.fn()
+      .mockReturnValueOnce(new Promise<Response>((resolve) => { resolveCancelA = resolve }))
+      .mockReturnValueOnce(new Promise<Response>((resolve) => { resolveCancelB = resolve }))
+    vi.stubGlobal('fetch', fetchMock)
+    const { pinia } = primeOperatorSession()
+    render(FleetWorkbenchView, { global: { plugins: [pinia] } })
+    await flushPromises()
+    for (const checkbox of screen.getAllByRole('checkbox')) await fireEvent.click(checkbox)
+    await fireEvent.click(screen.getByRole('button', { name: /展开为逐设备目标/ }))
+    for (const button of screen.getAllByRole('button', { name: '取消任务' })) await fireEvent.click(button)
+    expect(screen.getAllByRole('button', { name: '取消中…' })).toHaveLength(2)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+
+    resolveCancelA(new Response(JSON.stringify(platformTaskFixture({ taskId: 'task-a', deviceId: DEVICE_A, state: 'CANCELLED' }))))
+    await flushPromises()
+    resolveCancelB(new Response(JSON.stringify(platformTaskFixture({ taskId: 'task-b', deviceId: DEVICE_B, state: 'CANCELLED' }))))
+    await flushPromises()
+    expect(screen.getAllByText('latest-device-B').length).toBeGreaterThan(0)
+    if (outcome === 'resolve') oldResolve([onlineA, deviceBFixture()])
+    else oldReject(new Error('stale snapshot failure'))
+    await flushPromises()
+
+    expect(screen.getAllByText('latest-device-B').length).toBeGreaterThan(0)
+    expect(screen.queryByTestId('fleet-load-error')).toBeNull()
+    for (const button of screen.getAllByRole('button', { name: '取消任务' })) {
+      expect((button as HTMLButtonElement).disabled).toBe(true)
+    }
+  })
+
   it('disables per-device cancel without task.create permission even when a task is running', async () => {
     setMode(true, false)
     primeApiSuccess()

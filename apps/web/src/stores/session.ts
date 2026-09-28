@@ -61,12 +61,15 @@ export const useSessionStore = defineStore('session', () => {
   const permissions = ref<Permission[]>([])
   const session = ref<SessionInfo | null>(null)
   const loaded = ref(false)
+  const loading = ref(false)
   const loadError = ref('')
   const sidebarOpen = ref(false)
+  let pendingLoad: Promise<void> | null = null
 
   const permissionSet = computed(() => new Set(permissions.value))
 
   function can(permission: Permission) {
+    if (loading.value) return false
     if (!loaded.value && operationsMockEnabled && !controlApiConfigured) {
       return true
     }
@@ -86,22 +89,47 @@ export const useSessionStore = defineStore('session', () => {
     loadError.value = ''
   }
 
-  async function loadSession() {
-    if (!controlApiConfigured) {
-      if (operationsMockEnabled) {
-        role.value = 'SecurityAdmin'
-        permissions.value = ROLE_PERMISSIONS.security_admin
-        user.value = { id: 'user-local', name: '本机', tenant: '个人' }
+  function clearSession() {
+    session.value = null
+    permissions.value = []
+    role.value = 'Viewer'
+    user.value = { id: '', name: '未登录', tenant: '' }
+  }
+
+  async function fetchSession() {
+    loading.value = true
+    loadError.value = ''
+    try {
+      clearSession()
+      if (!controlApiConfigured) {
+        if (operationsMockEnabled) {
+          role.value = 'SecurityAdmin'
+          permissions.value = ROLE_PERMISSIONS.security_admin
+          user.value = { id: 'user-local', name: '本机', tenant: '个人' }
+          loaded.value = true
+          return
+        }
+        loadError.value = '未配置 Control API，无法加载真实登录态'
         loaded.value = true
         return
       }
-      loadError.value = '未配置 Control API，无法加载真实登录态'
+      const info = await createControlApiClient().session()
+      applySession(info)
+    } catch (error) {
+      clearSession()
       loaded.value = true
-      permissions.value = []
-      return
+      loadError.value = error instanceof Error ? error.message : '登录态加载失败'
+      throw error
+    } finally {
+      loading.value = false
     }
-    const info = await createControlApiClient().session()
-    applySession(info)
+  }
+
+  function loadSession(): Promise<void> {
+    if (!pendingLoad) {
+      pendingLoad = fetchSession().finally(() => { pendingLoad = null })
+    }
+    return pendingLoad
   }
 
   function setRole(nextRole: Role) {
@@ -110,5 +138,5 @@ export const useSessionStore = defineStore('session', () => {
     permissions.value = ROLE_PERMISSIONS[FRONTEND_TO_API_ROLE[nextRole]] ?? []
   }
 
-  return { role, user, sidebarOpen, can, setRole, loadSession, applySession, loaded, loadError, permissions, session }
+  return { role, user, sidebarOpen, can, setRole, loadSession, applySession, loaded, loading, loadError, permissions, session }
 })

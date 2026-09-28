@@ -219,11 +219,12 @@ async function request<T>(path: string, body?: unknown): Promise<T> {
   return payload as T
 }
 
-export async function listImThreads(deviceId?: string, unread = false, bucket: ImBucket = 'all'): Promise<ImThreadPage> {
+export async function listImThreads(deviceId?: string, unread = false, bucket: ImBucket = 'all', after?: string): Promise<ImThreadPage> {
   const params = new URLSearchParams()
   if (deviceId) params.set('deviceId', deviceId)
   if (unread) params.set('unread', 'true')
   params.set('bucket', bucket)
+  if (after) params.set('after', after)
   const query = params.toString()
   const data = await request<ImThreadPage>(`/threads?${query}`)
   return { ...data, items: (data.items ?? []).map(normalizeImThread), bucketCounts: data.bucketCounts ?? null }

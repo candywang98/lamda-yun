@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import type { ProductView } from '@cloudctl/api-contracts'
 import { createProductCatalog } from '@/api/product-catalog'
@@ -33,6 +33,7 @@ const page = ref(1)
 const pageSize = ref(10)
 const jumpPage = ref('1')
 const dialog = ref<{ title: string; field: string; value: string; placeholder: string } | null>(null)
+const batchBusy = ref(false)
 const confirmDelete = ref(false)
 const preview = ref<{ title: string; body: string } | null>(null)
 
@@ -63,6 +64,8 @@ const pageNumbers = computed(() => {
   for (let index = 1; index <= totalPages.value; index += 1) pages.push(index)
   return pages.slice(0, 8)
 })
+
+watch([searchQuery, categoryFilter, groupFilter, minPrice, maxPrice, pageSize], () => goPage(1))
 
 const allSelected = computed({
   get: () => pagedProducts.value.length > 0 && pagedProducts.value.every((item) => selectedIds.value.includes(item.id)),
@@ -133,6 +136,7 @@ function showQr(product: ProductView) {
 }
 
 function openBatch(title: string, field: string, placeholder: string) {
+  if (batchBusy.value) return
   if (selectedIds.value.length === 0) {
     errorMessage.value = '请先勾选商品'
     return
@@ -141,12 +145,17 @@ function openBatch(title: string, field: string, placeholder: string) {
 }
 
 async function applyBatch() {
-  if (!dialog.value) return
+  if (!dialog.value || batchBusy.value) return
   const field = dialog.value.field
   const value = dialog.value.value
   const targets = selectedProducts()
+  batchBusy.value = true
+  errorMessage.value = ''
+  successMessage.value = ''
+  let completed = 0
   try {
-    for (const product of targets) {
+    for (const original of targets) {
+      const product = { ...original }
       const attributes = parseAttributes(product.attributes)
       if (field === 'price') product.price = normalizePrice(value)
       else if (field === 'stock') product.stock = Number(value) || 0
@@ -157,7 +166,7 @@ async function applyBatch() {
           try { createProductGroup({ name: value.trim() }) } catch { /* already exists */ }
         }
       } else if (field === 'description') product.description = value
-      else if (field === 'replace') product.description = product.description.split(dialog.value.value.split('=>')[0] ?? '').join(dialog.value.value.split('=>')[1] ?? dialog.value.value)
+      else if (field === 'replace') product.description = product.description.split(value.split('=>')[0] ?? '').join(value.split('=>')[1] ?? value)
       else if (field === 'insertTitle') product.title = `${value}${product.title}`
       else if (field === 'insertDesc') product.description = `${value}${product.description}`
       else if (field === 'shipping') attributes.shippingFee = normalizePrice(value)
@@ -171,7 +180,7 @@ async function applyBatch() {
       else if (field === 'spec') attributes.specValues = value.split(/[,，\s]+/).filter(Boolean)
       else if (field === 'selfPickup') attributes.selfPickup = value !== '0'
       else if (field === 'freeShipping') attributes.freeShipping = value !== '0'
-      await catalog.save({
+      const saved = await catalog.save({
         id: product.id,
         expectedRevision: product.revision,
         payload: {
@@ -182,16 +191,20 @@ async function applyBatch() {
           price: normalizePrice(product.price),
           stock: product.stock,
           mediaAssetIds: product.mediaAssetIds,
-          attributes: { ...attributes },
+          attributes: { ...product.attributes, ...attributes },
         },
       })
+      products.value = products.value.map((item) => item.id === saved.id ? saved : item)
+      selectedIds.value = selectedIds.value.filter((id) => id !== saved.id)
+      completed += 1
     }
     successMessage.value = `已更新 ${targets.length} 个商品`
     dialog.value = null
-    selectedIds.value = []
     await loadProducts()
   } catch (error) {
-    errorMessage.value = `批量操作失败：${error instanceof Error ? error.message : String(error)}`
+    errorMessage.value = `批量操作失败：${error instanceof Error ? error.message : String(error)}。已保存 ${completed} 个，剩余 ${targets.length - completed} 个未确认，可重试剩余商品。`
+  } finally {
+    batchBusy.value = false
   }
 }
 
@@ -322,56 +335,58 @@ onMounted(() => {
     <p v-if="successMessage" class="flash ok">{{ successMessage }}</p>
 
     <div class="table-card">
-      <table>
-        <thead>
-          <tr>
-            <th class="check"><input v-model="allSelected" type="checkbox" /></th>
-            <th>商品分组</th>
-            <th>商品图片/视频</th>
-            <th>标题</th>
-            <th>描述</th>
-            <th>规格</th>
-            <th>价格</th>
-            <th>下单链接</th>
-            <th>添加时间</th>
-            <th>商品备注</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-if="loading">
-            <td colspan="11" class="empty">加载中...</td>
-          </tr>
-          <tr v-else-if="pagedProducts.length === 0">
-            <td colspan="11" class="empty">还没有商品。到左侧「产品编辑 / 普通宝贝」新建，保存后会出现在这里。</td>
-          </tr>
-          <tr v-for="product in pagedProducts" :key="product.id" :class="{ selected: selectedIds.includes(product.id) }">
-            <td class="check"><input type="checkbox" :checked="selectedIds.includes(product.id)" @change="toggleSelection(product.id)" /></td>
-            <td>{{ productGroupName(product) }}</td>
-            <td>
-              <div class="thumbs">
-                <MediaThumb v-for="(image, index) in productImages(product).slice(0, 3)" :key="`${product.id}-${image}-${index}`" :asset-id="image" :alt="product.title" />
-                <span v-if="productImages(product).length" class="count">{{ productImages(product).length }}张</span>
-                <span v-else class="no-media">无图</span>
-              </div>
-            </td>
-            <td class="title">{{ clipText(product.title, 16) }}</td>
-            <td class="desc">{{ clipText(product.description, 18) }}</td>
-            <td>{{ productSpecLabel(product) }}</td>
-            <td>{{ product.price }}</td>
-            <td>{{ parseAttributes(product.attributes).orderLink }}</td>
-            <td>{{ formatDateTime(product.updatedAt ?? product.createdAt) }}</td>
-            <td>{{ parseAttributes(product.attributes).notes }}</td>
-            <td class="ops">
-              <button type="button" title="编辑" @click="openEdit(product.id)">✎</button>
-              <button type="button" title="二维码" @click="showQr(product)">▦</button>
-              <button type="button" title="复制" @click="copyProduct(product)">⧉</button>
-              <button type="button" title="下载图片" @click="downloadImages(product)">⬇</button>
-              <button class="danger" type="button" title="删除" @click="deleteOne(product)">✕</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th class="check"><input v-model="allSelected" type="checkbox" /></th>
+              <th>商品分组</th>
+              <th>商品图片/视频</th>
+              <th>标题</th>
+              <th>描述</th>
+              <th>规格</th>
+              <th>价格</th>
+              <th>下单链接</th>
+              <th>添加时间</th>
+              <th>商品备注</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-if="loading">
+              <td colspan="11" class="empty">加载中...</td>
+            </tr>
+            <tr v-else-if="pagedProducts.length === 0">
+              <td colspan="11" class="empty">还没有商品。到左侧「产品编辑 / 普通宝贝」新建，保存后会出现在这里。</td>
+            </tr>
+            <tr v-for="product in pagedProducts" :key="product.id" :class="{ selected: selectedIds.includes(product.id) }">
+              <td class="check"><input type="checkbox" :checked="selectedIds.includes(product.id)" @change="toggleSelection(product.id)" /></td>
+              <td>{{ productGroupName(product) }}</td>
+              <td>
+                <div class="thumbs">
+                  <MediaThumb v-for="(image, index) in productImages(product).slice(0, 3)" :key="`${product.id}-${image}-${index}`" :asset-id="image" :alt="product.title" />
+                  <span v-if="productImages(product).length" class="count">{{ productImages(product).length }}张</span>
+                  <span v-else class="no-media">无图</span>
+                </div>
+              </td>
+              <td class="title">{{ clipText(product.title, 16) }}</td>
+              <td class="desc">{{ clipText(product.description, 18) }}</td>
+              <td>{{ productSpecLabel(product) }}</td>
+              <td>{{ product.price }}</td>
+              <td>{{ parseAttributes(product.attributes).orderLink }}</td>
+              <td>{{ formatDateTime(product.updatedAt ?? product.createdAt) }}</td>
+              <td>{{ parseAttributes(product.attributes).notes }}</td>
+              <td class="ops">
+                <button type="button" title="编辑" @click="openEdit(product.id)">✎</button>
+                <button type="button" title="二维码" @click="showQr(product)">▦</button>
+                <button type="button" title="复制" @click="copyProduct(product)">⧉</button>
+                <button type="button" title="下载图片" @click="downloadImages(product)">⬇</button>
+                <button class="danger" type="button" title="删除" @click="deleteOne(product)">✕</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
       <div class="pager">
         <button type="button" :disabled="page <= 1" @click="goPage(page - 1)">‹</button>
         <button v-for="item in pageNumbers" :key="item" type="button" :class="{ current: item === page }" @click="goPage(item)">{{ item }}</button>
@@ -401,14 +416,14 @@ onMounted(() => {
       </ol>
     </div>
 
-    <div v-if="dialog" class="mask" @click.self="dialog = null">
+    <div v-if="dialog" class="mask" @click.self="!batchBusy && (dialog = null)">
       <div class="modal">
         <h3>{{ dialog.title }}</h3>
         <p>已选择 {{ selectedIds.length }} 个商品</p>
-        <input v-model="dialog.value" :placeholder="dialog.placeholder" />
+        <input v-model="dialog.value" :placeholder="dialog.placeholder" :disabled="batchBusy" />
         <div class="modal-actions">
-          <button type="button" @click="dialog = null">取消</button>
-          <button class="primary" type="button" @click="applyBatch">确定</button>
+          <button type="button" :disabled="batchBusy" @click="dialog = null">取消</button>
+          <button class="primary" type="button" :disabled="batchBusy" @click="applyBatch">{{ batchBusy ? '保存中…' : '确定' }}</button>
         </div>
       </div>
     </div>
@@ -437,7 +452,7 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.goods-page { display: grid; gap: 10px; color: #334155; }
+.goods-page { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; color: #334155; }
 .goods-toolbar, .filter-row, .action-row, .table-card, .help { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; }
 .goods-toolbar { min-height: 44px; padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; }
 .filter-row, .action-row, .pager { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
@@ -453,7 +468,7 @@ onMounted(() => {
 .flash { margin: 0; padding: 8px 12px; border-radius: 6px; font-size: 13px; }
 .flash.error { color: #b91c1c; background: #fef2f2; }
 .flash.ok { color: #166534; background: #f0fdf4; }
-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+table { width: 100%; min-width: 920px; border-collapse: collapse; font-size: 13px; }
 th, td { padding: 10px 8px; border-bottom: 1px solid #f1f5f9; text-align: left; vertical-align: middle; }
 th { color: #64748b; font-weight: 600; background: #f8fafc; }
 tr.selected { background: #f0fdfa; }

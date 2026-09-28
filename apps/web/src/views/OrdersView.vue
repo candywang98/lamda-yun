@@ -43,6 +43,8 @@ const orders = ref<OrderRow[]>([])
 const total = ref(0)
 const loading = ref(false)
 const loadError = ref('')
+const loadedFilterKey = ref<string | null>(null)
+const currentFilterKey = computed(() => JSON.stringify([deviceFilter.value, directionFilter.value, statusFilter.value.trim()]))
 
 /** 列表请求参数（设备/方向/状态过滤 + 翻页偏移）。 */
 function listQuery(offset: number) {
@@ -56,6 +58,18 @@ function listQuery(offset: number) {
 }
 
 async function loadPage(offset: number, append: boolean) {
+  const filterKey = currentFilterKey.value
+  if (append && loadedFilterKey.value !== filterKey) {
+    await loadPage(0, false)
+    return
+  }
+  if (!append && loadedFilterKey.value !== filterKey) {
+    orders.value = []
+    total.value = 0
+    expandedId.value = null
+    ++detailRequest
+    loadedFilterKey.value = null
+  }
   const request = ++listRequest
   loading.value = true
   loadError.value = ''
@@ -64,6 +78,7 @@ async function loadPage(offset: number, append: boolean) {
     if (disposed || request !== listRequest) return
     orders.value = append ? [...orders.value, ...result.items] : result.items
     total.value = result.total
+    loadedFilterKey.value = filterKey
     if (!append) expandedId.value = null
   } catch (error) {
     if (disposed || request !== listRequest) return
@@ -92,7 +107,7 @@ async function manualRefresh() {
   await loadPage(0, false)
 }
 
-const hasMore = computed(() => orders.value.length < total.value)
+const hasMore = computed(() => loadedFilterKey.value === currentFilterKey.value && !loadError.value && orders.value.length < total.value)
 
 /** 空态只在成功加载且确认无数据时出现；有错误时绝不显示「暂无订单」。 */
 const showEmpty = computed(() => !loading.value && !loadError.value && orders.value.length === 0)

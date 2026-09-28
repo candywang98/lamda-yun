@@ -23,6 +23,9 @@ const product = {
 test('商品列表展示真实列，编辑进入普通宝贝并保存', async ({ page }) => {
   await page.route('**/api/v1/**', async (route) => {
     const url = new URL(route.request().url())
+    if (url.pathname === '/api/v1/session') return route.fulfill({ json: {
+      userId: 'operator', tenantId: 'tenant', roles: ['content_editor'], mfa: true, requestId: 'e2e',
+    } })
     if (url.pathname === '/api/v1/products' && route.request().method() === 'GET') return route.fulfill({ json: [product] })
     if (url.pathname === `/api/v1/products/${product.id}` && route.request().method() === 'GET') return route.fulfill({ json: product })
     if (url.pathname === '/api/v1/products' && route.request().method() === 'POST') {
@@ -37,7 +40,7 @@ test('商品列表展示真实列，编辑进入普通宝贝并保存', async ({
   await page.goto('/operations/product-management/product-management-01')
   await expect(page.getByText('竞品页面依据')).toHaveCount(0)
   await expect(page.getByText('E2E 测试商品')).toBeVisible()
-  await expect(page.getByText('黄金回收').first()).toBeVisible()
+  await expect(page.getByRole('cell', { name: '黄金回收', exact: true })).toBeVisible()
   await page.getByTitle('编辑').click()
   await expect(page).toHaveURL(/product-editor-01\?id=product-e2e-001/)
   await expect(page.getByLabel('标题')).toHaveValue('E2E 测试商品')

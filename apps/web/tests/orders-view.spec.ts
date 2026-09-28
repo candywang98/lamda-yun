@@ -189,6 +189,25 @@ describe('OrdersView', () => {
     vi.mocked(fetchXianyuOrderRun).mockReset()
   })
 
+  it('never appends a new filter page to rows left by a failed filter change', async () => {
+    vi.mocked(listOrders).mockResolvedValueOnce({ items: pageOf(20), total: 25 })
+    render(OrdersView)
+    await flushPromises()
+    vi.mocked(listOrders).mockRejectedValueOnce(new OrdersApiError(503, 'temporary failure'))
+    await fireEvent.update(screen.getByLabelText('方向'), 'BOUGHT')
+    await flushPromises()
+    expect(screen.queryByRole('button', { name: /加载更多/ })).toBeNull()
+    expect(screen.queryByText('XY202609141000')).toBeNull()
+
+    vi.mocked(listOrders).mockResolvedValueOnce({
+      items: [orderFixture({ direction: 'BOUGHT', orderKey: 'BOUGHT-1' })], total: 1,
+    })
+    await fireEvent.click(screen.getByRole('button', { name: '刷新' }))
+    await flushPromises()
+    expect(listOrders).toHaveBeenLastCalledWith(expect.objectContaining({ direction: 'BOUGHT', offset: 0 }))
+    expect(screen.getByText('BOUGHT-1')).toBeTruthy()
+  })
+
   it('renders order rows with formatted amounts, direction chips and status text', async () => {
     render(OrdersView)
     expect(await screen.findByText('XY202609141234')).toBeTruthy()

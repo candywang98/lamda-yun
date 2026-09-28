@@ -1,12 +1,26 @@
 import { createPinia, setActivePinia } from 'pinia'
-import { render, screen } from '@testing-library/vue'
+import { fireEvent, render, screen, waitFor } from '@testing-library/vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import OperationsShell from '@/components/OperationsShell.vue'
 import { operationModules, operationsCatalog } from '@/data/operations-catalog'
 import { useOperationsWorkspace } from '@/stores/operations-workspace'
+import { useSessionStore } from '@/stores/session'
+
+const { fetchSession } = vi.hoisted(() => ({ fetchSession: vi.fn() }))
+vi.mock('@/api/control', () => ({
+  controlApiConfigured: true,
+  createControlApiClient: () => ({ session: fetchSession }),
+}))
+vi.mock('@/api/runtime-mode', () => ({ operationsMockEnabled: false }))
 
 describe('OperationsShell', () => {
+  beforeEach(() => {
+    fetchSession.mockReset().mockResolvedValue({
+      userId: 'operator', tenantId: 'tenant', roles: ['device_operator'], mfa: true, requestId: 'req',
+    })
+  })
+
   it('renders the 15 competitor modules as the operations workspace navigation', async () => {
     const router = createRouter({
       history: createMemoryHistory(),
@@ -39,5 +53,27 @@ describe('OperationsShell', () => {
     expect(workspace.tabs).toHaveLength(5)
     expect(workspace.tabs.map((tab) => tab.id)).toEqual(pages.slice(1).map((page) => page.id))
     expect(workspace.tabs.some((tab) => tab.id === pages[0]?.id)).toBe(false)
+  })
+
+  it('initializes permissions on a direct orders visit and allows retry after an authentication failure', async () => {
+    fetchSession.mockRejectedValueOnce(new Error('Authentication required'))
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/:pathMatch(.*)*', component: { template: '<div>Content</div>' } }],
+    })
+    await router.push('/orders')
+    const pinia = createPinia()
+    const session = useSessionStore(pinia)
+    render(OperationsShell, { global: { plugins: [pinia, router] } })
+
+    await waitFor(() => expect(fetchSession).toHaveBeenCalledTimes(1))
+    expect((await screen.findByRole('alert')).textContent).toContain('Authentication required')
+    expect(session.can('device.control')).toBe(false)
+    expect(screen.queryByText('Control API 已连接')).toBeNull()
+
+    await fireEvent.click(screen.getByRole('button', { name: '重新验证登录' }))
+
+    await waitFor(() => expect(session.can('device.control')).toBe(true))
+    expect(screen.queryByRole('alert')).toBeNull()
   })
 })

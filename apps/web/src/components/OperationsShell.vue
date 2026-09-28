@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   BookHeart,
@@ -29,7 +29,7 @@ import { useSessionStore } from '@/stores/session'
 import { useOperationsWorkspace } from '@/stores/operations-workspace'
 import { useDisplaySettings } from '@/stores/display-settings'
 import { findOperation, firstOperationPath, operationModules, operationPath } from '@/data/operations-catalog'
-import { controlApiConfigured } from '@/api/control'
+import { controlApiConfigured, operationsMockEnabled } from '@/api/control'
 import type { Component } from 'vue'
 
 const route = useRoute()
@@ -37,6 +37,19 @@ const router = useRouter()
 const session = useSessionStore()
 const workspace = useOperationsWorkspace()
 const display = useDisplaySettings()
+const connectionLabel = computed(() => {
+  if (!controlApiConfigured) return operationsMockEnabled ? '开发 Mock · 未接真机' : 'Control API 未配置'
+  if (session.loading) return 'Control API 登录验证中'
+  return session.session ? 'Control API 会话已验证' : 'Control API 登录未验证'
+})
+
+function verifySession() {
+  void session.loadSession().catch(() => {
+    // The store clears permissions and exposes the failure for retry.
+  })
+}
+
+onMounted(verifySession)
 
 const moduleIcons: Record<string, Component> = {
   'system-home': Home,
@@ -146,8 +159,8 @@ watch(currentOperation, (operation) => {
         </section>
       </nav>
       <div class="yy-sidebar-foot">
-        <span class="dot" :class="controlApiConfigured ? 'dot-good' : 'dot-warn'" />
-        {{ controlApiConfigured ? 'Control API 已连接' : '本地模式 · 未接真机' }}
+        <span class="dot" :class="session.session && !session.loading ? 'dot-good' : 'dot-warn'" />
+        {{ connectionLabel }}
       </div>
     </aside>
 
@@ -174,6 +187,10 @@ watch(currentOperation, (operation) => {
       </div>
 
       <div class="yy-content">
+        <div v-if="controlApiConfigured && session.loadError" class="notice notice-danger" role="alert">
+          <span>登录验证失败：{{ session.loadError }}</span>
+          <button class="button" type="button" :disabled="session.loading" @click="verifySession">重新验证登录</button>
+        </div>
         <p class="sr-only">{{ pageTitle }}</p>
         <RouterView />
       </div>

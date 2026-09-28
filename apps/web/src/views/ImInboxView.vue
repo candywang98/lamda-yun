@@ -38,6 +38,9 @@ const unreadOnly = ref(false)
 const bucket = ref<ImBucket>('user')
 const bucketCounts = ref<ImThreadPage['bucketCounts']>(null)
 const threadsLoading = ref(false)
+const moreThreadsLoading = ref(false)
+const threadsHasMore = ref(false)
+const THREAD_PAGE_SIZE = 50
 const messagesLoading = ref(false)
 const classificationBusy = ref('')
 const classificationError = ref('')
@@ -89,13 +92,21 @@ function clearSelection() {
 
 async function refreshThreads(preserveSelection = true) {
   const request = ++threadRequest
+  const pagesToLoad = preserveSelection ? Math.max(1, Math.ceil(threads.value.length / THREAD_PAGE_SIZE)) : 1
   if (!preserveSelection) clearSelection()
+  moreThreadsLoading.value = false
   threadsLoading.value = true
   try {
-    const page = await listImThreads(deviceFilter.value || undefined, unreadOnly.value, bucket.value)
+    let page = await listImThreads(deviceFilter.value || undefined, unreadOnly.value, bucket.value)
     if (disposed || request !== threadRequest) return false
-    const nextThreads = page.items
-    threads.value = nextThreads
+    const nextThreads = [...page.items]
+    for (let index = 1; index < pagesToLoad && page.items.length === THREAD_PAGE_SIZE; index += 1) {
+      page = await listImThreads(deviceFilter.value || undefined, unreadOnly.value, bucket.value, page.items.at(-1)!.id)
+      if (disposed || request !== threadRequest) return false
+      nextThreads.push(...page.items)
+    }
+    threads.value = [...new Map(nextThreads.map((thread) => [thread.id, thread])).values()]
+    threadsHasMore.value = page.items.length === THREAD_PAGE_SIZE
     bucketCounts.value = page.bucketCounts
     if (selected.value && !nextThreads.some((thread) => thread.id === selected.value?.id)) {
       clearSelection()
@@ -112,6 +123,29 @@ async function refreshThreads(preserveSelection = true) {
     return false
   } finally {
     if (!disposed && request === threadRequest) threadsLoading.value = false
+  }
+}
+
+async function loadMoreThreads() {
+  if (disposed || threadsLoading.value || moreThreadsLoading.value || !threadsHasMore.value) return
+  const after = threads.value.at(-1)?.id
+  if (!after) return
+  const request = ++threadRequest
+  moreThreadsLoading.value = true
+  try {
+    const page = await listImThreads(deviceFilter.value || undefined, unreadOnly.value, bucket.value, after)
+    if (disposed || request !== threadRequest) return
+    threads.value = [...new Map([...threads.value, ...page.items].map((thread) => [thread.id, thread])).values()]
+    threadsHasMore.value = page.items.length === THREAD_PAGE_SIZE
+    bucketCounts.value = page.bucketCounts
+    errorMessage.value = ''
+    await loadDeviceConfigs()
+  } catch (error) {
+    if (!disposed && request === threadRequest) {
+      errorMessage.value = error instanceof ImApiError ? error.message : '更多会话加载失败'
+    }
+  } finally {
+    if (!disposed && request === threadRequest) moreThreadsLoading.value = false
   }
 }
 
@@ -309,10 +343,10 @@ async function loadConfig() {
   const request = ++configRequest
   const deviceId = cfgDevice.value
   cfg.value = null
-  if (!cfgDevice.value) return
   cfgMessage.value = ''
   cfgMessageIsError.value = false
   cfgErrors.value = []
+  if (!deviceId) return
   try {
     const next = await fetchImConfig(deviceId)
     if (disposed || request !== configRequest || deviceId !== cfgDevice.value) return
@@ -338,7 +372,10 @@ function togglePlatform(key: string) {
 const cfgDutyStatus = computed(() => (cfg.value ? imDutyStatus(cfg.value) : 'off'))
 
 async function saveConfig() {
-  if (!cfg.value || !cfgDevice.value || !canEditConfig.value) return
+  if (!cfg.value || !cfgDevice.value || !canEditConfig.value || cfgBusy.value) return
+  const deviceId = cfgDevice.value
+  const request = configRequest
+  const current = () => !disposed && request === configRequest && deviceId === cfgDevice.value
   cfgMessage.value = ''
   cfgMessageIsError.value = false
   const draft = {
@@ -353,11 +390,14 @@ async function saveConfig() {
   if (errors.length > 0) return
   cfgBusy.value = true
   try {
-    cfg.value = await saveImConfig(cfgDevice.value, draft)
+    const saved = await saveImConfig(deviceId, draft)
+    if (!current()) return
+    cfg.value = saved
     cfgMessageIsError.value = false
     cfgMessage.value = '已保存，手机下一轮同步生效（约 1 分钟内）'
     await loadDeviceConfigs()
   } catch (error) {
+    if (!current()) return
     cfgMessageIsError.value = true
     cfgMessage.value = error instanceof ImApiError ? error.message : '保存监控设置失败'
   } finally {
@@ -375,6 +415,7 @@ watch(deviceFilter, (value) => {
 watch([deviceFilter, unreadOnly, bucket], () => {
   ++contextRevision
   threads.value = []
+  threadsHasMore.value = false
   bucketCounts.value = null
   errorMessage.value = ''
   successMessage.value = ''
@@ -424,7 +465,7 @@ let pollTimer: ReturnType<typeof setInterval> | null = null
 
 let pollInFlight = false
 async function pollInbox() {
-  if (disposed || pollInFlight || classificationBusy.value || document.visibilityState !== 'visible') return
+  if (disposed || pollInFlight || threadsLoading.value || moreThreadsLoading.value || classificationBusy.value || document.visibilityState !== 'visible') return
   pollInFlight = true
   try {
     if (await refreshThreads(true)) await refreshSelectedMessages()
@@ -491,7 +532,7 @@ onBeforeUnmount(() => {
           <input v-model="unreadOnly" type="checkbox" />
           <span>只看未读</span>
         </label>
-        <button class="yy-btn im-refresh" type="button" title="刷新收件箱" aria-label="刷新收件箱" :disabled="!!classificationBusy" @click="refreshInbox">
+        <button class="yy-btn im-refresh" type="button" title="刷新收件箱" aria-label="刷新收件箱" :disabled="!!classificationBusy || threadsLoading || moreThreadsLoading" @click="refreshInbox">
           <RefreshCw :size="16" aria-hidden="true" />
         </button>
       </div>
@@ -510,7 +551,7 @@ onBeforeUnmount(() => {
         </div>
         <label class="yy-field">
           <span>设备</span>
-          <select v-model="cfgDevice" :disabled="!canEditConfig" @change="loadConfig">
+          <select v-model="cfgDevice" @change="loadConfig">
             <option value="" disabled>选择设备</option>
             <option v-for="option in configDeviceOptions" :key="option.id" :value="option.id">
               {{ option.name }}（{{ option.id.slice(0, 8) }}）
@@ -520,12 +561,12 @@ onBeforeUnmount(() => {
       </header>
       <template v-if="cfg">
         <div class="im-config-row">
-          <label class="yy-check"><input v-model="cfg.enabled" type="checkbox" :disabled="!canEditConfig" /><span>监听总开关</span></label>
+          <label class="yy-check"><input v-model="cfg.enabled" type="checkbox" :disabled="!canEditConfig || cfgBusy" /><span>监听总开关</span></label>
           <label v-for="option in IM_PLATFORM_OPTIONS" :key="option.key" class="yy-check">
             <input
               :checked="cfg.platforms.includes(option.key)"
               type="checkbox"
-              :disabled="!canEditConfig"
+              :disabled="!canEditConfig || cfgBusy"
               @change="togglePlatform(option.key)"
             />
             <span>{{ option.label }}</span>
@@ -533,14 +574,14 @@ onBeforeUnmount(() => {
         </div>
         <div class="im-config-row">
           <label class="yy-check">
-            <input v-model="cfg.mode" type="radio" value="NOTIFICATION" :disabled="!canEditConfig" /><span>通知监听（后台，不占手机）</span>
+            <input v-model="cfg.mode" type="radio" value="NOTIFICATION" :disabled="!canEditConfig || cfgBusy" /><span>通知监听（后台，不占手机）</span>
           </label>
           <label class="yy-check">
-            <input v-model="cfg.mode" type="radio" value="DUTY" :disabled="!canEditConfig" /><span>值班模式（驻守消息页，全文零漏收）</span>
+            <input v-model="cfg.mode" type="radio" value="DUTY" :disabled="!canEditConfig || cfgBusy" /><span>值班模式（驻守消息页，全文零漏收）</span>
           </label>
           <template v-if="cfg.mode === 'DUTY'">
-            <label class="yy-field"><span>值班起</span><input v-model="cfg.dutyStart" type="time" :disabled="!canEditConfig" /></label>
-            <label class="yy-field"><span>值班止</span><input v-model="cfg.dutyEnd" type="time" :disabled="!canEditConfig" /></label>
+            <label class="yy-field"><span>值班起</span><input v-model="cfg.dutyStart" type="time" :disabled="!canEditConfig || cfgBusy" /></label>
+            <label class="yy-field"><span>值班止</span><input v-model="cfg.dutyEnd" type="time" :disabled="!canEditConfig || cfgBusy" /></label>
             <span class="im-duty" :data-state="cfgDutyStatus">{{ imDutyStatusLabel(cfgDutyStatus) }}</span>
             <span class="yy-sub">跨零点窗口自动顺延（如 22:00–06:00）</span>
           </template>
@@ -558,9 +599,10 @@ onBeforeUnmount(() => {
           <button v-if="canEditConfig" class="yy-btn primary" type="button" :disabled="cfgBusy" @click="saveConfig">
             {{ cfgBusy ? '保存中…' : '保存设置' }}
           </button>
-          <span v-if="cfgMessage" class="im-config-feedback" :class="{ error: cfgMessageIsError }">{{ cfgMessage }}</span>
         </div>
       </template>
+      <p v-if="cfgMessage" class="im-config-feedback" :class="{ error: cfgMessageIsError }" :role="cfgMessageIsError ? 'alert' : 'status'">{{ cfgMessage }}</p>
+      <button v-if="cfgMessageIsError && !cfg" class="yy-btn" type="button" @click="loadConfig">重试加载设置</button>
     </section>
 
     <div class="yy-tabs im-buckets" role="tablist" aria-label="消息分类">
@@ -583,7 +625,7 @@ onBeforeUnmount(() => {
     <div id="im-inbox-panel" class="im-layout" role="tabpanel" :aria-labelledby="`im-tab-${bucket}`">
       <aside class="im-threads" aria-label="会话列表" :aria-busy="threadsLoading">
         <p v-if="threadsLoading" class="yy-sub" role="status">加载会话中…</p>
-        <p v-else-if="visibleThreads.length === 0" class="yy-sub">当前分类暂无会话。</p>
+        <p v-else-if="visibleThreads.length === 0 && !errorMessage" class="yy-sub">当前分类暂无会话。</p>
         <button
           v-for="thread in visibleThreads"
           :key="thread.id"
@@ -607,6 +649,9 @@ onBeforeUnmount(() => {
           <span class="im-meta">
             {{ thread.lastDirection === 'IN' ? '收到' : '已回复' }} · {{ timeLabel(thread.lastMessageAt) }} · {{ deviceLabel(thread.deviceId) }}
           </span>
+        </button>
+        <button v-if="threadsHasMore" class="yy-btn" type="button" :disabled="threadsLoading || moreThreadsLoading || !!classificationBusy" @click="loadMoreThreads">
+          {{ moreThreadsLoading ? '加载中…' : '加载更多会话' }}
         </button>
       </aside>
 
