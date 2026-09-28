@@ -293,17 +293,43 @@ class FleetOrdersService:
             from .db import MobileTaskRow
             from .order_delivery import delivery_metadata
 
+            device = await session.get(DeviceRow, device_id, with_for_update=True)
+            if device is None or device.tenant_id != tenant_id:
+                raise NotFoundError("device was not found")
             task = await session.get(MobileTaskRow, body.run_key)
             if task is not None and delivery_metadata(task) is not None:
                 if task.tenant_id != tenant_id or task.device_id != device_id:
                     raise NotFoundError("order collection task was not found")
                 raise ConflictError("ORDER_DELIVERY_PROTOCOL_REQUIRED")
-            device = await session.get(DeviceRow, device_id)
-            if device is None or device.tenant_id != tenant_id:
-                raise NotFoundError("device was not found")
 
             checkpoint = await self._load_checkpoint(session, tenant_id, device_id, body.direction)
-            replayed_page = False
+
+            # Page row: (tenant, device, run_key, screen) unique — an offline
+            # replay stores exactly one page per screen.
+            page = await session.scalar(
+                select(FleetOrderPageRow).where(
+                    FleetOrderPageRow.tenant_id == tenant_id,
+                    FleetOrderPageRow.device_id == device_id,
+                    FleetOrderPageRow.run_key == body.run_key,
+                    FleetOrderPageRow.screen == body.screen,
+                )
+            )
+            if page is not None:
+                if checkpoint is None:
+                    raise ConflictError("order checkpoint was not found")
+                self._guard_checkpoint(checkpoint, body)
+                return {
+                    "accepted": 0,
+                    "updated": 0,
+                    "duplicates": len(body.rows),
+                    "screen": body.screen,
+                    "replayed": True,
+                    "checkpoint": _checkpoint_view(checkpoint),
+                }
+
+            if await self._has_delivery_projection(session, tenant_id, device_id, body.rows):
+                raise ConflictError("ORDER_DELIVERY_PROTOCOL_REQUIRED")
+
             if checkpoint is None:
                 if body.screen != 1:
                     raise ConflictError("order collection must start from screen 1")
@@ -326,62 +352,47 @@ class FleetOrdersService:
             else:
                 self._guard_checkpoint(checkpoint, body)
 
-            # Page row: (tenant, device, run_key, screen) unique — an offline
-            # replay stores exactly one page per screen.
-            page = await session.scalar(
-                select(FleetOrderPageRow).where(
-                    FleetOrderPageRow.tenant_id == tenant_id,
-                    FleetOrderPageRow.device_id == device_id,
-                    FleetOrderPageRow.run_key == body.run_key,
-                    FleetOrderPageRow.screen == body.screen,
+            accepted, updated, duplicates = await self._upsert_orders(
+                session, tenant_id, device_id, body.rows, now
+            )
+            session.add(
+                FleetOrderPageRow(
+                    id=str(uuid.uuid4()),
+                    tenant_id=tenant_id,
+                    device_id=device_id,
+                    platform=PLATFORM,
+                    direction=body.direction,
+                    account_key=body.account_key,
+                    run_key=body.run_key,
+                    screen=body.screen,
+                    rows_seen=len(body.rows),
+                    new_keys=accepted,
+                    updated_keys=updated,
+                    overlap=duplicates,
+                    partial_rows=len(body.partial_rows),
+                    empty_page=len(body.rows) == 0,
+                    collected_at=collected_at,
+                    created_at=now,
                 )
             )
-            if page is None:
-                accepted, updated, duplicates = await self._upsert_orders(
-                    session, tenant_id, device_id, body.rows, now
-                )
-                session.add(
-                    FleetOrderPageRow(
-                        id=str(uuid.uuid4()),
-                        tenant_id=tenant_id,
-                        device_id=device_id,
-                        platform=PLATFORM,
-                        direction=body.direction,
-                        account_key=body.account_key,
-                        run_key=body.run_key,
-                        screen=body.screen,
-                        rows_seen=len(body.rows),
-                        new_keys=accepted,
-                        updated_keys=updated,
-                        overlap=duplicates,
-                        partial_rows=len(body.partial_rows),
-                        empty_page=len(body.rows) == 0,
-                        collected_at=collected_at,
-                        created_at=now,
-                    )
-                )
-                # Reset only for a newly accepted run, never for a historical replay.
-                if checkpoint.run_key != body.run_key:
-                    checkpoint.last_screen = 0
-                    checkpoint.seen_keys = 0
-                if body.screen > checkpoint.last_screen:
-                    checkpoint.last_screen = body.screen
-                    checkpoint.seen_keys += accepted
-                checkpoint.run_key = body.run_key
-                checkpoint.account_key = body.account_key
-                checkpoint.updated_at = now
-                await session.flush()
-            else:
-                # 断网重传：同屏重放不重复计数、不回退断点、不改账号归属。
-                replayed_page = True
-                accepted, updated, duplicates = 0, 0, len(body.rows)
+            # Reset only for a newly accepted run, never for a historical replay.
+            if checkpoint.run_key != body.run_key:
+                checkpoint.last_screen = 0
+                checkpoint.seen_keys = 0
+            if body.screen > checkpoint.last_screen:
+                checkpoint.last_screen = body.screen
+                checkpoint.seen_keys += accepted
+            checkpoint.run_key = body.run_key
+            checkpoint.account_key = body.account_key
+            checkpoint.updated_at = now
+            await session.flush()
 
             return {
                 "accepted": accepted,
                 "updated": updated,
                 "duplicates": duplicates,
                 "screen": body.screen,
-                "replayed": replayed_page,
+                "replayed": False,
                 "checkpoint": _checkpoint_view(checkpoint),
             }
 
@@ -425,6 +436,32 @@ class FleetOrdersService:
                 )
             ),
         )
+
+    async def _has_delivery_projection(
+        self,
+        session: AsyncSession,
+        tenant_id: str,
+        device_id: str,
+        rows: list[Any],
+    ) -> bool:
+        from .order_delivery import OrderDeliveryProjectionRow
+
+        keys = {item.order_key.strip()[:ORDER_KEY_MAX] for item in rows}
+        if not keys:
+            return False
+        protected = await session.scalar(
+            select(OrderDeliveryProjectionRow.order_id)
+            .join(OrderRow, OrderRow.id == OrderDeliveryProjectionRow.order_id)
+            .where(
+                OrderDeliveryProjectionRow.tenant_id == tenant_id,
+                OrderRow.tenant_id == tenant_id,
+                OrderRow.device_id == device_id,
+                OrderRow.platform == PLATFORM,
+                OrderRow.order_key.in_(keys),
+            )
+            .limit(1)
+        )
+        return protected is not None
 
     async def _upsert_orders(
         self, session: Any, tenant_id: str, device_id: str, rows: list[Any], now: Any
