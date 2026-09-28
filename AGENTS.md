@@ -19,16 +19,16 @@ This repository implements the architecture in `docs/reference/`. Keep the follo
 **Development/diagnostic only**:
 - **Edge + LAMDA** (`edge/gateway`, `packages/lamda-driver`): Studio live layout inspection and evidence preview. Not required for production task delivery. Must not hold a write lease when Companion is enrolled.
 
-User-confirmed delivery constraint (2026-09-26, D-12): ADB is provided only for
-development/debugging. Production collection, synchronization and authorized
-automation must run through the enrolled Companion and cloud with USB and
-wireless ADB disconnected and without the development computer or Edge.
-Verify the final business path in that configuration; an ADB-assisted test is
-diagnostic evidence only. Ordinary installation, login and system permission
-setup may require user interaction, but ADB must not be a runtime prerequisite.
-Connected development tests and iterative fixes should proceed when authorized.
-Do not require cable disconnection for every debugging round; record any ADB
-assistance explicitly and reserve disconnected operation for final acceptance.
+User-confirmed delivery constraint (2026-09-28, D-15; refining D-12/D-13): ADB
+is optional and may be used only for authorized development or diagnostics.
+Production collection, synchronization and authorized automation must run
+through the enrolled Companion and cloud without invoking ADB, a development-
+computer runner or Edge. Physical USB or wireless-ADB disconnection is not an
+acceptance gate: an attached cable neither proves nor disproves runtime
+independence. Acceptance evidence must identify the actual invocation path and
+keep connected diagnostic evidence separate from production-path acceptance.
+Ordinary installation, login and system permission setup may require user
+interaction, but ADB must not become a business runtime prerequisite.
 
 V1 platform scope is exactly four: 闲鱼商品, 小红书图文, 抖音视频, 微信公众号文章. Other platforms are frozen for V1.
 
@@ -44,6 +44,12 @@ Temporal worker into an LLM agent runner.
 - One root Worker is the controller. It owns task selection, shared contracts,
   resource locks, integration, final verification, evidence indexing, and plan
   updates.
+- For the user workflow frozen in D-15, the parent acts as planner, delegator
+  and reviewer, while the designated GPT-5.6 Sol / High worker executes approved
+  repository edits, builds and tests. This role split does not grant device,
+  production, deployment, release or side-effect authority; it does not bypass
+  locks, consent, version/identity/signature checks, no-send boundaries or the
+  single authoritative plan.
 - When the runtime exposes sub-agent delegation and two or more READY work
   items have disjoint write scopes, the controller must launch the independent
   sub-agents in one batch and wait only after all launches. Do not launch one

@@ -8,14 +8,15 @@
  "source_scope": "single-sheet audit + selected code + user APK/QA; R02 imports remaining workbook acceptance",
  "max_writers": 3,
  "production_runtime_constraint": {
-  "decision_id": "D-12",
-  "decided_at": "2026-09-26",
+  "decision_id": "D-15",
+  "decided_at": "2026-09-28",
   "adb_purpose": "DEVELOPMENT_DEBUG_ONLY",
   "runtime_requires_adb": false,
   "runtime_requires_development_computer_or_edge": false,
-  "business_acceptance_requires_adb_disconnected": true,
+  "business_acceptance_requires_adb_disconnected": false,
+  "business_acceptance_requires_no_adb_or_development_runner_invocation": true,
   "production_path": "网页/云端通过网络与已入网Companion通信，手机本地执行；系统安装、账号登录与权限由用户正常操作",
-  "limits": "这是交付约束，不是各业务已通过的声明；不得用ADB辅助结果替代脱离ADB的端到端验收，也不据此立即断开调试连接",
+  "limits": "这是交付约束，不是各业务已通过的声明；验收按实际调用路径判定，执行期间不得调用ADB、开发电脑runner或Edge；物理线缆是否连接不单独证明独立性，ADB辅助诊断证据必须与生产路径验收分开",
   "decision_record": "docs/current/scope-decisions.md"
  },
  "current_application_release": {
@@ -877,7 +878,7 @@
     "ISS-16"
    ],
    "risk": "中",
-      "device_acceptance": "未完成；2026-09-28一加9R已按用户确认原位升级business-acceptance.4，原绑定和权限保留，无障碍恢复绑定；维护期claim409导致同步服务停止，退出维护后一次ADB正常启动恢复心跳，脱敏日志共28次成功。Sol High维护恢复修复已整合19da0d8，主线debug1303/验收变体1289均通过，但未打包/装机，且测试不覆盖完整服务生命周期；已装v4不含此修复。本次接线恢复不算自主恢复或拔线验收。2026-09-26后台行为为历史证据；长期稳定性、实机断网和进程恢复仍待验，详见artifacts/three-device-20260928/controller.md",
+      "device_acceptance": "未完成；2026-09-28一加9R已按用户确认原位升级business-acceptance.4，原绑定和权限保留，无障碍恢复绑定；维护期claim409导致同步服务停止，退出维护后一次ADB正常启动恢复心跳，脱敏日志共28次成功。Sol High维护恢复修复已整合19da0d8，主线debug1303/验收变体1289均通过，但未打包/装机，且测试不覆盖完整服务生命周期；已装v4不含此修复。本次接线恢复仅为ADB辅助诊断，不是生产路径独立运行验收。2026-09-26后台行为为历史证据；长期稳定性、实机断网和进程恢复仍待验，详见artifacts/three-device-20260928/controller.md",
    "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
    "dev_state": "IN_PROGRESS",
    "acceptance_state": "DEVICE_WAIT",
@@ -2195,7 +2196,7 @@
     "ISS-22"
    ],
    "risk": "中",
-      "device_acceptance": "一加v3历史接线调试通过单屏3条、三屏10条采集及同键重放。2026-09-28一加9R已升级v4并恢复连接，本轮未重新采集订单；网页只读实际显示检查此前8/8通过，不等于全部业务验收。当前三机为一加9R/一加7/华为VOG，后两台仍未完成接入；真实断网恢复、最终拔线和订单身份/历史账号隔离待验。禁止发货/评价/交易写操作",
+      "device_acceptance": "一加v3历史接线调试通过单屏3条、三屏10条采集及同键重放。2026-09-28一加9R已升级v4并恢复连接，本轮未重新采集订单；网页只读实际显示检查此前8/8通过，不等于全部业务验收。当前三机为一加9R/一加7/华为VOG，后两台仍未完成接入；真实断网恢复、生产路径未调用ADB/开发电脑runner/Edge的证据和订单身份/历史账号隔离待验。禁止发货/评价/交易写操作",
    "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
    "dev_state": "IN_PROGRESS",
    "acceptance_state": "DEVICE_WAIT",
@@ -2206,9 +2207,9 @@
     "AGENTS.md"
    ],
    "baseline_sha": "4af3698c6f31f041c957a490a48adaeb71ca5ef1",
-   "scope_note": "可靠同步已部署order-delivery-557f547/0035；v2接收入口漏接已修复，v3 Business1270/Debug1284全通过并同签名安装。用户D-13要求直接接线测试：2026-09-26T16:55Z任务b067fca9-7ffa-49df-85b0-6c812fe4179c单屏3条、16:59Z任务5906545b-e755-4343-8ad9-a1db2d2bd3a5三屏10条均SUCCEEDED/SYNCED；连续回执、Web列表和详情API验证通过，同键重放任务/订单/回执及内容摘要不变。该历史轮次ADB仅预先打开一次Companion；任务377到379、外发23不变，云端空闲、fencing12已释放，维护false/version8。2026-09-28网页只读显示已8/8通过；一加9R升级v4并辅助恢复心跳，但未复跑订单，维护false/version10。按D-14另两台为一加7/华为VOG，不再沿用两华为口径。复合订单键不等于平台订单号，同人同标题同价可能碰撞；真实断网恢复、另两台接入、最终拔线、历史账号隔离和更新信任仍待完成，legacy保护已测试但未部署。后续继续接线调试，不每轮要求拔线。详见artifacts/order-device-20260927/connected-report.md及docs/current/three-device-execution-20260928.md。",
+   "scope_note": "可靠同步已部署order-delivery-557f547/0035；v2接收入口漏接已修复，v3 Business1270/Debug1284全通过并同签名安装。用户D-13要求直接接线测试：2026-09-26T16:55Z任务b067fca9-7ffa-49df-85b0-6c812fe4179c单屏3条、16:59Z任务5906545b-e755-4343-8ad9-a1db2d2bd3a5三屏10条均SUCCEEDED/SYNCED；连续回执、Web列表和详情API验证通过，同键重放任务/订单/回执及内容摘要不变。该历史轮次ADB仅预先打开一次Companion；任务377到379、外发23不变，云端空闲、fencing12已释放，维护false/version8。2026-09-28网页只读显示已8/8通过；一加9R升级v4并辅助恢复心跳，但未复跑订单，维护false/version10。按D-14另两台为一加7/华为VOG，不再沿用两华为口径。复合订单键不等于平台订单号，同人同标题同价可能碰撞；真实断网恢复、另两台接入、生产路径未调用ADB/开发电脑runner/Edge的证据、历史账号隔离和更新信任仍待完成，legacy保护已测试但未部署。后续接线调试可继续；按D-15不以物理拔线为验收门槛，但须记录实际调用路径。详见artifacts/order-device-20260927/connected-report.md及docs/current/three-device-execution-20260928.md。",
    "remaining_gates": [
-        "DEVICE_WAIT：一加v3历史接线单屏/三屏采集、云端交付和同键重放通过；一加9R现已v4，尚未复跑业务。按D-14当前另两台为一加7和华为VOG，其租户/账号/升级仍待处理；真实断网补传/进程恢复和最终无USB/无线ADB运行待验，不增加三台以外硬件门槛",
+        "DEVICE_WAIT：一加v3历史接线单屏/三屏采集、云端交付和同键重放通过；一加9R现已v4，尚未复跑业务。按D-14当前另两台为一加7和华为VOG，其租户/账号/升级仍待处理；真实断网补传/进程恢复及业务执行期间未调用ADB、开发电脑runner或Edge的路径证据待验，物理线缆状态不是门槛，不增加三台以外硬件门槛",
     "当前实际订单键为方向/昵称/标题/金额复合键，不是平台订单号；同人同标题同价的独立订单身份碰撞仍须单列解决",
         "网页2026-09-28已部署web-qa-e328929262e4，真实线上只读桌面/手机浏览器8/8通过；该结果不代表三机采集业务或全部网页交付",
     "完整历史订单按账号隔离仍需独立设计，不能凭新任务冻结账号声称历史数据已迁移",
