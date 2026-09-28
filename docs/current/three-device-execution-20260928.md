@@ -40,8 +40,8 @@ runner 或 Edge；物理线缆是否连接不是验收门槛，也不能单独�
 | 1B | 旧订单通道覆盖保护 | Sol High B | SOFTWARE_COMPLETE | 已整合 `944c773`；主仓库订单回归 115 passed / 3 SQLite-only skips，PG 并发测试通过；尚未部署 |
 | 1C | 手机与云端就绪预检 | 控制器 | IN_PROGRESS | 检查绑定、版本、租户、任务/租约、权限；无外部业务提交 |
 | 1D | 已核验的云端证书轮换兼容 | Sol High C | SOFTWARE_COMPLETE | 已整合 `7e2d985`；主线 debug 1294/1294、v4 验收变体 1280/1280；编译代码的生产 TLS/健康读取通过，不代表手机已更新 |
-| 1E | 维护模式拒领任务不停止心跳 | Sol High C 后续 | SOFTWARE_COMPLETE | v5 真机窗口 `FAILED/NOT_PROVEN`；真实八字段 envelope 与旧 classifier 不兼容。窄修复已实现并通过 debug 1307/1307、验收变体 1293/1293，但未组装 APK、安装、部署或真机复验，状态不提升 |
-| 2 | 恢复一加、统一验收版本 | 控制器 | PARTIAL_DEVICE | 一加 9R 当前已原位安装 v5，原绑定/设置保留；维护恢复实测失败且同步服务当前缺失，未获设备验收。v4 恢复心跳仅为历史证据；另两台未升级，租户/账号门禁保留 |
+| 1E | 维护模式拒领任务不停止心跳 | Sol High C 后续 | SOFTWARE_COMPLETE | v5 真机窗口 `FAILED/NOT_PROVEN` 保留为历史；八字段 envelope 兼容修复随后封装为 v6，并在一加 9R 单次受控窗口证明维护期延迟领任务后心跳持续及退出维护恢复。该证明仅覆盖一加 9R 维护恢复，不提升其余设备或业务验收状态 |
+| 2 | 恢复一加、统一验收版本 | 控制器 | PARTIAL_DEVICE | 一加 9R 当前已原位安装 v6，单次受控窗口已证明维护恢复，原绑定/身份/权限/设置及计数保持；该结果仅限一加 9R，另两台未升级且租户/账号门禁保留，三机统一验收仍未完成 |
 | 3 | 三机订单、通知、商品逐项联调 | 控制器 | WAIT_DEVICE | 每台手机→云端→网页，来源隔离、幂等、无外发；商品持久化缺口单列 |
 | 4 | 实机断网与进程恢复 | 控制器 | WAIT_DEVICE | 故障前/中/后同任务证据、无丢失/重传重复；导航不确定时安全暂停；其他设备不被阻塞 |
 | 5 | 订单碰撞与历史账号隔离 | Sol High 后续批次 | WAIT_CONTRACT | 明确真实订单号、弱身份策略和可证明归属；历史未知归属不猜测、不删除 |
@@ -150,9 +150,33 @@ ADB 接线且使用一次正常启动，不是独立恢复或最终拔线验收�
 - maintenance 已恢复 `false/version12`，fencing16 已以 `FREE/released_fencing=16`
   释放。原私有摘要的 `lockReleased=false` 是状态字判定错误，原证据保留；不存在锁泄漏。
 - 仅限 claim 端点、外层 409、精确 detail 且完整 envelope 的 status/code/type 一致
-  兼容修复已完成软件回归，尚未组装 APK、安装、部署或真机复验。下一顺序是审查/整合
-  该修复；在新的明确授权前不得重复安装或设备/云端写入。之后才可重新安排维护恢复、
-  只读订单、断网/进程恢复及生产路径独立性验收。
+  兼容修复在 v5 窗口结束时仅完成软件回归，尚未组装或真机复验；这是当时状态，原始
+  `FAILED/NOT_PROVEN` 证据保持不变。该修复后来封装为 v6 并完成下一节所述单次受控验收。
+
+## 一加 9R v6 维护恢复结果
+
+- 当前主线 `2b6538c` 已包含脱敏结果
+  `artifacts/three-device-20260928/v6-device-result.json`。候选为 clean source
+  `9c98c5f`、versionCode 6 / `0.1.0-business-acceptance.6`；完整 debug
+  1307/1307、businessAcceptance 1293/1293、assembly/vital lint 及聚焦 harness/锁测试
+  99 项均通过。
+- 控制器授权的唯一窗口为 `2026-09-28T17:52:31Z` 至 `17:54:38Z`，只对一加 9R
+  `b0644fb5` 执行一次原位安装；安装 attempts=1，未手动启动，也未导航、
+  `force-stop`、卸载、清数据、重启或改变网络。自动启动进程由 v5 PID `21512`
+  变为 v6 PID `1691`。
+- `maintenance=true/version13` 期间，PID 过滤日志记录 3 次成功心跳和 6 次维护延迟领任务；
+  5/5 运行样本均有前台同步服务和 user-0 无障碍精确绑定。恢复
+  `maintenance=false/version14` 后，同一 PID 再记录 3 次成功心跳，6/6 运行样本健康。
+  server journal 仍无目标归属，目标证明来自手机 PID 过滤日志，不将未归属日志冒充证据。
+- 活动绑定、租户、账号身份和绑定计数 `1/1/1` 保持；App ID、UID、首次安装时间、
+  12 条权限记录、4 项 secure 设置及任务379/外发23/订单14/回执6均保持。
+  最终全局/目标占用为空、receive-only notification 模式保持，锁为 `FREE`，
+  fencing17 已释放并独立回读确认。
+- 结果为一加 9R 的 `maintenanceRecovery=PROVEN` 与
+  `postMaintenancePresence=PROVEN`，只证明该机该维护恢复窗口。它不证明一加 7、
+  华为 VOG、三机业务交付、长期保活、断网补传、进程故障恢复、订单碰撞/历史账号隔离，
+  也不证明业务生产路径未调用 ADB、开发电脑 runner 或 Edge。按 D-15，物理拔线本身不是
+  验收门槛，仍须按实际调用路径补齐后续证据。
 
 ## 交付与停止条件
 

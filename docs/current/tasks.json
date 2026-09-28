@@ -878,7 +878,7 @@
     "ISS-16"
    ],
    "risk": "中",
-      "device_acceptance": "未完成；2026-09-28一加9R先原位升级business-acceptance.4并在一次ADB正常启动后记录28次成功心跳，该历史接线恢复不是生产路径独立运行验收。维护恢复修复19da0d8的v5候选随后在唯一受控窗口原位安装，原绑定、账号、权限、设置及任务379/外发23/订单14/回执6保持；但维护期仅1次确切目标心跳、0次deferral，同步服务随后消失，退出维护后150秒仍无服务或心跳，结果FAILED且maintenanceRecovery/postMaintenancePresence均NOT_PROVEN。只读诊断确认部署端八字段problem envelope与a3eb419单字段classifier不兼容；server journal无目标归属，不充当目标请求证明。软件兼容修复已实现并通过debug1307/验收变体1293完整单测，但未组装APK、安装、部署或真机复验。最终maintenance=false/version12、锁FREE/released_fencing=16；原私有lockReleased=false为报告判定缺陷而非锁泄漏。dev_state和acceptance_state不提升；新授权前禁止重复安装或设备/云端写入。2026-09-26后台行为为历史证据；长期稳定性、实机断网和进程恢复仍待验，详见artifacts/three-device-20260928/v5-device-result.json",
+      "device_acceptance": "未完成，acceptance_state保持DEVICE_WAIT。2026-09-28一加9R的v4接线恢复仅为历史证据；随后v5唯一受控窗口保留为FAILED/NOT_PROVEN：维护期仅1次确切目标心跳、0次deferral，同步服务消失，退出维护后150秒仍无服务或心跳。只读诊断确认八字段problem envelope与旧classifier不兼容。该兼容修复后来封装为v6；主线2b6538c所含单次受控结果证明仅一次原位安装且无手动启动，maintenance=true/version13期间PID过滤日志有3次成功心跳、6次维护延迟，5/5同步服务与user-0无障碍样本健康；恢复false/version14后同一PID再有3次成功心跳和6/6健康样本。绑定/租户/账号身份、权限/设置及任务379/外发23/订单14/回执6保持，锁FREE且fencing17释放。该结果只证明一加9R维护恢复，不证明长期稳定性、实机断网、进程故障恢复、其他两台设备或生产路径独立性；物理拔线不是验收门槛。详见artifacts/three-device-20260928/v5-device-result.json、artifacts/three-device-20260928/v6-device-result.json和artifacts/three-device-20260928/worker-v6-device.md",
    "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
    "dev_state": "IN_PROGRESS",
    "acceptance_state": "DEVICE_WAIT",
@@ -2196,7 +2196,7 @@
     "ISS-22"
    ],
    "risk": "中",
-      "device_acceptance": "一加v3历史接线调试通过单屏3条、三屏10条采集及同键重放；v4辅助恢复心跳也仅为历史证据。2026-09-28一加9R当前已原位安装v5，原绑定/账号/权限/设置及计数保持，但维护恢复窗口FAILED/NOT_PROVEN，同步服务缺失且退出维护后无确切目标心跳，本轮未重新采集订单。网页只读实际显示检查此前8/8通过，不等于全部业务验收。当前三机为一加9R/一加7/华为VOG，后两台仍未完成接入；真实断网恢复、生产路径未调用ADB/开发电脑runner/Edge的证据和订单身份/历史账号隔离待验。禁止发货/评价/交易写操作",
+      "device_acceptance": "一加v3历史接线调试通过单屏3条、三屏10条采集及同键重放；v4辅助恢复心跳和v5维护恢复FAILED/NOT_PROVEN窗口均保留为历史证据。主线2b6538c所含v6结果已在一加9R单次受控安装中证明maintenance=true/version13期间3次PID过滤成功心跳、6次维护延迟及5/5健康服务/无障碍样本，恢复false/version14后再有3次心跳和6/6健康样本；无手动启动，绑定/租户/账号身份及任务379/外发23/订单14/回执6保持，fencing17已释放。本窗口没有重新采集订单，只证明一加9R维护恢复，不等于订单、三机或生产路径独立性验收。网页只读实际显示检查此前8/8通过，不等于全部业务验收。当前三机为一加9R/一加7/华为VOG，后两台仍未完成接入；真实断网恢复、生产路径未调用ADB/开发电脑runner/Edge的证据和订单身份/历史账号隔离待验。禁止发货/评价/交易写操作",
    "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
    "dev_state": "IN_PROGRESS",
    "acceptance_state": "DEVICE_WAIT",
@@ -2207,9 +2207,9 @@
     "AGENTS.md"
    ],
    "baseline_sha": "4af3698c6f31f041c957a490a48adaeb71ca5ef1",
-   "scope_note": "可靠同步已部署order-delivery-557f547/0035；v2接收入口漏接已修复，v3 Business1270/Debug1284全通过并同签名安装。用户D-13要求直接接线测试：2026-09-26T16:55Z任务b067fca9-7ffa-49df-85b0-6c812fe4179c单屏3条、16:59Z任务5906545b-e755-4343-8ad9-a1db2d2bd3a5三屏10条均SUCCEEDED/SYNCED；连续回执、Web列表和详情API验证通过，同键重放任务/订单/回执及内容摘要不变。该历史轮次ADB仅预先打开一次Companion；任务377到379、外发23不变，云端空闲、fencing12已释放，维护false/version8。2026-09-28网页只读显示已8/8通过；一加9R的v4辅助恢复心跳保留为历史。当前已安装v5并保持绑定/设置/计数，但维护恢复FAILED/NOT_PROVEN、同步服务缺失；最终维护false/version12且fencing16已释放。软件兼容修复已实现并完成双变体完整单测，尚未组装APK、安装、部署或真机复验。按D-14另两台为一加7/华为VOG，不再沿用两华为口径。复合订单键不等于平台订单号，同人同标题同价可能碰撞；真实断网恢复、另两台接入、生产路径未调用ADB/开发电脑runner/Edge的证据、历史账号隔离和更新信任仍待完成，legacy保护已测试但未部署。后续设备/云端写入（安装、启动或状态变更）须重新授权；既有授权下的可选只读ADB诊断不在写入HOLD内。按D-15不以物理拔线为验收门槛，但须记录实际调用路径。详见artifacts/three-device-20260928/v5-device-result.json及docs/current/three-device-execution-20260928.md。",
+   "scope_note": "可靠同步已部署order-delivery-557f547/0035；v2接收入口漏接已修复，v3 Business1270/Debug1284全通过并同签名安装。用户D-13要求直接接线测试：2026-09-26T16:55Z任务b067fca9-7ffa-49df-85b0-6c812fe4179c单屏3条、16:59Z任务5906545b-e755-4343-8ad9-a1db2d2bd3a5三屏10条均SUCCEEDED/SYNCED；连续回执、Web列表和详情API验证通过，同键重放任务/订单/回执及内容摘要不变。该历史轮次ADB仅预先打开一次Companion；任务377到379、外发23不变，云端空闲、fencing12已释放，维护false/version8。2026-09-28网页只读显示已8/8通过；一加9R的v4辅助恢复及v5 FAILED/NOT_PROVEN窗口保留为历史。主线2b6538c所含v6单次受控结果已证明该机维护期3次PID过滤心跳、6次维护延迟及退出维护后的3次心跳，全部服务/无障碍样本健康，无手动启动，身份/设置/计数保持，最终maintenance=false/version14且fencing17释放。本次未重新采集订单，且仅覆盖一加9R维护恢复。按D-14另两台为一加7/华为VOG，不再沿用两华为口径。复合订单键不等于平台订单号，同人同标题同价可能碰撞；真实断网恢复、另两台接入、生产路径未调用ADB/开发电脑runner/Edge的证据、历史账号隔离和更新信任仍待完成，legacy保护已测试但未部署。后续设备/云端写入仍须按控制器授权和锁执行；既有授权下的可选只读ADB诊断不在写入HOLD内。按D-15不以物理拔线为验收门槛，但须记录实际调用路径。详见artifacts/three-device-20260928/v5-device-result.json、v6-device-result.json及docs/current/three-device-execution-20260928.md。",
    "remaining_gates": [
-        "DEVICE_WAIT：一加v3历史接线单屏/三屏采集、云端交付和同键重放通过；一加9R当前已安装v5但维护恢复FAILED/NOT_PROVEN、同步服务缺失，尚未复跑业务，软件兼容修复也尚未构建或安装。按D-14当前另两台为一加7和华为VOG，其租户/账号/升级仍待处理；真实断网补传/进程恢复及业务执行期间未调用ADB、开发电脑runner或Edge的路径证据待验，物理线缆状态不是门槛，不增加三台以外硬件门槛",
+        "DEVICE_WAIT：一加v3历史接线单屏/三屏采集、云端交付和同键重放通过；一加9R已安装v6并证明该机维护恢复，但本窗口未复跑订单业务，也未证明真实断网补传、进程故障恢复或业务执行期间未调用ADB、开发电脑runner或Edge。按D-14当前另两台为一加7和华为VOG，其租户/账号/升级仍待处理；物理线缆状态不是门槛，不增加三台以外硬件门槛",
     "当前实际订单键为方向/昵称/标题/金额复合键，不是平台订单号；同人同标题同价的独立订单身份碰撞仍须单列解决",
         "网页2026-09-28已部署web-qa-e328929262e4，真实线上只读桌面/手机浏览器8/8通过；该结果不代表三机采集业务或全部网页交付",
     "完整历史订单按账号隔离仍需独立设计，不能凭新任务冻结账号声称历史数据已迁移",
