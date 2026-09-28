@@ -20,5 +20,19 @@
     "versionName": "0.1.0-business-acceptance.5",
     "sha256": "8b40b9284be9f6f7aca812792ff9315d9376803b9c6ec3d1ad9190241e0e5b0f"
   },
-  "status": "BUILT_NOT_INSTALLED"
+  "actualAcceptance": {
+    "status": "PROVEN",
+    "installAttempts": 1,
+    "startedAtUtc": "2026-09-28T17:52:31.984351+00:00",
+    "finishedAtUtc": "2026-09-28T17:54:38.728956+00:00",
+    "postInstallProcessId": "1691",
+    "maintenanceHeartbeatCount": 3,
+    "maintenanceDeferralCount": 6,
+    "postMaintenanceHeartbeatCount": 3,
+    "finalMaintenance": false,
+    "finalMaintenanceVersion": 14,
+    "lockReleased": true,
+    "fencing": 17
+  },
+  "status": "INSTALLED_ACCEPTANCE_PROVEN"
 }

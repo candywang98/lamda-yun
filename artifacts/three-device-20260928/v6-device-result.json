@@ -1,0 +1,83 @@
+{
+  "schema": "cloudctl-oneplus-v6-device-acceptance-result/1",
+  "target": {
+    "serial": "b0644fb5",
+    "model": "LE2100",
+    "cloudDeviceId": "4aabc387-6e4b-4b59-a525-b1c119ec7f5b"
+  },
+  "result": {
+    "status": "PROVEN",
+    "maintenanceRecovery": "PROVEN",
+    "postMaintenancePresence": "PROVEN",
+    "startedAtUtc": "2026-09-28T17:52:31.984351+00:00",
+    "finishedAtUtc": "2026-09-28T17:54:38.728956+00:00",
+    "startedAtAsiaShanghai": "2026-09-29T01:52:31.984351+08:00",
+    "finishedAtAsiaShanghai": "2026-09-29T01:54:38.728956+08:00"
+  },
+  "install": {
+    "attempts": 1,
+    "startedAtUtc": "2026-09-28T17:52:41.551889+00:00",
+    "finishedAtUtc": "2026-09-28T17:52:45.191940+00:00",
+    "manualLaunch": false
+  },
+  "installedIdentity": {
+    "package": "com.company.cloudctl.companion",
+    "versionCode": 6,
+    "versionName": "0.1.0-business-acceptance.6",
+    "apkSha256": "057ec5a303d447dbf7bdf74cd21d5e2c0d003a76a2de20987f516b4bc73dad0d",
+    "signerSha256": "67a6d9af9e400326e1254b87ea310f34b1a1395664ca89424f141dbabba57796",
+    "sourceRevision": "9c98c5f",
+    "sourceDirty": false
+  },
+  "runtime": {
+    "beforeProcessId": "21512",
+    "postInstallProcessId": "1691",
+    "maintenanceHeartbeatCount": 3,
+    "maintenanceDeferralCount": 6,
+    "maintenanceRuntimeSamples": 5,
+    "postMaintenanceHeartbeatCount": 3,
+    "postMaintenanceRuntimeSamples": 6,
+    "allRuntimeSamplesHealthy": true,
+    "syncServiceForeground": true,
+    "accessibilityEnabled": true,
+    "accessibilityBound": true,
+    "accessibilityCrashed": false
+  },
+  "maintenance": {
+    "before": {"enabled": false, "version": 12},
+    "owned": {"enabled": true, "version": 13},
+    "final": {"enabled": false, "version": 14}
+  },
+  "preservation": {
+    "activeBinding": true,
+    "tenant": true,
+    "bindingAccountIdentity": true,
+    "activeBindingCount": 1,
+    "accountBindingCount": 1,
+    "boundAccountCount": 1,
+    "appId": true,
+    "uid": true,
+    "firstInstallTime": true,
+    "permissionGrants": true,
+    "secureSettings": true,
+    "businessCounts": {
+      "mobileTasks": 379,
+      "outgoingMessages": 23,
+      "deviceOrders": 14,
+      "deviceReceipts": 6
+    }
+  },
+  "finalGates": {
+    "globalOccupancyIdle": true,
+    "targetOccupancyIdle": true,
+    "receiveOnly": true,
+    "mode": "NOTIFICATION",
+    "enabled": true,
+    "businessTaskCreated": false,
+    "serverJournalTargetAttribution": false,
+    "lockState": "FREE",
+    "lockReleased": true,
+    "releasedFencing": 17,
+    "independentReadbackAtUtc": "2026-09-28T17:55:32.965403+00:00"
+  }
+}

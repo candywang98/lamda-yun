@@ -54,9 +54,42 @@
   failures/errors/skips; assemble and all vital lint tasks succeeded.
 - Focused Python harness plus lock tests: `99 passed`.
 
-## Hold
+## Actual controlled window
 
-The APK is built but not installed. No device lock was acquired, maintenance
-was not changed, and no installer was invoked after the coordinator hold.
-Real mutation requires review of this committed harness and a new explicit
-execution delegation.
+- Parent final review lifted the hold for one exact window. The committed
+  harness was invoked once with `--approved-controller-window`; exit code was
+  `0` and status was `PROVEN`.
+- Window: `2026-09-28T17:52:31.984351Z` through
+  `2026-09-28T17:54:38.728956Z` (`2026-09-29 01:52:31` through `01:54:38`
+  Asia/Shanghai). Install ran once from `17:52:41.551889Z` through
+  `17:52:45.191940Z`.
+- Device lock fencing was `17`; exact release succeeded and independent status
+  readback was `FREE`.
+- Maintenance CAS was acknowledged at `false/12 -> true/13`; owned finish
+  produced `false/14`.
+- The automatic post-install process changed from degraded v5 PID `21512` to
+  v6 PID `1691`. No manual launch, navigation, force-stop, uninstall, data
+  clear, reboot or network change was used.
+- Maintenance observation recorded 3 exact successful heartbeats and 6 exact
+  maintenance deferrals for PID `1691`. All 5 runtime samples had the exact
+  foreground sync service and user-0 accessibility binding.
+- Post-maintenance observation recorded 3 further exact successful heartbeats
+  for the same PID and 6/6 healthy runtime samples. Server journal events are
+  retained as context with `targetAttribution=false`; phone PID-filtered logs
+  are the target evidence.
+- Installed version/hash/signer are exactly v6. App ID, UID `10269`, first
+  install time, 12 permission-grant entries and all four secure-setting values
+  were byte-for-byte preserved by harness comparison.
+- Binding/account/tenant identity remained retained with counts `1/1/1`;
+  aggregate business counts remained `379/23/14/6`; complete global and target
+  occupancy maps remained zero; receive-only notification mode remained
+  enabled.
+- Independent final readback at `2026-09-28T17:55:32.965403Z` confirmed
+  `maintenance=false/version14`, PID `1691`, healthy foreground sync and
+  accessibility binding, exact v6 APK identity, retained identity/counts and
+  lock `FREE`.
+
+Raw package/settings/cloud snapshots remain only under the private external
+run directory. The committed sanitized result is
+`artifacts/three-device-20260928/v6-device-result.json`. No integration or push
+has been performed.
