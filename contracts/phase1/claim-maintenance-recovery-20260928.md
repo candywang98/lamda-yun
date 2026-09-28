@@ -42,3 +42,36 @@ Use executable service/call-path coverage, not only an unused classifier test.
 Worker uses GPT-5.6 Sol / High in its isolated worktree. No ADB/SSH, real
 network, production deployment or device operations. Controller owns version,
 APK build/install and real maintenance-enter/exit acceptance.
+
+## 2026-09-28 Amendment: Deployed Problem Envelope
+
+The original v5 acceptance window remains historical evidence and is not
+rewritten: versionCode 5 installed in place, the exact target emitted one
+heartbeat and zero maintenance-deferral logs, then the sync service disappeared.
+Maintenance recovery and post-maintenance presence were both `NOT_PROVEN`.
+Independent cleanup verified maintenance `false/version12` and device lock
+`FREE` with the exact released fencing `16`.
+
+Read-only diagnosis confirmed a response-shape incompatibility. The deployed
+`order-delivery-557f547` handler serializes `ConflictError` as an eight-field
+`application/problem+json` object, while the first fix accepted only a
+single-field `{"detail": ...}` body. The deployed structure is now part of the
+frozen compatibility boundary:
+
+1. Deferral still requires the exact claim endpoint, actual outer HTTP `409`,
+   and the exact string detail. No other endpoint or status is special.
+2. Preserve the legacy detail-only body. A full envelope is accepted only when
+   its complete verified field set is present and semantic `status`, `code`,
+   `type`, `detail`, `retryable`, and `fields` values/types are consistent with
+   the deployed conflict response.
+3. `title` and `correlation_id` values are request metadata, not maintenance
+   identity, but they must retain their verified string types.
+4. Missing/extra fields, malformed JSON, inconsistent or wrongly typed semantic
+   fields, unrelated `409`, outer `401/403`, and other endpoints fail closed on
+   their prior paths.
+5. The existing no-enqueue, no-local-execution, bounded deferral, keep-presence,
+   and later ordinary-claim behavior remains unchanged.
+
+This amendment authorizes software and test changes only. It does not authorize
+an APK rebuild, install, deployment, device/cloud write, acceptance promotion,
+or reinterpretation of the failed v5 window.

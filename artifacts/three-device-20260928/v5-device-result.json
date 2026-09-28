@@ -81,6 +81,31 @@
     "originalPrivateSummaryPreserved": true,
     "reportingBug": "The committed harness expected state=RELEASED although device_lock.py returns state=FREE with released_fencing. Independent release evidence proves no lock leak."
   },
+  "softwareFollowUp": {
+    "status": "IMPLEMENTED_TESTED_NOT_PACKAGED",
+    "runtimeScope": "ClaimMaintenanceRecovery.kt only",
+    "sharedFixture": "mobile/companion/app/src/test/resources/claim-maintenance-problem.json",
+    "backendContractTest": "tests/integration/test_claim_maintenance_problem_contract.py",
+    "redTest": "The deployed eight-field envelope failed before the classifier change with CloudHttpException.",
+    "debugUnitTests": {
+      "suites": 175,
+      "tests": 1307,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "businessAcceptanceUnitTests": {
+      "suites": 175,
+      "tests": 1293,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "apkAssembled": false,
+    "installed": false,
+    "deployed": false,
+    "deviceRetested": false
+  },
   "acceptanceStateChanged": false,
   "furtherDeviceOrCloudWritesAuthorized": false
 }

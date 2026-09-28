@@ -3,6 +3,8 @@ package com.company.cloudctl.companion.service
 import com.company.cloudctl.companion.network.ClaimedTask
 import com.company.cloudctl.companion.network.CloudHttpException
 import kotlinx.coroutines.runBlocking
+import org.json.JSONArray
+import org.json.JSONObject
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -31,12 +33,30 @@ class ClaimMaintenanceRecoveryTest {
     }
 
     @Test
+    fun deployedProblemEnvelopeDefersWithoutLocalSideEffects() = runBlocking {
+        val recording = Recording()
+
+        val result = runSyncClaimPass(
+            claimRequest = { throw maintenanceProblemDenied() },
+            acceptClaim = recording::accept,
+            executeLocal = recording::execute,
+            deferMaintenance = recording::defer,
+        )
+
+        assertIs<SyncClaimPassResult.MaintenanceDeferred>(result)
+        assertEquals(0, recording.enqueued)
+        assertEquals(0, recording.finished)
+        assertEquals(0, recording.executed)
+        assertEquals(1, recording.deferred)
+    }
+
+    @Test
     fun laterOrdinaryClaimUsesNormalAcceptanceAndExecutionPath() = runBlocking {
         val recording = Recording()
         var attempts = 0
         val request: suspend () -> ClaimedTask? = {
             attempts += 1
-            if (attempts == 1) throw maintenanceDenied() else CLAIMED_TASK
+            if (attempts == 1) throw maintenanceProblemDenied() else CLAIMED_TASK
         }
 
         assertIs<SyncClaimPassResult.MaintenanceDeferred>(
@@ -130,6 +150,56 @@ class ClaimMaintenanceRecoveryTest {
     }
 
     @Test
+    fun inconsistentProblemSemanticsRemainRejected() = runBlocking {
+        listOf(
+            problemEnvelope { put("status", 422) },
+            problemEnvelope { put("status", "409") },
+            problemEnvelope { put("status", true) },
+            problemEnvelope { put("code", "OTHER") },
+            problemEnvelope { put("code", 409) },
+            problemEnvelope { put("type", "urn:cloudctl:problem:other") },
+            problemEnvelope { put("type", 409) },
+            problemEnvelope { put("detail", 409) },
+            problemEnvelope { put("retryable", true) },
+            problemEnvelope { put("retryable", "false") },
+            problemEnvelope { put("fields", JSONArray()) },
+            problemEnvelope { put("fields", JSONObject().put("reason", "other")) },
+        ).forEach { body ->
+            assertPassRethrows(CloudHttpException(409, body))
+        }
+    }
+
+    @Test
+    fun malformedOrExtendedProblemEnvelopeRemainsRejected() = runBlocking {
+        listOf(
+            problemEnvelope { remove("type") },
+            problemEnvelope { remove("title") },
+            problemEnvelope { remove("status") },
+            problemEnvelope { remove("code") },
+            problemEnvelope { remove("detail") },
+            problemEnvelope { remove("correlation_id") },
+            problemEnvelope { remove("retryable") },
+            problemEnvelope { remove("fields") },
+            problemEnvelope { put("extra", true) },
+            problemEnvelope { put("correlation_id", 7) },
+            problemEnvelope { put("title", JSONObject.NULL) },
+            "{",
+        ).forEach { body ->
+            assertPassRethrows(CloudHttpException(409, body))
+        }
+    }
+
+    @Test
+    fun cosmeticProblemMetadataValuesAreNotMaintenanceIdentity() = runBlocking {
+        val body = problemEnvelope {
+            put("title", "Conflict")
+            put("correlation_id", "request-specific-value")
+        }
+
+        assertTrue(isExactMaintenanceClaimDenial(TASK_CLAIM_ENDPOINT, CloudHttpException(409, body)))
+    }
+
+    @Test
     fun wrongStatusAndUnrelated409RemainRejected() = runBlocking {
         assertPassRethrows(CloudHttpException(422, maintenanceBody()))
         assertPassRethrows(CloudHttpException(409, "{\"detail\":\"DEVICE_REMOTE\"}"))
@@ -138,20 +208,24 @@ class ClaimMaintenanceRecoveryTest {
     @Test
     fun authenticationErrorsRemainAuthenticationErrors() = runBlocking {
         listOf(401, 403).forEach { status ->
-            val error = CloudHttpException(status, maintenanceBody())
-            assertTrue(error.authenticationRejected)
-            assertSame(error, capturePassFailure(error))
+            listOf(maintenanceBody(), maintenanceProblemBody()).forEach { body ->
+                val error = CloudHttpException(status, body)
+                assertTrue(error.authenticationRejected)
+                assertSame(error, capturePassFailure(error))
+            }
         }
     }
 
     @Test
     fun maintenanceBodyIsNotSpecialOutsideClaimEndpoint() {
-        assertFalse(
-            isExactMaintenanceClaimDenial(
-                endpoint = "/companion/v2/devices/heartbeat",
-                error = maintenanceDenied(),
-            ),
-        )
+        listOf(maintenanceDenied(), maintenanceProblemDenied()).forEach { error ->
+            assertFalse(
+                isExactMaintenanceClaimDenial(
+                    endpoint = "/companion/v2/devices/heartbeat",
+                    error = error,
+                ),
+            )
+        }
     }
 
     private suspend fun assertPassRethrows(error: CloudHttpException) {
@@ -202,6 +276,17 @@ class ClaimMaintenanceRecoveryTest {
 
         fun maintenanceBody(): String = "{\"detail\":\"$MAINTENANCE_DETAIL\"}"
 
+        fun maintenanceProblemBody(): String = checkNotNull(
+            ClaimMaintenanceRecoveryTest::class.java.classLoader
+                ?.getResourceAsStream("claim-maintenance-problem.json"),
+        ).bufferedReader().use { it.readText() }
+
+        fun problemEnvelope(mutate: JSONObject.() -> Unit): String =
+            JSONObject(maintenanceProblemBody()).apply(mutate).toString()
+
         fun maintenanceDenied(): CloudHttpException = CloudHttpException(409, maintenanceBody())
+
+        fun maintenanceProblemDenied(): CloudHttpException =
+            CloudHttpException(409, maintenanceProblemBody())
     }
 }

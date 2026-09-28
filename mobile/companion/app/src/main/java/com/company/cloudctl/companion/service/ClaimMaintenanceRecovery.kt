@@ -6,6 +6,18 @@ import org.json.JSONObject
 
 internal const val TASK_CLAIM_ENDPOINT = "/companion/v2/tasks/claim"
 internal const val MAINTENANCE_CLAIM_DETAIL = "device is in maintenance and cannot claim tasks"
+private const val CONFLICT_PROBLEM_TYPE = "urn:cloudctl:problem:conflict"
+private const val CONFLICT_PROBLEM_CODE = "CONFLICT"
+private val PROBLEM_ENVELOPE_FIELDS = setOf(
+    "type",
+    "title",
+    "status",
+    "code",
+    "detail",
+    "correlation_id",
+    "retryable",
+    "fields",
+)
 
 internal sealed interface SyncClaimPassResult {
     data object MaintenanceDeferred : SyncClaimPassResult
@@ -22,8 +34,17 @@ internal fun isExactMaintenanceClaimDenial(
 ): Boolean {
     if (endpoint != TASK_CLAIM_ENDPOINT || error.status != 409) return false
     val body = runCatching { JSONObject(error.responseBody) }.getOrNull() ?: return false
-    if (body.length() != 1) return false
-    return body.opt("detail") == MAINTENANCE_CLAIM_DETAIL
+    val keys = body.keys().asSequence().toSet()
+    if (keys == setOf("detail")) return body.opt("detail") == MAINTENANCE_CLAIM_DETAIL
+    if (keys != PROBLEM_ENVELOPE_FIELDS) return false
+    return body.opt("type") == CONFLICT_PROBLEM_TYPE &&
+        body.opt("title") is String &&
+        body.opt("status") == 409 &&
+        body.opt("code") == CONFLICT_PROBLEM_CODE &&
+        body.opt("detail") == MAINTENANCE_CLAIM_DETAIL &&
+        body.opt("correlation_id") is String &&
+        body.opt("retryable") == false &&
+        body.optJSONObject("fields")?.length() == 0
 }
 
 /**

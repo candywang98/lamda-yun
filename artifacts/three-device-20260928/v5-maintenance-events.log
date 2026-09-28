@@ -7,4 +7,4 @@
 2026-09-28T16:35:01.858620Z post-maintenance observation began with service still absent
 2026-09-28T16:37:35.332072Z observation ended; maintenance heartbeat=1, deferral=0, post-maintenance heartbeat=0; FAILED/NOT_PROVEN
 2026-09-28T16:37:38Z maintenance=false/version12 verified; device lock state=FREE released_fencing=16
-2026-09-29 read-only diagnosis: deployed order-delivery-557f547 emits an eight-field problem envelope for ConflictError; installed a3eb419 classifier requires exactly one top-level field. Protocol mismatch CONFIRMED; attribution of contextual non-target journal 409 to this exact PID remains HIGH_CONFIDENCE_INFERENCE.
+post-window read-only diagnosis: deployed order-delivery-557f547 emits an eight-field problem envelope for ConflictError; installed a3eb419 classifier requires exactly one top-level field. Protocol mismatch CONFIRMED; attribution of contextual non-target journal 409 to this exact PID remains HIGH_CONFIDENCE_INFERENCE.

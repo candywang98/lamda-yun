@@ -1,0 +1,10 @@
+{
+  "type": "urn:cloudctl:problem:conflict",
+  "title": "ConflictError",
+  "status": 409,
+  "code": "CONFLICT",
+  "detail": "device is in maintenance and cannot claim tasks",
+  "correlation_id": "f65de983-0606-4706-a723-2d9d99604486",
+  "retryable": false,
+  "fields": {}
+}
