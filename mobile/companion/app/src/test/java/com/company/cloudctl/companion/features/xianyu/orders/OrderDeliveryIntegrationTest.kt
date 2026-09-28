@@ -198,6 +198,96 @@ class OrderDeliveryIntegrationTest {
         flush { assertEquals(2, it.getInt("screen")); ack(it) }
     }
 
+    @Test fun completedRunReopensOfflineAndReplaysEveryEnvelopeInOrder() = runBlocking {
+        val task = task(screens = 3)
+        enroll(task)
+        executor(Ui(listOf(listOf(a), listOf(b), listOf(a, b))), session(task))
+            .execute(task, journal = journal(task))
+        store.finish(task.taskId, true)
+        val expected = store.readableDatabase.rawQuery(
+            "SELECT kind,screen,payload_json,payload_sha256 FROM order_delivery_outbox ORDER BY id",
+            null,
+        ).use { cursor ->
+            buildList {
+                while (cursor.moveToNext()) add(listOf(
+                    cursor.getString(0), cursor.getInt(1).toString(),
+                    cursor.getString(2), cursor.getString(3),
+                ))
+            }
+        }
+        assertEquals(listOf("1", "2", "3", "0"), expected.map { it[1] })
+        flush { throw java.io.IOException("offline") }
+        store.close()
+        store = AutomationStore(context)
+        store.recoverInterruptedRuns()
+        assertNull(store.claimNext())
+        assertEquals(1, count("task_inbox", "terminal_state='SUCCEEDED'"))
+        flush { error("Persisted backoff must survive reopening") }
+        deliveryTime = deliveryTime.plusSeconds(301)
+
+        val received = mutableListOf<List<String>>()
+        for (index in expected.indices) {
+            var unconfirmed = ""
+            flush { unconfirmed = it.toString(); throw java.io.IOException("ACK lost") }
+            assertTrue(unconfirmed.isNotEmpty())
+            store.close()
+            store = AutomationStore(context)
+            deliveryTime = deliveryTime.plusSeconds(301)
+            flush {
+                assertEquals(unconfirmed, it.toString())
+                received += listOf(it.getString("kind"), it.getInt("screen").toString(),
+                    it.getString("payloadJson"), it.getString("payloadSha256"))
+                ack(it, replayed = true)
+            }
+            assertEquals(index + 1, count("order_delivery_outbox", "delivery_state='ACKED'"))
+        }
+        assertEquals(expected, received)
+        assertEquals("COMPLETE", received.last()[0])
+        assertEquals(3, JSONObject(received.last()[2]).getInt("totalScreens"))
+        flush { error("Acknowledged envelopes must not be sent again") }
+        assertEquals(4, count("order_delivery_outbox"))
+    }
+
+    @Test fun reopenedTerminalRunCannotUploadUnderNewEnrollment() = runBlocking {
+        val task = task(screens = 1)
+        store.commitOrderRead(enroll(task), read())
+        store.finish(task.taskId, true)
+        flush { throw CloudHttpException(401, "expired") }
+        store.close()
+        store = AutomationStore(context)
+        deliveryTime = deliveryTime.plusSeconds(301)
+        store.resumeOrderAuthentication("reenrolled")
+        OrderDeliverySender(store) { deliveryTime }.flush("reenrolled") {
+            error("New enrollment must not upload previous enrollment data")
+        }
+        flush { error("Old scope must remain paused until its authentication succeeds") }
+        assertEquals(1, count("order_delivery_outbox", "delivery_state='AUTH_REQUIRED'"))
+        assertEquals(2, count("order_delivery_outbox"))
+        store.resumeOrderAuthentication(scope)
+        val kinds = mutableListOf<String>()
+        repeat(2) { flush { kinds += it.getString("kind"); ack(it) } }
+        assertEquals(listOf("SCREEN", "COMPLETE"), kinds)
+        assertEquals(2, count("order_delivery_outbox", "delivery_state='ACKED'"))
+    }
+
+    @Test fun cancellationAfterTerminalCollectionReopensWithoutLosingComplete() = runBlocking {
+        val task = task(screens = 1)
+        store.commitOrderRead(enroll(task), read())
+        store.finish(task.taskId, true)
+        var interrupted = ""
+        assertFailsWith<CancellationException> {
+            flush { interrupted = it.toString(); throw CancellationException("service stopped") }
+        }
+        store.close()
+        store = AutomationStore(context)
+        store.recoverInterruptedRuns()
+        assertEquals(2, count("order_delivery_outbox", "delivery_state='PENDING' AND attempt_count=0"))
+        flush { assertEquals(interrupted, it.toString()); ack(it, replayed = true) }
+        flush { assertEquals("COMPLETE", it.getString("kind")); ack(it) }
+        assertEquals(2, count("order_delivery_outbox", "delivery_state='ACKED'"))
+        assertNull(store.claimNext())
+    }
+
     @Test fun everyAckIdentityFieldIsValidated() = runBlocking {
         val task = task(screens = 1)
         store.commitOrderRead(enroll(task), read())

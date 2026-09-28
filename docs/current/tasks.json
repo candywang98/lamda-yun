@@ -34,6 +34,13 @@
   "decided_at": "2026-09-26",
   "authorized_by": "用户确认本期三台足够，取消五台/十台数量门槛",
   "physical_device_target": 3,
+  "execution_scope_decision_id": "D-14",
+  "execution_plan": "docs/current/three-device-execution-20260928.md",
+  "physical_device_serials": [
+   "b0644fb5",
+   "15faee1d",
+   "APH0219624006517"
+  ],
   "requires_five_or_ten_devices": false,
   "future_expansion_requires_full_fleet_retest": false,
   "expansion_policy": "每台新增设备做入网、绑定、权限、实际收消息检查；新机型/系统/App版本补代表性兼容验证；容量按目标心跳/消息速率在隔离环境压测并分批接入，不要求所有设备逐台重跑完整验收",
