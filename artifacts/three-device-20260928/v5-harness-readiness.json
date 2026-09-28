@@ -1,0 +1,55 @@
+{
+  "schema": "cloudctl-oneplus-v5-harness-readiness/1",
+  "baseline": "8d74987c2ae0bdc7dc3bbec88df50c8e52910833",
+  "branch": "agent/sol-v5-device-20260928",
+  "target": {
+    "serial": "b0644fb5",
+    "deviceId": "4aabc387-6e4b-4b59-a525-b1c119ec7f5b",
+    "model": "LE2100"
+  },
+  "candidate": {
+    "sha256": "8b40b9284be9f6f7aca812792ff9315d9376803b9c6ec3d1ad9190241e0e5b0f",
+    "versionCode": 5,
+    "versionName": "0.1.0-business-acceptance.5",
+    "signerSha256": "67a6d9af9e400326e1254b87ea310f34b1a1395664ca89424f141dbabba57796",
+    "sourceRevision": "a3eb419"
+  },
+  "verification": {
+    "focusedHarnessTests": 65,
+    "focusedHarnessAndDeviceLockTests": 87,
+    "failures": 0,
+    "ruff": "passed",
+    "compileall": "passed",
+    "readOnlyParserSmoke": {
+      "singleExactProcess": true,
+      "syncServicePresent": true,
+      "syncServiceForeground": true,
+      "accessibilityBound": true,
+      "accessibilityEnabled": true,
+      "accessibilityCrashed": false,
+      "logcatTimeSelectorAccepted": true,
+      "deviceEpochFormat": "+%s.%3N",
+      "rawLogRetained": false
+    }
+  },
+  "ownershipModel": {
+    "prepareCasAcknowledgementRequired": true,
+    "privateWindowOwnershipRecordRequired": true,
+    "ambiguousPrepareResponseCleanupAllowed": false,
+    "externalVersion11CleanupAllowed": false,
+    "ownedExitRequiresBindingAndTenantSafety": true,
+    "ownedExitBlockedByAggregateCountDrift": false
+  },
+  "observationBoundaries": {
+    "phoneEventsUseDeviceEpoch": true,
+    "serverJournalUsesHostEpoch": true,
+    "strictlyAfterDeviceWatermark": true,
+    "exactPidPriorityTagAndMessage": true,
+    "logcatCleared": false
+  },
+  "realMutationHold": true,
+  "maintenanceChanged": false,
+  "candidateInstalled": false,
+  "manualLaunch": false,
+  "businessTaskCreated": false
+}
