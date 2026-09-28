@@ -466,61 +466,63 @@ onUnmounted(() => {
       </span>
     </div>
 
-    <table class="orders-table">
-      <thead>
-        <tr>
-          <th>订单号</th>
-          <th>商品</th>
-          <th>对方</th>
-          <th>金额</th>
-          <th>状态</th>
-          <th>时间</th>
-        </tr>
-      </thead>
-      <tbody>
-        <template v-for="row in orders" :key="row.id">
-          <tr
-            class="orders-row"
-            :class="{ expanded: expandedId === row.id }"
-            @click="toggleExpanded(row.id)"
-          >
-            <td class="orders-key">{{ row.orderKey }}</td>
-            <td class="orders-title">{{ row.itemTitle ?? '—' }}</td>
-            <td>{{ row.buyerName ?? '—' }}</td>
-            <td class="orders-amount">{{ formatOrderAmount(row.amountCents) }}</td>
-            <td>
-              <span class="orders-status">{{ row.statusText ?? '—' }}</span>
-              <span class="orders-direction" :data-direction="row.direction">{{ orderDirectionLabel(row.direction) }}</span>
-            </td>
-            <td>{{ formatOrderTime(row.occurredAt) }}</td>
+    <div class="table-wrap" role="region" aria-label="订单列表" tabindex="0">
+      <table class="orders-table">
+        <thead>
+          <tr>
+            <th>订单号</th>
+            <th>商品</th>
+            <th>对方</th>
+            <th>金额</th>
+            <th>状态</th>
+            <th>时间</th>
           </tr>
-          <tr v-if="expandedId === row.id" class="orders-detail">
-            <td colspan="6">
-              <p v-if="detailLoading" class="yy-sub">详情加载中…</p>
-              <p v-else-if="detailError" class="yy-error">{{ detailError }}</p>
-              <template v-else-if="detail">
-                <dl class="orders-fields">
-                  <div><dt>订单号</dt><dd>{{ detail.orderKey }}</dd></div>
-                  <div><dt>平台 / 方向</dt><dd>{{ detail.platform }} / {{ orderDirectionLabel(detail.direction) }}</dd></div>
-                  <div><dt>商品标题</dt><dd>{{ detail.itemTitle ?? '—' }}</dd></div>
-                  <div><dt>对方昵称</dt><dd>{{ detail.buyerName ?? '—' }}</dd></div>
-                  <div><dt>金额（分）</dt><dd>{{ detail.amountCents ?? '—' }}（{{ formatOrderAmount(detail.amountCents) }}）</dd></div>
-                  <div><dt>页面状态</dt><dd>{{ detail.statusText ?? '—' }}</dd></div>
-                  <div><dt>页面时间</dt><dd>{{ detail.occurredAt ?? '—' }}</dd></div>
-                  <div><dt>上报设备</dt><dd>{{ detail.deviceId }}</dd></div>
-                  <div><dt>入库 / 更新</dt><dd>{{ detail.createdAt }} / {{ detail.updatedAt }}</dd></div>
-                </dl>
-                <p class="yy-sub orders-raw-label">行原文快照（raw，最小化保存）：</p>
-                <pre class="orders-raw">{{ rawJson(detail) }}</pre>
-              </template>
-            </td>
+        </thead>
+        <tbody>
+          <template v-for="row in orders" :key="row.id">
+            <tr
+              class="orders-row"
+              :class="{ expanded: expandedId === row.id }"
+              @click="toggleExpanded(row.id)"
+            >
+              <td class="orders-key">{{ row.orderKey }}</td>
+              <td class="orders-title">{{ row.itemTitle ?? '—' }}</td>
+              <td>{{ row.buyerName ?? '—' }}</td>
+              <td class="orders-amount">{{ formatOrderAmount(row.amountCents) }}</td>
+              <td>
+                <span class="orders-status">{{ row.statusText ?? '—' }}</span>
+                <span class="orders-direction" :data-direction="row.direction">{{ orderDirectionLabel(row.direction) }}</span>
+              </td>
+              <td>{{ formatOrderTime(row.occurredAt) }}</td>
+            </tr>
+            <tr v-if="expandedId === row.id" class="orders-detail">
+              <td colspan="6">
+                <p v-if="detailLoading" class="yy-sub">详情加载中…</p>
+                <p v-else-if="detailError" class="yy-error">{{ detailError }}</p>
+                <template v-else-if="detail">
+                  <dl class="orders-fields">
+                    <div><dt>订单号</dt><dd>{{ detail.orderKey }}</dd></div>
+                    <div><dt>平台 / 方向</dt><dd>{{ detail.platform }} / {{ orderDirectionLabel(detail.direction) }}</dd></div>
+                    <div><dt>商品标题</dt><dd>{{ detail.itemTitle ?? '—' }}</dd></div>
+                    <div><dt>对方昵称</dt><dd>{{ detail.buyerName ?? '—' }}</dd></div>
+                    <div><dt>金额（分）</dt><dd>{{ detail.amountCents ?? '—' }}（{{ formatOrderAmount(detail.amountCents) }}）</dd></div>
+                    <div><dt>页面状态</dt><dd>{{ detail.statusText ?? '—' }}</dd></div>
+                    <div><dt>页面时间</dt><dd>{{ detail.occurredAt ?? '—' }}</dd></div>
+                    <div><dt>上报设备</dt><dd>{{ detail.deviceId }}</dd></div>
+                    <div><dt>入库 / 更新</dt><dd>{{ detail.createdAt }} / {{ detail.updatedAt }}</dd></div>
+                  </dl>
+                  <p class="yy-sub orders-raw-label">行原文快照（raw，最小化保存）：</p>
+                  <pre class="orders-raw">{{ rawJson(detail) }}</pre>
+                </template>
+              </td>
+            </tr>
+          </template>
+          <tr v-if="showEmpty">
+            <td colspan="6" class="orders-empty">{{ emptyText }}</td>
           </tr>
-        </template>
-        <tr v-if="showEmpty">
-          <td colspan="6" class="orders-empty">{{ emptyText }}</td>
-        </tr>
-      </tbody>
-    </table>
+        </tbody>
+      </table>
+    </div>
 
     <footer v-if="orders.length > 0 || total > 0" class="orders-foot">
       <span class="yy-sub">已加载 {{ orders.length }} / 共 {{ total }} 条</span>
@@ -538,6 +540,12 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+.yy-page-head { flex-wrap: wrap; align-items: flex-start; }
+.yy-page-head > div { min-width: 0; max-width: 100%; }
+.yy-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.yy-field { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; }
+.yy-field > span { flex-shrink: 0; }
+.yy-field select, .yy-field input { min-width: 0; max-width: 100%; }
 .orders-collect {
   display: flex;
   align-items: center;
@@ -571,6 +579,7 @@ onUnmounted(() => {
 .orders-task-state[data-state='FAILED'] { border-color: #fecaca; background: #fef2f2; color: #991b1b; }
 .orders-table {
   width: 100%;
+  min-width: 720px;
   border-collapse: collapse;
   background: #fff;
 }
@@ -597,9 +606,10 @@ onUnmounted(() => {
   background: #f0fbf9;
 }
 .orders-key {
+  max-width: 240px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 12px;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 .orders-title {
   max-width: 280px;

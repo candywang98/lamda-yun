@@ -49,6 +49,35 @@ for (const role of ['device_operator', 'viewer']) {
   })
 }
 
+for (const route of ['/orders', '/im']) {
+  test(`${route} contains long device names and collected identifiers`, async ({ page }, info) => {
+    const logicalName = 'QA warehouse device with an unusually long enrollment label 1234567890'
+    await mockApi(page, async (request, url) => {
+      if (url.pathname === '/api/v1/devices') {
+        await request.fulfill({ json: [{ ...device, logicalName, logical_name: logicalName }] })
+      } else if (url.pathname === '/api/v1/orders') {
+        await request.fulfill({ json: { items: [{
+          id: 'qa-long-order', deviceId, platform: 'xianyu', direction: 'SOLD',
+          orderKey: `qa-${'collected-order-key-'.repeat(12)}`,
+          itemTitle: 'QA long item title '.repeat(12), buyerName: 'QA buyer',
+          amountCents: 10000, statusText: '待发货', occurredAt: '2026-09-28T00:00:00Z',
+          createdAt: '2026-09-28T00:00:00Z', updatedAt: '2026-09-28T00:00:00Z',
+        }], total: 1 } })
+      } else if (url.pathname === '/api/v1/im/threads') {
+        await request.fulfill({ json: { items: [], count: 0, bucketCounts: { all: 0, user: 0, notice: 0, review: 0 } } })
+      } else if (url.pathname === '/api/v1/im/config') {
+        await request.fulfill({ json: { deviceId, enabled: true, platforms: ['xianyu'], mode: 'NOTIFICATION', dutyStart: '09:00', dutyEnd: '23:00', receiveOnly: true } })
+      } else return false
+      return true
+    }, ['viewer'])
+    await page.goto(route)
+    await expect(page.getByRole('option', { name: `${logicalName}（${deviceId.slice(0, 8)}）` }).first()).toBeAttached()
+    if (route === '/orders') await expect(page.getByRole('cell', { name: 'QA buyer', exact: true })).toBeVisible()
+    else await expect(page.getByLabel('监听总开关')).toBeChecked()
+    await capture(page, info, `${route.slice(1)}-long-content`)
+  })
+}
+
 test('monitor config errors remain visible and can recover', async ({ page }, info) => {
   let configFailed = true
   await mockApi(page, async (route, url) => {

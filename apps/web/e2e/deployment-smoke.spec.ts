@@ -59,12 +59,12 @@ test.describe('authenticated read-only deployment smoke', () => {
       await expect(page.getByText('Control API 会话已验证', { exact: true })).toBeAttached()
       await expect(page.locator('.yy-content')).toBeVisible()
       await expect(page.locator('.notice-danger, .flash.error')).toHaveCount(0)
+      await page.screenshot({ path: info.outputPath(`${name}.png`), fullPage: true })
       expect(await page.evaluate(() => document.documentElement.scrollWidth))
         .toBeLessThanOrEqual(page.viewportSize()!.width + 1)
       expect(pageErrors).toEqual([])
       expect(apiErrors).toEqual([])
       expect(blockedWrites).toEqual([])
-      await page.screenshot({ path: info.outputPath(`${name}.png`), fullPage: true })
     })
   }
 })

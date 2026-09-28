@@ -17,7 +17,7 @@ import httpx
 
 ROOT = Path("/home/ubuntu/cloudctl-mobile")
 OLD_API = ROOT / "releases/order-delivery-557f547"
-OLD_WEB = Path("/var/www/cloudctl-mobile-order-delivery-557f547")
+OLD_WEB = Path("/var/www/cloudctl-mobile-web-qa-097d4ac68088")
 
 
 def load_operations():

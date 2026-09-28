@@ -706,6 +706,12 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.yy-page-head { flex-wrap: wrap; align-items: flex-start; }
+.yy-page-head > div { min-width: 0; max-width: 100%; }
+.yy-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.yy-field { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; }
+.yy-field > span { flex-shrink: 0; }
+.yy-field select, .yy-field input { min-width: 0; max-width: 100%; }
 .im-layout {
   display: grid;
   grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
