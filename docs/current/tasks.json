@@ -878,7 +878,7 @@
     "ISS-16"
    ],
    "risk": "中",
-      "device_acceptance": "未完成；2026-09-28一加9R已按用户确认原位升级business-acceptance.4，原绑定和权限保留，无障碍恢复绑定；维护期claim409导致同步服务停止，退出维护后一次ADB正常启动恢复心跳，脱敏日志共28次成功。Sol High维护恢复修复已整合19da0d8，主线debug1303/验收变体1289均通过，但未打包/装机，且测试不覆盖完整服务生命周期；已装v4不含此修复。本次接线恢复仅为ADB辅助诊断，不是生产路径独立运行验收。2026-09-26后台行为为历史证据；长期稳定性、实机断网和进程恢复仍待验，详见artifacts/three-device-20260928/controller.md",
+      "device_acceptance": "未完成；2026-09-28一加9R已按用户确认原位升级business-acceptance.4，原绑定和权限保留，无障碍恢复绑定；维护期claim409导致同步服务停止，退出维护后一次ADB正常启动恢复心跳，脱敏日志共28次成功。Sol High维护恢复修复已整合19da0d8；其v5候选已从源码a3eb419构建，debug1303/验收变体1289、vital lint及assembly均通过，但尚未安装，且测试不覆盖完整服务生命周期；已装v4不含此修复。本次接线恢复仅为ADB辅助诊断，不是生产路径独立运行验收。2026-09-26后台行为为历史证据；长期稳定性、实机断网和进程恢复仍待验，详见artifacts/three-device-20260928/controller.md",
    "rollback": "回退本切片提交；保留数据库和任务证据，不回退已发生的外部动作",
    "dev_state": "IN_PROGRESS",
    "acceptance_state": "DEVICE_WAIT",

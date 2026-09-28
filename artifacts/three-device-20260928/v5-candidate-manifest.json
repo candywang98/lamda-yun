@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "candidate": "businessAcceptance-v5",
+  "formalProductionRelease": false,
+  "builtAtUtc": "2026-09-28T15:13:58Z",
+  "baselineSha": "f45f5d29360b721ccbf0265e0b4291c96d91600d",
+  "maintenanceIntegrationSha": "19da0d82c163d4720042362ad1b5d208e321cf6f",
+  "candidateSourceSha": "a3eb41928c6b4f654d2c441f44aab5a483bb59bd",
+  "branch": "agent/sol-v5-candidate-20260928",
+  "sourceRevision": "a3eb419",
+  "sourceDirtyAtBuild": false,
+  "artifact": {
+    "privatePath": "/Users/wangziheng/CloudCtlExternal/acceptance/20260928-v5/cloudctl-business-acceptance-v5.apk",
+    "sizeBytes": 50954372,
+    "sha256": "8b40b9284be9f6f7aca812792ff9315d9376803b9c6ec3d1ad9190241e0e5b0f",
+    "applicationId": "com.company.cloudctl.companion",
+    "versionCode": 5,
+    "versionName": "0.1.0-business-acceptance.5",
+    "signerCertificateSha256": "67a6d9af9e400326e1254b87ea310f34b1a1395664ca89424f141dbabba57796"
+  },
+  "embeddedBuildConfig": {
+    "DEBUG": false,
+    "HEARTBEAT_DIAGNOSTIC": false,
+    "IM_UPLOAD_HOLD_ALLOWED": false,
+    "RECIPE_SIGNING_PUBLIC_KEYS": "{}"
+  },
+  "tests": {
+    "debug": {
+      "suites": 175,
+      "tests": 1303,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "businessAcceptance": {
+      "suites": 175,
+      "tests": 1289,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  },
+  "vitalLint": "PASS_NO_ISSUES",
+  "assembled": true,
+  "installed": false,
+  "deviceOrProductionOperationPerformed": false,
+  "limits": [
+    "Software candidate only; not a formal production release.",
+    "No APK install, ADB, SSH, device, account, tenant, task or production operation was performed.",
+    "Full Android Service lifecycle and maintenance enter/exit behavior remain controller acceptance gates."
+  ]
+}

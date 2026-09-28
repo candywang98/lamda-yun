@@ -19,7 +19,7 @@ This repository implements the architecture in `docs/reference/`. Keep the follo
 **Development/diagnostic only**:
 - **Edge + LAMDA** (`edge/gateway`, `packages/lamda-driver`): Studio live layout inspection and evidence preview. Not required for production task delivery. Must not hold a write lease when Companion is enrolled.
 
-User-confirmed delivery constraint (2026-09-28, D-15; refining D-12/D-13): ADB
+User-confirmed delivery constraint (2026-09-28, D-15; refining D-12/D-13/D-14): ADB
 is optional and may be used only for authorized development or diagnostics.
 Production collection, synchronization and authorized automation must run
 through the enrolled Companion and cloud without invoking ADB, a development-
