@@ -61,6 +61,38 @@ additional fail-closed handling before integration.
 The legacy-guard Sol task encountered provider quota failure and was resumed
 at the user's explicit request. Partial work is preserved in its worktree.
 
+## Controller Integration And Recheck
+
+The resumed legacy guard completed as `5948e57`, reviewed and integrated as
+`944c773`. The controller reran the following on the main integration tree:
+
+```text
+.venv/bin/python -m pytest -q -rs tests/integration/test_order_legacy_guard.py tests/integration/test_fleet_orders_pagination.py tests/integration/test_order_checkpoint_runs.py tests/integration/test_order_delivery.py tests/integration/test_orders_sync.py
+```
+
+Exit 0: 115 passed, 3 skipped in 39.88 seconds. The skips are the SQLite
+parameters of the three PostgreSQL row-lock cases; the PostgreSQL parameters
+passed against a disposable local cluster, not production.
+
+The preflight worker and its fail-closed review fixes are integrated as
+`97d2b6e` and `6db4900`. Controller rerun:
+`.venv/bin/python -m pytest -q tests/ops/test_three_device_preflight.py`,
+exit 0, 29 passed. Ruff for both packages' production and test files exited 0.
+
+At 12:37:15 UTC, a fresh cloud read still reports 379 tasks, 23 OUT messages,
+schema 0035 and zero active lease/task/schedule/preview/debug occupancy.
+All expected mobile bindings remain active; Huawei has no platform account
+binding and OnePlus7 remains in its original test tenant.
+
+The repeated three-serial ADB preflight exited 1 as intended: all three are
+authorized, but OnePlus9R accessibility is still crashed/not bound, OnePlus7
+is disabled/stopped, and Huawei's accessibility output remains UNKNOWN to
+the generic parser. No cloud-online or device-ready claim follows.
+
+No deployment, APK installation, tenant/account change, or business task was
+performed during this integration/recheck. The certificate worker retains
+the exclusive Gradle slot until its delivery.
+
 ## Remaining Gates
 
 Certificate-compatible APK and signature checks, OnePlus accessibility recovery,
