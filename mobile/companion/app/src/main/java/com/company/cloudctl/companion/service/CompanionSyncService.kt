@@ -493,6 +493,7 @@ class CompanionSyncService : Service() {
                 // receipt drain), rate-limited; best-effort like recipe sync.
                 runCatching { apkSyncTick() }
                     .onFailure { android.util.Log.w("CompanionSync", "APK update tick deferred: ${it.message}") }
+                var claimRequest: (suspend () -> ClaimedTask?)? = null
                 if (networkAvailability.isValidated()) {
                     try {
                         val executor = ControlledActionExecutor(store, PinnedControlledActionLedger(configured.first))
@@ -520,38 +521,55 @@ class CompanionSyncService : Service() {
                         !installWindowClaimSuspension &&
                         accessibilityRuntimeReadiness().capture() is AccessibilityRuntimeReadiness.Ready<*>
                     ) {
-                        claimed = withContext(Dispatchers.IO) { client.claim() }
+                        claimRequest = { withContext(Dispatchers.IO) { client.claim() } }
                     }
                 }
-                if (claimed != null) {
-                    val acceptedDeviceId = try {
-                        acceptedClaimDeviceId(claimed, configured.second)
-                    } catch (_: Exception) {
+                val claimPass = runSyncClaimPass(
+                    claimRequest = claimRequest,
+                    acceptClaim = { candidate ->
+                        val acceptedDeviceId = try {
+                            acceptedClaimDeviceId(candidate, configured.second)
+                        } catch (_: Exception) {
+                            store.enqueueTask(
+                                candidate.taskId,
+                                candidate.taskPayload,
+                                candidate.leaseId,
+                                candidate.lastSequence,
+                            )
+                            store.finish(candidate.taskId, false, "TASK_CONTRACT_REJECTED")
+                            runtimeStatus.updateTask(
+                                candidate.taskId,
+                                AuthorizedTaskState.Failed,
+                                "任务指令校验未通过",
+                                "TASK_CONTRACT_REJECTED",
+                            )
+                            return@runSyncClaimPass false
+                        }
+                        require(acceptedDeviceId == configured.second)
                         store.enqueueTask(
-                            claimed.taskId,
-                            claimed.taskPayload,
-                            claimed.leaseId,
-                            claimed.lastSequence,
+                            candidate.taskId,
+                            candidate.taskPayload,
+                            candidate.leaseId,
+                            candidate.lastSequence,
                         )
-                        store.finish(claimed.taskId, false, "TASK_CONTRACT_REJECTED")
                         runtimeStatus.updateTask(
-                            claimed.taskId,
-                            AuthorizedTaskState.Failed,
-                            "任务指令校验未通过",
-                            "TASK_CONTRACT_REJECTED",
+                            candidate.taskId,
+                            AuthorizedTaskState.Queued,
+                            "已收到云端任务",
+                            "TASK_QUEUED",
                         )
-                        continue
-                    }
-                    require(acceptedDeviceId == configured.second)
-                    store.enqueueTask(claimed.taskId, claimed.taskPayload, claimed.leaseId, claimed.lastSequence)
-                    runtimeStatus.updateTask(
-                        claimed.taskId,
-                        AuthorizedTaskState.Queued,
-                        "已收到云端任务",
-                        "TASK_QUEUED",
-                    )
-                }
-                val executed = runNext(client)
+                        true
+                    },
+                    executeLocal = { runNext(client) },
+                    deferMaintenance = {
+                        android.util.Log.i("CompanionSync", "claim deferred while device is in maintenance")
+                        delay(retryPolicy.nextDelayMillis())
+                    },
+                )
+                if (claimPass is SyncClaimPassResult.MaintenanceDeferred) continue
+                if (claimPass is SyncClaimPassResult.ClaimRejected) continue
+                claimed = (claimPass as SyncClaimPassResult.Completed).claimed
+                val executed = claimPass.executed
                 // pa-im/20260913.1: IM push must never block or fail the task loop.
                 runCatching { deliverImEvents(client) }
                     .onFailure { android.util.Log.w("CompanionSync", "IM push deferred", it) }
