@@ -9,7 +9,6 @@ import java.io.FileOutputStream
 import java.io.OutputStream
 import java.net.InetSocketAddress
 import java.net.URI
-import java.security.MessageDigest
 import java.security.cert.X509Certificate
 import javax.net.ssl.SSLContext
 import javax.net.ssl.SNIHostName
@@ -30,7 +29,7 @@ internal object PinnedHttpsTransport {
      * therefore connects by its literal IP; SNI/Host/cert-pin stay on the
      * domain so the Let's Encrypt certificate and pin remain valid.
      */
-    private const val PRODUCTION_HOST = "43.133.243.154.sslip.io"
+    private const val PRODUCTION_HOST = VerifiedCloudLeafPinPolicy.PRODUCTION_HOST
     private const val PRODUCTION_IP = "43.133.243.154"
 
     private fun connectAddress(host: String): String =
@@ -68,7 +67,7 @@ internal object PinnedHttpsTransport {
         require(uri.scheme == "https" && uri.host != null)
         val host = uri.host
         val port = if (uri.port > 0) uri.port else 443
-        val socket = pinnedContext(pin).socketFactory.createSocket() as SSLSocket
+        val socket = tlsConfiguration(pin, host).socketFactory.createSocket() as SSLSocket
         try {
             socket.soTimeout = readTimeoutMs
             ConnectivityDiagnosticTrace.record("transport_connect")
@@ -110,7 +109,7 @@ internal object PinnedHttpsTransport {
         require(uri.scheme == "https" && uri.host != null)
         val host = uri.host
         val port = if (uri.port > 0) uri.port else 443
-        val socket = pinnedContext(pin).socketFactory.createSocket() as SSLSocket
+        val socket = tlsConfiguration(pin, host).socketFactory.createSocket() as SSLSocket
         try {
             socket.soTimeout = readTimeoutMs
             socket.connect(InetSocketAddress(connectAddress(host), port), connectTimeoutMs)
@@ -323,34 +322,30 @@ internal object PinnedHttpsTransport {
         }
     }
 
-    /** p10-live/20260913.1: pinned factory for the live WebSocket client. */
-    fun pinnedSocketFactory(pin: String): SSLSocketFactory = pinnedContext(pin).socketFactory
+    data class TlsConfiguration(
+        val socketFactory: SSLSocketFactory,
+        val trustManager: X509TrustManager,
+    )
 
-    @Suppress("CustomX509TrustManager")
-    private fun pinnedContext(pin: String) = SSLContext.getInstance("TLS").apply {
-        val expected = pin.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
-        val trustManager = object : X509TrustManager {
-            override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
-            override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) = error("Not a TLS server")
-            override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) {
-                require(chain.isNotEmpty())
-                val actual = MessageDigest.getInstance("SHA-256").digest(chain.first().encoded)
-                check(MessageDigest.isEqual(actual, expected)) { "Cloud certificate fingerprint mismatch" }
-            }
+    /** Shared leaf-pin configuration for raw HTTP/file sockets and OkHttp WebSockets. */
+    fun tlsConfiguration(pin: String, actualHost: String?): TlsConfiguration {
+        val trustManager = PinnedTrustManager(pin, actualHost)
+        val context = SSLContext.getInstance("TLS").apply {
+            init(null, arrayOf<TrustManager>(trustManager), null)
         }
-        init(null, arrayOf<TrustManager>(trustManager), null)
+        return TlsConfiguration(context.socketFactory, trustManager)
     }
 }
 
-/** Public pinned trust manager for WS clients (p10-live/20260913.1). */
+/** Shared pinned trust manager for raw sockets and WS clients. */
 @Suppress("CustomX509TrustManager")
-class PinnedTrustManager(private val pin: String) : X509TrustManager {
+class PinnedTrustManager(
+    private val pin: String,
+    private val actualHost: String?,
+) : X509TrustManager {
     override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
     override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) = Unit
     override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) {
-        require(chain.isNotEmpty())
-        val expected = pin.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
-        val actual = MessageDigest.getInstance("SHA-256").digest(chain.first().encoded)
-        check(MessageDigest.isEqual(actual, expected)) { "Cloud certificate fingerprint mismatch" }
+        VerifiedCloudLeafPinPolicy.verify(pin, actualHost, chain)
     }
 }

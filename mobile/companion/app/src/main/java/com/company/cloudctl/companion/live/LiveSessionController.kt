@@ -13,6 +13,7 @@ import okhttp3.Request
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import org.json.JSONObject
+import java.net.URI
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 
@@ -61,6 +62,11 @@ class LiveSessionController(
         auditor = auditor,
         clock = clock,
     )
+    private val liveHost = URI(connection.baseUrl).let { uri ->
+        require(uri.scheme == "https" && uri.host != null)
+        uri.host
+    }
+    private val liveTls = PinnedHttpsTransport.tlsConfiguration(connection.certificateSha256, liveHost)
     private val client = OkHttpClient.Builder()
         .pingInterval(20, TimeUnit.SECONDS)
         // BLK-014 fix: same DNS-poisoning immunity as PinnedHttpsTransport —
@@ -75,8 +81,8 @@ class LiveSessionController(
                 }
         })
         .sslSocketFactory(
-            PinnedHttpsTransport.pinnedSocketFactory(connection.certificateSha256),
-            com.company.cloudctl.companion.network.PinnedTrustManager(connection.certificateSha256),
+            liveTls.socketFactory,
+            liveTls.trustManager,
         )
         .build()
     private var socket: AtomicReference<WebSocket?> = AtomicReference(null)
