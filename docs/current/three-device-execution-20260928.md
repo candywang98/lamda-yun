@@ -37,8 +37,8 @@ ADB 只用于开发调试。最终生产路径仍为云端与 Companion，脱离
 | 1A | 三机只读前置检查工具 | Sol High A | SOFTWARE_COMPLETE | 已整合 `97d2b6e` / `6db4900`；主仓库 29/29 测试通过；实际三机检查仍返回未就绪 |
 | 1B | 旧订单通道覆盖保护 | Sol High B | SOFTWARE_COMPLETE | 已整合 `944c773`；主仓库订单回归 115 passed / 3 SQLite-only skips，PG 并发测试通过；尚未部署 |
 | 1C | 手机与云端就绪预检 | 控制器 | IN_PROGRESS | 检查绑定、版本、租户、任务/租约、权限；无外部业务提交 |
-| 1D | 已核验的云端证书轮换兼容 | Sol High C | IN_PROGRESS | 精确域名/旧指纹/新指纹受控兼容；未知证书拒绝；不改绑定和补传 scope；HTTP/下载/WS 负例通过 |
-| 2 | 恢复一加、统一验收版本 | 控制器 | WAIT_PREFLIGHT | 绑定与数据保留、签名匹配、版本能力一致；缺系统权限时交由用户 |
+| 1D | 已核验的云端证书轮换兼容 | Sol High C | SOFTWARE_COMPLETE | 已整合 `7e2d985`；主线 debug 1294/1294、v4 验收变体 1280/1280；编译代码的生产 TLS/健康读取通过，不代表手机已更新 |
+| 2 | 恢复一加、统一验收版本 | 控制器 | WAIT_PREFLIGHT | v4 已构建且与一加 9R 已装 v3 同签名；尚未安装；另两台签名仍待核实，租户/账号/系统权限门禁保留 |
 | 3 | 三机订单、通知、商品逐项联调 | 控制器 | WAIT_DEVICE | 每台手机→云端→网页，来源隔离、幂等、无外发；商品持久化缺口单列 |
 | 4 | 实机断网与进程恢复 | 控制器 | WAIT_DEVICE | 故障前/中/后同任务证据、无丢失/重传重复；导航不确定时安全暂停；其他设备不被阻塞 |
 | 5 | 订单碰撞与历史账号隔离 | Sol High 后续批次 | WAIT_CONTRACT | 明确真实订单号、弱身份策略和可证明归属；历史未知归属不猜测、不删除 |
@@ -75,6 +75,28 @@ ADB 只用于开发调试。最终生产路径仍为云端与 Companion，脱离
   不猜测历史归属、不声称已修订单身份碰撞。
 - 验证：新回归及已有 orders sync/checkpoint/delivery 测试；
   PostgreSQL 验证只用隔离测试库。
+
+## 2026-09-28 集成结果
+
+- 1A、1B、1D 的软件交付均已整合；没有将任何任务改为 DEVICE_ACCEPTED。
+- 主线 v4 的 debug 1294 项和 business-acceptance 1280 项完整单测通过，
+  `assembleBusinessAcceptance` 和 vital lint 通过。版本为
+  `0.1.0-business-acceptance.4`，构建源码标记 `d200dc2-dirty`。
+  `dirty` 包含工作区原有未跟踪材料，不能称为全工作区 clean 构建。
+- 控制器使用实际编译的 `PinnedTrustManager`，验证生产叶证书、默认 CA/hostname、
+  旧 pin 到已核验新叶的 TLS 握手及无认证 `/health/ready` 读取；负例 3 项通过。
+  测试发生在开发电脑，不是手机、WebSocket 或断网恢复实测。
+- 后端候选采用已部署 `557f547` 加单个 `fleet_orders.py` 覆盖；核对 202 个运行时
+  Python 文件仅该文件不同。候选订单测试 115 passed / 3 SQLite-only skips。
+  后端尚未部署，不以主线测试或候选测试代替上线回验。
+- v4 与一加 9R 已装 APK 的签名相同，已私下保留 v3/v4 APK；未安装、未停应用、
+  未清数据、未操作账号/租户。另两台 APK 只读导出超时后终止，签名仍为未知。
+- 下一执行门：确认一加 9R 的实机空闲窗口，持精确 serial 锁、复验云端空闲、
+  备份/维护模式后原位升级并核对原绑定；无障碍恢复由用户正常授予。
+  一加 7 的旧租户处置、华为的平台账号绑定须另行确认，不能自动跨过。
+
+完整命令、哈希及失败记录见
+[控制器证据](../../artifacts/three-device-20260928/controller.md)。
 
 ## 交付与停止条件
 

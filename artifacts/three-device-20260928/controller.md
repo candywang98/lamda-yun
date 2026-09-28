@@ -93,6 +93,83 @@ No deployment, APK installation, tenant/account change, or business task was
 performed during this integration/recheck. The certificate worker retains
 the exclusive Gradle slot until its delivery.
 
+## Certificate Integration And V4 Build
+
+Worker C delivered `5c01340`, integrated as `7e2d985`. The controller took the
+Gradle slot after the worker completed. Version preparation is `2853e6d`;
+the version-specific test assertion and public TLS probe are `d200dc2`.
+
+The first controller combined build exited 1: the business-acceptance identity
+test still required versionCode 3. It ran 1280 business-acceptance tests with
+one failure. Only its explicit expected version/name was changed to v4; none
+of its identity or security assertions was removed.
+
+The repeated command from `mobile/companion` was:
+
+```text
+env JAVA_TOOL_OPTIONS=-Drobolectric.dependency.repo.url=file:///Users/wangziheng/.m2/repository ./build-external.sh --offline --no-daemon --console=plain :app:testDebugUnitTest :app:testBusinessAcceptanceUnitTest :app:assembleBusinessAcceptance
+```
+
+Exit 0, BUILD SUCCESSFUL in 1m50s. JUnit XML totals:
+
+| Variant | Suites | Tests | Failures / Errors / Skips | UTC timestamps |
+| --- | --- | --- | --- | --- |
+| debug | 174 | 1294 | 0 / 0 / 0 | 12:50:48 through 12:51:15 |
+| businessAcceptance | 174 | 1280 | 0 / 0 / 0 | 12:51:17 through 12:51:39 |
+
+Vital lint and assembly completed. These results do not cover the worker's
+separately recorded three heartbeat-diagnostic IM intake failures, formal
+release-public-key gate, or whole-repository remote CI.
+
+V4 artifact:
+
+- Application: `com.company.cloudctl.companion`.
+- VersionCode 4, name `0.1.0-business-acceptance.4`.
+- Source revision embedded in the APK: `d200dc2-dirty`. Existing untracked
+  historical artifacts make the full workspace dirty; no clean-tree claim.
+- DEBUG, HEARTBEAT_DIAGNOSTIC and IM_UPLOAD_HOLD_ALLOWED are all false.
+- APK SHA256:
+  `cff3b03a72f56781a73d2713bd68a968f1d47a6c21f27c528629f72f6e9fcf70`.
+- `apksigner verify --print-certs` exited 0; signer SHA256:
+  `67a6d9af9e400326e1254b87ea310f34b1a1395664ca89424f141dbabba57796`.
+- The freshly pulled OnePlus9R v3 has the same signer and SHA256
+  `c6a39272612bf507c70d0a5f3084162b87770d445fcecedb4e659be5cd4a9005`.
+- Both APKs are retained under the controller's private
+  `CloudCtlExternal/acceptance/20260928-v4` directory, not committed.
+
+The Huawei/OnePlus7 read-only APK pulls stalled and were interrupted with
+SIGINT (exit 130) after approximately two minutes. The partial files are
+not valid backups and were not used for signing checks. Their exact signer
+compatibility remains unverified; no ADB server/device restart was attempted.
+
+At 12:49:01 UTC, `CloudPinProbe.java` ran with the actual compiled
+businessAcceptance Kotlin classes and Kotlin stdlib 2.1.0 on Java 17:
+default CA plus hostname verification succeeded; the leaf matched the frozen
+successor; both exact-current-pin and old-pin transition checks succeeded;
+wrong host, absent host and unknown configured pin were rejected. A second
+TLS connection using the compiled PinnedTrustManager with the old pin returned
+HTTP 200 from the public read-only `/health/ready` endpoint. Exit 0.
+
+This probe used no credentials and no phone; it is not mobile runtime,
+WebSocket, queue-recovery or disconnected-operation evidence.
+
+## Focused Backend Candidate
+
+Worker B's read-only review found no new runtime dependency for overlaying
+the current `fleet_orders.py` onto deployed `557f547`, with existing schema
+0035 as a hard prerequisite. The controller constructed that exact candidate
+in a temporary extracted source tree, not by deploying all of main.
+
+All 202 tracked Python runtime files under services/packages/edge were compared
+against the base archive: only `services/control-api/src/cloudctl_api/fleet_orders.py`
+differs; none is missing. Its SHA256 is
+`40518bf4b4eaaeca38c341e188ce235901e4ab351b0c83569e1f32381ba1e88a`.
+The five-file order test command above, with the added regression test as test
+input only, exited 0: 115 passed, 3 SQLite-only skips in 41.93 seconds.
+
+This candidate has not been uploaded, activated or deployed. Production API
+remains `order-delivery-557f547`; no production service was restarted.
+
 ## Remaining Gates
 
 Certificate-compatible APK and signature checks, OnePlus accessibility recovery,
