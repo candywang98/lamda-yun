@@ -245,9 +245,71 @@ stability, fault-injection or disconnected business acceptance.
 Sol High's bounded fix is frozen in
 `contracts/phase1/claim-maintenance-recovery-20260928.md`, baseline `29c4820`.
 
+The subsequent filtered phone log, `v4-recovery-heartbeats.log`, records
+28 successful heartbeat events from 14:19:42.586 through 14:29:18.432 UTC.
+Only these whitelisted success lines were retained, with no business payload,
+account content or credentials. The approximately 9m36s connected observation
+does not establish screen-off endurance or computer-independent operation.
+
+At 14:34:54.599473Z, `v4-cloud-final.json` independently records cloud idle,
+maintenance false/version10, the original binding/credential/account retained,
+receiveOnly=true, and unchanged task379/OUT23/order14/receipt6 counts.
+The last authenticated activity was 14:34:54.298983Z; it is not itself proof
+of another heartbeat.
+
+## Maintenance Fix Mainline Verification
+
+Sol High delivery `713af64` was reviewed and integrated as
+`19da0d82c163d4720042362ad1b5d208e321cf6f`. Its changes remain within the
+frozen claim-maintenance recovery contract and four declared owned files.
+The worker finished and released the Gradle slot before this controller run.
+
+From the main repository's `mobile/companion`:
+
+```text
+env JAVA_TOOL_OPTIONS=-Drobolectric.dependency.repo.url=file:///Users/wangziheng/.m2/repository ./build-external.sh --offline --no-daemon --console=plain :app:testDebugUnitTest :app:testBusinessAcceptanceUnitTest
+```
+
+Exec session 28106 exited 0, with `BUILD SUCCESSFUL in 2m 8s` and 57 executed
+tasks. The controller parsed all matching JUnit XML with ElementTree:
+
+| Variant | Suites | Tests | Failures / Errors / Skips | UTC suite timestamps |
+| --- | --- | --- | --- | --- |
+| debug | 175 | 1303 | 0 / 0 / 0 | 14:44:45 through 14:45:13 |
+| businessAcceptance | 175 | 1289 | 0 / 0 / 0 | 14:45:15 through 14:45:38 |
+
+Both variants include 9 passing `ClaimMaintenanceRecoveryTest` cases.
+`maintenance-mainline-tests.json` retains counts, timestamps and SHA256
+digests of the ordered XML sets. Existing nullable-ClassLoader compile
+warnings remain; success is not a warning-free or whole-repository CI claim.
+
+The tests cover the production-used claim-pass function and its callbacks,
+not the full Android Service lifecycle or concurrent presence loop.
+The installed v4 predates this fix. This command did not assemble or install
+an APK, run device maintenance transitions or alter production services.
+The v4 heartbeat observation must not be attributed to the uninstalled patch.
+Any subsequent acceptance candidate must increment to v5 rather than reuse
+the installed v4 version identity.
+
+Final repository checks exited 0:
+
+- `.venv/bin/python scripts/plan_guard.py docs/current/tasks.json`: 54 tasks;
+  development DAG 68 edges, acceptance-union DAG 139 edges; no running write
+  conflicts; 62 inherited IDs and 50 packages covered. This is a static plan
+  check, not hardware or deployment acceptance.
+- `.venv/bin/ruff check artifacts/three-device-20260928/install-oneplus-v4.py artifacts/three-device-20260928/oneplus-v4-cloud.py artifacts/three-device-20260928/resume-oneplus-v4.py`.
+- `git diff --check`.
+
+No B11/O10 development or device-acceptance state was promoted. Existing
+untracked historical artifacts were left untouched and excluded from this
+checkpoint.
+
 ## Remaining Gates
 
-Certificate-compatible APK and signature checks, OnePlus accessibility recovery,
-OnePlus7 tenant disposition, Huawei account binding, actual device collections,
-network/process fault cases and final disconnected acceptance remain pending.
+OnePlus9R v4 installation, retained identity and connected accessibility recovery
+are evidenced above. Maintenance-fix packaging and authorized device acceptance,
+the other two devices' version/signature checks, OnePlus7 tenant disposition,
+Huawei account binding, current-version device collections, network/process
+fault cases and final disconnected acceptance remain pending.
+The focused backend order guard is tested but still not deployed.
 Synthetic tests and ADB connectivity do not satisfy those gates.

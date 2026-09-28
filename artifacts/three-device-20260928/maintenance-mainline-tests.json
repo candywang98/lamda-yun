@@ -1,0 +1,49 @@
+{
+  "schema": "cloudctl-software-test-evidence/1",
+  "sourceRevision": "19da0d82c163d4720042362ad1b5d208e321cf6f",
+  "workerCommit": "713af64",
+  "contract": "contracts/phase1/claim-maintenance-recovery-20260928.md",
+  "workingDirectory": "mobile/companion",
+  "command": "env JAVA_TOOL_OPTIONS=-Drobolectric.dependency.repo.url=file:///Users/wangziheng/.m2/repository ./build-external.sh --offline --no-daemon --console=plain :app:testDebugUnitTest :app:testBusinessAcceptanceUnitTest",
+  "execSession": 28106,
+  "exitCode": 0,
+  "gradleResult": "BUILD SUCCESSFUL in 2m 8s",
+  "executedTasks": 57,
+  "reportRoot": "mobile/companion/app/build/test-results",
+  "timestampZone": "UTC",
+  "xmlDigestAlgorithm": "SHA256 of sorted XML filename UTF-8 + NUL + raw XML bytes + NUL for every TEST-*.xml in each variant directory",
+  "variants": {
+    "testDebugUnitTest": {
+      "suites": 175,
+      "tests": 1303,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "firstSuiteTimestamp": "2026-09-28T14:44:45",
+      "lastSuiteTimestamp": "2026-09-28T14:45:13",
+      "xmlSetSha256": "103487dbbc3a7e6d32b0202bd97a967d1cda74b408d050012b9f68ec940e780d",
+      "maintenanceTests": 9
+    },
+    "testBusinessAcceptanceUnitTest": {
+      "suites": 175,
+      "tests": 1289,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "firstSuiteTimestamp": "2026-09-28T14:45:15",
+      "lastSuiteTimestamp": "2026-09-28T14:45:38",
+      "xmlSetSha256": "b8058c2e122afabb0861000c2123a21aa54faa6bdab16e70f5de4313d50105ad",
+      "maintenanceTests": 9
+    }
+  },
+  "apkAssembledByThisRun": false,
+  "fixInstalledOnDevice": false,
+  "fullServiceLifecycleTested": false,
+  "deviceAcceptance": false,
+  "limitations": [
+    "Production-used claim-pass function and callback coverage is not full Android Service or concurrent presence-loop coverage.",
+    "The installed v4 APK predates this fix; its connected heartbeat evidence is independent.",
+    "Existing nullable-ClassLoader compile warnings remain.",
+    "Whole-repository CI, real maintenance transitions, network/process recovery and final disconnected acceptance are not covered."
+  ]
+}
