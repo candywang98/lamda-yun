@@ -58,7 +58,14 @@ test.describe('authenticated read-only deployment smoke', () => {
       expect((await response).status()).toBe(200)
       await expect(page.getByText('Control API 会话已验证', { exact: true })).toBeAttached()
       await expect(page.locator('.yy-content')).toBeVisible()
-      await expect(page.locator('.notice-danger, .flash.error')).toHaveCount(0)
+      if (name === 'fleet') await expect(page.getByRole('button', { name: '刷新设备状态', exact: true })).toBeEnabled()
+      if (name === 'orders') await expect(page.locator('.yy-content').getByRole('button', { name: '刷新', exact: true })).toBeEnabled()
+      if (name === 'inbox') {
+        await expect(page.locator('.im-threads')).toHaveAttribute('aria-busy', 'false')
+        await expect(page.getByLabel('监听总开关')).toBeAttached()
+      }
+      if (name === 'products') await expect(page.getByText('加载中...', { exact: true })).toHaveCount(0)
+      await expect(page.locator('.notice-danger[role=alert], .yy-error, .flash.error')).toHaveCount(0)
       await page.screenshot({ path: info.outputPath(`${name}.png`), fullPage: true })
       expect(await page.evaluate(() => document.documentElement.scrollWidth))
         .toBeLessThanOrEqual(page.viewportSize()!.width + 1)
