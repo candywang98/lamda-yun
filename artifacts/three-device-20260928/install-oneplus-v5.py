@@ -436,7 +436,16 @@ def execute_window(operations: WindowOperations) -> dict[str, Any]:
         if lock is not None:
             try:
                 released = operations.release_lock(lock)
-                result["lockReleased"] = released.get("state") == "RELEASED"
+                result["lockReleased"] = (
+                    released.get("state") == "FREE"
+                    and released.get("released_fencing") == lock.get("fencing")
+                )
+                if not result["lockReleased"]:
+                    result["status"] = "FAILED"
+                    result["releaseFailure"] = {
+                        "type": "AcceptanceError",
+                        "message": "device lock release acknowledgement mismatch",
+                    }
             except Exception as error:  # noqa: BLE001 - report exact release failure
                 result["status"] = "FAILED"
                 result["lockReleased"] = False

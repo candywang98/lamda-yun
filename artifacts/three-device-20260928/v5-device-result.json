@@ -1,0 +1,86 @@
+{
+  "schema": "cloudctl-oneplus-v5-device-result/1",
+  "target": {
+    "serial": "b0644fb5",
+    "model": "LE2100",
+    "deviceId": "4aabc387-6e4b-4b59-a525-b1c119ec7f5b"
+  },
+  "window": {
+    "startedAtUtc": "2026-09-28T16:31:38.643129Z",
+    "finishedAtUtc": "2026-09-28T16:37:38.437230Z",
+    "privateArtifactDirectory": "/Users/wangziheng/CloudCtlExternal/acceptance/20260928-v5/install-window-20260928T163138Z",
+    "harnessCommit": "6ac88e5f1b5f43b7898a985a085c6ab72352bef4",
+    "singleExecution": true,
+    "result": "FAILED",
+    "maintenanceRecovery": "NOT_PROVEN",
+    "postMaintenancePresence": "NOT_PROVEN"
+  },
+  "candidate": {
+    "versionCode": 5,
+    "versionName": "0.1.0-business-acceptance.5",
+    "sha256": "8b40b9284be9f6f7aca812792ff9315d9376803b9c6ec3d1ad9190241e0e5b0f",
+    "signerSha256": "67a6d9af9e400326e1254b87ea310f34b1a1395664ca89424f141dbabba57796",
+    "sourceRevision": "a3eb419",
+    "installedInPlace": true
+  },
+  "preservation": {
+    "binding": true,
+    "credential": true,
+    "appInstance": true,
+    "account": true,
+    "tenant": true,
+    "permissions": true,
+    "secureSettings": true,
+    "appIdAndUid": true,
+    "firstInstallTime": true,
+    "receiveOnly": true,
+    "imMode": "NOTIFICATION",
+    "counts": {
+      "mobileTasks": 379,
+      "outgoingMessages": 23,
+      "deviceOrders": 14,
+      "deviceReceipts": 6
+    }
+  },
+  "observation": {
+    "postInstallPid": 21512,
+    "maintenanceHeartbeatCountFromExactPhoneLog": 1,
+    "maintenanceDeferralCountFromExactPhoneLog": 0,
+    "postMaintenanceHeartbeatCountFromExactPhoneLog": 0,
+    "syncServiceDisappeared": true,
+    "processRemainedAlive": true,
+    "accessibilityRemainedExactlyBound": true,
+    "serverJournalTargetAttribution": false
+  },
+  "diagnosis": {
+    "protocolMismatch": "CONFIRMED",
+    "runAttribution": "HIGH_CONFIDENCE_INFERENCE",
+    "detail": "The deployed API returns an eight-field application/problem+json envelope for the maintenance ConflictError. The installed a3eb419 helper rejects every body whose top-level length is not one, so the exact maintenance 409 cannot be classified as a deferral. A non-retryable CloudHttpException then reaches the syncLoop stopSelf path. The target log does not directly print the claim response body and server journal rows are not target-attributed, so attribution of the observed stop to the contextual 409 remains an inference rather than direct request tracing.",
+    "deployedSource": {
+      "release": "order-delivery-557f547",
+      "appPySha256": "de9b7a5fede58a637e9ce4e89b3736cdf3ee575d8e221a9684ef95b326831a29",
+      "mobileServicePySha256": "879ca037a551f2e7e190b610f87e86bebda90a8236c404396dd1ffeea2e3a413"
+    },
+    "minimumProposedFix": "At only /companion/v2/tasks/claim, accept outer HTTP 409 plus the exact maintenance detail. For a full problem envelope, additionally require body status=409, code=CONFLICT and type=urn:cloudctl:problem:conflict; reject malformed JSON, inconsistent semantic fields, other endpoint scope, other details and every non-409. Retain compatibility with the existing exact detail-only fixture.",
+    "minimumProposedTests": [
+      "realistic eight-field maintenance problem envelope is deferred",
+      "full envelope with body status, code or type mismatch is rejected",
+      "non-string or wrong detail, unrelated 409, malformed body, 401/403 and other endpoints propagate",
+      "service call-path regression proves accepted envelope does not enqueue or execute and the next ordinary claim resumes"
+    ]
+  },
+  "cleanup": {
+    "maintenanceBefore": "false/version10",
+    "maintenanceOwned": "true/version11",
+    "maintenanceFinal": "false/version12",
+    "fencing": 16,
+    "lockReleaseState": "FREE",
+    "releasedFencing": 16,
+    "releasedAtUtc": "2026-09-28T16:37:38Z",
+    "originalPrivateSummaryLockReleased": false,
+    "originalPrivateSummaryPreserved": true,
+    "reportingBug": "The committed harness expected state=RELEASED although device_lock.py returns state=FREE with released_fencing. Independent release evidence proves no lock leak."
+  },
+  "acceptanceStateChanged": false,
+  "furtherDeviceOrCloudWritesAuthorized": false
+}

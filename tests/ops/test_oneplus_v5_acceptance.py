@@ -233,7 +233,7 @@ class FakeOperations:
         self.released_lock = lock
         if self.fail_at == "release":
             raise acceptance.AcceptanceError("release failed")
-        return {"state": "RELEASED"}
+        return {"state": "FREE", "released_fencing": lock["fencing"]}
 
 
 @pytest.mark.parametrize(
@@ -460,6 +460,30 @@ def test_cleanup_or_release_failure_is_prominent() -> None:
     assert release_result["status"] == "FAILED"
     assert release_result["lockReleased"] is False
     assert release_result["releaseFailure"]["message"] == "release failed"
+
+
+@pytest.mark.parametrize(
+    "release_result",
+    [
+        {"state": "FREE", "released_fencing": 28},
+        {"state": "RELEASED", "released_fencing": 27},
+        {"state": "FREE"},
+    ],
+)
+def test_release_acknowledgement_requires_free_state_and_exact_fencing(
+    release_result: dict[str, Any],
+) -> None:
+    operations = FakeOperations()
+    operations.release_lock = lambda _lock: release_result  # type: ignore[method-assign]
+
+    result = acceptance.execute_window(operations)
+
+    assert result["status"] == "FAILED"
+    assert result["lockReleased"] is False
+    assert result["releaseFailure"] == {
+        "type": "AcceptanceError",
+        "message": "device lock release acknowledgement mismatch",
+    }
 
 
 def test_owned_cleanup_identity_is_independent_of_aggregate_count_drift() -> None:

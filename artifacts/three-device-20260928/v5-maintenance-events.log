@@ -1,0 +1,10 @@
+2026-09-28T16:31:38.643129Z window STARTED; exact target serial=b0644fb5; fencing=16
+2026-09-28T16:31:47.767087Z maintenance prepare CAS ACKNOWLEDGED; expected state=true/version11
+2026-09-28T16:31:53.966Z target process pid=21512 began post-install service creation
+2026-09-28T16:31:54.529Z exact pid=21512 phone log: Heartbeat successful
+2026-09-28T16:31:50Z..2026-09-28T16:31:55Z server journal context: claim=409, heartbeat=200, claim=409; targetAttribution=false
+2026-09-28T16:32:07.717585Z first sampled absence of exact CompanionSyncService; pid=21512 alive; exact accessibility binding=true
+2026-09-28T16:35:01.858620Z post-maintenance observation began with service still absent
+2026-09-28T16:37:35.332072Z observation ended; maintenance heartbeat=1, deferral=0, post-maintenance heartbeat=0; FAILED/NOT_PROVEN
+2026-09-28T16:37:38Z maintenance=false/version12 verified; device lock state=FREE released_fencing=16
+2026-09-29 read-only diagnosis: deployed order-delivery-557f547 emits an eight-field problem envelope for ConflictError; installed a3eb419 classifier requires exactly one top-level field. Protocol mismatch CONFIRMED; attribution of contextual non-target journal 409 to this exact PID remains HIGH_CONFIDENCE_INFERENCE.
