@@ -108,7 +108,7 @@ android {
             isMinifyEnabled = false
             matchingFallbacks += listOf("release")
             signingConfig = signingConfigs.getByName("debug")
-            versionNameSuffix = "-business-acceptance.5"
+            versionNameSuffix = "-business-acceptance.6"
             buildConfigField("String", "APP_UPDATE_PUBLIC_KEY", "\"$debugUpdatePublicKey\"")
             buildConfigField("String", "RECIPE_SIGNING_PUBLIC_KEYS", "\"{}\"")
         }
@@ -147,7 +147,7 @@ android {
 
 androidComponents {
     onVariants(selector().withBuildType("businessAcceptance")) { variant ->
-        variant.outputs.forEach { it.versionCode.set(5) }
+        variant.outputs.forEach { it.versionCode.set(6) }
     }
 }
 
