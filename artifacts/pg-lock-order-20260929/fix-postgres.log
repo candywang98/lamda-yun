@@ -1,0 +1,22 @@
+2026-09-29 21:06:22.127 CST [95628] LOG:  00000: starting PostgreSQL 16.15 (Homebrew) on aarch64-apple-darwin25.6.0, compiled by Apple clang version 21.0.0 (clang-2100.1.1.101), 64-bit
+2026-09-29 21:06:22.127 CST [95628] LOCATION:  PostmasterMain, postmaster.c:1190
+2026-09-29 21:06:22.128 CST [95628] LOG:  00000: listening on IPv4 address "127.0.0.1", port 53563
+2026-09-29 21:06:22.128 CST [95628] LOCATION:  StreamServerPort, pqcomm.c:567
+2026-09-29 21:06:22.130 CST [95631] LOG:  00000: database system was shut down at 2026-09-29 21:06:22 CST
+2026-09-29 21:06:22.130 CST [95631] LOCATION:  StartupXLOG, xlog.c:5081
+2026-09-29 21:06:22.132 CST [95628] LOG:  00000: database system is ready to accept connections
+2026-09-29 21:06:22.132 CST [95628] LOCATION:  process_pm_child_exit, postmaster.c:3117
+2026-09-29 21:06:26.581 CST [95628] LOG:  00000: received fast shutdown request
+2026-09-29 21:06:26.581 CST [95628] LOCATION:  process_pm_shutdown_request, postmaster.c:2921
+2026-09-29 21:06:26.581 CST [95628] LOG:  00000: aborting any active transactions
+2026-09-29 21:06:26.581 CST [95628] LOCATION:  process_pm_shutdown_request, postmaster.c:2939
+2026-09-29 21:06:26.582 CST [95628] LOG:  00000: background worker "logical replication launcher" (PID 95634) exited with exit code 1
+2026-09-29 21:06:26.582 CST [95628] LOCATION:  LogChildExit, postmaster.c:3675
+2026-09-29 21:06:26.582 CST [95629] LOG:  00000: shutting down
+2026-09-29 21:06:26.582 CST [95629] LOCATION:  ShutdownXLOG, xlog.c:6237
+2026-09-29 21:06:26.582 CST [95629] LOG:  00000: checkpoint starting: shutdown immediate
+2026-09-29 21:06:26.582 CST [95629] LOCATION:  LogCheckpointStart, xlog.c:6296
+2026-09-29 21:06:27.150 CST [95629] LOG:  00000: checkpoint complete: wrote 12589 buffers (76.8%); 0 WAL file(s) added, 0 removed, 4 recycled; write=0.418 s, sync=0.150 s, total=0.569 s; sync files=8266, longest=0.001 s, average=0.001 s; distance=69777 kB, estimate=69777 kB; lsn=0/5941E90, redo lsn=0/5941E90
+2026-09-29 21:06:27.150 CST [95629] LOCATION:  LogCheckpointEnd, xlog.c:6396
+2026-09-29 21:06:27.155 CST [95628] LOG:  00000: database system is shut down
+2026-09-29 21:06:27.155 CST [95628] LOCATION:  UnlinkLockFiles, miscinit.c:1194

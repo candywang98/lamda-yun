@@ -1,0 +1,314 @@
+{
+  "cancellation_drained_marker": true,
+  "cases": [
+    {
+      "durable_after": {
+        "attempt": 1,
+        "business_state": "SUCCEEDED",
+        "completed_at": "2026-09-29T13:06:24.269683+00:00",
+        "current_step": null,
+        "detail": null,
+        "device_id": "a4948781-4e39-42c1-ac53-1b988a905af2",
+        "error_code": null,
+        "fencing_token": 2,
+        "lease_canceled_at": "2026-09-29T13:06:24.269683+00:00",
+        "lease_expires_at": "2026-09-29T13:07:24.232877+00:00",
+        "lease_id": "3a14f65e-0cdd-4ae8-9d20-bcec593f2c63",
+        "result": {
+          "lockOrderProbe": true
+        },
+        "status": "SUCCEEDED",
+        "task_expires_at": null,
+        "task_id": "3030a690-db84-4ab2-840a-d03b3c25b26f"
+      },
+      "durable_before": {
+        "attempt": 1,
+        "business_state": "PREFLIGHT",
+        "completed_at": null,
+        "current_step": null,
+        "detail": null,
+        "device_id": "a4948781-4e39-42c1-ac53-1b988a905af2",
+        "error_code": null,
+        "fencing_token": 2,
+        "lease_canceled_at": null,
+        "lease_expires_at": "2026-09-29T13:07:24.232877+00:00",
+        "lease_id": "3a14f65e-0cdd-4ae8-9d20-bcec593f2c63",
+        "result": {},
+        "status": "CLAIMED",
+        "task_expires_at": "2026-09-29T13:07:24.232877+00:00",
+        "task_id": "3030a690-db84-4ab2-840a-d03b3c25b26f"
+      },
+      "locks_at_claim_task_request": {
+        "claim": {
+          "device": 95655
+        },
+        "finish": {
+          "mobile_task": 95654
+        }
+      },
+      "operation": "finish",
+      "outcomes": [
+        {
+          "http_status": 204,
+          "operation": "claim",
+          "sqlstates": []
+        },
+        {
+          "http_status": 200,
+          "operation": "finish",
+          "sqlstates": []
+        }
+      ],
+      "phase": "PREFLIGHT",
+      "pool_checked_out": 0,
+      "unfinished_transactions": 0,
+      "workers_drained": true
+    },
+    {
+      "durable_after": {
+        "attempt": 1,
+        "business_state": "RUNNING",
+        "completed_at": null,
+        "current_step": 1,
+        "detail": null,
+        "device_id": "cb47749b-9a86-47a6-b283-8aa180f97d72",
+        "error_code": null,
+        "fencing_token": 2,
+        "lease_canceled_at": null,
+        "lease_expires_at": "2026-09-29T13:07:24.683296+00:00",
+        "lease_id": "156ef5e1-df06-4057-bbae-ae53261cd45c",
+        "result": {},
+        "status": "RUNNING",
+        "task_expires_at": "2026-09-29T13:07:24.683296+00:00",
+        "task_id": "d90dfc98-dfed-46ce-92eb-6e0410b577d7"
+      },
+      "durable_before": {
+        "attempt": 1,
+        "business_state": "PREFLIGHT",
+        "completed_at": null,
+        "current_step": null,
+        "detail": null,
+        "device_id": "cb47749b-9a86-47a6-b283-8aa180f97d72",
+        "error_code": null,
+        "fencing_token": 2,
+        "lease_canceled_at": null,
+        "lease_expires_at": "2026-09-29T13:07:24.650868+00:00",
+        "lease_id": "156ef5e1-df06-4057-bbae-ae53261cd45c",
+        "result": {},
+        "status": "CLAIMED",
+        "task_expires_at": "2026-09-29T13:07:24.650868+00:00",
+        "task_id": "d90dfc98-dfed-46ce-92eb-6e0410b577d7"
+      },
+      "locks_at_claim_task_request": {
+        "claim": {
+          "device": 95659
+        },
+        "heartbeat": {
+          "mobile_task": 95658
+        }
+      },
+      "operation": "heartbeat",
+      "outcomes": [
+        {
+          "http_status": 204,
+          "operation": "claim",
+          "sqlstates": []
+        },
+        {
+          "http_status": 200,
+          "operation": "heartbeat",
+          "sqlstates": []
+        }
+      ],
+      "phase": "PREFLIGHT",
+      "pool_checked_out": 0,
+      "unfinished_transactions": 0,
+      "workers_drained": true
+    },
+    {
+      "durable_after": {
+        "attempt": 1,
+        "business_state": "SUCCEEDED",
+        "completed_at": "2026-09-29T13:06:25.062828+00:00",
+        "current_step": 0,
+        "detail": null,
+        "device_id": "2f4f5017-9cec-4243-9fa6-953618a50809",
+        "error_code": null,
+        "fencing_token": 2,
+        "lease_canceled_at": "2026-09-29T13:06:25.062828+00:00",
+        "lease_expires_at": "2026-09-29T13:07:25.047071+00:00",
+        "lease_id": "c25f761f-7bce-4add-8bda-494038ac8653",
+        "result": {
+          "lockOrderProbe": true
+        },
+        "status": "SUCCEEDED",
+        "task_expires_at": null,
+        "task_id": "dff9df6b-f91e-44e9-a1b6-37c069721cd1"
+      },
+      "durable_before": {
+        "attempt": 1,
+        "business_state": "RUNNING",
+        "completed_at": null,
+        "current_step": 0,
+        "detail": null,
+        "device_id": "2f4f5017-9cec-4243-9fa6-953618a50809",
+        "error_code": null,
+        "fencing_token": 2,
+        "lease_canceled_at": null,
+        "lease_expires_at": "2026-09-29T13:07:25.047071+00:00",
+        "lease_id": "c25f761f-7bce-4add-8bda-494038ac8653",
+        "result": {},
+        "status": "RUNNING",
+        "task_expires_at": "2026-09-29T13:07:25.047071+00:00",
+        "task_id": "dff9df6b-f91e-44e9-a1b6-37c069721cd1"
+      },
+      "locks_at_claim_task_request": {
+        "claim": {
+          "device": 95663
+        },
+        "finish": {
+          "mobile_task": 95662
+        }
+      },
+      "operation": "finish",
+      "outcomes": [
+        {
+          "http_status": 204,
+          "operation": "claim",
+          "sqlstates": []
+        },
+        {
+          "http_status": 200,
+          "operation": "finish",
+          "sqlstates": []
+        }
+      ],
+      "phase": "RUNNING",
+      "pool_checked_out": 0,
+      "unfinished_transactions": 0,
+      "workers_drained": true
+    },
+    {
+      "durable_after": {
+        "attempt": 1,
+        "business_state": "RUNNING",
+        "completed_at": null,
+        "current_step": 1,
+        "detail": null,
+        "device_id": "8e823c8a-011a-4baf-953d-7558788794fa",
+        "error_code": null,
+        "fencing_token": 2,
+        "lease_canceled_at": null,
+        "lease_expires_at": "2026-09-29T13:07:25.427152+00:00",
+        "lease_id": "aa8f91ad-20fc-40f3-8492-2b18243c7eb3",
+        "result": {},
+        "status": "RUNNING",
+        "task_expires_at": "2026-09-29T13:07:25.427152+00:00",
+        "task_id": "492d822b-3e69-4671-bdf7-97aa043337e2"
+      },
+      "durable_before": {
+        "attempt": 1,
+        "business_state": "RUNNING",
+        "completed_at": null,
+        "current_step": 0,
+        "detail": null,
+        "device_id": "8e823c8a-011a-4baf-953d-7558788794fa",
+        "error_code": null,
+        "fencing_token": 2,
+        "lease_canceled_at": null,
+        "lease_expires_at": "2026-09-29T13:07:25.410097+00:00",
+        "lease_id": "aa8f91ad-20fc-40f3-8492-2b18243c7eb3",
+        "result": {},
+        "status": "RUNNING",
+        "task_expires_at": "2026-09-29T13:07:25.410097+00:00",
+        "task_id": "492d822b-3e69-4671-bdf7-97aa043337e2"
+      },
+      "locks_at_claim_task_request": {
+        "claim": {
+          "device": 95667
+        },
+        "heartbeat": {
+          "mobile_task": 95666
+        }
+      },
+      "operation": "heartbeat",
+      "outcomes": [
+        {
+          "http_status": 204,
+          "operation": "claim",
+          "sqlstates": []
+        },
+        {
+          "http_status": 200,
+          "operation": "heartbeat",
+          "sqlstates": []
+        }
+      ],
+      "phase": "RUNNING",
+      "pool_checked_out": 0,
+      "unfinished_transactions": 0,
+      "workers_drained": true
+    }
+  ],
+  "cluster_stopped_marker": "PG_CLUSTER_STOPPED=/private/var/folders/6b/g5wj9vms7b35lw_73jr6dk940000gn/T/pytest-of-wangziheng/pytest-104/mobile-lock-order-pg0",
+  "event_loop_closed_present": false,
+  "files_sha256": {
+    "services/control-api/src/cloudctl_api/mobile_service.py": "b2e5face24d05885bd444be05010c7f8194ffbc14a63e10235c975bd3bcea2d1",
+    "tests/integration/test_mobile_lock_order.py": "fa8f8f54973d91ae4ab27229664d94fd0786342f88ab7601602f0302f7636724"
+  },
+  "focused_counts": {
+    "errors": "0",
+    "failures": "0",
+    "hostname": "192.168.5.13",
+    "name": "pytest",
+    "skipped": "3",
+    "tests": "186",
+    "time": "54.266",
+    "timestamp": "2026-09-29T21:08:13.765767+08:00"
+  },
+  "focused_modules": {
+    "tests.integration.test_control_plane_hotfix": {
+      "passed": 12
+    },
+    "tests.integration.test_fleet_cancel_reconcile": {
+      "passed": 47
+    },
+    "tests.integration.test_fleet_claim_recovery": {
+      "passed": 11
+    },
+    "tests.integration.test_fleet_identity": {
+      "passed": 18
+    },
+    "tests.integration.test_fleet_live_session": {
+      "passed": 20
+    },
+    "tests.integration.test_fleet_two_devices": {
+      "passed": 11,
+      "skipped": 3
+    },
+    "tests.integration.test_mobile_lock_order": {
+      "passed": 11
+    },
+    "tests.integration.test_mobile_task_api": {
+      "passed": 28
+    },
+    "tests.integration.test_platform_tasks": {
+      "passed": 25
+    }
+  },
+  "focused_test_exit_code": 0,
+  "production_baseline": "7d58f6b28158292722c7d037998163f5fcbfca89",
+  "repro_commit": "2140f6954ed51c47c08949b6935e27ec722b7d61",
+  "standalone_cancellation_connection_error_logs": 2,
+  "standalone_counts": {
+    "errors": "0",
+    "failures": "0",
+    "hostname": "192.168.5.13",
+    "name": "pytest",
+    "skipped": "0",
+    "tests": "11",
+    "time": "5.738",
+    "timestamp": "2026-09-29T21:06:21.482467+08:00"
+  },
+  "standalone_test_exit_code": 0
+}

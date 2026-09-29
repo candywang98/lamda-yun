@@ -1,0 +1,142 @@
+2026-09-29 20:53:35.626 CST [91213] LOG:  00000: starting PostgreSQL 16.15 (Homebrew) on aarch64-apple-darwin25.6.0, compiled by Apple clang version 21.0.0 (clang-2100.1.1.101), 64-bit
+2026-09-29 20:53:35.626 CST [91213] LOCATION:  PostmasterMain, postmaster.c:1190
+2026-09-29 20:53:35.626 CST [91213] LOG:  00000: listening on IPv4 address "127.0.0.1", port 50556
+2026-09-29 20:53:35.626 CST [91213] LOCATION:  StreamServerPort, pqcomm.c:567
+2026-09-29 20:53:35.628 CST [91216] LOG:  00000: database system was shut down at 2026-09-29 20:53:35 CST
+2026-09-29 20:53:35.628 CST [91216] LOCATION:  StartupXLOG, xlog.c:5081
+2026-09-29 20:53:35.630 CST [91213] LOG:  00000: database system is ready to accept connections
+2026-09-29 20:53:35.630 CST [91213] LOCATION:  process_pm_child_exit, postmaster.c:3117
+2026-09-29 20:53:38.691 CST [91238] ERROR:  40P01: deadlock detected
+2026-09-29 20:53:38.691 CST [91238] DETAIL:  Process 91238 waits for ShareLock on transaction 793; blocked by process 91239.
+	Process 91239 waits for ShareLock on transaction 791; blocked by process 91238.
+	Process 91238: SELECT device_lease.device_id AS device_lease_device_id, device_lease.tenant_id AS device_lease_tenant_id, device_lease.lease_id AS device_lease_lease_id, device_lease.owner_workflow_id AS device_lease_owner_workflow_id, device_lease.fencing_token AS device_lease_fencing_token, device_lease.expires_at AS device_lease_expires_at, device_lease.canceled_at AS device_lease_canceled_at, device_lease.owner_type AS device_lease_owner_type, device_lease.created_at AS device_lease_created_at 
+	FROM device_lease 
+	WHERE device_lease.device_id = $1::VARCHAR FOR UPDATE
+	Process 91239: SELECT mobile_task.id, mobile_task.tenant_id, mobile_task.device_id, mobile_task.idempotency_key, mobile_task.request_sha256, mobile_task.requested_by, mobile_task.target_package, mobile_task.account_id, mobile_task.binding_version, mobile_task.device_id_at_execution, mobile_task.operation_id, mobile_task.command_type, mobile_task.command_payload, mobile_task.recipe_pin, mobile_task.business_state, mobile_task.control_mode, mobile_task.batch_id, mobile_task.scheduled_for, mobile_task.stall_reason, mobile_task.attempt_id, mobile_task.resume_count, mobile_task.pause_ack_at, mobile_task.reconciliation, mobile_task.steps, mobile_task.status, mobile_task.lease_id, mobile_task.lease_expires_at, mobile_task.attempt, mobile_task.last_sequence, mobile_task.current_step, mobile_task.result, mobile_task.error_code, mobile_task.detail, mobile_task.started_at, mobile_task.completed_at, mobile_task.created_at 
+	FROM mobile_task 
+	WHERE mobile_task.tenant_id = $1::VARCHAR AND mobile_task.device_id = $2::VARCHAR AND mobile_ta
+2026-09-29 20:53:38.691 CST [91238] HINT:  See server log for query details.
+2026-09-29 20:53:38.691 CST [91238] CONTEXT:  while locking tuple (0,1) in relation "device_lease"
+2026-09-29 20:53:38.691 CST [91238] LOCATION:  DeadLockReport, deadlock.c:1135
+2026-09-29 20:53:38.691 CST [91238] STATEMENT:  SELECT device_lease.device_id AS device_lease_device_id, device_lease.tenant_id AS device_lease_tenant_id, device_lease.lease_id AS device_lease_lease_id, device_lease.owner_workflow_id AS device_lease_owner_workflow_id, device_lease.fencing_token AS device_lease_fencing_token, device_lease.expires_at AS device_lease_expires_at, device_lease.canceled_at AS device_lease_canceled_at, device_lease.owner_type AS device_lease_owner_type, device_lease.created_at AS device_lease_created_at 
+	FROM device_lease 
+	WHERE device_lease.device_id = $1::VARCHAR FOR UPDATE
+2026-09-29 20:53:40.052 CST [91246] ERROR:  40P01: deadlock detected
+2026-09-29 20:53:40.052 CST [91246] DETAIL:  Process 91246 waits for ShareLock on transaction 803; blocked by process 91244.
+	Process 91244 waits for ShareLock on transaction 805; blocked by process 91246.
+	Process 91246: SELECT mobile_task.id, mobile_task.tenant_id, mobile_task.device_id, mobile_task.idempotency_key, mobile_task.request_sha256, mobile_task.requested_by, mobile_task.target_package, mobile_task.account_id, mobile_task.binding_version, mobile_task.device_id_at_execution, mobile_task.operation_id, mobile_task.command_type, mobile_task.command_payload, mobile_task.recipe_pin, mobile_task.business_state, mobile_task.control_mode, mobile_task.batch_id, mobile_task.scheduled_for, mobile_task.stall_reason, mobile_task.attempt_id, mobile_task.resume_count, mobile_task.pause_ack_at, mobile_task.reconciliation, mobile_task.steps, mobile_task.status, mobile_task.lease_id, mobile_task.lease_expires_at, mobile_task.attempt, mobile_task.last_sequence, mobile_task.current_step, mobile_task.result, mobile_task.error_code, mobile_task.detail, mobile_task.started_at, mobile_task.completed_at, mobile_task.created_at 
+	FROM mobile_task 
+	WHERE mobile_task.tenant_id = $1::VARCHAR AND mobile_task.device_id = $2::VARCHAR AND mobile_ta
+	Process 91244: SELECT device_lease.device_id AS device_lease_device_id, device_lease.tenant_id AS device_lease_tenant_id, device_lease.lease_id AS device_lease_lease_id, device_lease.owner_workflow_id AS device_lease_owner_workflow_id, device_lease.fencing_token AS device_lease_fencing_token, device_lease.expires_at AS device_lease_expires_at, device_lease.canceled_at AS device_lease_canceled_at, device_lease.owner_type AS device_lease_owner_type, device_lease.created_at AS device_lease_created_at 
+	FROM device_lease 
+	WHERE device_lease.device_id = $1::VARCHAR FOR UPDATE
+2026-09-29 20:53:40.052 CST [91246] HINT:  See server log for query details.
+2026-09-29 20:53:40.052 CST [91246] CONTEXT:  while locking tuple (0,2) in relation "mobile_task"
+2026-09-29 20:53:40.052 CST [91246] LOCATION:  DeadLockReport, deadlock.c:1135
+2026-09-29 20:53:40.052 CST [91246] STATEMENT:  SELECT mobile_task.id, mobile_task.tenant_id, mobile_task.device_id, mobile_task.idempotency_key, mobile_task.request_sha256, mobile_task.requested_by, mobile_task.target_package, mobile_task.account_id, mobile_task.binding_version, mobile_task.device_id_at_execution, mobile_task.operation_id, mobile_task.command_type, mobile_task.command_payload, mobile_task.recipe_pin, mobile_task.business_state, mobile_task.control_mode, mobile_task.batch_id, mobile_task.scheduled_for, mobile_task.stall_reason, mobile_task.attempt_id, mobile_task.resume_count, mobile_task.pause_ack_at, mobile_task.reconciliation, mobile_task.steps, mobile_task.status, mobile_task.lease_id, mobile_task.lease_expires_at, mobile_task.attempt, mobile_task.last_sequence, mobile_task.current_step, mobile_task.result, mobile_task.error_code, mobile_task.detail, mobile_task.started_at, mobile_task.completed_at, mobile_task.created_at 
+	FROM mobile_task 
+	WHERE mobile_task.tenant_id = $1::VARCHAR AND mobile_task.device_id = $2::VARCHAR AND mobile_task.status IN ($3::VARCHAR, $4::VARCHAR) ORDER BY mobile_task.created_at FOR UPDATE
+2026-09-29 20:53:41.452 CST [91252] ERROR:  40P01: deadlock detected
+2026-09-29 20:53:41.452 CST [91252] DETAIL:  Process 91252 waits for ShareLock on transaction 817; blocked by process 91249.
+	Process 91249 waits for ShareLock on transaction 819; blocked by process 91252.
+	Process 91252: SELECT mobile_task.id, mobile_task.tenant_id, mobile_task.device_id, mobile_task.idempotency_key, mobile_task.request_sha256, mobile_task.requested_by, mobile_task.target_package, mobile_task.account_id, mobile_task.binding_version, mobile_task.device_id_at_execution, mobile_task.operation_id, mobile_task.command_type, mobile_task.command_payload, mobile_task.recipe_pin, mobile_task.business_state, mobile_task.control_mode, mobile_task.batch_id, mobile_task.scheduled_for, mobile_task.stall_reason, mobile_task.attempt_id, mobile_task.resume_count, mobile_task.pause_ack_at, mobile_task.reconciliation, mobile_task.steps, mobile_task.status, mobile_task.lease_id, mobile_task.lease_expires_at, mobile_task.attempt, mobile_task.last_sequence, mobile_task.current_step, mobile_task.result, mobile_task.error_code, mobile_task.detail, mobile_task.started_at, mobile_task.completed_at, mobile_task.created_at 
+	FROM mobile_task 
+	WHERE mobile_task.tenant_id = $1::VARCHAR AND mobile_task.device_id = $2::VARCHAR AND mobile_ta
+	Process 91249: SELECT device_lease.device_id AS device_lease_device_id, device_lease.tenant_id AS device_lease_tenant_id, device_lease.lease_id AS device_lease_lease_id, device_lease.owner_workflow_id AS device_lease_owner_workflow_id, device_lease.fencing_token AS device_lease_fencing_token, device_lease.expires_at AS device_lease_expires_at, device_lease.canceled_at AS device_lease_canceled_at, device_lease.owner_type AS device_lease_owner_type, device_lease.created_at AS device_lease_created_at 
+	FROM device_lease 
+	WHERE device_lease.device_id = $1::VARCHAR FOR UPDATE
+2026-09-29 20:53:41.452 CST [91252] HINT:  See server log for query details.
+2026-09-29 20:53:41.452 CST [91252] CONTEXT:  while locking tuple (0,3) in relation "mobile_task"
+2026-09-29 20:53:41.452 CST [91252] LOCATION:  DeadLockReport, deadlock.c:1135
+2026-09-29 20:53:41.452 CST [91252] STATEMENT:  SELECT mobile_task.id, mobile_task.tenant_id, mobile_task.device_id, mobile_task.idempotency_key, mobile_task.request_sha256, mobile_task.requested_by, mobile_task.target_package, mobile_task.account_id, mobile_task.binding_version, mobile_task.device_id_at_execution, mobile_task.operation_id, mobile_task.command_type, mobile_task.command_payload, mobile_task.recipe_pin, mobile_task.business_state, mobile_task.control_mode, mobile_task.batch_id, mobile_task.scheduled_for, mobile_task.stall_reason, mobile_task.attempt_id, mobile_task.resume_count, mobile_task.pause_ack_at, mobile_task.reconciliation, mobile_task.steps, mobile_task.status, mobile_task.lease_id, mobile_task.lease_expires_at, mobile_task.attempt, mobile_task.last_sequence, mobile_task.current_step, mobile_task.result, mobile_task.error_code, mobile_task.detail, mobile_task.started_at, mobile_task.completed_at, mobile_task.created_at 
+	FROM mobile_task 
+	WHERE mobile_task.tenant_id = $1::VARCHAR AND mobile_task.device_id = $2::VARCHAR AND mobile_task.status IN ($3::VARCHAR, $4::VARCHAR) ORDER BY mobile_task.created_at FOR UPDATE
+2026-09-29 20:53:42.827 CST [91255] ERROR:  40P01: deadlock detected
+2026-09-29 20:53:42.827 CST [91255] DETAIL:  Process 91255 waits for ShareLock on transaction 833; blocked by process 91256.
+	Process 91256 waits for ShareLock on transaction 831; blocked by process 91255.
+	Process 91255: SELECT device_lease.device_id AS device_lease_device_id, device_lease.tenant_id AS device_lease_tenant_id, device_lease.lease_id AS device_lease_lease_id, device_lease.owner_workflow_id AS device_lease_owner_workflow_id, device_lease.fencing_token AS device_lease_fencing_token, device_lease.expires_at AS device_lease_expires_at, device_lease.canceled_at AS device_lease_canceled_at, device_lease.owner_type AS device_lease_owner_type, device_lease.created_at AS device_lease_created_at 
+	FROM device_lease 
+	WHERE device_lease.device_id = $1::VARCHAR FOR UPDATE
+	Process 91256: SELECT mobile_task.id, mobile_task.tenant_id, mobile_task.device_id, mobile_task.idempotency_key, mobile_task.request_sha256, mobile_task.requested_by, mobile_task.target_package, mobile_task.account_id, mobile_task.binding_version, mobile_task.device_id_at_execution, mobile_task.operation_id, mobile_task.command_type, mobile_task.command_payload, mobile_task.recipe_pin, mobile_task.business_state, mobile_task.control_mode, mobile_task.batch_id, mobile_task.scheduled_for, mobile_task.stall_reason, mobile_task.attempt_id, mobile_task.resume_count, mobile_task.pause_ack_at, mobile_task.reconciliation, mobile_task.steps, mobile_task.status, mobile_task.lease_id, mobile_task.lease_expires_at, mobile_task.attempt, mobile_task.last_sequence, mobile_task.current_step, mobile_task.result, mobile_task.error_code, mobile_task.detail, mobile_task.started_at, mobile_task.completed_at, mobile_task.created_at 
+	FROM mobile_task 
+	WHERE mobile_task.tenant_id = $1::VARCHAR AND mobile_task.device_id = $2::VARCHAR AND mobile_ta
+2026-09-29 20:53:42.827 CST [91255] HINT:  See server log for query details.
+2026-09-29 20:53:42.827 CST [91255] CONTEXT:  while locking tuple (0,2) in relation "device_lease"
+2026-09-29 20:53:42.827 CST [91255] LOCATION:  DeadLockReport, deadlock.c:1135
+2026-09-29 20:53:42.827 CST [91255] STATEMENT:  SELECT device_lease.device_id AS device_lease_device_id, device_lease.tenant_id AS device_lease_tenant_id, device_lease.lease_id AS device_lease_lease_id, device_lease.owner_workflow_id AS device_lease_owner_workflow_id, device_lease.fencing_token AS device_lease_fencing_token, device_lease.expires_at AS device_lease_expires_at, device_lease.canceled_at AS device_lease_canceled_at, device_lease.owner_type AS device_lease_owner_type, device_lease.created_at AS device_lease_created_at 
+	FROM device_lease 
+	WHERE device_lease.device_id = $1::VARCHAR FOR UPDATE
+2026-09-29 20:53:44.190 CST [91330] ERROR:  40P01: deadlock detected
+2026-09-29 20:53:44.190 CST [91330] DETAIL:  Process 91330 waits for ShareLock on transaction 843; blocked by process 91313.
+	Process 91313 waits for ShareLock on transaction 845; blocked by process 91330.
+	Process 91330: SELECT mobile_task.id, mobile_task.tenant_id, mobile_task.device_id, mobile_task.idempotency_key, mobile_task.request_sha256, mobile_task.requested_by, mobile_task.target_package, mobile_task.account_id, mobile_task.binding_version, mobile_task.device_id_at_execution, mobile_task.operation_id, mobile_task.command_type, mobile_task.command_payload, mobile_task.recipe_pin, mobile_task.business_state, mobile_task.control_mode, mobile_task.batch_id, mobile_task.scheduled_for, mobile_task.stall_reason, mobile_task.attempt_id, mobile_task.resume_count, mobile_task.pause_ack_at, mobile_task.reconciliation, mobile_task.steps, mobile_task.status, mobile_task.lease_id, mobile_task.lease_expires_at, mobile_task.attempt, mobile_task.last_sequence, mobile_task.current_step, mobile_task.result, mobile_task.error_code, mobile_task.detail, mobile_task.started_at, mobile_task.completed_at, mobile_task.created_at 
+	FROM mobile_task 
+	WHERE mobile_task.tenant_id = $1::VARCHAR AND mobile_task.device_id = $2::VARCHAR AND mobile_ta
+	Process 91313: SELECT device_lease.device_id AS device_lease_device_id, device_lease.tenant_id AS device_lease_tenant_id, device_lease.lease_id AS device_lease_lease_id, device_lease.owner_workflow_id AS device_lease_owner_workflow_id, device_lease.fencing_token AS device_lease_fencing_token, device_lease.expires_at AS device_lease_expires_at, device_lease.canceled_at AS device_lease_canceled_at, device_lease.owner_type AS device_lease_owner_type, device_lease.created_at AS device_lease_created_at 
+	FROM device_lease 
+	WHERE device_lease.device_id = $1::VARCHAR FOR UPDATE
+2026-09-29 20:53:44.190 CST [91330] HINT:  See server log for query details.
+2026-09-29 20:53:44.190 CST [91330] CONTEXT:  while locking tuple (0,2) in relation "mobile_task"
+2026-09-29 20:53:44.190 CST [91330] LOCATION:  DeadLockReport, deadlock.c:1135
+2026-09-29 20:53:44.190 CST [91330] STATEMENT:  SELECT mobile_task.id, mobile_task.tenant_id, mobile_task.device_id, mobile_task.idempotency_key, mobile_task.request_sha256, mobile_task.requested_by, mobile_task.target_package, mobile_task.account_id, mobile_task.binding_version, mobile_task.device_id_at_execution, mobile_task.operation_id, mobile_task.command_type, mobile_task.command_payload, mobile_task.recipe_pin, mobile_task.business_state, mobile_task.control_mode, mobile_task.batch_id, mobile_task.scheduled_for, mobile_task.stall_reason, mobile_task.attempt_id, mobile_task.resume_count, mobile_task.pause_ack_at, mobile_task.reconciliation, mobile_task.steps, mobile_task.status, mobile_task.lease_id, mobile_task.lease_expires_at, mobile_task.attempt, mobile_task.last_sequence, mobile_task.current_step, mobile_task.result, mobile_task.error_code, mobile_task.detail, mobile_task.started_at, mobile_task.completed_at, mobile_task.created_at 
+	FROM mobile_task 
+	WHERE mobile_task.tenant_id = $1::VARCHAR AND mobile_task.device_id = $2::VARCHAR AND mobile_task.status IN ($3::VARCHAR, $4::VARCHAR) ORDER BY mobile_task.created_at FOR UPDATE
+2026-09-29 20:53:46.091 CST [91368] ERROR:  40P01: deadlock detected
+2026-09-29 20:53:46.091 CST [91368] DETAIL:  Process 91368 waits for ShareLock on transaction 857; blocked by process 91369.
+	Process 91369 waits for ShareLock on transaction 855; blocked by process 91368.
+	Process 91368: SELECT device_lease.device_id AS device_lease_device_id, device_lease.tenant_id AS device_lease_tenant_id, device_lease.lease_id AS device_lease_lease_id, device_lease.owner_workflow_id AS device_lease_owner_workflow_id, device_lease.fencing_token AS device_lease_fencing_token, device_lease.expires_at AS device_lease_expires_at, device_lease.canceled_at AS device_lease_canceled_at, device_lease.owner_type AS device_lease_owner_type, device_lease.created_at AS device_lease_created_at 
+	FROM device_lease 
+	WHERE device_lease.device_id = $1::VARCHAR FOR UPDATE
+	Process 91369: SELECT mobile_task.id, mobile_task.tenant_id, mobile_task.device_id, mobile_task.idempotency_key, mobile_task.request_sha256, mobile_task.requested_by, mobile_task.target_package, mobile_task.account_id, mobile_task.binding_version, mobile_task.device_id_at_execution, mobile_task.operation_id, mobile_task.command_type, mobile_task.command_payload, mobile_task.recipe_pin, mobile_task.business_state, mobile_task.control_mode, mobile_task.batch_id, mobile_task.scheduled_for, mobile_task.stall_reason, mobile_task.attempt_id, mobile_task.resume_count, mobile_task.pause_ack_at, mobile_task.reconciliation, mobile_task.steps, mobile_task.status, mobile_task.lease_id, mobile_task.lease_expires_at, mobile_task.attempt, mobile_task.last_sequence, mobile_task.current_step, mobile_task.result, mobile_task.error_code, mobile_task.detail, mobile_task.started_at, mobile_task.completed_at, mobile_task.created_at 
+	FROM mobile_task 
+	WHERE mobile_task.tenant_id = $1::VARCHAR AND mobile_task.device_id = $2::VARCHAR AND mobile_ta
+2026-09-29 20:53:46.091 CST [91368] HINT:  See server log for query details.
+2026-09-29 20:53:46.091 CST [91368] CONTEXT:  while locking tuple (0,1) in relation "device_lease"
+2026-09-29 20:53:46.091 CST [91368] LOCATION:  DeadLockReport, deadlock.c:1135
+2026-09-29 20:53:46.091 CST [91368] STATEMENT:  SELECT device_lease.device_id AS device_lease_device_id, device_lease.tenant_id AS device_lease_tenant_id, device_lease.lease_id AS device_lease_lease_id, device_lease.owner_workflow_id AS device_lease_owner_workflow_id, device_lease.fencing_token AS device_lease_fencing_token, device_lease.expires_at AS device_lease_expires_at, device_lease.canceled_at AS device_lease_canceled_at, device_lease.owner_type AS device_lease_owner_type, device_lease.created_at AS device_lease_created_at 
+	FROM device_lease 
+	WHERE device_lease.device_id = $1::VARCHAR FOR UPDATE
+2026-09-29 20:53:47.483 CST [91390] ERROR:  40P01: deadlock detected
+2026-09-29 20:53:47.483 CST [91390] DETAIL:  Process 91390 waits for ShareLock on transaction 871; blocked by process 91391.
+	Process 91391 waits for ShareLock on transaction 869; blocked by process 91390.
+	Process 91390: SELECT device_lease.device_id AS device_lease_device_id, device_lease.tenant_id AS device_lease_tenant_id, device_lease.lease_id AS device_lease_lease_id, device_lease.owner_workflow_id AS device_lease_owner_workflow_id, device_lease.fencing_token AS device_lease_fencing_token, device_lease.expires_at AS device_lease_expires_at, device_lease.canceled_at AS device_lease_canceled_at, device_lease.owner_type AS device_lease_owner_type, device_lease.created_at AS device_lease_created_at 
+	FROM device_lease 
+	WHERE device_lease.device_id = $1::VARCHAR FOR UPDATE
+	Process 91391: SELECT mobile_task.id, mobile_task.tenant_id, mobile_task.device_id, mobile_task.idempotency_key, mobile_task.request_sha256, mobile_task.requested_by, mobile_task.target_package, mobile_task.account_id, mobile_task.binding_version, mobile_task.device_id_at_execution, mobile_task.operation_id, mobile_task.command_type, mobile_task.command_payload, mobile_task.recipe_pin, mobile_task.business_state, mobile_task.control_mode, mobile_task.batch_id, mobile_task.scheduled_for, mobile_task.stall_reason, mobile_task.attempt_id, mobile_task.resume_count, mobile_task.pause_ack_at, mobile_task.reconciliation, mobile_task.steps, mobile_task.status, mobile_task.lease_id, mobile_task.lease_expires_at, mobile_task.attempt, mobile_task.last_sequence, mobile_task.current_step, mobile_task.result, mobile_task.error_code, mobile_task.detail, mobile_task.started_at, mobile_task.completed_at, mobile_task.created_at 
+	FROM mobile_task 
+	WHERE mobile_task.tenant_id = $1::VARCHAR AND mobile_task.device_id = $2::VARCHAR AND mobile_ta
+2026-09-29 20:53:47.483 CST [91390] HINT:  See server log for query details.
+2026-09-29 20:53:47.483 CST [91390] CONTEXT:  while locking tuple (0,2) in relation "device_lease"
+2026-09-29 20:53:47.483 CST [91390] LOCATION:  DeadLockReport, deadlock.c:1135
+2026-09-29 20:53:47.483 CST [91390] STATEMENT:  SELECT device_lease.device_id AS device_lease_device_id, device_lease.tenant_id AS device_lease_tenant_id, device_lease.lease_id AS device_lease_lease_id, device_lease.owner_workflow_id AS device_lease_owner_workflow_id, device_lease.fencing_token AS device_lease_fencing_token, device_lease.expires_at AS device_lease_expires_at, device_lease.canceled_at AS device_lease_canceled_at, device_lease.owner_type AS device_lease_owner_type, device_lease.created_at AS device_lease_created_at 
+	FROM device_lease 
+	WHERE device_lease.device_id = $1::VARCHAR FOR UPDATE
+2026-09-29 20:53:48.864 CST [91398] ERROR:  40P01: deadlock detected
+2026-09-29 20:53:48.864 CST [91398] DETAIL:  Process 91398 waits for ShareLock on transaction 883; blocked by process 91397.
+	Process 91397 waits for ShareLock on transaction 885; blocked by process 91398.
+	Process 91398: SELECT mobile_task.id, mobile_task.tenant_id, mobile_task.device_id, mobile_task.idempotency_key, mobile_task.request_sha256, mobile_task.requested_by, mobile_task.target_package, mobile_task.account_id, mobile_task.binding_version, mobile_task.device_id_at_execution, mobile_task.operation_id, mobile_task.command_type, mobile_task.command_payload, mobile_task.recipe_pin, mobile_task.business_state, mobile_task.control_mode, mobile_task.batch_id, mobile_task.scheduled_for, mobile_task.stall_reason, mobile_task.attempt_id, mobile_task.resume_count, mobile_task.pause_ack_at, mobile_task.reconciliation, mobile_task.steps, mobile_task.status, mobile_task.lease_id, mobile_task.lease_expires_at, mobile_task.attempt, mobile_task.last_sequence, mobile_task.current_step, mobile_task.result, mobile_task.error_code, mobile_task.detail, mobile_task.started_at, mobile_task.completed_at, mobile_task.created_at 
+	FROM mobile_task 
+	WHERE mobile_task.tenant_id = $1::VARCHAR AND mobile_task.device_id = $2::VARCHAR AND mobile_ta
+	Process 91397: SELECT device_lease.device_id AS device_lease_device_id, device_lease.tenant_id AS device_lease_tenant_id, device_lease.lease_id AS device_lease_lease_id, device_lease.owner_workflow_id AS device_lease_owner_workflow_id, device_lease.fencing_token AS device_lease_fencing_token, device_lease.expires_at AS device_lease_expires_at, device_lease.canceled_at AS device_lease_canceled_at, device_lease.owner_type AS device_lease_owner_type, device_lease.created_at AS device_lease_created_at 
+	FROM device_lease 
+	WHERE device_lease.device_id = $1::VARCHAR FOR UPDATE
+2026-09-29 20:53:48.864 CST [91398] HINT:  See server log for query details.
+2026-09-29 20:53:48.864 CST [91398] CONTEXT:  while locking tuple (0,3) in relation "mobile_task"
+2026-09-29 20:53:48.864 CST [91398] LOCATION:  DeadLockReport, deadlock.c:1135
+2026-09-29 20:53:48.864 CST [91398] STATEMENT:  SELECT mobile_task.id, mobile_task.tenant_id, mobile_task.device_id, mobile_task.idempotency_key, mobile_task.request_sha256, mobile_task.requested_by, mobile_task.target_package, mobile_task.account_id, mobile_task.binding_version, mobile_task.device_id_at_execution, mobile_task.operation_id, mobile_task.command_type, mobile_task.command_payload, mobile_task.recipe_pin, mobile_task.business_state, mobile_task.control_mode, mobile_task.batch_id, mobile_task.scheduled_for, mobile_task.stall_reason, mobile_task.attempt_id, mobile_task.resume_count, mobile_task.pause_ack_at, mobile_task.reconciliation, mobile_task.steps, mobile_task.status, mobile_task.lease_id, mobile_task.lease_expires_at, mobile_task.attempt, mobile_task.last_sequence, mobile_task.current_step, mobile_task.result, mobile_task.error_code, mobile_task.detail, mobile_task.started_at, mobile_task.completed_at, mobile_task.created_at 
+	FROM mobile_task 
+	WHERE mobile_task.tenant_id = $1::VARCHAR AND mobile_task.device_id = $2::VARCHAR AND mobile_task.status IN ($3::VARCHAR, $4::VARCHAR) ORDER BY mobile_task.created_at FOR UPDATE
+2026-09-29 20:53:49.378 CST [91213] LOG:  00000: received fast shutdown request
+2026-09-29 20:53:49.378 CST [91213] LOCATION:  process_pm_shutdown_request, postmaster.c:2921
+2026-09-29 20:53:49.378 CST [91213] LOG:  00000: aborting any active transactions
+2026-09-29 20:53:49.378 CST [91213] LOCATION:  process_pm_shutdown_request, postmaster.c:2939
+2026-09-29 20:53:49.379 CST [91213] LOG:  00000: background worker "logical replication launcher" (PID 91219) exited with exit code 1
+2026-09-29 20:53:49.379 CST [91213] LOCATION:  LogChildExit, postmaster.c:3675
+2026-09-29 20:53:49.379 CST [91214] LOG:  00000: shutting down
+2026-09-29 20:53:49.379 CST [91214] LOCATION:  ShutdownXLOG, xlog.c:6237
+2026-09-29 20:53:49.379 CST [91214] LOG:  00000: checkpoint starting: shutdown immediate
+2026-09-29 20:53:49.379 CST [91214] LOCATION:  LogCheckpointStart, xlog.c:6296
+2026-09-29 20:53:50.259 CST [91214] LOG:  00000: checkpoint complete: wrote 14865 buffers (90.7%); 0 WAL file(s) added, 0 removed, 5 recycled; write=0.661 s, sync=0.218 s, total=0.881 s; sync files=9768, longest=0.001 s, average=0.001 s; distance=82451 kB, estimate=82451 kB; lsn=0/65A2828, redo lsn=0/65A2828
+2026-09-29 20:53:50.259 CST [91214] LOCATION:  LogCheckpointEnd, xlog.c:6396
+2026-09-29 20:53:50.264 CST [91213] LOG:  00000: database system is shut down
+2026-09-29 20:53:50.264 CST [91213] LOCATION:  UnlinkLockFiles, miscinit.c:1194
