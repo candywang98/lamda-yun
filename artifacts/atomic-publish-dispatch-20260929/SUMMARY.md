@@ -29,7 +29,7 @@ No task plan, schema, migration, OpenAPI, Android, Web, CI, or controller eviden
 
 - Xianyu queue dispatch now passes its caller-owned `AsyncSession` through platform-task creation.
 - `MobileTaskService._insert_task` keeps the existing self-owned unit-of-work entry point and adds a session-bound path that validates, locks, inserts, and explicitly flushes without committing or rolling back the caller transaction.
-- The post-device-lock idempotency recheck is enabled for caller-owned sessions and the pre-existing order-collection path only. Ordinary direct self-owned task creation retains its previous conflict behavior.
+- The initial idempotency lookup always runs before taking the device row lock, preserving ordinary direct replay's lock-free return of an existing task. A second lookup after the device lock is enabled only for caller-owned sessions and the pre-existing order-collection path.
 - `PlatformTaskService.create` propagates the supplied session through publish-listing freeze reads, mobile-task insertion, business-field/snapshot stamping, and task-view reads. Existing callers that do not supply a session retain their self-owned unit-of-work behavior.
 - Queue row locks, task insertion, command/snapshot stamping, canonical `completionBoundary` hash, target `IN_FLIGHT` linkage, task ID append, and dispatch audit now commit or roll back in one SQL transaction.
 - A caller-owned database `IntegrityError` is translated at the queue owner boundary to the existing `task idempotency conflict` API response. The failed session is not queried, committed, rolled back internally, or replaced with a recovery transaction; the outer unit of work performs the rollback.
@@ -91,7 +91,7 @@ Complete dispatch file:
 $PYTHON -m pytest -q tests/integration/test_xianyu_publish_dispatch.py
 ```
 
-Result: exit `0`, `17 passed in 9.22s`.
+Result after the direct-replay follow-up: exit `0`, `18 passed in 8.88s`.
 
 Coverage includes:
 
@@ -103,7 +103,30 @@ Coverage includes:
 - an explicitly constructed legacy paused orphan is recovered without changing state, control mode, result, payload, or hash;
 - partial or mismatching orphan identity still fails closed;
 - direct platform-task idempotent replay still preserves a started task;
+- ordinary direct platform-task replay returns the existing paused task while a separate PostgreSQL transaction holds the device row lock, without waiting for that lock or mutating task state;
 - no automatic success confirmation or publish-button step is introduced.
+
+### Direct Replay Lock Follow-up
+
+Review of commit `4d687c36d3e680c96260202524e032d6342add09` found that the conditional was attached to the first idempotency lookup instead of the second lookup after the device lock.
+
+Red proof before the correction:
+
+```sh
+$PYTHON -m pytest -q \
+  tests/integration/test_xianyu_publish_dispatch.py::test_postgres_direct_platform_replay_does_not_wait_for_device_lock
+```
+
+Result: exit `1`, `1 failed in 1.65s`; replay did not complete during the positive completion window and returned only after the held `DeviceRow FOR UPDATE` lock was released.
+
+After moving the condition to the second lookup and using a 2-second positive completion window while retaining the device lock:
+
+```sh
+$PYTHON -m pytest -q \
+  tests/integration/test_xianyu_publish_dispatch.py::test_postgres_direct_platform_replay_does_not_wait_for_device_lock
+```
+
+Result: exit `0`, `1 passed in 1.38s`. The replay returned the original task and preserved `PAUSED_WAITING_USER`, `REMOTE`, result, command payload, and snapshot hash.
 
 ## Broad Regression
 
@@ -131,7 +154,7 @@ $PYTHON -m pytest -q \
   tests/integration/test_order_delivery.py
 ```
 
-Final result after direct-semantics review: exit `0`, `243 passed, 1 skipped in 57.73s`.
+Final result after the direct-replay lock correction: exit `0`, `244 passed, 1 skipped in 58.19s`.
 
 The skip is the existing SQLite-only guard at `tests/integration/test_order_delivery.py:385`: `row-lock concurrency requires PostgreSQL`. The new atomic dispatch suite supplies the required real-PostgreSQL concurrency proof.
 
@@ -145,6 +168,21 @@ $PYTHON -m pytest -q -rs \
 ```
 
 Result: exit `0`, `134 passed, 1 skipped in 34.39s`, with the same explicit PostgreSQL-only skip above.
+
+The follow-up direct/mobile/order impact set was also rerun:
+
+```sh
+$PYTHON -m pytest -q -rs \
+  tests/integration/test_platform_tasks.py \
+  tests/integration/test_mobile_task_api.py \
+  tests/integration/test_publish_commands.py \
+  tests/integration/test_task_schedules.py \
+  tests/integration/test_xianyu_maintenance.py \
+  tests/integration/test_orders_sync.py \
+  tests/integration/test_order_delivery.py
+```
+
+Result: exit `0`, `199 passed, 1 skipped in 45.83s`, with the same explicit PostgreSQL-only skip above.
 
 ## Static Verification
 

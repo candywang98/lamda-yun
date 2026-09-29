@@ -18,7 +18,7 @@ import httpx
 import pytest
 from cloudctl_api import create_app
 from cloudctl_api.command_v1 import parse_command_v1
-from cloudctl_api.db import AuditEventRow, MobileTaskRow
+from cloudctl_api.db import AuditEventRow, DeviceRow, MobileTaskRow
 from cloudctl_api.settings import Settings
 from cloudctl_domain import ValidationError
 from fastapi import FastAPI
@@ -811,6 +811,86 @@ async def test_platform_task_idempotent_replay_preserves_started_task(
     assert replay.status_code == 200, replay.text
     assert replay.json()["items"][0]["taskId"] == task_id
     after = await client.get(f"/api/v1/platform-tasks/{task_id}", headers=identity())
+    assert after.status_code == 200, after.text
+    assert after.json()["state"] == "PAUSED_WAITING_USER"
+    assert after.json()["controlMode"] == "REMOTE"
+    assert after.json()["result"] == before.json()["result"]
+    assert after.json()["commandPayload"] == before.json()["commandPayload"]
+    assert after.json()["snapshotSha256"] == before.json()["snapshotSha256"]
+
+
+@pytest.mark.asyncio
+async def test_postgres_direct_platform_replay_does_not_wait_for_device_lock(
+    postgres_pair: list[tuple[httpx.AsyncClient, FastAPI]],
+) -> None:
+    (first_client, first_app), (second_client, _second_app) = postgres_pair
+    device_id, account_id = await setup_device_and_account(first_client, "direct-replay-lock")
+    task_body = {
+        "deviceId": device_id,
+        "accountId": account_id,
+        "commandType": "xianyu.publish_listing.v1",
+        "parameters": {"listingBody": "direct replay lock item", "price": "19.00"},
+        "publishTargetId": "direct-replay-lock-target",
+        "batchId": "direct-replay-lock",
+    }
+    task_headers = {**identity(), "Idempotency-Key": "direct-replay-lock-key"}
+    created = await first_client.post(
+        "/api/v1/platform-tasks", headers=task_headers, json=task_body
+    )
+    assert created.status_code == 201, created.text
+    task_id = created.json()["items"][0]["taskId"]
+    companion_auth = await enroll_companion(first_client, device_id, "direct-replay-lock-instance")
+    claimed = await first_client.post(
+        "/companion/v2/tasks/claim",
+        headers=companion_auth,
+        json={"leaseSeconds": 60},
+    )
+    assert claimed.status_code == 200, claimed.text
+    assert claimed.json()["taskId"] == task_id
+    paused = await first_client.post(
+        f"/companion/v2/tasks/{task_id}/events",
+        headers=companion_auth,
+        json={
+            "leaseId": claimed.json()["leaseId"],
+            "sequence": 1,
+            "eventType": "PAUSED_WAITING_USER",
+            "stepIndex": 0,
+            "payload": {"reason": "direct replay must not wait for device lock"},
+        },
+    )
+    assert paused.status_code == 201, paused.text
+    async with first_app.state.database.unit_of_work() as session:
+        task_row = await session.get(MobileTaskRow, task_id, with_for_update=True)
+        assert task_row is not None
+        task_row.result = {"checkpoint": "preserve-direct-replay-lock"}
+    before = await first_client.get(f"/api/v1/platform-tasks/{task_id}", headers=identity())
+    assert before.status_code == 200, before.text
+
+    device_locked = asyncio.Event()
+    release_device = asyncio.Event()
+
+    async def hold_device_lock() -> None:
+        async with first_app.state.database.unit_of_work() as session:
+            device = await session.get(DeviceRow, device_id, with_for_update=True)
+            assert device is not None
+            device_locked.set()
+            await release_device.wait()
+
+    lock_holder = asyncio.create_task(hold_device_lock())
+    await asyncio.wait_for(device_locked.wait(), timeout=5)
+    replay_request = asyncio.create_task(
+        second_client.post("/api/v1/platform-tasks", headers=task_headers, json=task_body)
+    )
+    done, _pending = await asyncio.wait({replay_request}, timeout=2)
+    completed_without_device_lock = bool(done)
+    release_device.set()
+    replay = await replay_request
+    await lock_holder
+
+    assert completed_without_device_lock, "idempotent replay waited for the device row lock"
+    assert replay.status_code == 200, replay.text
+    assert replay.json()["items"][0]["taskId"] == task_id
+    after = await second_client.get(f"/api/v1/platform-tasks/{task_id}", headers=identity())
     assert after.status_code == 200, after.text
     assert after.json()["state"] == "PAUSED_WAITING_USER"
     assert after.json()["controlMode"] == "REMOTE"

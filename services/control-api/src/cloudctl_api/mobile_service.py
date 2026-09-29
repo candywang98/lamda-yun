@@ -1306,6 +1306,21 @@ class MobileTaskService:
         now: datetime,
         recheck_after_device_lock: bool,
     ) -> tuple[dict[str, Any], bool]:
+        existing = await session.scalar(
+            select(MobileTaskRow).where(
+                MobileTaskRow.tenant_id == tenant_id,
+                MobileTaskRow.idempotency_key == key,
+            )
+        )
+        if existing is not None:
+            if existing.request_sha256 != digest:
+                raise ConflictError("Idempotency-Key was reused with different task content")
+            return self._task_view(existing), False
+        device = await session.get(DeviceRow, body.device_id, with_for_update=True)
+        if device is None or device.tenant_id != tenant_id:
+            raise NotFoundError("device was not found")
+        # Serialize creation by device, then optionally recheck after a
+        # competing transaction commits before resolving live identity.
         if recheck_after_device_lock:
             existing = await session.scalar(
                 select(MobileTaskRow).where(
@@ -1317,21 +1332,6 @@ class MobileTaskService:
                 if existing.request_sha256 != digest:
                     raise ConflictError("Idempotency-Key was reused with different task content")
                 return self._task_view(existing), False
-        device = await session.get(DeviceRow, body.device_id, with_for_update=True)
-        if device is None or device.tenant_id != tenant_id:
-            raise NotFoundError("device was not found")
-        # Serialize creation by device, then recheck after a competing
-        # transaction commits. Resolve live identity only for a new run.
-        existing = await session.scalar(
-            select(MobileTaskRow).where(
-                MobileTaskRow.tenant_id == tenant_id,
-                MobileTaskRow.idempotency_key == key,
-            )
-        )
-        if existing is not None:
-            if existing.request_sha256 != digest:
-                raise ConflictError("Idempotency-Key was reused with different task content")
-            return self._task_view(existing), False
         frozen_account_id = body.account_id
         frozen_binding_version = None
         frozen_order_collection = None
