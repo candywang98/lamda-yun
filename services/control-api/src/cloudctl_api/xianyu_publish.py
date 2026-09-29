@@ -17,7 +17,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
-from cloudctl_domain import Actor
+from cloudctl_domain import Actor, Permission, require_permissions
 from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import JSONResponse
 from sqlalchemy import (
@@ -779,6 +779,7 @@ class XianyuPublishQueueService:
         self.database = database
 
     async def create_queue(self, actor: Any, payload: dict[str, Any]) -> dict[str, Any]:
+        require_permissions(actor.roles, Permission.TASK_CREATE)
         tenant_id = str(actor.tenant_id)
         queue_id = payload.get("queueId") or str(uuid.uuid4())
         now = _now()
@@ -858,6 +859,7 @@ class XianyuPublishQueueService:
         return await self.get_queue(actor, queue_id)
 
     async def get_queue(self, actor: Any, queue_id: str) -> dict[str, Any]:
+        require_permissions(actor.roles, Permission.PUBLISH_READ)
         rows = await self._queue_rows(str(actor.tenant_id), queue_id)
         if not rows:
             from cloudctl_domain import NotFoundError
@@ -883,6 +885,7 @@ class XianyuPublishQueueService:
         """Serial single-item advance: nothing new is issued while a target is
         IN_FLIGHT; only PENDING (未开始) or FAILED_UNCONFIRMED (未确认失败)
         targets are eligible; confirmed-success targets are never redone."""
+        require_permissions(actor.roles, Permission.TASK_CREATE)
         rows = await self._queue_rows(str(actor.tenant_id), queue_id)
         if not rows:
             from cloudctl_domain import NotFoundError
@@ -901,6 +904,7 @@ class XianyuPublishQueueService:
         """Mint the MobileTask for a target (publish-target identity is stamped
         into the frozen command payload so device side and server side agree
         on which target this execution belongs to)."""
+        require_permissions(actor.roles, Permission.TASK_CREATE)
         # Late import: platform_tasks imports this module (no import cycle).
         from .platform_tasks import PlatformTaskCreate
 
@@ -964,6 +968,7 @@ class XianyuPublishQueueService:
     ) -> dict[str, Any]:
         """Executor-side failure report: the result is NOT confirmed — the
         target becomes re-issuable (未确认失败) until a confirm settles it."""
+        require_permissions(actor.roles, Permission.TASK_CREATE)
         async with self.database.unit_of_work() as session:
             row = await self._locked_target(session, str(actor.tenant_id), queue_id, target_id)
             if row.state != TARGET_IN_FLIGHT:
@@ -1000,6 +1005,7 @@ class XianyuPublishQueueService:
         boundary (never as FULL_AUTO); if even the recorded boundary's success
         criteria are not met, a SUCCEEDED confirmation is refused outright.
         """
+        require_permissions(actor.roles, Permission.TASK_CREATE)
         from cloudctl_domain import ConflictError, ValidationError
 
         decision = payload["decision"]
