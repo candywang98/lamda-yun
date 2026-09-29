@@ -566,11 +566,14 @@ def test_phone_events_use_epoch_exact_process_and_deduplicate_overlapping_window
     ],
 )
 def test_phone_events_reject_nonexact_or_malformed_lines(line: str) -> None:
-    assert acceptance.parse_phone_events(
-        line,
-        since_epoch=1790640000.0,
-        process_id="4310",
-    ) == []
+    assert (
+        acceptance.parse_phone_events(
+            line,
+            since_epoch=1790640000.0,
+            process_id="4310",
+        )
+        == []
+    )
 
 
 def test_device_ahead_of_host_does_not_admit_pre_watermark_event() -> None:
@@ -633,9 +636,7 @@ def test_phone_event_epoch_filter_crosses_local_midnight_without_date_assumption
         process_id="23518",
     )
 
-    assert events == [
-        {"timestamp": f"{after:.3f}", "processId": "23518", "type": "heartbeat"}
-    ]
+    assert events == [{"timestamp": f"{after:.3f}", "processId": "23518", "type": "heartbeat"}]
 
 
 def test_observed_exact_user0_service_records_are_healthy() -> None:
@@ -667,9 +668,7 @@ def test_enabled_but_unbound_target_does_not_borrow_another_service_connection()
 
 def test_suffixed_component_is_not_the_target_binding() -> None:
     result = acceptance.parse_service_health(
-        services_dump(
-            target_connection=".automation.CloudCtlAccessibilityServiceSuffix"
-        ),
+        services_dump(target_connection=".automation.CloudCtlAccessibilityServiceSuffix"),
         process_id="23518",
     )
 
@@ -807,9 +806,7 @@ def install_cloud_action_fakes(
 
 
 def test_prepare_remote_action_is_exact_12_to_13(monkeypatch: pytest.MonkeyPatch) -> None:
-    recorded = install_cloud_action_fakes(
-        monkeypatch, [cloud(maintenance=False, version=12)]
-    )
+    recorded = install_cloud_action_fakes(monkeypatch, [cloud(maintenance=False, version=12)])
     window = "v6-" + "a" * 32
 
     result = asyncio.run(cloud_helper.run_action("prepare-cas", window))
@@ -848,13 +845,9 @@ def test_finish_remote_action_is_exact_13_to_14(monkeypatch: pytest.MonkeyPatch)
 def test_finish_remote_action_is_idempotent_at_false_14(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    recorded = install_cloud_action_fakes(
-        monkeypatch, [cloud(maintenance=False, version=14)]
-    )
+    recorded = install_cloud_action_fakes(monkeypatch, [cloud(maintenance=False, version=14)])
 
-    result = asyncio.run(
-        cloud_helper.run_action("finish-owned", "v6-" + "c" * 32)
-    )
+    result = asyncio.run(cloud_helper.run_action("finish-owned", "v6-" + "c" * 32))
 
     assert recorded == []
     assert result["changed"] is False

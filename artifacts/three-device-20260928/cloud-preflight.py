@@ -33,8 +33,11 @@ async def main():
         "im-3a1d306-rollout.env",
     ):
         values.update(
-            {key: value for key, value in dotenv_values(ROOT / "shared" / name).items()
-             if value is not None}
+            {
+                key: value
+                for key, value in dotenv_values(ROOT / "shared" / name).items()
+                if value is not None
+            }
         )
     connection = await asyncpg.connect(
         values["CLOUDCTL_DATABASE_URL"].replace("postgresql+asyncpg://", "postgresql://"),
@@ -59,8 +62,7 @@ async def main():
                 "tasks": "SELECT count(*) FROM mobile_task WHERE status NOT IN "
                 "('SUCCEEDED','FAILED','CANCELED','CANCELLED','EXPIRED')",
                 "schedules": "SELECT count(*) FROM task_schedule",
-                "previews": "SELECT count(*) FROM device_preview "
-                "WHERE session_expires_at>now()",
+                "previews": "SELECT count(*) FROM device_preview WHERE session_expires_at>now()",
                 "debugSessions": "SELECT count(*) FROM debug_session "
                 "WHERE revoked_at IS NULL AND expires_at>now()",
             }
@@ -80,22 +82,23 @@ async def main():
                 )
                 item = {"serial": serial, "device": dict(row) if row else None}
                 item["mobileBindings"] = [
-                    dict(binding) for binding in await connection.fetch(
+                    dict(binding)
+                    for binding in await connection.fetch(
                         "SELECT id,tenant_id,companion_version,last_seen_at,revoked_at "
                         "FROM mobile_binding WHERE device_id=$1 AND revoked_at IS NULL",
                         device_id,
                     )
                 ]
                 item["accountBindings"] = [
-                    dict(binding) for binding in await connection.fetch(
+                    dict(binding)
+                    for binding in await connection.fetch(
                         "SELECT platform,status,binding_version FROM account_device_binding "
                         "WHERE device_id=$1",
                         device_id,
                     )
                 ]
                 item["expectedBindingActive"] = any(
-                    binding["id"] == EXPECTED_BINDINGS[serial]
-                    for binding in item["mobileBindings"]
+                    binding["id"] == EXPECTED_BINDINGS[serial] for binding in item["mobileBindings"]
                 )
                 result["devices"].append(item)
         spec = importlib.util.spec_from_file_location(

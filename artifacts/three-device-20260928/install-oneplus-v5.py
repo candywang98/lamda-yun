@@ -25,9 +25,7 @@ SERIAL = "b0644fb5"
 DEVICE_ID = "4aabc387-6e4b-4b59-a525-b1c119ec7f5b"
 PACKAGE = "com.company.cloudctl.companion"
 MODEL = "LE2100"
-ACCESSIBILITY_COMPONENT = (
-    f"{PACKAGE}/{PACKAGE}.automation.CloudCtlAccessibilityService"
-)
+ACCESSIBILITY_COMPONENT = f"{PACKAGE}/{PACKAGE}.automation.CloudCtlAccessibilityService"
 SYNC_SERVICE = f"{PACKAGE}.service.CompanionSyncService"
 JAVA = Path.home() / "CloudCtlExternal/jdks/temurin-17/Contents/Home"
 TOOLS = Path.home() / "CloudCtlExternal/android-sdk/build-tools/35.0.0"
@@ -221,13 +219,9 @@ def parse_phone_events(
         for message, event_type in APPROVED_LOG_MESSAGES.items():
             if fields[5] != message:
                 continue
-            events.append(
-                {"timestamp": fields[0], "processId": fields[1], "type": event_type}
-            )
+            events.append({"timestamp": fields[0], "processId": fields[1], "type": event_type})
             break
-    unique = {
-        (item["timestamp"], item["processId"], item["type"]): item for item in events
-    }
+    unique = {(item["timestamp"], item["processId"], item["type"]): item for item in events}
     return [unique[key] for key in sorted(unique)]
 
 
@@ -267,9 +261,7 @@ def _exact_service_block(text: str, relative_class: str) -> list[str] | None:
         f"{PACKAGE}/{PACKAGE}{relative_class}",
     )
     component_pattern = "|".join(re.escape(component) for component in components)
-    header = re.compile(
-        rf"^\s*\* ServiceRecord\{{[^}}]+\bu0\s+(?:{component_pattern})\}}\s*$"
-    )
+    header = re.compile(rf"^\s*\* ServiceRecord\{{[^}}]+\bu0\s+(?:{component_pattern})\}}\s*$")
     matches = [block for block in _service_blocks(text) if header.fullmatch(block[0])]
     return matches[0] if len(matches) == 1 else None
 
@@ -288,9 +280,7 @@ def _service_process_id(block: list[str]) -> str | None:
 
 def parse_service_health(services: str, *, process_id: str) -> dict[str, bool]:
     sync = _exact_service_block(services, ".service.CompanionSyncService")
-    accessibility = _exact_service_block(
-        services, ".automation.CloudCtlAccessibilityService"
-    )
+    accessibility = _exact_service_block(services, ".automation.CloudCtlAccessibilityService")
     sync_present = sync is not None and _service_process_id(sync) == process_id
     sync_foreground = False
     if sync_present and sync is not None:
@@ -436,10 +426,9 @@ def execute_window(operations: WindowOperations) -> dict[str, Any]:
         if lock is not None:
             try:
                 released = operations.release_lock(lock)
-                result["lockReleased"] = (
-                    released.get("state") == "FREE"
-                    and released.get("released_fencing") == lock.get("fencing")
-                )
+                result["lockReleased"] = released.get("state") == "FREE" and released.get(
+                    "released_fencing"
+                ) == lock.get("fencing")
                 if not result["lockReleased"]:
                     result["status"] = "FAILED"
                     result["releaseFailure"] = {
@@ -640,9 +629,7 @@ class RealOperations:
         process_id = pids[0] if len(pids) == 1 and pids[0].isdigit() else None
         services = self.adb("shell", "dumpsys", "activity", "services", PACKAGE)
         accessibility = self.adb("shell", "dumpsys", "accessibility")
-        enabled = self.adb(
-            "shell", "settings", "get", "secure", "enabled_accessibility_services"
-        )
+        enabled = self.adb("shell", "settings", "get", "secure", "enabled_accessibility_services")
         service_health = (
             parse_service_health(services, process_id=process_id)
             if process_id is not None
@@ -802,9 +789,7 @@ class RealOperations:
             events = self.phone_events(device_watermark_epoch, expected_pid)
             heartbeats = [item for item in events if item["type"] == "heartbeat"]
             deferrals = [item for item in events if item["type"] == "maintenanceDeferral"]
-            threshold = len(heartbeats) >= 3 and (
-                phase != "maintenance" or len(deferrals) >= 2
-            )
+            threshold = len(heartbeats) >= 3 and (phase != "maintenance" or len(deferrals) >= 2)
             if threshold or time.monotonic() >= deadline:
                 break
             time.sleep(min(POLL_SECONDS, max(0.0, deadline - time.monotonic())))
@@ -816,9 +801,7 @@ class RealOperations:
             validate_cloud(cloud, maintenance=expected_maintenance, version=expected_version)
         except AcceptanceError:
             cloud_gate_passed = False
-        journal = self.cloud(
-            "journal", str(server_since_host_epoch), str(time.time()), timeout=45
-        )
+        journal = self.cloud("journal", str(server_since_host_epoch), str(time.time()), timeout=45)
         observation = {
             "phase": phase,
             "deviceLogWatermarkEpoch": device_watermark_epoch,
@@ -833,15 +816,15 @@ class RealOperations:
             "allRuntimeSamplesHealthy": all(
                 (
                     all(
-                    sample.get(key) is True
-                    for key in (
-                        "processRunning",
-                        "syncServicePresent",
-                        "syncServiceForeground",
-                        "accessibilityEnabled",
-                        "accessibilityBound",
-                        "exactProcess",
-                    )
+                        sample.get(key) is True
+                        for key in (
+                            "processRunning",
+                            "syncServicePresent",
+                            "syncServiceForeground",
+                            "accessibilityEnabled",
+                            "accessibilityBound",
+                            "exactProcess",
+                        )
                     )
                     and sample.get("accessibilityCrashed") is False
                 )

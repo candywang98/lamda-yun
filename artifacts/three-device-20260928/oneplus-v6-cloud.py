@@ -114,9 +114,7 @@ async def database_connection() -> asyncpg.Connection:
             }
         )
     return await asyncpg.connect(
-        values["CLOUDCTL_DATABASE_URL"].replace(
-            "postgresql+asyncpg://", "postgresql://"
-        ),
+        values["CLOUDCTL_DATABASE_URL"].replace("postgresql+asyncpg://", "postgresql://"),
         server_settings={"timezone": "UTC", "statement_timeout": "10000"},
         timeout=10,
     )
@@ -236,10 +234,9 @@ async def snapshot(ops: Any, client: httpx.AsyncClient) -> dict[str, Any]:
     capabilities = device["capabilities"]
     if isinstance(capabilities, str):
         capabilities = json.loads(capabilities)
-    retained = (
-        normalized(bindings) == normalized(before["identity"]["bindings"])
-        and normalized(accounts) == normalized(before["identity"]["accounts"])
-    )
+    retained = normalized(bindings) == normalized(before["identity"]["bindings"]) and normalized(
+        accounts
+    ) == normalized(before["identity"]["accounts"])
     return {
         "observedAt": observed_at,
         "schema": schema,
@@ -377,7 +374,7 @@ def journal_evidence(since_epoch: str, until_epoch: str) -> dict[str, Any]:
     }
     for line in result.stdout.splitlines():
         for endpoint, status in needles.items():
-            if endpoint in line and f' {status} ' in line:
+            if endpoint in line and f" {status} " in line:
                 events.append(
                     {
                         "timestamp": line.split(" ", 1)[0],

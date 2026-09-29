@@ -44,7 +44,16 @@ jobs:
 
   android:
     runs-on: ubuntu-latest
+    env:
+      CLOUDCTL_APP_UPDATE_PUBLIC_KEY: ${{ vars.CLOUDCTL_APP_UPDATE_PUBLIC_KEY }}
     steps:
+      - name: Require Android release update public key
+        shell: bash
+        run: |
+          if [[ -z "${CLOUDCTL_APP_UPDATE_PUBLIC_KEY:-}" ]]; then
+            echo "::error::CLOUDCTL_APP_UPDATE_PUBLIC_KEY repository variable is required for Android release CI."
+            exit 1
+          fi
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
         with:
@@ -52,5 +61,6 @@ jobs:
           java-version: "21"
           cache: gradle
       - uses: gradle/actions/setup-gradle@v4
+      - run: cd mobile/companion && ./gradlew verifyReleaseUpdatePublicKey
       - run: cd mobile/companion && ./gradlew lint test
       - run: cd mobile/dpc && ./gradlew lint test
