@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read-only ADB preflight for exactly three explicitly named Companion devices."""
+"""Read-only ADB preflight for two or three explicitly named Companion devices."""
 
 from __future__ import annotations
 
@@ -90,9 +90,9 @@ class AdbReader:
 
 
 def validate_inputs(serials: Sequence[str], package: str) -> None:
-    if len(serials) != 3:
-        raise ValueError("exactly three --serial values are required")
-    if len(set(serials)) != 3:
+    if len(serials) not in (2, 3):
+        raise ValueError("two or three --serial values are required")
+    if len(set(serials)) != len(serials):
         raise ValueError("--serial values must be unique")
     if any(not SERIAL_PATTERN.fullmatch(serial) for serial in serials):
         raise ValueError("serial contains unsupported characters")
@@ -475,7 +475,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--serial",
         action="append",
         required=True,
-        help="exact device serial; repeat exactly three times",
+        help="exact device serial; repeat two or three times",
     )
     parser.add_argument("--package", default=DEFAULT_PACKAGE)
     parser.add_argument("--timeout", type=float, default=5.0)

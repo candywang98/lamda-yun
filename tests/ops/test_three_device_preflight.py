@@ -278,6 +278,89 @@ def test_exact_component_binding_allows_local_pass_but_not_cloud_claim() -> None
     assert report["diagnosticScope"]["mutatingOperations"] == []
 
 
+def test_two_requested_devices_are_checked_without_reading_enumerated_extra_devices() -> None:
+    requested = SERIALS[:2]
+    executor = FakeExecutor(ready_outputs())
+
+    report = preflight.run_preflight(adb="/known/adb", serials=requested, executor=executor)
+
+    assert [device["serial"] for device in report["devices"]] == requested
+    assert report["localPreflight"] == {"state": "READY", "ready": True}
+    assert report["cloudAccountReadiness"]["ready"] is False
+    assert report["diagnosticScope"]["businessAcceptance"] is False
+    assert [call[0][1:] for call in executor.calls[:1]] == [("devices",)]
+    assert {call[0][2] for call in executor.calls[1:]} == set(requested)
+    assert len(executor.calls) == 1 + 7 * len(requested)
+
+
+def test_two_device_unknown_fails_closed_without_reading_unavailable_device() -> None:
+    requested = SERIALS[:2]
+    outputs = ready_outputs()
+    outputs[("devices",)] = result(
+        "List of devices attached\n"
+        f"{requested[0]}\tdevice\n{requested[1]}\tunauthorized\n"
+        "GBGDU19830002425\tdevice\n"
+    )
+    executor = FakeExecutor(outputs)
+
+    report = preflight.run_preflight(adb="/known/adb", serials=requested, executor=executor)
+
+    assert report["localPreflight"] == {"state": "UNKNOWN", "ready": False}
+    assert report["devices"][1]["localBusinessPrerequisites"]["state"] == "UNKNOWN"
+    assert report["cloudAccountReadiness"]["state"] == "UNKNOWN_NOT_CHECKED"
+    assert {call[0][2] for call in executor.calls[1:]} == {requested[0]}
+    assert "GBGDU19830002425" not in json.dumps(report)
+
+
+def test_two_device_ambiguous_label_and_missing_crashed_heading_fail_closed() -> None:
+    requested = SERIALS[:2]
+    outputs = ready_outputs()
+    outputs[("-s", requested[0], "shell", "dumpsys", "package", PACKAGE)] = result(
+        package_dump(
+            version_code=6,
+            version_name="0.1.0-business-acceptance.6",
+            enabled=0,
+            stopped=False,
+        )
+    )
+    outputs[("-s", requested[1], "shell", "dumpsys", "package", PACKAGE)] = result(
+        package_dump(version_code=1, version_name="0.1.0", enabled=0, stopped=False)
+    )
+    outputs[("-s", requested[0], "shell", "dumpsys", "accessibility")] = result(
+        accessibility(
+            bound="{Service[label=CloudCtl structured automation]}",
+            enabled=f"{{{SERVICE}}}",
+            crashed="{}",
+        )
+    )
+    outputs[("-s", requested[1], "shell", "dumpsys", "accessibility")] = result(
+        "User state[attributes:{id=0, currentUser=true}]\n"
+        f"  Bound services:{{{SERVICE}}}\n"
+        f"  Enabled services:{{{SERVICE}}}\n"
+    )
+
+    report = preflight.run_preflight(
+        adb="/known/adb", serials=requested, executor=FakeExecutor(outputs)
+    )
+
+    first, second = report["devices"]
+    assert first["package"]["state"] == second["package"]["state"] == "INSTALLED"
+    assert [device["package"]["versionCode"] for device in report["devices"]] == [6, 1]
+    assert first["process"]["state"] == second["process"]["state"] == "RUNNING"
+    assert first["accessibility"]["binding"] == "AMBIGUOUS_LABEL_ONLY"
+    assert second["accessibility"] == {
+        "enabled": "UNKNOWN",
+        "binding": "UNKNOWN",
+        "crashed": "UNKNOWN",
+    }
+    assert all(
+        device["localBusinessPrerequisites"]["state"] == "UNKNOWN"
+        for device in report["devices"]
+    )
+    assert report["localPreflight"] == {"state": "UNKNOWN", "ready": False}
+    assert report["cloudAccountReadiness"]["ready"] is False
+
+
 def test_unavailable_adb_states_do_not_trigger_device_commands() -> None:
     outputs = {
         ("devices",): result(
@@ -465,17 +548,30 @@ def test_pidof_exit_one_empty_is_not_running_but_other_shapes_are_unknown() -> N
 @pytest.mark.parametrize(
     ("serials", "package", "message"),
     [
-        (SERIALS[:2], PACKAGE, "exactly three"),
+        ([], PACKAGE, "two or three"),
+        (SERIALS[:1], PACKAGE, "two or three"),
+        ([*SERIALS, "GBGDU19830002425"], PACKAGE, "two or three"),
+        ([SERIALS[0], SERIALS[0]], PACKAGE, "unique"),
         ([SERIALS[0], SERIALS[0], SERIALS[2]], PACKAGE, "unique"),
         ([SERIALS[0], "-s", SERIALS[2]], PACKAGE, "serial"),
         (SERIALS, "bad;package", "package"),
     ],
 )
-def test_inputs_must_be_exact_unique_and_safe(
+def test_inputs_must_be_bounded_unique_and_safe(
     serials: list[str], package: str, message: str
 ) -> None:
     with pytest.raises(ValueError, match=message):
         preflight.validate_inputs(serials, package)
+
+
+def test_invalid_scope_never_enumerates_devices() -> None:
+    for serials in ([SERIALS[0], SERIALS[0]], [*SERIALS, "GBGDU19830002425"]):
+        with pytest.raises(ValueError):
+            preflight.run_preflight(
+                adb="/known/adb",
+                serials=serials,
+                executor=FakeExecutor({}),
+            )
 
 
 @pytest.mark.parametrize("timeout", [0, -1, 30.1])
@@ -536,7 +632,7 @@ def test_only_allowlisted_read_commands_are_issued() -> None:
 
 
 def test_cli_reports_missing_adb_without_attempting_discovery_or_devices(capsys) -> None:
-    argv = [item for serial in SERIALS for item in ("--serial", serial)]
+    argv = [item for serial in SERIALS[:2] for item in ("--serial", serial)]
     with (
         patch.object(preflight.shutil, "which", return_value=None),
         patch.object(preflight.subprocess, "run", side_effect=AssertionError("must not run")),
