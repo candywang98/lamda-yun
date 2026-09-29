@@ -92,7 +92,8 @@ returned 0 with no diagnostics.
 
 ## Initial blockers before follow-up handoff
 
-At commit `bd62e6f`, full Mypy was red for two files outside the initial work item's ownership:
+At commit `bd62e6f`, a Mypy invocation with explicit worktree `MYPYPATH/PYTHONPATH` was red for two
+files outside the initial work item's ownership:
 
 ```text
 services/edge-hub/src/cloudctl_edge_hub/main.py:14: error: Unused "type: ignore" comment  [unused-ignore]
@@ -100,8 +101,10 @@ services/control-api/src/cloudctl_api/fleet_live.py:47: error: Unused "type: ign
 Found 2 errors in 2 files (checked 162 source files)
 ```
 
-Those files were diagnosed read-only in the initial work and were not changed in `bd62e6f`. The
-controller subsequently approved the narrow follow-up handoff recorded below.
+Those files were diagnosed read-only in the initial work and were not changed in `bd62e6f`. This
+adjusted module-discovery mode was later proven not equivalent to the workflow's raw `.venv/bin/mypy`
+command. The controller approved a narrow follow-up based on the initial diagnostic, then supplied
+the corrective raw-CI evidence recorded below.
 
 ## Controller-provided baseline GitHub evidence
 
@@ -120,16 +123,18 @@ Configuration absence and software patch correctness are separate facts. The loc
 workflow input boundary and static/parser behavior described above; it does not configure the
 repository variable, execute Android CI, or establish that Android or all repository CI is green.
 
-## Follow-up handoff: unused ignores and executable guard test
+## Superseded follow-up: unused-ignore removal and executable guard test
 
 Date: 2026-09-29
 
 Parent commit: `bd62e6fb3afc0ca66bb23881d97fa5db6c74d5d7`
 
-The controller approved write ownership for exactly
+The controller initially approved write ownership for exactly
 `services/edge-hub/src/cloudctl_edge_hub/main.py` and
 `services/control-api/src/cloudctl_api/fleet_live.py`, solely to remove their now-unused
-`# type: ignore[import-untyped]` comments. No import, configuration, or runtime behavior changed.
+`# type: ignore[import-untyped]` comments. No executable AST changed, but the conclusion that the
+comments were unused was incorrect under raw CI module discovery. The removal in `6dec1ec` is
+reverted by the corrective follow-up below.
 
 Baseline-vs-worktree AST comparison for the two comment-only edits:
 
@@ -157,9 +162,72 @@ Follow-up commands and results:
 | `$VENV/bin/pytest -q tests/edge_hub_server_test.py tests/integration/test_fleet_live_session.py tests/integration/test_fleet_live_transport.py tests/ops/test_ci_release_key.py` | 0 | 64 passed in 8.03s. |
 | `$VENV/bin/ruff format --check .` | 0 | 700 files already formatted. |
 | `$VENV/bin/ruff check .` | 0 | All checks passed. |
-| `$VENV/bin/mypy --config-file "$PWD/pyproject.toml"` with explicit worktree `MYPYPATH` | 0 | Success: no issues found in 162 source files. |
+| `$VENV/bin/mypy --config-file "$PWD/pyproject.toml"` with explicit worktree `MYPYPATH` | 0 | Success under adjusted module discovery; not raw CI-equivalent and not evidence that the ignores were unnecessary. |
 | `$VENV/bin/pyright --project "$PWD/pyproject.toml" --venvpath /Users/wangziheng/Desktop/01-主战场/LAMDA云控系统/cloudctl-source` | 0 | 0 errors, 0 warnings, 0 information. |
 | `bash scripts/check-security-boundaries.sh` | 0 | Security boundary checks passed. |
 
 No Gradle task, real key, GitHub configuration mutation, release, deploy, install, SSH, ADB, device,
 publish, send, or production operation was used in this follow-up.
+
+## Corrective follow-up: restore raw-CI import ignores
+
+Date: 2026-09-29
+
+Parent commit: `6dec1ec6e52413d12ad4085948bae6f5f08b181c`
+
+The controller integrated through `6dec1ec` locally and ran the exact workflow command
+`.venv/bin/mypy` with no `MYPYPATH` or `PYTHONPATH` overrides. It failed with the two expected raw-CI
+diagnostics:
+
+```text
+services/edge-hub/src/cloudctl_edge_hub/main.py:14: error: Skipping analyzing "fleet_live_transport": module is installed, but missing library stubs or py.typed marker  [import-untyped]
+services/control-api/src/cloudctl_api/fleet_live.py:47: error: Skipping analyzing "fleet_live_transport": module is installed, but missing library stubs or py.typed marker  [import-untyped]
+```
+
+This proves the earlier explicit-path run changed Mypy's classification of `fleet_live_transport` and
+created artificial `unused-ignore` diagnostics. The corrective change restores exactly the two
+original `# type: ignore[import-untyped]` comments. It does not add `py.typed`, alter packaging,
+change Mypy configuration, or modify runtime behavior.
+
+The restored files remain AST-equivalent to `bd62e6f` and `6dec1ec` because only comments changed:
+
+| Path | AST SHA-256 | Equivalent |
+|---|---|---|
+| `services/edge-hub/src/cloudctl_edge_hub/main.py` | `ed1cc59540192701f4f6119f778e181d219d83302bbd16d5c7b3fde2f0c7213a` | yes |
+| `services/control-api/src/cloudctl_api/fleet_live.py` | `8690a521a69cbf3efec1c1d1f29484fc5a1a80d23c9004022893518a38e04037` | yes |
+
+An isolated editable build was attempted without modifying repository or main-environment
+dependencies. It was not feasible offline: installing Mypy 2.3.1 into the temporary venv returned 1
+because the wheel was not cached, and `--no-build-isolation -e` could not run because Hatchling was
+not installed in the temporary or main environment. No network installation was performed.
+
+The fallback verification used `/tmp/cloudctl-mypy-20260929-K8aP3t/.venv`, read-only access to the
+main environment's pinned dependencies, and a temporary `.pth` containing the same ten current
+worktree source roots as the repository editable installation. With `PYTHONPATH` and `MYPYPATH`
+unset, module resolution pointed to this worktree and Mypy 2.3.1 reported:
+
+```text
+Success: no issues found in 162 source files
+```
+
+This fallback is stronger than the earlier environment-variable override but is not relabeled as an
+exact editable-install workflow run. The controller must rerun the exact raw `.venv/bin/mypy` on main
+after integrating the corrective commit.
+
+Corrective local verification:
+
+| Command | Return code | Result |
+|---|---:|---|
+| AST comparison for the two restored-comment files | 0 | 2/2 equivalent; hashes shown above. |
+| Isolated venv `python -m mypy --config-file "$PWD/pyproject.toml"` with `PYTHONPATH/MYPYPATH` unset | 0 | No issues in 162 source files; worktree module origins printed before execution. |
+| `$VENV/bin/pytest -q tests/ops/test_ci_release_key.py tests/ops/test_oneplus_v5_acceptance.py tests/ops/test_oneplus_v6_acceptance.py` | 0 | 152 passed in 0.28s. |
+| `$VENV/bin/pytest -q tests/edge_hub_server_test.py tests/integration/test_fleet_live_session.py tests/integration/test_fleet_live_transport.py tests/ops/test_ci_release_key.py` | 0 | 64 passed in 9.17s. |
+| `$VENV/bin/ruff format --check .` | 0 | 700 files already formatted in this worktree. |
+| `$VENV/bin/ruff check .` | 0 | All checks passed. |
+| `$VENV/bin/pyright --project "$PWD/pyproject.toml" --venvpath /Users/wangziheng/Desktop/01-主战场/LAMDA云控系统/cloudctl-source` | 0 | 0 errors, 0 warnings, 0 information. |
+| `bash scripts/check-security-boundaries.sh` | 0 | Security boundary checks passed. |
+
+Controller-provided main-checkout results after integrating through `6dec1ec`, before this corrective
+commit: 705 files formatted, Ruff passed, Pyright reported 0 errors, 152 focused ops tests passed,
+and the security boundary check passed. Those controller results are distinct from this worktree's
+local counts and do not include the corrective commit until it is integrated.

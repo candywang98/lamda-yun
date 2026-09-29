@@ -44,7 +44,7 @@ from cloudctl_domain import (
     NotFoundError,
 )
 from fastapi import APIRouter, Depends, Header, Request
-from fleet_live_transport import (
+from fleet_live_transport import (  # type: ignore[import-untyped]
     TransportUnavailable,
     TransportUnsupported,
     TurnConfig,
