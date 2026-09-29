@@ -318,3 +318,166 @@ hosted run after the next normal main push is still required to verify its
 complete Python job. Android release CI remains separately gated by the
 owner-controlled update public key. No installation or deployment is
 authorized or claimed by this checkpoint.
+
+## Follow-Up: Terminal CI At 7d58f6b
+
+At `2026-09-29T12:31:19.825Z`, controller retrieved the terminal state and logs
+for run `36567021427`, source
+`7d58f6b28158292722c7d037998163f5fcbfca89`. The previous observation timeout
+did not stop or restart this run.
+
+- Frontend job `109401340182`: success, 624 Web and 16 Studio tests.
+- Android job `109401339708`: unchanged missing-release-update-public-key
+  failure before checkout.
+- Python job `109401339980`: **1 failed, 1625 passed, 14 skipped,
+  33 warnings in 651.34 seconds**. Pytest failed; the new explicit-Bash
+  security step was therefore skipped, not failed or remotely verified.
+
+The sole failing node was
+`tests/load/fleet/test_fleet_load.py::test_hundred_simulated_clients_control_plane_holds`.
+The source/log call chain was:
+
+```text
+harness.py:430 asyncio.gather
+  -> harness.py:325 worker claim POST
+  -> mobile_routes.py:52 binding
+  -> mobile_service.py:742 authenticate / session.get(DeviceRow)
+  -> query-invoked autoflush of mobile_binding.last_seen_at
+  -> sqlite3 / SQLAlchemy OperationalError: database is locked
+```
+
+Cleanup subsequently emitted `Event loop is closed` warnings. The trace
+establishes this test failure, not a PostgreSQL production incident and not
+the exact cause of the older 12/20 run. An earlier passing run cannot replace
+this newer failure.
+
+### Bounded Follow-Up Work
+
+Both work items freeze source `7d58f6b`, retain all workload/performance
+thresholds, and exclude real phones, production databases, deployments,
+account/tenant mutations and real business operations.
+
+1. `FLEET-POSTGRES-LIFECYCLE`, Sol/high writer on
+   `agent/sol-fleet-postgres-lifecycle-20260929`: owns only
+   `tests/load/fleet/**` and its new scoped evidence directory. Actual fleet
+   load scenarios must use test-owned disposable loopback PostgreSQL, matching
+   the repository's business-source-of-truth rule and established integration
+   fixtures. No ambient database URL, SQLite fallback, missing-tool skip,
+   workload reduction, extra retry/backoff, pool increase or relaxed threshold.
+   Worker exceptions and outer cancellation must drain sibling workers before
+   client, lifespan/engine and test-cluster cleanup. Startup/schema failure
+   cleanup is also required.
+2. `PG-LOCK-ORDER`, separate Sol/high reproduction writer on
+   `agent/sol-pg-lock-order-repro-20260929`: owns only
+   `tests/integration/test_mobile_lock_order.py` and its scoped evidence.
+   A read-only audit found a possible same-device lock inversion: claim locks
+   device then lease then active task, while finish/heartbeat lock task then
+   lease. Normal PREFLIGHT/RUNNING business states are not claim-blocking
+   states. This is a hypothesis until a bounded, barrier-controlled test on
+   real disposable PostgreSQL proves or rejects a cycle. No production fix
+   is authorized by the static finding. A red regression must not merge until
+   a separately reviewed fix makes it pass.
+
+The first work item addresses the observed SQLite load failure and resource
+lifetime defect. The second is an independent production-code risk review,
+not an assumed explanation of that SQLite trace. Neither assignment is
+completion evidence. The existing VOG candidate remains prepared but not
+installed; installation consent and real 2+1+1 evidence are still outstanding.
+
+### Load Delivery And Lock-Order Reproduction
+
+`FLEET-POSTGRES-LIFECYCLE` delivered
+`9de94e98d512301bca4a9f698bcabd1cb3c7cd71`, fast-forwarded into local main.
+Controller independently ran the full fleet directory with RuntimeWarning,
+PytestUnraisableExceptionWarning and PytestUnhandledThreadExceptionWarning
+treated as errors: **29 passed in 42.53s**, exit 0, no warnings or skips.
+Worker evidence also records three real local PostgreSQL 100-client runs,
+each 100/100 completed with zero remaining work/errors, unchanged p95 limits,
+and no surviving owned cluster directories/processes. Production code was
+not changed by this test-harness delivery.
+
+The independent lock-order probe has now reproduced a real PostgreSQL cycle
+on the frozen application code: desired regressions for claim versus
+finish/heartbeat in PREFLIGHT/RUNNING yielded **4 failed, 9 passed in 15.27s**.
+The failures contain SQLSTATE `40P01`; sequential controls, rollback/commit
+state checks and cancellation cleanup passed. This establishes a reachable
+application-code defect in the controlled test, not an observed customer
+incident or the cause of the SQLite CI failure.
+
+Controller authorized a separate minimal production-fix branch after the
+immutable red reproduction is committed. Scope is `MobileTaskService.claim`
+in `mobile_service.py`, the new lock-order regression file, and its evidence.
+The active-task row must be selected/locked before the device lease; the
+initial device lock and all earlier eligibility checks remain unchanged.
+The REMOTE-lease conflict check must remain before the valid-active-task
+early return. Expiry/reclaim, account, lease/fencing, idempotency and
+authorization semantics must not be weakened. No retries/timeouts, pool
+changes, migration, deployment or device operation is part of this handoff.
+
+Red characterization must stay historical and must not be merged as accepted
+behavior. The strict desired regressions and integrated full-suite/hosted CI
+verification remain outstanding at this checkpoint.
+
+### Verified Main Checkpoint: 831ada1
+
+At `2026-09-29T21:40+08:00`, controller completed the pending local verification
+of `831ada1077ce262db7e1546f1b8569995fed8431`. This checkpoint includes the
+owned-PostgreSQL fleet harness `9de94e9` and the complete green active-task
+claim fix `fc1aff1`, preserving its immutable red reproduction ancestor.
+The production change moves the active-task lock before the lease lock;
+it does not add retries, change permissions, or claim universal deadlock safety.
+
+Controller's full-suite command was:
+
+```bash
+env -u Q02_DEVICE_SERIAL -u Q02_BASE_URL -u Q02_EXPECTED_SHA \
+  .venv/bin/python -m pytest -q -rs -p no:cacheprovider
+```
+
+The existing execution handle completed with exit **0**:
+**1652 passed, 14 skipped in 356.04s**. The 14 skips are explicitly reported
+hardware/environment-specific scenarios, not accepted hardware tests.
+No production source changed during this run.
+
+Controller then independently reran the unwrapped gates, all exit **0**:
+
+- `.venv/bin/ruff check .`: all checks passed.
+- `.venv/bin/ruff format --check .`: 721 files already formatted.
+- `.venv/bin/mypy`: no issues in 162 source files.
+- `.venv/bin/pyright`: zero diagnostic errors/warnings/informations; an
+  available-version advisory is not a type-check failure or authorization
+  to change the pinned tool version.
+- `bash scripts/check-security-boundaries.sh`: checks passed.
+- `.venv/bin/python scripts/plan_guard.py docs/current/tasks.json`: valid,
+  development 54 nodes / 68 edges, acceptance union 54 nodes / 139 edges.
+
+A structured comparison against both `2b6538c` and
+`0433e814f056091c8efadcf0973633a30f24f327` confirms all **54 task identities
+and 108 dev_state/acceptance_state fields are unchanged**. The current ledger
+SHA-256 remains
+`3a1ae74049ba843bc66a77d4a0cb98be259130897ff324b17d106e5d6bb46fcb`.
+The original plan-text commit is an ancestor of this main checkpoint.
+
+### Separate Control-Path Fix Remains Unaccepted
+
+The next worker branch preserves test-only reproduction `4c1677f` and merges
+the verified main checkpoint at `937a349`. Its real PostgreSQL reproductions
+show two additional cycles: queued cancel versus claim, and authorized
+take-control versus task heartbeat. Those are distinct from both the SQLite
+load failure and the now-fixed active-task claim cycle.
+
+The initial two-method patch has a worker log reporting **2 passed in 2.06s**,
+but is not integrated or accepted. Independent read-only review identified
+a possible cancel/resume inversion introduced by Device-before-Task locking,
+and a pre-sweep lease-autoflush boundary in take-control. The controller has
+requested a bounded natural-API regression for the former and a narrowly
+scoped design review; no unrelated audit or unreviewed source expansion is
+authorized. This worker branch must remain separate until its complete fix,
+security/state semantics, and regression evidence pass review.
+
+This checkpoint authorizes normal Git synchronization of the already verified
+main changes, not deployment, installation, device settings, rebinding, tenant
+migration, or any real send/publish/upload. The VOG v7 artifact remains
+PREPARED_NOT_INSTALLED. Real 2+1+1 acceptance and the missing controlled Android
+release-update public key remain outstanding. A new hosted run must be
+observed for the pushed source; the old failed run is not reused as validation.
