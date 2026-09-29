@@ -23,7 +23,24 @@ jobs:
       - run: ruff check .
       - run: pyright
       - run: mypy
-      - run: pytest -q
+      - name: Discover PostgreSQL test binaries
+        shell: bash
+        run: |
+          pg_bin="$(pg_config --bindir)" || {
+            echo "::error::Cannot locate PostgreSQL test binaries via pg_config --bindir"
+            exit 1
+          }
+          for tool in initdb pg_ctl createdb; do
+            test -x "$pg_bin/$tool" || {
+              echo "::error::Missing or non-executable PostgreSQL test binary: $pg_bin/$tool"
+              exit 1
+            }
+          done
+          for tool in initdb pg_ctl createdb; do
+            printf 'PostgreSQL test binary: %s\n' "$pg_bin/$tool"
+          done
+          printf '%s\n' "$pg_bin" >> "$GITHUB_PATH"
+      - run: pytest -q -rs
       - run: scripts/check-security-boundaries.sh
 
   frontend:
