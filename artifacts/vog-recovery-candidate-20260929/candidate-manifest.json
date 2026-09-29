@@ -1,0 +1,126 @@
+{
+  "schema": "cloudctl-business-acceptance-candidate/1",
+  "workItem": "VOG-RECOVERY-V7",
+  "status": "PREPARED_NOT_INSTALLED",
+  "classification": "LOCAL_CONTROLLED_ACCEPTANCE_ONLY",
+  "source": {
+    "branch": "agent/sol-vog-recovery-v7-20260929",
+    "baseline": "eb1eedccef0e4dd3325c1d5be4d7e154d3d1543b",
+    "commit": "226eff2ff472459603af9c6e4a01f4e92dce7ebd",
+    "revision": "226eff2",
+    "cleanBeforeBuild": true,
+    "cleanAfterBuildBeforeEvidence": true,
+    "embeddedMarkerVerifiedIn": "classes2.dex: com.company.cloudctl.companion.BuildConfig.SOURCE_REVISION",
+    "includesKeyboardRecoveryCommit": "6be7009"
+  },
+  "candidate": {
+    "path": "/Users/wangziheng/CloudCtlExternal/acceptance/20260929-vog-v7/cloudctl-vog-recovery-v7.apk",
+    "sha256": "57f5f444566fdd3878db036eadb70f130d067092a231a4320f8bade39b6bfcb0",
+    "sizeBytes": 50955232,
+    "package": "com.company.cloudctl.companion",
+    "versionCode": 7,
+    "versionName": "0.1.0-business-acceptance.7",
+    "minSdk": 29,
+    "targetSdk": 35,
+    "buildType": "businessAcceptance",
+    "debuggable": false,
+    "debug": false,
+    "heartbeatDiagnostic": false,
+    "imUploadHoldAllowed": false,
+    "recipeSigningPublicKeys": "{}",
+    "sourceRevision": "226eff2",
+    "sourceDirty": false,
+    "signerSha256": "667ebabbd69327228215c090fbacee58881d5392c83cfc41cf3fb82f2abb4736",
+    "signerCount": 1,
+    "verifiedSigningScheme": "v2",
+    "matchesRetainedVogSigner": true,
+    "matchesGradleOutputByteForByte": true
+  },
+  "signing": {
+    "store": "/Users/wangziheng/.android/debug.keystore",
+    "config": "debug",
+    "existingStorePresentBeforeBuild": true,
+    "contentSha256EqualBeforeAfter": true,
+    "inodeSizeMtimeCtimeModeEqualBeforeAfter": true,
+    "storeCreatedCopiedExportedOrReplaced": false,
+    "onePlusAndroidUserHomeUsed": false,
+    "trustAndSigningConfigurationChanged": false,
+    "releaseUpdateKeyGateBypassed": false
+  },
+  "retainedBaseline": {
+    "path": "/Users/wangziheng/CloudCtlExternal/acceptance/20260929-two-device-readonly/20260929T040140Z/huawei-vog.base.apk",
+    "sha256": "2f424419719490f237784ae876d3f57f03d04e7455ffa8df1a4710fc686f5f2b",
+    "package": "com.company.cloudctl.companion",
+    "versionCode": 1,
+    "versionName": "0.1.0",
+    "minSdk": 29,
+    "targetSdk": 35,
+    "debuggable": true,
+    "signerSha256": "667ebabbd69327228215c090fbacee58881d5392c83cfc41cf3fb82f2abb4736",
+    "freshDeviceObservation": false,
+    "modified": false
+  },
+  "verification": {
+    "signingReportExit": 0,
+    "fullGradleCommandExit": 0,
+    "gradleDuration": "3m 37s",
+    "actionableTasks": 99,
+    "executedTasks": 99,
+    "debugUnitTests": {
+      "suites": 175,
+      "tests": 1312,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "businessAcceptanceUnitTests": {
+      "suites": 175,
+      "tests": 1298,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "debugLint": {
+      "errors": 0,
+      "warnings": 18
+    },
+    "businessAcceptanceLint": {
+      "errors": 0,
+      "warnings": 19
+    },
+    "apksignerExit": 0,
+    "aaptBadgingExit": 0,
+    "aaptManifestXmltreeExit": 0,
+    "dexdumpAndByteParserExit": 0,
+    "manifestAndBuildConfigAssertionsExit": 0,
+    "evidenceJsonCrossCheckExit": 0,
+    "apkComparisonExit": 0,
+    "controllerIndependentlyConfirmedArtifactAndTestCounts": true
+  },
+  "buildEnvironment": {
+    "JAVA_HOME": "/Users/wangziheng/CloudCtlExternal/jdks/temurin-17/Contents/Home",
+    "ANDROID_HOME": "/Users/wangziheng/CloudCtlExternal/android-sdk",
+    "ANDROID_SDK_ROOT": "/Users/wangziheng/CloudCtlExternal/android-sdk",
+    "ANDROID_USER_HOME": "/Users/wangziheng/.android",
+    "GRADLE_USER_HOME": "/Users/wangziheng/CloudCtlExternal/gradle-home",
+    "JAVA_TOOL_OPTIONS": "-Drobolectric.dependency.repo.url=file:///Users/wangziheng/.m2/repository",
+    "projectCache": "/Users/wangziheng/CloudCtlExternal/acceptance/20260929-vog-v7/project-cache-226eff2.cTiAeg",
+    "offline": true,
+    "buildExternalScriptUsed": false
+  },
+  "publicEvidenceFiles": {
+    "signingReport": "/Users/wangziheng/CloudCtlExternal/acceptance/20260929-vog-v7/signing-report.log",
+    "build": "/Users/wangziheng/CloudCtlExternal/acceptance/20260929-vog-v7/build.log",
+    "apksigner": "/Users/wangziheng/CloudCtlExternal/acceptance/20260929-vog-v7/apksigner.log",
+    "aaptBadging": "/Users/wangziheng/CloudCtlExternal/acceptance/20260929-vog-v7/aapt-badging.txt",
+    "manifestXmltree": "/Users/wangziheng/CloudCtlExternal/acceptance/20260929-vog-v7/manifest-xmltree.txt",
+    "buildConfigDex": "/Users/wangziheng/CloudCtlExternal/acceptance/20260929-vog-v7/BuildConfig-dex.txt"
+  },
+  "acceptance": {
+    "installedByWorker": false,
+    "deviceRecoveryVerified": false,
+    "productionReleaseVerified": false,
+    "hardwareOrExternalNetworkQueriesPerformed": false,
+    "installationAuthorizedByThisBuild": false
+  }
+}
