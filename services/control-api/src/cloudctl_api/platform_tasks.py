@@ -18,6 +18,7 @@ from cloudctl_domain import (
 )
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from .builtin_recipes import builtin_recipe_ref
 from .command_factory import mint_operation_command
@@ -557,12 +558,17 @@ class PlatformTaskService:
         self.mobile = mobile
 
     async def create(
-        self, actor: Actor, key: str, body: PlatformTaskCreate
+        self,
+        actor: Actor,
+        key: str,
+        body: PlatformTaskCreate,
+        *,
+        session: AsyncSession | None = None,
     ) -> tuple[list[dict[str, Any]], bool]:
         require_permissions(actor.roles, Permission.TASK_CREATE)
         if not key or len(key) > 100:
             raise ValidationError("Idempotency-Key is required and must be at most 100 characters")
-        body = await self._freeze_publish_listing(actor, body)
+        body = await self._freeze_publish_listing(actor, body, session=session)
         command_type = body.command_type
         if command_type is None:
             raise ValidationError("commandType or operationId is required")
@@ -577,6 +583,7 @@ class PlatformTaskService:
                 requested_by=str(actor.user_id),
                 key=per_key,
                 body=mobile_body,
+                session=session,
             )
             created_any = created_any or created
             if created:
@@ -607,8 +614,9 @@ class PlatformTaskService:
                     batch_id=batch_id,
                     scheduled_for=body.scheduled_for,
                     operation_id=body.operation_id,
+                    session=session,
                 )
-            views.append(await self.get(actor, view["taskId"]))
+            views.append(await self.get(actor, view["taskId"], session=session))
         return views, created_any
 
     async def list_tasks(
@@ -659,19 +667,28 @@ class PlatformTaskService:
             "limit": limit,
         }
 
-    async def get(self, actor: Actor, task_id: str) -> dict[str, Any]:
+    async def get(
+        self, actor: Actor, task_id: str, *, session: AsyncSession | None = None
+    ) -> dict[str, Any]:
         require_permissions(actor.roles, Permission.DEVICE_READ)
-        async with self.database.unit_of_work() as session:
-            row = await session.get(MobileTaskRow, task_id)
-            if row is None or row.tenant_id != str(actor.tenant_id):
-                raise NotFoundError("platform task was not found")
-            events = list(
-                await session.scalars(
-                    select(MobileTaskEventRow)
-                    .where(MobileTaskEventRow.task_id == task_id)
-                    .order_by(MobileTaskEventRow.sequence)
-                )
+        if session is not None:
+            return await self._get_in_session(session, actor, task_id)
+        async with self.database.unit_of_work() as owned_session:
+            return await self._get_in_session(owned_session, actor, task_id)
+
+    async def _get_in_session(
+        self, session: AsyncSession, actor: Actor, task_id: str
+    ) -> dict[str, Any]:
+        row = await session.get(MobileTaskRow, task_id)
+        if row is None or row.tenant_id != str(actor.tenant_id):
+            raise NotFoundError("platform task was not found")
+        events = list(
+            await session.scalars(
+                select(MobileTaskEventRow)
+                .where(MobileTaskEventRow.task_id == task_id)
+                .order_by(MobileTaskEventRow.sequence)
             )
+        )
         view = self._business_view(row)
         view["events"] = [self._event_view(event) for event in events]
         return view
@@ -1116,22 +1133,60 @@ class PlatformTaskService:
         batch_id: str,
         scheduled_for: datetime | None,
         operation_id: str | None = None,
+        session: AsyncSession | None = None,
     ) -> None:
-        async with self.database.unit_of_work() as session:
-            row = await session.get(MobileTaskRow, task_id, with_for_update=True)
-            if row is None:
-                raise NotFoundError("platform task was not found")
-            row.command_type = command_type
-            row.operation_id = operation_id
-            row.command_payload = command_payload
-            row.business_state = "QUEUED"
-            row.control_mode = "AUTO"
-            row.batch_id = batch_id
-            row.scheduled_for = scheduled_for
-            row.attempt_id = row.attempt_id or str(uuid.uuid4())
+        if session is not None:
+            await self._stamp_business_fields_in_session(
+                session,
+                task_id=task_id,
+                command_type=command_type,
+                command_payload=command_payload,
+                batch_id=batch_id,
+                scheduled_for=scheduled_for,
+                operation_id=operation_id,
+            )
+            return
+        async with self.database.unit_of_work() as owned_session:
+            await self._stamp_business_fields_in_session(
+                owned_session,
+                task_id=task_id,
+                command_type=command_type,
+                command_payload=command_payload,
+                batch_id=batch_id,
+                scheduled_for=scheduled_for,
+                operation_id=operation_id,
+            )
+
+    async def _stamp_business_fields_in_session(
+        self,
+        session: AsyncSession,
+        *,
+        task_id: str,
+        command_type: str,
+        command_payload: dict[str, Any],
+        batch_id: str,
+        scheduled_for: datetime | None,
+        operation_id: str | None,
+    ) -> None:
+        row = await session.get(MobileTaskRow, task_id, with_for_update=True)
+        if row is None:
+            raise NotFoundError("platform task was not found")
+        row.command_type = command_type
+        row.operation_id = operation_id
+        row.command_payload = command_payload
+        row.business_state = "QUEUED"
+        row.control_mode = "AUTO"
+        row.batch_id = batch_id
+        row.scheduled_for = scheduled_for
+        row.attempt_id = row.attempt_id or str(uuid.uuid4())
+        await session.flush()
 
     async def _freeze_publish_listing(
-        self, actor: Actor, body: PlatformTaskCreate
+        self,
+        actor: Actor,
+        body: PlatformTaskCreate,
+        *,
+        session: AsyncSession | None = None,
     ) -> PlatformTaskCreate:
         if body.command_type != "xianyu.publish_listing.v1":
             return body
@@ -1139,26 +1194,14 @@ class PlatformTaskService:
         parameters = dict(body.parameters)
         media_delivery_id = body.media_delivery_id
         if isinstance(product_id, str) and product_id.strip():
-            async with self.database.unit_of_work() as session:
-                product = await session.scalar(
-                    select(ProductRow).where(
-                        ProductRow.id == product_id,
-                        ProductRow.tenant_id == str(actor.tenant_id),
+            if session is None:
+                async with self.database.unit_of_work() as owned_session:
+                    product, media = await self._load_publish_product(
+                        owned_session, str(actor.tenant_id), product_id
                     )
-                )
-                if product is None:
-                    raise NotFoundError("product was not found")
-                if product.status != "ACTIVE":
-                    raise ConflictError("product is not active")
-                media = list(
-                    await session.scalars(
-                        select(ProductMediaRow)
-                        .where(
-                            ProductMediaRow.product_id == product.id,
-                            ProductMediaRow.tenant_id == str(actor.tenant_id),
-                        )
-                        .order_by(ProductMediaRow.sort_order)
-                    )
+            else:
+                product, media = await self._load_publish_product(
+                    session, str(actor.tenant_id), product_id
                 )
             if not media:
                 raise ValidationError("product has no media assets for listing")
@@ -1178,6 +1221,32 @@ class PlatformTaskService:
                 "media_delivery_id": media_delivery_id,
             }
         )
+
+    @staticmethod
+    async def _load_publish_product(
+        session: AsyncSession, tenant_id: str, product_id: str
+    ) -> tuple[ProductRow, list[ProductMediaRow]]:
+        product = await session.scalar(
+            select(ProductRow).where(
+                ProductRow.id == product_id,
+                ProductRow.tenant_id == tenant_id,
+            )
+        )
+        if product is None:
+            raise NotFoundError("product was not found")
+        if product.status != "ACTIVE":
+            raise ConflictError("product is not active")
+        media = list(
+            await session.scalars(
+                select(ProductMediaRow)
+                .where(
+                    ProductMediaRow.product_id == product.id,
+                    ProductMediaRow.tenant_id == tenant_id,
+                )
+                .order_by(ProductMediaRow.sort_order)
+            )
+        )
+        return product, media
 
     def _mobile_body(self, device_id: str, body: PlatformTaskCreate) -> MobileTaskCreate:
         command_type = body.command_type

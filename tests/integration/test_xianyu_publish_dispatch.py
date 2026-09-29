@@ -13,6 +13,7 @@ import uuid
 from collections.abc import AsyncIterator
 from typing import Any
 
+import cloudctl_api.xianyu_publish as xianyu_publish
 import httpx
 import pytest
 from cloudctl_api import create_app
@@ -28,11 +29,11 @@ OPERATOR = "00000000-0000-7000-8000-000000000222"
 POSTGRES_ENV = {**os.environ, "LC_ALL": "C", "LANG": "C", "LANGUAGE": "C"}
 
 
-def identity() -> dict[str, str]:
+def identity(role: str = "device_operator") -> dict[str, str]:
     return {
         "X-Tenant-Id": TENANT,
         "X-User-Id": OPERATOR,
-        "X-Roles": "device_operator",
+        "X-Roles": role,
         "X-MFA": "true",
         "X-Request-Id": str(uuid.uuid4()),
     }
@@ -176,9 +177,30 @@ async def setup_device_and_account(client: httpx.AsyncClient, suffix: str) -> tu
 
 
 async def create_queue(
-    client: httpx.AsyncClient, queue_id: str, *, item_count: int = 2
+    client: httpx.AsyncClient,
+    queue_id: str,
+    *,
+    item_count: int = 2,
+    with_media: bool = False,
 ) -> tuple[str, list[dict[str, Any]]]:
     device_id, account_id = await setup_device_and_account(client, queue_id)
+    media: dict[str, Any] = {}
+    if with_media:
+        asset = await client.post(
+            "/api/v1/media/assets:register",
+            headers=identity("content_editor"),
+            json={
+                "sha256": hashlib.sha256(queue_id.encode()).hexdigest(),
+                "objectKey": f"tenant/publish/{queue_id}.jpg",
+                "contentType": "image/jpeg",
+                "sizeBytes": 12,
+            },
+        )
+        assert asset.status_code == 201, asset.text
+        media = {
+            "mediaAssetIds": [asset.json()["id"]],
+            "deliveryId": str(uuid.uuid4()),
+        }
     response = await client.post(
         "/api/v1/xianyu/publish/queues",
         headers=identity(),
@@ -191,6 +213,7 @@ async def create_queue(
                     "description": f"dispatch item {position}",
                     "price": f"{position + 1}.00",
                     "completionBoundary": "AUTO_FILL_HUMAN_COMMIT",
+                    **media,
                 }
                 for position in range(item_count)
             ],
@@ -213,6 +236,58 @@ async def task_count(app: FastAPI, queue_id: str) -> int:
             )
             or 0
         )
+
+
+async def dispatch_task_count(app: FastAPI, target_id: str) -> int:
+    async with app.state.database.unit_of_work() as session:
+        return int(
+            await session.scalar(
+                select(func.count())
+                .select_from(MobileTaskRow)
+                .where(
+                    MobileTaskRow.tenant_id == TENANT,
+                    MobileTaskRow.idempotency_key.like(f"xianyu-publish:{target_id}:%"),
+                )
+            )
+            or 0
+        )
+
+
+async def dispatched_audit_count(app: FastAPI, target_id: str) -> int:
+    async with app.state.database.unit_of_work() as session:
+        return int(
+            await session.scalar(
+                select(func.count())
+                .select_from(AuditEventRow)
+                .where(
+                    AuditEventRow.tenant_id == TENANT,
+                    AuditEventRow.resource_id == target_id,
+                    AuditEventRow.action == "xianyu.publish.dispatched",
+                )
+            )
+            or 0
+        )
+
+
+async def enroll_companion(
+    client: httpx.AsyncClient, device_id: str, suffix: str
+) -> dict[str, str]:
+    enrollment = await client.post(
+        "/api/v1/mobile/enrollments",
+        headers=identity(),
+        json={"deviceId": device_id, "ttlSeconds": 600},
+    )
+    assert enrollment.status_code == 201, enrollment.text
+    enrolled = await client.post(
+        "/companion/v2/enroll",
+        json={
+            "code": enrollment.json()["code"],
+            "appInstanceId": suffix,
+            "companionVersion": "1.0.0",
+        },
+    )
+    assert enrolled.status_code == 201, enrolled.text
+    return {"Authorization": f"Bearer {enrolled.json()['bindingToken']}"}
 
 
 @pytest.mark.asyncio
@@ -281,6 +356,196 @@ async def test_direct_dispatch_cannot_bypass_in_flight_after_next_returns_empty(
 
 
 @pytest.mark.asyncio
+async def test_postgres_task_is_not_visible_or_claimable_before_queue_commit(
+    postgres_pair: list[tuple[httpx.AsyncClient, FastAPI]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (first_client, first_app), (second_client, second_app) = postgres_pair
+    device_id, targets = await create_queue(first_client, "dispatch-precommit", item_count=1)
+    target = targets[0]
+    companion_auth = await enroll_companion(first_client, device_id, "dispatch-precommit-instance")
+    created_in_transaction = asyncio.Event()
+    release_commit = asyncio.Event()
+    original_create = first_app.state.platform_task_service.create
+
+    async def block_before_queue_commit(*args: Any, **kwargs: Any):
+        result = await original_create(*args, **kwargs)
+        created_in_transaction.set()
+        await release_commit.wait()
+        return result
+
+    monkeypatch.setattr(first_app.state.platform_task_service, "create", block_before_queue_commit)
+    path = f"/api/v1/xianyu/publish/queues/dispatch-precommit/targets/{target['targetId']}/dispatch"
+    dispatch_request = asyncio.create_task(first_client.post(path, headers=identity()))
+    await asyncio.wait_for(created_in_transaction.wait(), timeout=5)
+
+    visible_before_commit = await dispatch_task_count(second_app, target["targetId"])
+    claim_request = asyncio.create_task(
+        second_client.post(
+            "/companion/v2/tasks/claim",
+            headers=companion_auth,
+            json={"leaseSeconds": 60},
+        )
+    )
+    done, _pending = await asyncio.wait({claim_request}, timeout=0.2)
+
+    release_commit.set()
+    dispatch, claimed = await asyncio.gather(dispatch_request, claim_request)
+    assert visible_before_commit == 0
+    assert not done, "claim crossed the uncommitted queue transaction"
+    assert dispatch.status_code == 200, dispatch.text
+    assert claimed.status_code == 200, claimed.text
+    assert claimed.json()["taskId"] == dispatch.json()["taskId"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "failure_stage",
+    ["after_insert", "after_snapshot_stamp", "after_target_audit"],
+)
+async def test_postgres_dispatch_failure_rolls_back_task_link_and_audit(
+    postgres_pair: list[tuple[httpx.AsyncClient, FastAPI]],
+    monkeypatch: pytest.MonkeyPatch,
+    failure_stage: str,
+) -> None:
+    (first_client, first_app), (second_client, second_app) = postgres_pair
+    queue_id = {
+        "after_insert": "dispatch-rb-insert",
+        "after_snapshot_stamp": "dispatch-rb-stamp",
+        "after_target_audit": "dispatch-rb-audit",
+    }[failure_stage]
+    device_id, targets = await create_queue(first_client, queue_id, item_count=1)
+    target = targets[0]
+    companion_auth = await enroll_companion(first_client, device_id, f"{queue_id}-instance")
+
+    if failure_stage == "after_insert":
+        service = first_app.state.platform_task_service.mobile
+        original = service._insert_task
+
+        async def fail_after_insert(*args: Any, **kwargs: Any):
+            await original(*args, **kwargs)
+            raise ValidationError("synthetic failure after task insert")
+
+        monkeypatch.setattr(service, "_insert_task", fail_after_insert)
+    elif failure_stage == "after_snapshot_stamp":
+        service = first_app.state.platform_task_service
+        original = service._stamp_business_fields
+
+        async def fail_after_snapshot_stamp(*args: Any, **kwargs: Any):
+            await original(*args, **kwargs)
+            raise ValidationError("synthetic failure after snapshot stamp")
+
+        monkeypatch.setattr(service, "_stamp_business_fields", fail_after_snapshot_stamp)
+    else:
+        original_audit = xianyu_publish._audit
+
+        def fail_after_target_audit(*args: Any, **kwargs: Any) -> None:
+            original_audit(*args, **kwargs)
+            raise ValidationError("synthetic failure after target and audit mutation")
+
+        monkeypatch.setattr(xianyu_publish, "_audit", fail_after_target_audit)
+
+    failed = await first_client.post(
+        f"/api/v1/xianyu/publish/queues/{queue_id}/targets/{target['targetId']}/dispatch",
+        headers=identity(),
+    )
+    assert failed.status_code == 422, failed.text
+    queue = (
+        await second_client.get(f"/api/v1/xianyu/publish/queues/{queue_id}", headers=identity())
+    ).json()
+    assert queue["targets"][0]["state"] == "PENDING"
+    assert queue["targets"][0]["taskIds"] == []
+    assert await dispatch_task_count(second_app, target["targetId"]) == 0
+    assert await dispatched_audit_count(second_app, target["targetId"]) == 0
+    claim = await second_client.post(
+        "/companion/v2/tasks/claim",
+        headers=companion_auth,
+        json={"leaseSeconds": 60},
+    )
+    assert claim.status_code == 204, claim.text
+
+
+@pytest.mark.asyncio
+async def test_postgres_caller_owned_flush_integrity_error_maps_to_conflict_and_rolls_back(
+    postgres_pair: list[tuple[httpx.AsyncClient, FastAPI]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (first_client, first_app), (second_client, second_app) = postgres_pair
+    _, targets = await create_queue(first_client, "dispatch-flush-conflict", item_count=1)
+    target = targets[0]
+    service = first_app.state.platform_task_service.mobile
+
+    async def fail_caller_owned_flush(*args: Any, **kwargs: Any):
+        session = kwargs["session"]
+        session.add(MobileTaskRow(id=str(uuid.uuid4())))
+        await session.flush()
+        raise AssertionError("database constraint violation did not fail the flush")
+
+    monkeypatch.setattr(service, "_insert_task", fail_caller_owned_flush)
+    failed = await first_client.post(
+        "/api/v1/xianyu/publish/queues/dispatch-flush-conflict/targets/"
+        f"{target['targetId']}/dispatch",
+        headers=identity(),
+    )
+    assert failed.status_code == 409, failed.text
+    assert failed.json()["detail"] == "task idempotency conflict"
+    queue = (
+        await second_client.get(
+            "/api/v1/xianyu/publish/queues/dispatch-flush-conflict", headers=identity()
+        )
+    ).json()
+    assert queue["targets"][0]["state"] == "PENDING"
+    assert queue["targets"][0]["taskIds"] == []
+    assert await dispatch_task_count(second_app, target["targetId"]) == 0
+    assert await dispatched_audit_count(second_app, target["targetId"]) == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("with_media", [False, True], ids=["text-only", "media"])
+async def test_postgres_success_commits_one_fully_frozen_linked_task(
+    postgres_pair: list[tuple[httpx.AsyncClient, FastAPI]],
+    with_media: bool,
+) -> None:
+    (first_client, _first_app), (second_client, second_app) = postgres_pair
+    queue_id = f"dispatch-success-{'media' if with_media else 'text'}"
+    _, targets = await create_queue(first_client, queue_id, item_count=1, with_media=with_media)
+    target = targets[0]
+    dispatched = await first_client.post(
+        f"/api/v1/xianyu/publish/queues/{queue_id}/targets/{target['targetId']}/dispatch",
+        headers=identity(),
+    )
+    assert dispatched.status_code == 200, dispatched.text
+
+    queue = (
+        await second_client.get(f"/api/v1/xianyu/publish/queues/{queue_id}", headers=identity())
+    ).json()
+    committed_target = queue["targets"][0]
+    task_id = dispatched.json()["taskId"]
+    assert committed_target["state"] == "IN_FLIGHT"
+    assert committed_target["taskIds"] == [task_id]
+    assert await dispatch_task_count(second_app, target["targetId"]) == 1
+    assert await dispatched_audit_count(second_app, target["targetId"]) == 1
+
+    task = await second_client.get(f"/api/v1/platform-tasks/{task_id}", headers=identity())
+    assert task.status_code == 200, task.text
+    payload = dict(task.json()["commandPayload"])
+    stored_hash = payload.pop("snapshotSha256")
+    assert payload["completionBoundary"] == target["claimedBoundary"]
+    assert (
+        stored_hash
+        == hashlib.sha256(
+            json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+        ).hexdigest()
+    )
+    if with_media:
+        assert payload["parameters"]["mediaAssetIds"]
+        assert payload["mediaDeliveryId"]
+    else:
+        assert "mediaAssetIds" not in payload["parameters"]
+        assert payload["mediaDeliveryId"] is None
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("second_position", [0, 1], ids=["same-target", "different-target"])
 async def test_postgres_serializes_concurrent_dispatch_across_api_instances(
     postgres_pair: list[tuple[httpx.AsyncClient, FastAPI]],
@@ -328,58 +593,75 @@ async def test_postgres_serializes_concurrent_dispatch_across_api_instances(
 
 
 @pytest.mark.asyncio
-async def test_task_create_commit_then_failure_recovers_same_dispatch_key(
-    api: tuple[httpx.AsyncClient, FastAPI], monkeypatch: pytest.MonkeyPatch
+async def test_lost_http_response_after_commit_does_not_mint_another_task(
+    postgres_pair: list[tuple[httpx.AsyncClient, FastAPI]],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    client, app = api
-    device_id, targets = await create_queue(client, "dispatch-recovery", item_count=1)
+    (first_client, first_app), (second_client, second_app) = postgres_pair
+    _, targets = await create_queue(first_client, "dispatch-lost-response", item_count=1)
     target_id = targets[0]["targetId"]
-    original_create = app.state.platform_task_service.create
-    failed_once = False
+    original_dispatch = xianyu_publish.XianyuPublishQueueService.dispatch
 
-    async def create_then_fail(*args: Any, **kwargs: Any):
-        nonlocal failed_once
-        views, created = await original_create(*args, **kwargs)
-        if not failed_once:
-            failed_once = True
-            raise ValidationError("synthetic failure after task commit")
-        return views, created
+    async def lose_response_after_commit(*args: Any, **kwargs: Any):
+        await original_dispatch(*args, **kwargs)
+        raise ValidationError("synthetic response loss after commit")
 
-    monkeypatch.setattr(app.state.platform_task_service, "create", create_then_fail)
-    path = f"/api/v1/xianyu/publish/queues/dispatch-recovery/targets/{target_id}/dispatch"
-    failed = await client.post(path, headers=identity())
-    assert failed.status_code == 422, failed.text
-    queue = (
-        await client.get("/api/v1/xianyu/publish/queues/dispatch-recovery", headers=identity())
-    ).json()
-    assert queue["targets"][0]["state"] == "PENDING"
-    assert queue["targets"][0]["taskIds"] == []
-    assert await task_count(app, "dispatch-recovery") == 1
-
-    enrollment = await client.post(
-        "/api/v1/mobile/enrollments",
-        headers=identity(),
-        json={"deviceId": device_id, "ttlSeconds": 600},
+    monkeypatch.setattr(
+        xianyu_publish.XianyuPublishQueueService,
+        "dispatch",
+        lose_response_after_commit,
     )
-    assert enrollment.status_code == 201, enrollment.text
-    enrolled = await client.post(
-        "/companion/v2/enroll",
+    path = f"/api/v1/xianyu/publish/queues/dispatch-lost-response/targets/{target_id}/dispatch"
+    failed = await first_client.post(path, headers=identity())
+    assert failed.status_code == 422, failed.text
+    monkeypatch.setattr(xianyu_publish.XianyuPublishQueueService, "dispatch", original_dispatch)
+
+    retry = await second_client.post(path, headers=identity())
+    assert retry.status_code == 409, retry.text
+    queue = (
+        await second_client.get(
+            "/api/v1/xianyu/publish/queues/dispatch-lost-response", headers=identity()
+        )
+    ).json()
+    assert queue["targets"][0]["state"] == "IN_FLIGHT"
+    assert len(queue["targets"][0]["taskIds"]) == 1
+    assert await dispatch_task_count(second_app, target_id) == 1
+    assert await dispatched_audit_count(second_app, target_id) == 1
+
+
+@pytest.mark.asyncio
+async def test_legacy_paused_orphan_is_recovered_without_mutation(
+    postgres_pair: list[tuple[httpx.AsyncClient, FastAPI]],
+) -> None:
+    (first_client, first_app), (second_client, second_app) = postgres_pair
+    device_id, targets = await create_queue(first_client, "dispatch-legacy", item_count=1)
+    target = targets[0]
+    target_id = target["targetId"]
+    dispatch_key = f"xianyu-publish:{target_id}:1"
+    created = await first_client.post(
+        "/api/v1/platform-tasks",
+        headers={**identity(), "Idempotency-Key": dispatch_key},
         json={
-            "code": enrollment.json()["code"],
-            "appInstanceId": "dispatch-recovery-instance",
-            "companionVersion": "1.0.0",
+            "deviceId": device_id,
+            "accountId": target["accountId"],
+            "commandType": "xianyu.publish_listing.v1",
+            "parameters": {"listingBody": "dispatch item 0", "price": "1.00"},
+            "publishTargetId": target_id,
+            "batchId": "dispatch-legacy",
         },
     )
-    assert enrolled.status_code == 201, enrolled.text
-    companion_auth = {"Authorization": f"Bearer {enrolled.json()['bindingToken']}"}
-    claimed = await client.post(
+    assert created.status_code == 201, created.text
+    task_id = created.json()["items"][0]["taskId"]
+
+    companion_auth = await enroll_companion(first_client, device_id, "dispatch-legacy-instance")
+    claimed = await second_client.post(
         "/companion/v2/tasks/claim",
         headers=companion_auth,
         json={"leaseSeconds": 60},
     )
     assert claimed.status_code == 200, claimed.text
-    task_id = claimed.json()["taskId"]
-    paused = await client.post(
+    assert claimed.json()["taskId"] == task_id
+    paused = await second_client.post(
         f"/companion/v2/tasks/{task_id}/events",
         headers=companion_auth,
         json={
@@ -387,32 +669,37 @@ async def test_task_create_commit_then_failure_recovers_same_dispatch_key(
             "sequence": 1,
             "eventType": "PAUSED_WAITING_USER",
             "stepIndex": 0,
-            "payload": {"reason": "recovery state must survive"},
+            "payload": {"reason": "legacy orphan state must survive"},
         },
     )
     assert paused.status_code == 201, paused.text
-    async with app.state.database.unit_of_work() as session:
+    async with first_app.state.database.unit_of_work() as session:
         task_row = await session.get(MobileTaskRow, task_id, with_for_update=True)
         assert task_row is not None
-        task_row.result = {"checkpoint": "preserve-during-recovery"}
-    before = await client.get(f"/api/v1/platform-tasks/{task_id}", headers=identity())
+        task_row.result = {"checkpoint": "preserve-legacy-orphan"}
+    before = await first_client.get(f"/api/v1/platform-tasks/{task_id}", headers=identity())
     assert before.status_code == 200, before.text
     assert before.json()["state"] == "PAUSED_WAITING_USER"
     assert before.json()["controlMode"] == "REMOTE"
+    assert "completionBoundary" not in before.json()["commandPayload"]
 
-    retry = await client.post(path, headers=identity())
-    assert retry.status_code == 200, retry.text
-    assert retry.json()["state"] == "IN_FLIGHT"
-    assert retry.json()["taskId"] == task_id
-    assert retry.json()["taskIds"] == [task_id]
-    assert await task_count(app, "dispatch-recovery") == 1
-    after = await client.get(f"/api/v1/platform-tasks/{task_id}", headers=identity())
+    recovered = await first_client.post(
+        f"/api/v1/xianyu/publish/queues/dispatch-legacy/targets/{target_id}/dispatch",
+        headers=identity(),
+    )
+    assert recovered.status_code == 200, recovered.text
+    assert recovered.json()["state"] == "IN_FLIGHT"
+    assert recovered.json()["taskId"] == task_id
+    assert recovered.json()["taskIds"] == [task_id]
+    assert await dispatch_task_count(second_app, target_id) == 1
+    after = await second_client.get(f"/api/v1/platform-tasks/{task_id}", headers=identity())
     assert after.status_code == 200, after.text
     assert after.json()["state"] == "PAUSED_WAITING_USER"
     assert after.json()["controlMode"] == "REMOTE"
     assert after.json()["result"] == before.json()["result"]
     assert after.json()["commandPayload"] == before.json()["commandPayload"]
     assert after.json()["snapshotSha256"] == before.json()["snapshotSha256"]
+    assert await dispatched_audit_count(second_app, target_id) == 1
 
 
 @pytest.mark.asyncio

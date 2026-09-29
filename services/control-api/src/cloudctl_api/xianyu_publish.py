@@ -30,6 +30,7 @@ from sqlalchemy import (
     UniqueConstraint,
     select,
 )
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -905,10 +906,9 @@ class XianyuPublishQueueService:
         into the frozen command payload so device side and server side agree
         on which target this execution belongs to).
 
-        The queue rows stay locked across the task mint and target commit. This
-        makes the serial eligibility check authoritative across API processes,
-        while the stable dispatch key recovers a task committed just before an
-        interrupted queue transaction.
+        The queue rows stay locked across the task mint and target commit. Task
+        insertion, snapshot stamping, target linkage, and audit persistence use
+        this caller-owned transaction so no claimable orphan can escape it.
         """
         require_permissions(actor.roles, Permission.TASK_CREATE)
         # Late import: platform_tasks imports this module (no import cycle).
@@ -962,7 +962,15 @@ class XianyuPublishQueueService:
             task = await self._locked_dispatch_task(session, str(actor.tenant_id), dispatch_key)
             created = False
             if task is None:
-                views, created = await platform_task_service.create(actor, dispatch_key, body)
+                try:
+                    views, created = await platform_task_service.create(
+                        actor, dispatch_key, body, session=session
+                    )
+                except IntegrityError as exc:
+                    # The caller-owned transaction is invalid after a failed
+                    # flush. Translate only; the outer unit_of_work rolls it
+                    # back without querying or opening a recovery transaction.
+                    raise ConflictError("task idempotency conflict") from exc
                 if len(views) != 1:
                     raise ConflictError("publish dispatch must mint exactly one platform task")
                 task_id = str(views[0]["taskId"])

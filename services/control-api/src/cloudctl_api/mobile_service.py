@@ -21,6 +21,7 @@ from cloudctl_domain import (
 from pydantic import Field
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from .db import (
     AccountDeviceBindingRow,
@@ -1215,6 +1216,7 @@ class MobileTaskService:
         key: str,
         body: MobileTaskCreate,
         order_collection: dict[str, Any] | None = None,
+        session: AsyncSession | None = None,
     ) -> tuple[dict[str, Any], bool]:
         if body.target_package not in ALLOWED_PACKAGES:
             raise ValidationError("targetPackage must be an allowlisted application")
@@ -1247,133 +1249,35 @@ class MobileTaskService:
             command_type = validate_review_steps(body.target_package, document["steps"])
         digest = hashlib.sha256(_canonical(document).encode()).hexdigest()
         now = _now()
+        if session is not None:
+            return await self._insert_task_in_session(
+                session,
+                tenant_id=tenant_id,
+                requested_by=requested_by,
+                key=key,
+                body=body,
+                order_collection=order_collection,
+                document=document,
+                command_type=command_type,
+                digest=digest,
+                now=now,
+                recheck_after_device_lock=True,
+            )
         try:
             async with self.database.unit_of_work() as session:
-                existing = await session.scalar(
-                    select(MobileTaskRow).where(
-                        MobileTaskRow.tenant_id == tenant_id,
-                        MobileTaskRow.idempotency_key == key,
-                    )
-                )
-                if existing is not None:
-                    if existing.request_sha256 != digest:
-                        raise ConflictError(
-                            "Idempotency-Key was reused with different task content"
-                        )
-                    return self._task_view(existing), False
-                device = await session.get(DeviceRow, body.device_id, with_for_update=True)
-                if device is None or device.tenant_id != tenant_id:
-                    raise NotFoundError("device was not found")
-                # Serialize creation by device, then recheck after a competing
-                # transaction commits. Resolve live identity only for a new run.
-                if order_collection is not None:
-                    existing = await session.scalar(
-                        select(MobileTaskRow).where(
-                            MobileTaskRow.tenant_id == tenant_id,
-                            MobileTaskRow.idempotency_key == key,
-                        )
-                    )
-                    if existing is not None:
-                        if existing.request_sha256 != digest:
-                            raise ConflictError(
-                                "Idempotency-Key was reused with different task content"
-                            )
-                        return self._task_view(existing), False
-                frozen_account_id = body.account_id
-                frozen_binding_version = None
-                frozen_order_collection = None
-                if order_collection is not None:
-                    from .order_delivery import resolve_order_account
-
-                    bound = await resolve_order_account(session, device)
-                    frozen_account_id = bound.account_id
-                    frozen_binding_version = bound.binding_version
-                    frozen_order_collection = {
-                        **order_collection,
-                        "mobileBindingId": device.active_binding_id,
-                    }
-                elif frozen_account_id:
-                    account_binding = await session.scalar(
-                        select(AccountDeviceBindingRow)
-                        .where(
-                            AccountDeviceBindingRow.tenant_id == tenant_id,
-                            AccountDeviceBindingRow.account_id == frozen_account_id,
-                            AccountDeviceBindingRow.device_id == body.device_id,
-                            AccountDeviceBindingRow.status == "BOUND",
-                        )
-                        .with_for_update()
-                    )
-                    if account_binding is None:
-                        raise ConflictError("account is not bound to the selected device")
-                    if (
-                        body.expected_binding_version is not None
-                        and body.expected_binding_version != account_binding.binding_version
-                    ):
-                        raise ConflictError("binding version does not match expectedBindingVersion")
-                    frozen_binding_version = account_binding.binding_version
-                media_delivery = body.media_delivery
-                if media_delivery is not None:
-                    media_rows = list(
-                        (
-                            await session.execute(
-                                select(MediaAssetRow).where(
-                                    MediaAssetRow.tenant_id == tenant_id,
-                                    MediaAssetRow.id.in_(media_delivery.asset_ids),
-                                )
-                            )
-                        ).scalars()
-                    )
-                    if len(media_rows) != len(media_delivery.asset_ids):
-                        raise NotFoundError("one or more media assets were not found in tenant")
-                row = MobileTaskRow(
-                    id=str(uuid.uuid4()),
+                return await self._insert_task_in_session(
+                    session,
                     tenant_id=tenant_id,
-                    device_id=body.device_id,
-                    idempotency_key=key,
-                    request_sha256=digest,
                     requested_by=requested_by,
-                    target_package=body.target_package,
-                    account_id=frozen_account_id,
-                    binding_version=frozen_binding_version,
-                    device_id_at_execution=None,
+                    key=key,
+                    body=body,
+                    order_collection=order_collection,
+                    document=document,
                     command_type=command_type,
-                    command_payload={},
-                    business_state="QUEUED",
-                    control_mode="AUTO",
-                    batch_id=order_collection["runId"] if order_collection else None,
-                    scheduled_for=None,
-                    stall_reason=None,
-                    attempt_id=str(uuid.uuid4()),
-                    resume_count=0,
-                    pause_ack_at=None,
-                    reconciliation={},
-                    steps=[
-                        {
-                            "totalTimeoutMs": body.total_timeout_ms,
-                            "mediaDelivery": document.get("mediaDelivery"),
-                            **(
-                                {"orderCollection": frozen_order_collection}
-                                if frozen_order_collection
-                                else {}
-                            ),
-                        },
-                        *document["steps"],
-                    ],
-                    status="QUEUED",
-                    lease_id=None,
-                    lease_expires_at=None,
-                    attempt=0,
-                    last_sequence=0,
-                    current_step=None,
-                    result={},
-                    error_code=None,
-                    detail=None,
-                    started_at=None,
-                    completed_at=None,
-                    created_at=now,
+                    digest=digest,
+                    now=now,
+                    recheck_after_device_lock=order_collection is not None,
                 )
-                session.add(row)
-            return self._task_view(row), True
         except IntegrityError as exc:
             if order_collection is not None:
                 async with self.database.unit_of_work() as session:
@@ -1386,6 +1290,144 @@ class MobileTaskService:
                     if existing is not None and existing.request_sha256 == digest:
                         return self._task_view(existing), False
             raise ConflictError("task idempotency conflict") from exc
+
+    async def _insert_task_in_session(
+        self,
+        session: AsyncSession,
+        *,
+        tenant_id: str,
+        requested_by: str,
+        key: str,
+        body: MobileTaskCreate,
+        order_collection: dict[str, Any] | None,
+        document: dict[str, Any],
+        command_type: str | None,
+        digest: str,
+        now: datetime,
+        recheck_after_device_lock: bool,
+    ) -> tuple[dict[str, Any], bool]:
+        if recheck_after_device_lock:
+            existing = await session.scalar(
+                select(MobileTaskRow).where(
+                    MobileTaskRow.tenant_id == tenant_id,
+                    MobileTaskRow.idempotency_key == key,
+                )
+            )
+            if existing is not None:
+                if existing.request_sha256 != digest:
+                    raise ConflictError("Idempotency-Key was reused with different task content")
+                return self._task_view(existing), False
+        device = await session.get(DeviceRow, body.device_id, with_for_update=True)
+        if device is None or device.tenant_id != tenant_id:
+            raise NotFoundError("device was not found")
+        # Serialize creation by device, then recheck after a competing
+        # transaction commits. Resolve live identity only for a new run.
+        existing = await session.scalar(
+            select(MobileTaskRow).where(
+                MobileTaskRow.tenant_id == tenant_id,
+                MobileTaskRow.idempotency_key == key,
+            )
+        )
+        if existing is not None:
+            if existing.request_sha256 != digest:
+                raise ConflictError("Idempotency-Key was reused with different task content")
+            return self._task_view(existing), False
+        frozen_account_id = body.account_id
+        frozen_binding_version = None
+        frozen_order_collection = None
+        if order_collection is not None:
+            from .order_delivery import resolve_order_account
+
+            bound = await resolve_order_account(session, device)
+            frozen_account_id = bound.account_id
+            frozen_binding_version = bound.binding_version
+            frozen_order_collection = {
+                **order_collection,
+                "mobileBindingId": device.active_binding_id,
+            }
+        elif frozen_account_id:
+            account_binding = await session.scalar(
+                select(AccountDeviceBindingRow)
+                .where(
+                    AccountDeviceBindingRow.tenant_id == tenant_id,
+                    AccountDeviceBindingRow.account_id == frozen_account_id,
+                    AccountDeviceBindingRow.device_id == body.device_id,
+                    AccountDeviceBindingRow.status == "BOUND",
+                )
+                .with_for_update()
+            )
+            if account_binding is None:
+                raise ConflictError("account is not bound to the selected device")
+            if (
+                body.expected_binding_version is not None
+                and body.expected_binding_version != account_binding.binding_version
+            ):
+                raise ConflictError("binding version does not match expectedBindingVersion")
+            frozen_binding_version = account_binding.binding_version
+        media_delivery = body.media_delivery
+        if media_delivery is not None:
+            media_rows = list(
+                (
+                    await session.execute(
+                        select(MediaAssetRow).where(
+                            MediaAssetRow.tenant_id == tenant_id,
+                            MediaAssetRow.id.in_(media_delivery.asset_ids),
+                        )
+                    )
+                ).scalars()
+            )
+            if len(media_rows) != len(media_delivery.asset_ids):
+                raise NotFoundError("one or more media assets were not found in tenant")
+        row = MobileTaskRow(
+            id=str(uuid.uuid4()),
+            tenant_id=tenant_id,
+            device_id=body.device_id,
+            idempotency_key=key,
+            request_sha256=digest,
+            requested_by=requested_by,
+            target_package=body.target_package,
+            account_id=frozen_account_id,
+            binding_version=frozen_binding_version,
+            device_id_at_execution=None,
+            command_type=command_type,
+            command_payload={},
+            business_state="QUEUED",
+            control_mode="AUTO",
+            batch_id=order_collection["runId"] if order_collection else None,
+            scheduled_for=None,
+            stall_reason=None,
+            attempt_id=str(uuid.uuid4()),
+            resume_count=0,
+            pause_ack_at=None,
+            reconciliation={},
+            steps=[
+                {
+                    "totalTimeoutMs": body.total_timeout_ms,
+                    "mediaDelivery": document.get("mediaDelivery"),
+                    **(
+                        {"orderCollection": frozen_order_collection}
+                        if frozen_order_collection
+                        else {}
+                    ),
+                },
+                *document["steps"],
+            ],
+            status="QUEUED",
+            lease_id=None,
+            lease_expires_at=None,
+            attempt=0,
+            last_sequence=0,
+            current_step=None,
+            result={},
+            error_code=None,
+            detail=None,
+            started_at=None,
+            completed_at=None,
+            created_at=now,
+        )
+        session.add(row)
+        await session.flush()
+        return self._task_view(row), True
 
     async def list_tasks(self, actor: Actor) -> list[dict[str, Any]]:
         require_permissions(actor.roles, Permission.DEVICE_MAINTAIN)
