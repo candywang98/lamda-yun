@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 import os
 import shutil
 import socket
@@ -211,6 +213,31 @@ async def task_count(app: FastAPI, queue_id: str) -> int:
             )
             or 0
         )
+
+
+@pytest.mark.asyncio
+async def test_new_dispatch_snapshot_hash_matches_canonical_payload(
+    api: tuple[httpx.AsyncClient, FastAPI],
+) -> None:
+    client, _app = api
+    _, targets = await create_queue(client, "dispatch-snapshot", item_count=1)
+    target = targets[0]
+    dispatch = await client.post(
+        f"/api/v1/xianyu/publish/queues/dispatch-snapshot/targets/{target['targetId']}/dispatch",
+        headers=identity(),
+    )
+    assert dispatch.status_code == 200, dispatch.text
+    task = await client.get(
+        f"/api/v1/platform-tasks/{dispatch.json()['taskId']}", headers=identity()
+    )
+    assert task.status_code == 200, task.text
+    payload = dict(task.json()["commandPayload"])
+    snapshot_sha256 = payload.pop("snapshotSha256")
+    expected = hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+    ).hexdigest()
+    assert payload["completionBoundary"] == target["claimedBoundary"]
+    assert snapshot_sha256 == expected
 
 
 @pytest.mark.asyncio

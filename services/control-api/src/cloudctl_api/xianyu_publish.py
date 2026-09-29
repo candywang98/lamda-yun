@@ -981,6 +981,7 @@ class XianyuPublishQueueService:
             )
             if created:
                 payload = dict(task.command_payload or {})
+                payload.pop("snapshotSha256", None)
                 # P10: freeze the claimed completion boundary into the task
                 # snapshot so the confirm-time judgment is judged against what
                 # was requested, not what is convenient.
