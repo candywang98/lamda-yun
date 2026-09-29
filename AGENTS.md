@@ -1,5 +1,15 @@
 # CloudCtl engineering rules
 
+## Fast resume
+
+On explicit user resumption, read `docs/current/HANDOFF.md` first. If missing,
+report it rather than exploring sibling repositories or chats. Check the actual
+branch, HEAD, tracked/index status and diff from the handoff's verified code
+baseline. Reuse unchanged evidence and inspect only new or affected code;
+never automatically rerun full tests. The handoff is a checkpoint, not fresh
+execution, device or business authorization. Read `docs/current/README.md`
+when plan semantics or task-state changes need it.
+
 This repository implements the architecture in `docs/reference/`. Keep the following invariants in every change:
 
 1. Only `packages/lamda-driver` may import `lamda`.
@@ -44,9 +54,11 @@ Temporal worker into an LLM agent runner.
 - One root Worker is the controller. It owns task selection, shared contracts,
   resource locks, integration, final verification, evidence indexing, and plan
   updates.
-- For the user workflow frozen in D-15, the parent acts as planner, delegator
-  and reviewer, while the designated GPT-5.6 Sol / High worker executes approved
-  repository edits, builds and tests. This role split does not grant device,
+- Under the user's current execution choice, the parent acts as planner,
+  delegator and reviewer, while the designated GPT-6 Astra / Low worker executes
+  approved repository edits, builds and tests. This file does not select or
+  silently change the runtime model; if that executor is unavailable, disclose
+  it instead of silently substituting another. This role split does not grant device,
   production, deployment, release or side-effect authority; it does not bypass
   locks, consent, version/identity/signature checks, no-send boundaries or the
   single authoritative plan.
@@ -149,7 +161,8 @@ The current executable template and P14 work-item queue are documented in
 ## Single active task source (fleet-first-20260916.1)
 
 Since R02 activation (2026-09-16), the authoritative machine task source is
-`docs/current/tasks.json`. Read `docs/current/README.md` first. Task states use
+`docs/current/tasks.json`. Read `docs/current/README.md` when plan semantics or
+task-state changes need it; explicit resumption starts with the handoff above. Task states use
 `dev_state` (NOT_STARTED/IN_PROGRESS/SOFTWARE_DONE) and `acceptance_state`
 (NOT_RUN/SOFTWARE_ACCEPTED/DEVICE_WAIT/DEVICE_ACCEPTED/BLOCKED) as separate
 fields. Validate changes with `python scripts/plan_guard.py
