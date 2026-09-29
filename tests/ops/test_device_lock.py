@@ -587,6 +587,81 @@ def test_darwin_mount_classification() -> None:
     assert overlap == set()
 
 
+@pytest.mark.parametrize("stat_output", ["ext2/ext3\n", "ext2\n", "ext3\n", "ext4\n"])
+def test_linux_stat_local_types_are_accepted_exactly(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, stat_output: str
+) -> None:
+    module = load_module()
+    database = tmp_path / "locks.sqlite3"
+    expected_argv = ["stat", "-f", "-c", "%T", str(tmp_path)]
+    calls: list[list[str]] = []
+
+    def classify(argv: list[str]) -> subprocess.CompletedProcess[str]:
+        calls.append(argv)
+        assert argv == expected_argv
+        return subprocess.CompletedProcess(argv, 0, stat_output, "")
+
+    monkeypatch.setattr(module.sys, "platform", "linux")
+    monkeypatch.setattr(module, "_run_fixed", classify)
+
+    module._assert_local_file(database)
+
+    assert calls == [expected_argv]
+    assert not database.exists()
+
+
+@pytest.mark.parametrize(
+    "stat_output",
+    [
+        "nfs\n",
+        "nfs4\n",
+        "nfs42\n",
+        "cifs\n",
+        "smbfs\n",
+        "sshfs\n",
+        "fuse.sshfs\n",
+        "afpfs\n",
+        "9p\n",
+        "fuse.unknown\n",
+        "unknown\n",
+        "",
+        "ext2/nfs\n",
+        "ext2/ext3/nfs\n",
+        "ext2/ext3/ext4\n",
+        "ext2/ext3evil\n",
+        "ext2/ext30\n",
+        "ext2/ext3 ext4\n",
+        "ext2/ext3\nnfs\n",
+    ],
+)
+def test_linux_stat_network_unknown_and_alias_lookalikes_fail_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, stat_output: str
+) -> None:
+    module = load_module()
+    database = tmp_path / "locks.sqlite3"
+    calls: list[list[str]] = []
+
+    def classify(argv: list[str]) -> subprocess.CompletedProcess[str]:
+        calls.append(argv)
+        if argv == ["stat", "-f", "-c", "%T", str(tmp_path)]:
+            return subprocess.CompletedProcess(argv, 0, stat_output, "")
+        assert argv in (
+            ["findmnt", "-n", "-o", "FSTYPE", "-T", str(tmp_path)],
+            ["df", "-P", "-T", str(tmp_path)],
+        )
+        return subprocess.CompletedProcess(argv, 1, "", "classifier unavailable")
+
+    monkeypatch.setattr(module.sys, "platform", "linux")
+    monkeypatch.setattr(module, "_run_fixed", classify)
+
+    with pytest.raises(module.LockError, match="refusing") as refused:
+        module._assert_local_file(database)
+
+    assert refused.value.code == module.EXIT_USAGE
+    assert calls[0] == ["stat", "-f", "-c", "%T", str(tmp_path)]
+    assert not database.exists()
+
+
 def test_this_workspace_filesystem_is_classified_local() -> None:
     module = load_module()
     fstype = module.classify_fstype(Path(__file__).resolve().parent)

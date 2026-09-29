@@ -505,14 +505,20 @@ def test_owned_cleanup_still_refuses_binding_or_tenant_drift() -> None:
 
 
 def test_only_authorized_install_command_is_exposed() -> None:
+    expected_apk = (
+        Path.home()
+        / "CloudCtlExternal"
+        / "acceptance"
+        / "20260929-v6"
+        / "cloudctl-business-acceptance-v6.apk"
+    )
     assert acceptance.install_command() == (
         "adb",
         "-s",
         "b0644fb5",
         "install",
         "-r",
-        "/Users/wangziheng/CloudCtlExternal/acceptance/20260929-v6/"
-        "cloudctl-business-acceptance-v6.apk",
+        str(expected_apk),
     )
     source = SCRIPT.read_text()
     assert '"am", "start"' not in source

@@ -72,6 +72,7 @@ LOCAL_FSTYPES = frozenset(
         "apfs",
         "hfs",
         "ext2",
+        "ext2/ext3",  # GNU stat reports the ext filesystem family using this exact alias.
         "ext3",
         "ext4",
         "xfs",
