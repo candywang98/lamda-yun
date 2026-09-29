@@ -1,6 +1,9 @@
+import os
+import subprocess
 from pathlib import Path
 from typing import Any
 
+import pytest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -44,6 +47,43 @@ def test_missing_key_gate_fails_before_checkout_without_echoing_the_key() -> Non
         for line in script.splitlines()
         if "echo" in line
     )
+
+
+@pytest.mark.parametrize(
+    ("value", "expected_status"),
+    [
+        (None, 1),
+        ("", 1),
+        ("ci-public-key-sentinel-not-a-real-key", 0),
+    ],
+)
+def test_parsed_missing_key_guard_execution(
+    value: str | None,
+    expected_status: int,
+) -> None:
+    sentinel = "ci-public-key-sentinel-not-a-real-key"
+    script = android_job()["steps"][0]["run"]
+    environment = os.environ.copy()
+    if value is None:
+        environment.pop("CLOUDCTL_APP_UPDATE_PUBLIC_KEY", None)
+    else:
+        environment["CLOUDCTL_APP_UPDATE_PUBLIC_KEY"] = value
+
+    result = subprocess.run(  # noqa: S603 - execute the parsed workflow guard under test
+        ["/bin/bash", "-c", script],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=environment,
+    )
+    output = result.stdout + result.stderr
+
+    assert result.returncode == expected_status
+    assert sentinel not in output
+    if expected_status == 1:
+        assert "::error::CLOUDCTL_APP_UPDATE_PUBLIC_KEY repository variable is required" in output
+    else:
+        assert output == ""
 
 
 def test_android_commands_keep_full_suites_and_release_key_verification() -> None:

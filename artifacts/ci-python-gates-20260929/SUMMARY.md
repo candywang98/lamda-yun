@@ -90,9 +90,9 @@ One superseded Pyright invocation attempted both `--pythonpath` and `--venvpath`
 that mutually exclusive parameter combination with return code 4. The corrected command above
 returned 0 with no diagnostics.
 
-## Remaining blockers and ownership handoff
+## Initial blockers before follow-up handoff
 
-Full Mypy remains red for two files outside this work item's ownership:
+At commit `bd62e6f`, full Mypy was red for two files outside the initial work item's ownership:
 
 ```text
 services/edge-hub/src/cloudctl_edge_hub/main.py:14: error: Unused "type: ignore" comment  [unused-ignore]
@@ -100,8 +100,8 @@ services/control-api/src/cloudctl_api/fleet_live.py:47: error: Unused "type: ign
 Found 2 errors in 2 files (checked 162 source files)
 ```
 
-Those files were diagnosed read-only and have no diff in this branch. Their owners must accept a
-handoff before either diagnostic is edited.
+Those files were diagnosed read-only in the initial work and were not changed in `bd62e6f`. The
+controller subsequently approved the narrow follow-up handoff recorded below.
 
 ## Controller-provided baseline GitHub evidence
 
@@ -119,3 +119,47 @@ The controller independently supplied the following authenticated, read-only evi
 Configuration absence and software patch correctness are separate facts. The local patch proves the
 workflow input boundary and static/parser behavior described above; it does not configure the
 repository variable, execute Android CI, or establish that Android or all repository CI is green.
+
+## Follow-up handoff: unused ignores and executable guard test
+
+Date: 2026-09-29
+
+Parent commit: `bd62e6fb3afc0ca66bb23881d97fa5db6c74d5d7`
+
+The controller approved write ownership for exactly
+`services/edge-hub/src/cloudctl_edge_hub/main.py` and
+`services/control-api/src/cloudctl_api/fleet_live.py`, solely to remove their now-unused
+`# type: ignore[import-untyped]` comments. No import, configuration, or runtime behavior changed.
+
+Baseline-vs-worktree AST comparison for the two comment-only edits:
+
+| Path | AST SHA-256 before/after | Nodes before/after | Equivalent |
+|---|---|---:|---|
+| `services/edge-hub/src/cloudctl_edge_hub/main.py` | `ed1cc59540192701f4f6119f778e181d219d83302bbd16d5c7b3fde2f0c7213a` | 1324 / 1324 | yes |
+| `services/control-api/src/cloudctl_api/fleet_live.py` | `8690a521a69cbf3efec1c1d1f29484fc5a1a80d23c9004022893518a38e04037` | 5284 / 5284 | yes |
+
+`tests/ops/test_ci_release_key.py` now executes the parsed first Android workflow step with
+`/bin/bash -c`. It uses no real key and never invokes Gradle. Exact observed cases:
+
+| Environment case | Guard return code | stdout | stderr | Sentinel leaked |
+|---|---:|---|---|---|
+| `CLOUDCTL_APP_UPDATE_PUBLIC_KEY` unset | 1 | GitHub error message requiring the repository variable | empty | no |
+| `CLOUDCTL_APP_UPDATE_PUBLIC_KEY=""` | 1 | GitHub error message requiring the repository variable | empty | no |
+| `CLOUDCTL_APP_UPDATE_PUBLIC_KEY=ci-public-key-sentinel-not-a-real-key` | 0 | empty | empty | no |
+
+Follow-up commands and results:
+
+| Command | Return code | Result |
+|---|---:|---|
+| AST comparison against `bd62e6f` for the two newly owned service files | 0 | 2/2 equivalent; hashes and node counts shown above. |
+| `$VENV/bin/pytest -q tests/ops/test_ci_release_key.py` | 0 | 7 passed in 0.05s. |
+| Parsed guard execution harness for unset, empty, and nonempty sentinel environments | 0 | Case return codes 1, 1, and 0; no sentinel disclosure. |
+| `$VENV/bin/pytest -q tests/edge_hub_server_test.py tests/integration/test_fleet_live_session.py tests/integration/test_fleet_live_transport.py tests/ops/test_ci_release_key.py` | 0 | 64 passed in 8.03s. |
+| `$VENV/bin/ruff format --check .` | 0 | 700 files already formatted. |
+| `$VENV/bin/ruff check .` | 0 | All checks passed. |
+| `$VENV/bin/mypy --config-file "$PWD/pyproject.toml"` with explicit worktree `MYPYPATH` | 0 | Success: no issues found in 162 source files. |
+| `$VENV/bin/pyright --project "$PWD/pyproject.toml" --venvpath /Users/wangziheng/Desktop/01-主战场/LAMDA云控系统/cloudctl-source` | 0 | 0 errors, 0 warnings, 0 information. |
+| `bash scripts/check-security-boundaries.sh` | 0 | Security boundary checks passed. |
+
+No Gradle task, real key, GitHub configuration mutation, release, deploy, install, SSH, ADB, device,
+publish, send, or production operation was used in this follow-up.
