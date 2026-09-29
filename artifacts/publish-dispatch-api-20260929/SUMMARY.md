@@ -8,12 +8,19 @@ Date: 2026-09-29
 - Branch: `agent/sol-publish-dispatch-api-20260929`
 - Frozen baseline: `933964b2ded8a22f0d3c74d8bb061a0098b2266b`
 - Implementation commit: `f058b9d41a7c3ae29b23b559329788ba22e3459c`
+- Started-task recovery follow-up: `4c572efd64b59a9c8891258839d80f4a71628c4c`
 - Model/effort requested: `gpt-5.6-sol/high`
 
 ## Files
 
 Implementation commit:
 
+- `services/control-api/src/cloudctl_api/xianyu_publish.py`
+- `tests/integration/test_xianyu_publish_dispatch.py`
+
+Started-task recovery follow-up:
+
+- `services/control-api/src/cloudctl_api/platform_tasks.py`
 - `services/control-api/src/cloudctl_api/xianyu_publish.py`
 - `tests/integration/test_xianyu_publish_dispatch.py`
 
@@ -108,6 +115,92 @@ Result: exit `0`, `61 passed in 25.03s`.
 
 This includes the existing queue replay and permission coverage.
 
+## Started-Task Recovery Follow-up
+
+Controller review found that the initial recovery path still called
+`PlatformTaskService.create` for an existing task. Before the follow-up,
+`created=False` still ran `_stamp_business_fields`, resetting an already claimed
+or paused task to `QUEUED/AUTO` and replacing its command payload.
+
+### Red proof
+
+Against production code at branch commit
+`b4ffe2d7711e197dc5c74973635cd5b87befac1f`, with the new isolated regression
+applied:
+
+```sh
+$PYTHON -m pytest -q \
+  tests/integration/test_xianyu_publish_dispatch.py::test_task_create_commit_then_failure_recovers_same_dispatch_key
+```
+
+Result: exit `1`, `1 failed in 0.34s`. The same task ID was reused, but its state
+changed from `PAUSED_WAITING_USER` to `QUEUED` after queue retry.
+
+### Fix and green proof
+
+- Queue recovery locks and validates an existing same-key task before deciding
+  whether a new task must be minted.
+- Validation fails closed on partial or mismatching tenant, device, account,
+  publish target, queue, package, command, parameters, media delivery, snapshot,
+  attempt, or steps identity.
+- An absent `completionBoundary` on a claimed orphan is preserved as unknown. If
+  the field is present, it must match the queue target's claimed boundary.
+- Existing tasks are linked to the queue without modifying business state,
+  control mode, result, command payload, or snapshot hash.
+- `PlatformTaskService.create` now stamps business fields only when
+  `_insert_task` reports `created=True`, covering the narrow race where another
+  caller creates the same key after the queue's initial lookup.
+
+```sh
+$PYTHON -m pytest -q \
+  tests/integration/test_xianyu_publish_dispatch.py::test_task_create_commit_then_failure_recovers_same_dispatch_key
+```
+
+Result: exit `0`, `1 passed in 0.36s`.
+
+```sh
+$PYTHON -m pytest -q tests/integration/test_xianyu_publish_dispatch.py
+```
+
+Result: exit `0`, `8 passed in 3.25s`.
+
+The dispatch file now also verifies that partial/mismatching same-key tasks are
+rejected without repair, and that direct platform-task idempotent replay keeps a
+started task's state, control mode, result, payload, and hash unchanged.
+
+```sh
+$PYTHON -m pytest -q \
+  tests/integration/test_xianyu_publish_dispatch.py \
+  tests/integration/test_xianyu_publish_permissions.py \
+  tests/unit/test_xianyu_publish_recipe.py \
+  tests/integration/test_xianyu_publish_delta.py \
+  tests/integration/test_publish_commands.py \
+  tests/integration/test_platform_tasks.py
+```
+
+Result: exit `0`, `63 passed in 12.50s`.
+
+```sh
+/Users/wangziheng/Desktop/01-主战场/LAMDA云控系统/cloudctl-source/.venv/bin/ruff check \
+  services/control-api/src/cloudctl_api/xianyu_publish.py \
+  services/control-api/src/cloudctl_api/platform_tasks.py \
+  tests/integration/test_xianyu_publish_dispatch.py
+/Users/wangziheng/Desktop/01-主战场/LAMDA云控系统/cloudctl-source/.venv/bin/ruff format --check \
+  services/control-api/src/cloudctl_api/xianyu_publish.py \
+  services/control-api/src/cloudctl_api/platform_tasks.py \
+  tests/integration/test_xianyu_publish_dispatch.py
+```
+
+Result: exit `0`, lint passed and `3 files already formatted`.
+
+```sh
+$PYTHON -m mypy \
+  services/control-api/src/cloudctl_api/xianyu_publish.py \
+  services/control-api/src/cloudctl_api/platform_tasks.py
+```
+
+Result: exit `0`, `Success: no issues found in 2 source files`.
+
 ### Static checks
 
 ```sh
@@ -138,8 +231,9 @@ Result: exit `0`.
 - If the API process terminates after the task commit but before the queue commit,
   the queue remains `PENDING` and the already-created task can temporarily exist
   without its target linkage; it may be claimable. Retrying dispatch uses the
-  unchanged attempt number and stable dispatch key, reuses that task, and commits
-  the linkage without duplication. No automatic orphan reconciliation was added.
+  unchanged attempt number and stable dispatch key, validates and reuses that
+  task, and commits the linkage without duplication or execution-state mutation.
+  No automatic orphan reconciliation was added.
 - A repeated request after the queue commit sees `IN_FLIGHT` and returns `409`, as
   allowed by the frozen contract; clients reconcile through queue/task GET.
 - No physical device, ADB, production API/network, deployment, upload, account
