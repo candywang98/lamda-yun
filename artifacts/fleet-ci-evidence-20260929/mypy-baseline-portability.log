@@ -1,0 +1,6 @@
+../cloudctl-source/tests/ops/test_ci_python_portability.py:9: error: Library stubs not installed for "yaml"  [import-untyped]
+../cloudctl-source/tests/ops/test_ci_python_portability.py:9: note: Hint: "python3 -m pip install types-PyYAML"
+../cloudctl-source/tests/ops/test_ci_python_portability.py:9: note: (or run "mypy --install-types" to install all missing stub packages)
+../cloudctl-source/tests/ops/test_ci_python_portability.py:9: note: See https://mypy.readthedocs.io/en/stable/running_mypy.html#missing-imports
+../cloudctl-source/tests/ops/test_ci_python_portability.py:31: error: Returning Any from function declared to return "dict[str, Any]"  [no-any-return]
+Found 2 errors in 1 file (checked 1 source file)

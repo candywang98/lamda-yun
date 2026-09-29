@@ -1,0 +1,13 @@
+{
+  "baseline": "c8f0e5adfd458610f5385651dc5ee3bd3db9ab12",
+  "byte_unchanged_sha256": {
+    "tests/load/fleet/harness.py": "103f8b13214617bebb4dbf7b96fd90d70ceb9872e42ffca66afac6bad9c642f1",
+    "tests/load/fleet/postgres.py": "d1e78edaaa7eb7836f698c53a6e5f5b2536b84c1767287487a01a1ad7eefbf61",
+    "tests/load/fleet/test_fleet_load.py": "a523893aa582575c1c39ddb24586d8a04f543acadd93335d6946145ed4a8cbe4",
+    "packages/observability/src/cloudctl_observability/metrics.py": "cac402087e73803431bf6e0e61c92f7dbfcaa9fed1996cfd89145aad7e22fc31",
+    "docs/current/tasks.json": "3a1ae74049ba843bc66a77d4a0cb98be259130897ff324b17d106e5d6bb46fcb"
+  },
+  "production_diff_empty": true,
+  "android_frontend_and_top_level_workflow_unchanged": true,
+  "preserved_untracked_files": 38
+}

@@ -1,0 +1,6458 @@
+{
+  "config": {
+    "claimLeaseSeconds": 60,
+    "deviceCount": 100,
+    "failDevices": [],
+    "tasksPerDevice": 1
+  },
+  "db": {
+    "driver": "asyncpg",
+    "engine": "temporary-postgresql",
+    "pool": "AsyncAdaptedQueuePool",
+    "repositoryMode": "postgresql",
+    "serverVersion": [
+      16,
+      15
+    ]
+  },
+  "durationSeconds": 3.303,
+  "generatedAt": "2026-09-29T15:34:24.728344+00:00",
+  "host": {
+    "cpuCount": 11,
+    "machine": "arm64",
+    "python": "3.13.5",
+    "system": "macOS-26.0-arm64-arm-64bit-Mach-O"
+  },
+  "limits": "in-process ASGI simulated clients; test-owned loopback PostgreSQL; not hardware, networked multi-node, or production-capacity evidence",
+  "metrics": {
+    "deviceCount": 100,
+    "fleet": {
+      "claimLatencySeconds": {
+        "count": 100,
+        "max": 0.985025540998322,
+        "mean": 0.461825,
+        "p50": 0.44749408299685456,
+        "p95": 0.8292454589973204
+      },
+      "evidenceBytes": 0,
+      "evidenceUploads": 100,
+      "inputFailure": 0,
+      "leaseConflict": 0,
+      "queueAgeSeconds": {
+        "count": 100,
+        "max": 1.321087083008024,
+        "mean": 0.733224,
+        "p50": 0.7100268750073155,
+        "p95": 1.0784055830008583
+      },
+      "rebind": 0,
+      "unknown": 0
+    },
+    "perDevice": {
+      "00a17b5a-3fef-49a5-992e-d628bbfdaed7": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.16609358400455676,
+          "mean": 0.166094,
+          "p50": 0.16609358400455676,
+          "p95": 0.16609358400455676
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.5956743330025347,
+          "mean": 0.595674,
+          "p50": 0.5956743330025347,
+          "p95": 0.5956743330025347
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "0117b2fc-9de4-47b1-b9e7-1ce6f0fe0e14": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.8121794590115314,
+          "mean": 0.812179,
+          "p50": 0.8121794590115314,
+          "p95": 0.8121794590115314
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.9508808749960735,
+          "mean": 0.950881,
+          "p50": 0.9508808749960735,
+          "p95": 0.9508808749960735
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "03ca5364-a69c-4aea-9bf1-3fb6b749dbcd": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.29658858399488963,
+          "mean": 0.296589,
+          "p50": 0.29658858399488963,
+          "p95": 0.29658858399488963
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.8066913329967065,
+          "mean": 0.806691,
+          "p50": 0.8066913329967065,
+          "p95": 0.8066913329967065
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "06010455-5f0c-40d9-ab48-119ba8d13cca": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.5457321670110105,
+          "mean": 0.545732,
+          "p50": 0.5457321670110105,
+          "p95": 0.5457321670110105
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.5869553749944316,
+          "mean": 0.586955,
+          "p50": 0.5869553749944316,
+          "p95": 0.5869553749944316
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "0a3ab020-dffe-41ba-b0d5-0d3029ff63c0": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.15133424999658018,
+          "mean": 0.151334,
+          "p50": 0.15133424999658018,
+          "p95": 0.15133424999658018
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.6291822079947451,
+          "mean": 0.629182,
+          "p50": 0.6291822079947451,
+          "p95": 0.6291822079947451
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "0ae4f748-6c2b-493f-b657-06adba779823": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.15069662500172853,
+          "mean": 0.150697,
+          "p50": 0.15069662500172853,
+          "p95": 0.15069662500172853
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.6662918329966487,
+          "mean": 0.666292,
+          "p50": 0.6662918329966487,
+          "p95": 0.6662918329966487
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "0c01d32a-8070-4da3-998b-0151f098fdb7": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.22287733299890533,
+          "mean": 0.222877,
+          "p50": 0.22287733299890533,
+          "p95": 0.22287733299890533
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.3871054589981213,
+          "mean": 0.387105,
+          "p50": 0.3871054589981213,
+          "p95": 0.3871054589981213
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "0c540cd6-b68a-4777-b731-8b67f182662b": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.1478439589991467,
+          "mean": 0.147844,
+          "p50": 0.1478439589991467,
+          "p95": 0.1478439589991467
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.6410773340030573,
+          "mean": 0.641077,
+          "p50": 0.6410773340030573,
+          "p95": 0.6410773340030573
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "0e22753d-1db4-40e8-a723-f5520d1b74a8": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.7354567919974215,
+          "mean": 0.735457,
+          "p50": 0.7354567919974215,
+          "p95": 0.7354567919974215
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 1.1249422920081997,
+          "mean": 1.124942,
+          "p50": 1.1249422920081997,
+          "p95": 1.1249422920081997
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "0f42d724-515f-4543-b0a3-1875d5966e06": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.16394395800307393,
+          "mean": 0.163944,
+          "p50": 0.16394395800307393,
+          "p95": 0.16394395800307393
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.6027404579945141,
+          "mean": 0.60274,
+          "p50": 0.6027404579945141,
+          "p95": 0.6027404579945141
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "15b445ac-48b0-44f5-91b5-1df1e9ecf47e": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.5506939170008991,
+          "mean": 0.550694,
+          "p50": 0.5506939170008991,
+          "p95": 0.5506939170008991
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.654768000007607,
+          "mean": 0.654768,
+          "p50": 0.654768000007607,
+          "p95": 0.654768000007607
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "188fc1cf-94d3-41f7-9ae4-0ec54f0fa1cc": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.30190170799323823,
+          "mean": 0.301902,
+          "p50": 0.30190170799323823,
+          "p95": 0.30190170799323823
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.7458534999896074,
+          "mean": 0.745853,
+          "p50": 0.7458534999896074,
+          "p95": 0.7458534999896074
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "1d96b521-8051-4870-9c40-f774ff9de11f": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.32895279199874494,
+          "mean": 0.328953,
+          "p50": 0.32895279199874494,
+          "p95": 0.32895279199874494
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.7355232920090202,
+          "mean": 0.735523,
+          "p50": 0.7355232920090202,
+          "p95": 0.7355232920090202
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "1e7b3059-3ab3-4a61-9e09-e298645cad09": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.2738102919975063,
+          "mean": 0.27381,
+          "p50": 0.2738102919975063,
+          "p95": 0.2738102919975063
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.33333816699450836,
+          "mean": 0.333338,
+          "p50": 0.33333816699450836,
+          "p95": 0.33333816699450836
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "1f0a34f4-eb5c-4d0b-bd22-71b21761964a": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.6016845830017701,
+          "mean": 0.601685,
+          "p50": 0.6016845830017701,
+          "p95": 0.6016845830017701
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.9319246660015779,
+          "mean": 0.931925,
+          "p50": 0.9319246660015779,
+          "p95": 0.9319246660015779
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "2000097d-ddeb-4ffd-98f7-4add44d7a361": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.6014556669979356,
+          "mean": 0.601456,
+          "p50": 0.6014556669979356,
+          "p95": 0.6014556669979356
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.9368116249970626,
+          "mean": 0.936812,
+          "p50": 0.9368116249970626,
+          "p95": 0.9368116249970626
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "200b1c24-2bfa-4712-8a0a-7bf8b6907ad1": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.6837638750002952,
+          "mean": 0.683764,
+          "p50": 0.6837638750002952,
+          "p95": 0.6837638750002952
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.7292282090056688,
+          "mean": 0.729228,
+          "p50": 0.7292282090056688,
+          "p95": 0.7292282090056688
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "2322014b-fbd2-4a3b-885f-21ee433f7155": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.2553849169926252,
+          "mean": 0.255385,
+          "p50": 0.2553849169926252,
+          "p95": 0.2553849169926252
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.3697708339896053,
+          "mean": 0.369771,
+          "p50": 0.3697708339896053,
+          "p95": 0.3697708339896053
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "25336d3d-1ae2-4596-891b-954eba5e16c2": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.6358592089964077,
+          "mean": 0.635859,
+          "p50": 0.6358592089964077,
+          "p95": 0.6358592089964077
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.8055925839871634,
+          "mean": 0.805593,
+          "p50": 0.8055925839871634,
+          "p95": 0.8055925839871634
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "26ee59b8-8705-48fa-988e-686870e6aacb": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.38488604199665133,
+          "mean": 0.384886,
+          "p50": 0.38488604199665133,
+          "p95": 0.38488604199665133
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.600958625000203,
+          "mean": 0.600959,
+          "p50": 0.600958625000203,
+          "p95": 0.600958625000203
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "271b0cac-b5f4-4bc1-ba66-0bfd98631d38": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.5963498750061262,
+          "mean": 0.59635,
+          "p50": 0.5963498750061262,
+          "p95": 0.5963498750061262
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 1.0078095000062604,
+          "mean": 1.00781,
+          "p50": 1.0078095000062604,
+          "p95": 1.0078095000062604
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "2e81da41-b679-49a0-86c8-223545871439": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.2855702079978073,
+          "mean": 0.28557,
+          "p50": 0.2855702079978073,
+          "p95": 0.2855702079978073
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.7677146250061924,
+          "mean": 0.767715,
+          "p50": 0.7677146250061924,
+          "p95": 0.7677146250061924
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "35a302aa-db0f-4a8a-a08d-0238aae9569e": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.23411920899525285,
+          "mean": 0.234119,
+          "p50": 0.23411920899525285,
+          "p95": 0.23411920899525285
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.35786141599237453,
+          "mean": 0.357861,
+          "p50": 0.35786141599237453,
+          "p95": 0.35786141599237453
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "3c597260-acc2-485f-b0b7-f11fcbf8e996": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.5620425840024836,
+          "mean": 0.562043,
+          "p50": 0.5620425840024836,
+          "p95": 0.5620425840024836
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 1.0487671669980045,
+          "mean": 1.048767,
+          "p50": 1.0487671669980045,
+          "p95": 1.0487671669980045
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "3f05f4b8-80a1-4d65-98cf-1ac4fa5a2d1f": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.5905174999934388,
+          "mean": 0.590517,
+          "p50": 0.5905174999934388,
+          "p95": 0.5905174999934388
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.9753548330045305,
+          "mean": 0.975355,
+          "p50": 0.9753548330045305,
+          "p95": 0.9753548330045305
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "40b5ee1f-6354-4c9b-b0fd-c02844312a49": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.33442704199114814,
+          "mean": 0.334427,
+          "p50": 0.33442704199114814,
+          "p95": 0.33442704199114814
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.7100268750073155,
+          "mean": 0.710027,
+          "p50": 0.7100268750073155,
+          "p95": 0.7100268750073155
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "42062c52-fc62-4258-af40-c99e7b22e34d": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.32657916699827183,
+          "mean": 0.326579,
+          "p50": 0.32657916699827183,
+          "p95": 0.32657916699827183
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.7901577910088236,
+          "mean": 0.790158,
+          "p50": 0.7901577910088236,
+          "p95": 0.7901577910088236
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "43411073-4d3b-4b2d-bffc-6e35be948645": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.9572417079907609,
+          "mean": 0.957242,
+          "p50": 0.9572417079907609,
+          "p95": 0.9572417079907609
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 1.321087083008024,
+          "mean": 1.321087,
+          "p50": 1.321087083008024,
+          "p95": 1.321087083008024
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "483f71b3-58ac-4647-8ded-3c2c90be5622": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.5744772909965832,
+          "mean": 0.574477,
+          "p50": 0.5744772909965832,
+          "p95": 0.5744772909965832
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 1.0087543330009794,
+          "mean": 1.008754,
+          "p50": 1.0087543330009794,
+          "p95": 1.0087543330009794
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "49d4c47a-29b6-45b2-a74b-4dd441c5b9ae": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.3112936660036212,
+          "mean": 0.311294,
+          "p50": 0.3112936660036212,
+          "p95": 0.3112936660036212
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.7320132500026375,
+          "mean": 0.732013,
+          "p50": 0.7320132500026375,
+          "p95": 0.7320132500026375
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "4a93a489-fe54-40c3-89bd-cddce1636c71": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.4620748330053175,
+          "mean": 0.462075,
+          "p50": 0.4620748330053175,
+          "p95": 0.4620748330053175
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.6521366670058342,
+          "mean": 0.652137,
+          "p50": 0.6521366670058342,
+          "p95": 0.6521366670058342
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "4c4dff39-f5d4-448a-b864-22b22ac35b16": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.6687565410102252,
+          "mean": 0.668757,
+          "p50": 0.6687565410102252,
+          "p95": 0.6687565410102252
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.7878272919915617,
+          "mean": 0.787827,
+          "p50": 0.7878272919915617,
+          "p95": 0.7878272919915617
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "4e5defa8-0960-47d5-a173-ab905b9b5053": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.3457805830112193,
+          "mean": 0.345781,
+          "p50": 0.3457805830112193,
+          "p95": 0.3457805830112193
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.6233769999962533,
+          "mean": 0.623377,
+          "p50": 0.6233769999962533,
+          "p95": 0.6233769999962533
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "53076540-5149-44f9-80ac-6aea38afbc72": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.4009824579989072,
+          "mean": 0.400982,
+          "p50": 0.4009824579989072,
+          "p95": 0.4009824579989072
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.5298612500046147,
+          "mean": 0.529861,
+          "p50": 0.5298612500046147,
+          "p95": 0.5298612500046147
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "5681cb50-21f1-4d7f-a54f-d3d1447fa63c": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.3393113749916665,
+          "mean": 0.339311,
+          "p50": 0.3393113749916665,
+          "p95": 0.3393113749916665
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.6977275829995051,
+          "mean": 0.697728,
+          "p50": 0.6977275829995051,
+          "p95": 0.6977275829995051
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "57a6db40-a99d-4fe3-a90f-1c83dada3427": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.5372890829894459,
+          "mean": 0.537289,
+          "p50": 0.5372890829894459,
+          "p95": 0.5372890829894459
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.6293895420094486,
+          "mean": 0.62939,
+          "p50": 0.6293895420094486,
+          "p95": 0.6293895420094486
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "57e0b82f-7ff4-4ea9-8667-1ed4c7c33182": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.985025540998322,
+          "mean": 0.985026,
+          "p50": 0.985025540998322,
+          "p95": 0.985025540998322
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 1.039996625011554,
+          "mean": 1.039997,
+          "p50": 1.039996625011554,
+          "p95": 1.039996625011554
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "5b967d8b-4de7-49ce-9806-61e4f744f0f4": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.3569355829968117,
+          "mean": 0.356936,
+          "p50": 0.3569355829968117,
+          "p95": 0.3569355829968117
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.658916083004442,
+          "mean": 0.658916,
+          "p50": 0.658916083004442,
+          "p95": 0.658916083004442
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "5d8e274a-ddef-42a6-9172-d4c913e0a9be": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.20234375000291038,
+          "mean": 0.202344,
+          "p50": 0.20234375000291038,
+          "p95": 0.20234375000291038
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.40610549999109935,
+          "mean": 0.406105,
+          "p50": 0.40610549999109935,
+          "p95": 0.40610549999109935
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "5f5b1581-152f-4bf6-b934-17a5e137ced3": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.4543825409928104,
+          "mean": 0.454383,
+          "p50": 0.4543825409928104,
+          "p95": 0.4543825409928104
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.7270543750055367,
+          "mean": 0.727054,
+          "p50": 0.7270543750055367,
+          "p95": 0.7270543750055367
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "647deb43-9b0c-4ae3-b15c-0d9e9d0fea4f": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.18326687499938998,
+          "mean": 0.183267,
+          "p50": 0.18326687499938998,
+          "p95": 0.18326687499938998
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.44545829099661205,
+          "mean": 0.445458,
+          "p50": 0.44545829099661205,
+          "p95": 0.44545829099661205
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "65040622-a86d-480e-8caf-bbc3165710a7": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.8806293340021512,
+          "mean": 0.880629,
+          "p50": 0.8806293340021512,
+          "p95": 0.8806293340021512
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 1.1382430840021698,
+          "mean": 1.138243,
+          "p50": 1.1382430840021698,
+          "p95": 1.1382430840021698
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "65278f57-cd0b-4a64-aa43-7fbdcb51ff7e": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.39577466700575314,
+          "mean": 0.395775,
+          "p50": 0.39577466700575314,
+          "p95": 0.39577466700575314
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.5554817500087665,
+          "mean": 0.555482,
+          "p50": 0.5554817500087665,
+          "p95": 0.5554817500087665
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "662fc635-9b86-4bad-9872-f5913f7c6ae7": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.7798316670086933,
+          "mean": 0.779832,
+          "p50": 0.7798316670086933,
+          "p95": 0.7798316670086933
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 1.072112499998184,
+          "mean": 1.072112,
+          "p50": 1.072112499998184,
+          "p95": 1.072112499998184
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "6899b759-09ad-4f5b-a975-8ea6e32de2b4": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.5206250829942292,
+          "mean": 0.520625,
+          "p50": 0.5206250829942292,
+          "p95": 0.5206250829942292
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.598634125009994,
+          "mean": 0.598634,
+          "p50": 0.598634125009994,
+          "p95": 0.598634125009994
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "6c9aca27-d5d0-4934-b852-2833a62adfce": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.5429619159986032,
+          "mean": 0.542962,
+          "p50": 0.5429619159986032,
+          "p95": 0.5429619159986032
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.6073010840045754,
+          "mean": 0.607301,
+          "p50": 0.6073010840045754,
+          "p95": 0.6073010840045754
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "6cfc7f10-5025-447a-b0d3-c93c78644870": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.8500874579913216,
+          "mean": 0.850087,
+          "p50": 0.8500874579913216,
+          "p95": 0.8500874579913216
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 1.2482596250047209,
+          "mean": 1.24826,
+          "p50": 1.2482596250047209,
+          "p95": 1.2482596250047209
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "6e6a5706-caff-4d56-8cd8-eaa6e8d208c6": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.7542500830022618,
+          "mean": 0.75425,
+          "p50": 0.7542500830022618,
+          "p95": 0.7542500830022618
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 1.0415878749918193,
+          "mean": 1.041588,
+          "p50": 1.0415878749918193,
+          "p95": 1.0415878749918193
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "6ebf0b81-25d9-42f9-90cc-e188047db429": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.6496349170047324,
+          "mean": 0.649635,
+          "p50": 0.6496349170047324,
+          "p95": 0.6496349170047324
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.9325917079986539,
+          "mean": 0.932592,
+          "p50": 0.9325917079986539,
+          "p95": 0.9325917079986539
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "76ee715b-854d-473d-b623-93e1703817f0": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.4407897079945542,
+          "mean": 0.44079,
+          "p50": 0.4407897079945542,
+          "p95": 0.4407897079945542
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.6837866660061991,
+          "mean": 0.683787,
+          "p50": 0.6837866660061991,
+          "p95": 0.6837866660061991
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "7ed5df25-c291-4c2b-aa19-ab8985d9e536": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.6375409169995692,
+          "mean": 0.637541,
+          "p50": 0.6375409169995692,
+          "p95": 0.6375409169995692
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.8747375420061871,
+          "mean": 0.874738,
+          "p50": 0.8747375420061871,
+          "p95": 0.8747375420061871
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "81839457-56fe-4f10-827e-88c8e8e90d99": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.8292454589973204,
+          "mean": 0.829245,
+          "p50": 0.8292454589973204,
+          "p95": 0.8292454589973204
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.8560399580019293,
+          "mean": 0.85604,
+          "p50": 0.8560399580019293,
+          "p95": 0.8560399580019293
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "8452d27f-426f-4b76-9cbc-e8fd57f3e2c7": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.5922276670025894,
+          "mean": 0.592228,
+          "p50": 0.5922276670025894,
+          "p95": 0.5922276670025894
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.9730507919884985,
+          "mean": 0.973051,
+          "p50": 0.9730507919884985,
+          "p95": 0.9730507919884985
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "8abfd1b7-d4ec-485b-ac4b-b72fb677bc61": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.6838096670107916,
+          "mean": 0.68381,
+          "p50": 0.6838096670107916,
+          "p95": 0.6838096670107916
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.7200233330077026,
+          "mean": 0.720023,
+          "p50": 0.7200233330077026,
+          "p95": 0.7200233330077026
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "8afb7c31-a870-424d-8d89-d5bc45a9f808": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.2845762079959968,
+          "mean": 0.284576,
+          "p50": 0.2845762079959968,
+          "p95": 0.2845762079959968
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.7531578339985572,
+          "mean": 0.753158,
+          "p50": 0.7531578339985572,
+          "p95": 0.7531578339985572
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "9283b977-6403-4319-94dc-c975917eef8d": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.6956483749963809,
+          "mean": 0.695648,
+          "p50": 0.6956483749963809,
+          "p95": 0.6956483749963809
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.7272992499929387,
+          "mean": 0.727299,
+          "p50": 0.7272992499929387,
+          "p95": 0.7272992499929387
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "947212df-81a0-446f-90b9-c72f600c6ba8": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.5765677500021411,
+          "mean": 0.576568,
+          "p50": 0.5765677500021411,
+          "p95": 0.5765677500021411
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.9927361669979291,
+          "mean": 0.992736,
+          "p50": 0.9927361669979291,
+          "p95": 0.9927361669979291
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "98fb1955-5a6b-4419-ae54-095e5915f2e5": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.778294208997977,
+          "mean": 0.778294,
+          "p50": 0.778294208997977,
+          "p95": 0.778294208997977
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 1.010827790989424,
+          "mean": 1.010828,
+          "p50": 1.010827790989424,
+          "p95": 1.010827790989424
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "99c6b844-a29f-45e8-89b6-06b24a52660f": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.3678510829922743,
+          "mean": 0.367851,
+          "p50": 0.3678510829922743,
+          "p95": 0.3678510829922743
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.7702033749956172,
+          "mean": 0.770203,
+          "p50": 0.7702033749956172,
+          "p95": 0.7702033749956172
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "9a1a4766-f0c0-4549-b6a2-06783d0ed528": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.2869218749983702,
+          "mean": 0.286922,
+          "p50": 0.2869218749983702,
+          "p95": 0.2869218749983702
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.7604841249994934,
+          "mean": 0.760484,
+          "p50": 0.7604841249994934,
+          "p95": 0.7604841249994934
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "9af52a37-4fd8-44cf-9647-d0ac6d6f9225": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.19874058300047182,
+          "mean": 0.198741,
+          "p50": 0.19874058300047182,
+          "p95": 0.19874058300047182
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.5192516669922043,
+          "mean": 0.519252,
+          "p50": 0.5192516669922043,
+          "p95": 0.5192516669922043
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "9c97bb60-56cf-4354-8219-ad6ba1ee652d": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.2891330830025254,
+          "mean": 0.289133,
+          "p50": 0.2891330830025254,
+          "p95": 0.2891330830025254
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.5960306670021964,
+          "mean": 0.596031,
+          "p50": 0.5960306670021964,
+          "p95": 0.5960306670021964
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "a37b4eac-b4c1-4d83-b7af-403db19c574f": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.650953499993193,
+          "mean": 0.650953,
+          "p50": 0.650953499993193,
+          "p95": 0.650953499993193
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.9185551669943379,
+          "mean": 0.918555,
+          "p50": 0.9185551669943379,
+          "p95": 0.9185551669943379
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "a3ddee5a-61c1-4f25-909b-771853a8e95d": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.15146595799888019,
+          "mean": 0.151466,
+          "p50": 0.15146595799888019,
+          "p95": 0.15146595799888019
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.6508400839957176,
+          "mean": 0.65084,
+          "p50": 0.6508400839957176,
+          "p95": 0.6508400839957176
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "a53a3bb3-ef1c-4cc7-a4b4-3a618df9e6d4": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.3436615420068847,
+          "mean": 0.343662,
+          "p50": 0.3436615420068847,
+          "p95": 0.3436615420068847
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.6691135840083007,
+          "mean": 0.669114,
+          "p50": 0.6691135840083007,
+          "p95": 0.6691135840083007
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "aadfa34f-de84-4d47-bb75-fcda701daeb3": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.45020366700191516,
+          "mean": 0.450204,
+          "p50": 0.45020366700191516,
+          "p95": 0.45020366700191516
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.7029651249904418,
+          "mean": 0.702965,
+          "p50": 0.7029651249904418,
+          "p95": 0.7029651249904418
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "ae5562f8-45c5-4527-a009-8ef52facf26b": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.342735124999308,
+          "mean": 0.342735,
+          "p50": 0.342735124999308,
+          "p95": 0.342735124999308
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.653899166994961,
+          "mean": 0.653899,
+          "p50": 0.653899166994961,
+          "p95": 0.653899166994961
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "b04a82db-e731-4b7d-bf92-2a00875635e9": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.4481785829993896,
+          "mean": 0.448179,
+          "p50": 0.4481785829993896,
+          "p95": 0.4481785829993896
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.6224709160014754,
+          "mean": 0.622471,
+          "p50": 0.6224709160014754,
+          "p95": 0.6224709160014754
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "b5d4d3b8-7315-413f-b9ec-47dc60ea5c60": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.16834795799513813,
+          "mean": 0.168348,
+          "p50": 0.16834795799513813,
+          "p95": 0.16834795799513813
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.5937235000019427,
+          "mean": 0.593724,
+          "p50": 0.5937235000019427,
+          "p95": 0.5937235000019427
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "b665566d-224e-4369-9623-0317eb9ad82c": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.46393787499982864,
+          "mean": 0.463938,
+          "p50": 0.46393787499982864,
+          "p95": 0.46393787499982864
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.5731584169989219,
+          "mean": 0.573158,
+          "p50": 0.5731584169989219,
+          "p95": 0.5731584169989219
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "b9e8e28b-4779-4a23-a75e-1f5d6f915b34": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.44749408299685456,
+          "mean": 0.447494,
+          "p50": 0.44749408299685456,
+          "p95": 0.44749408299685456
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.5914027919934597,
+          "mean": 0.591403,
+          "p50": 0.5914027919934597,
+          "p95": 0.5914027919934597
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "ba640f5b-b0b5-4574-bad4-efe0d6e5a63a": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.5505740410008002,
+          "mean": 0.550574,
+          "p50": 0.5505740410008002,
+          "p95": 0.5505740410008002
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.6379297499952372,
+          "mean": 0.63793,
+          "p50": 0.6379297499952372,
+          "p95": 0.6379297499952372
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "ba7e172c-c283-4160-9a70-d7b191e0c2b1": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.18043570799636655,
+          "mean": 0.180436,
+          "p50": 0.18043570799636655,
+          "p95": 0.18043570799636655
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.5287412500038045,
+          "mean": 0.528741,
+          "p50": 0.5287412500038045,
+          "p95": 0.5287412500038045
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "bafbfbee-aa62-4906-abdb-63faa76ac6f1": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.7819762089930009,
+          "mean": 0.781976,
+          "p50": 0.7819762089930009,
+          "p95": 0.7819762089930009
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.9157491249934537,
+          "mean": 0.915749,
+          "p50": 0.9157491249934537,
+          "p95": 0.9157491249934537
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "bb9a8b0e-3359-432b-be6d-ed2969c40111": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.6584488749940647,
+          "mean": 0.658449,
+          "p50": 0.6584488749940647,
+          "p95": 0.6584488749940647
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.8535063339950284,
+          "mean": 0.853506,
+          "p50": 0.8535063339950284,
+          "p95": 0.8535063339950284
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "bcf7f3f6-ad47-4658-8b21-01307ab474a4": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.2976544169941917,
+          "mean": 0.297654,
+          "p50": 0.2976544169941917,
+          "p95": 0.2976544169941917
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.7516333749954356,
+          "mean": 0.751633,
+          "p50": 0.7516333749954356,
+          "p95": 0.7516333749954356
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "bf1f0eee-6cc3-4850-8940-dbb69152d684": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.17905250001058448,
+          "mean": 0.179053,
+          "p50": 0.17905250001058448,
+          "p95": 0.17905250001058448
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.5492328749969602,
+          "mean": 0.549233,
+          "p50": 0.5492328749969602,
+          "p95": 0.5492328749969602
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "c9bef811-c188-44bc-9e4d-8f9971248a1d": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.6860307500028284,
+          "mean": 0.686031,
+          "p50": 0.6860307500028284,
+          "p95": 0.6860307500028284
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.9071198340097908,
+          "mean": 0.90712,
+          "p50": 0.9071198340097908,
+          "p95": 0.9071198340097908
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "cbb245fe-45ad-43c0-8e31-5fab0c2d7ec8": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.38600391599175055,
+          "mean": 0.386004,
+          "p50": 0.38600391599175055,
+          "p95": 0.38600391599175055
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.5655776659987168,
+          "mean": 0.565578,
+          "p50": 0.5655776659987168,
+          "p95": 0.5655776659987168
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "cbc8d639-c99f-42a8-9cff-07cf4950475d": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.550289792008698,
+          "mean": 0.55029,
+          "p50": 0.550289792008698,
+          "p95": 0.550289792008698
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 1.0784055830008583,
+          "mean": 1.078406,
+          "p50": 1.0784055830008583,
+          "p95": 1.0784055830008583
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "cf358f23-64a7-4efb-9f13-e278fa41892b": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.3334979579958599,
+          "mean": 0.333498,
+          "p50": 0.3334979579958599,
+          "p95": 0.3334979579958599
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.727652624991606,
+          "mean": 0.727653,
+          "p50": 0.727652624991606,
+          "p95": 0.727652624991606
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "d0cc4b4e-a05e-4c6a-884f-3013c3dee17e": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.38661533400590997,
+          "mean": 0.386615,
+          "p50": 0.38661533400590997,
+          "p95": 0.38661533400590997
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.5717787089961348,
+          "mean": 0.571779,
+          "p50": 0.5717787089961348,
+          "p95": 0.5717787089961348
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "d5be44da-1f5c-4876-8334-ba14cd50927a": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.25760679099767003,
+          "mean": 0.257607,
+          "p50": 0.25760679099767003,
+          "p95": 0.25760679099767003
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.3404037909931503,
+          "mean": 0.340404,
+          "p50": 0.3404037909931503,
+          "p95": 0.3404037909931503
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "dad22820-4b16-4be4-9701-6fd5623a63f1": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.2929616250039544,
+          "mean": 0.292962,
+          "p50": 0.2929616250039544,
+          "p95": 0.2929616250039544
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.7520709579985123,
+          "mean": 0.752071,
+          "p50": 0.7520709579985123,
+          "p95": 0.7520709579985123
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "dafd7287-b555-4ff8-9c51-72abd83b2227": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.3833846669876948,
+          "mean": 0.383385,
+          "p50": 0.3833846669876948,
+          "p95": 0.3833846669876948
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.6098050419968786,
+          "mean": 0.609805,
+          "p50": 0.6098050419968786,
+          "p95": 0.6098050419968786
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "dbbeaac2-58c9-47be-8ad4-546eeb627beb": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.8365008749970002,
+          "mean": 0.836501,
+          "p50": 0.8365008749970002,
+          "p95": 0.8365008749970002
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.9102885829925071,
+          "mean": 0.910289,
+          "p50": 0.9102885829925071,
+          "p95": 0.9102885829925071
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "e0275047-7f27-461f-8809-70a26c603e8f": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.7493271249986719,
+          "mean": 0.749327,
+          "p50": 0.7493271249986719,
+          "p95": 0.7493271249986719
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 1.0904896670108428,
+          "mean": 1.09049,
+          "p50": 1.0904896670108428,
+          "p95": 1.0904896670108428
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "e6cb4347-e3a8-4f20-ac37-9cd79df19617": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.15008466699509881,
+          "mean": 0.150085,
+          "p50": 0.15008466699509881,
+          "p95": 0.15008466699509881
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.5991463329992257,
+          "mean": 0.599146,
+          "p50": 0.5991463329992257,
+          "p95": 0.5991463329992257
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "e82604ef-3e24-45ea-aa16-8a41d4aa5f97": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.35391358299239073,
+          "mean": 0.353914,
+          "p50": 0.35391358299239073,
+          "p95": 0.35391358299239073
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.6024374589906074,
+          "mean": 0.602437,
+          "p50": 0.6024374589906074,
+          "p95": 0.6024374589906074
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "e8267fe6-b504-4798-a1c3-e3cc9d12b1e7": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.6808999589993618,
+          "mean": 0.6809,
+          "p50": 0.6808999589993618,
+          "p95": 0.6808999589993618
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.7498394589929376,
+          "mean": 0.749839,
+          "p50": 0.7498394589929376,
+          "p95": 0.7498394589929376
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "f4052fc6-4a1c-4c48-8685-8159f5c11f21": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.17902674998913426,
+          "mean": 0.179027,
+          "p50": 0.17902674998913426,
+          "p95": 0.17902674998913426
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.5324749580031494,
+          "mean": 0.532475,
+          "p50": 0.5324749580031494,
+          "p95": 0.5324749580031494
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "f7bb5ec2-302e-4408-9e6e-f96f5f521442": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.6194811250024941,
+          "mean": 0.619481,
+          "p50": 0.6194811250024941,
+          "p95": 0.6194811250024941
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.9171130410104524,
+          "mean": 0.917113,
+          "p50": 0.9171130410104524,
+          "p95": 0.9171130410104524
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "f8a833a4-ac5e-4bfc-8af9-ea429f376b39": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.21332549999351613,
+          "mean": 0.213325,
+          "p50": 0.21332549999351613,
+          "p95": 0.21332549999351613
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.36231258300540503,
+          "mean": 0.362313,
+          "p50": 0.36231258300540503,
+          "p95": 0.36231258300540503
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "f95a9cbb-a142-403d-98e0-19f685bec34f": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.5495644160109805,
+          "mean": 0.549564,
+          "p50": 0.5495644160109805,
+          "p95": 0.5495644160109805
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.5998174580017803,
+          "mean": 0.599817,
+          "p50": 0.5998174580017803,
+          "p95": 0.5998174580017803
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "fb40c67d-6c1e-4d72-b79c-d3362c46ee43": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.2334147500077961,
+          "mean": 0.233415,
+          "p50": 0.2334147500077961,
+          "p95": 0.2334147500077961
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.3885354579979321,
+          "mean": 0.388535,
+          "p50": 0.3885354579979321,
+          "p95": 0.3885354579979321
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "fbff2d20-0b5d-471b-befc-0c85d9172b81": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.7084770829969784,
+          "mean": 0.708477,
+          "p50": 0.7084770829969784,
+          "p95": 0.7084770829969784
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.7303389580047224,
+          "mean": 0.730339,
+          "p50": 0.7303389580047224,
+          "p95": 0.7303389580047224
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "fd82ab01-300b-4faf-9c2c-de34f71a0844": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.1514281249983469,
+          "mean": 0.151428,
+          "p50": 0.1514281249983469,
+          "p95": 0.1514281249983469
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.6560242080013268,
+          "mean": 0.656024,
+          "p50": 0.6560242080013268,
+          "p95": 0.6560242080013268
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "fd88de87-a506-469d-8ec2-a2fd05d388dc": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.6470101250015432,
+          "mean": 0.64701,
+          "p50": 0.6470101250015432,
+          "p95": 0.6470101250015432
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.8565527920000022,
+          "mean": 0.856553,
+          "p50": 0.8565527920000022,
+          "p95": 0.8565527920000022
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "fed6408a-96a9-401b-9022-a83e088e8323": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.5129956670134561,
+          "mean": 0.512996,
+          "p50": 0.5129956670134561,
+          "p95": 0.5129956670134561
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.6105209999950603,
+          "mean": 0.610521,
+          "p50": 0.6105209999950603,
+          "p95": 0.6105209999950603
+        },
+        "rebind": 0,
+        "unknown": 0
+      },
+      "ff65289f-d4e8-44f1-b9e7-13a274b0bf49": {
+        "claimLatencySeconds": {
+          "count": 1,
+          "max": 0.4505130420002388,
+          "mean": 0.450513,
+          "p50": 0.4505130420002388,
+          "p95": 0.4505130420002388
+        },
+        "evidenceBytes": 0,
+        "evidenceUploads": 1,
+        "inputFailure": 0,
+        "leaseConflict": 0,
+        "queueAgeSeconds": {
+          "count": 1,
+          "max": 0.7662682079972001,
+          "mean": 0.766268,
+          "p50": 0.7662682079972001,
+          "p95": 0.7662682079972001
+        },
+        "rebind": 0,
+        "unknown": 0
+      }
+    }
+  },
+  "outcomes": {
+    "00a17b5a-3fef-49a5-992e-d628bbfdaed7": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "cac31389-4b9f-4b9c-a9c5-04576f483ddf"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.213492+00:00",
+        "expiresAt": "2026-09-29T15:35:23.610931+00:00",
+        "fencingToken": 2,
+        "leaseId": "17da81c4-5322-481e-afd4-535dc3043163",
+        "ownerWorkflowId": "auto/cac31389-4b9f-4b9c-a9c5-04576f483ddf"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "cac31389-4b9f-4b9c-a9c5-04576f483ddf": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "00a17b5a-3fef-49a5-992e-d628bbfdaed7",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "17da81c4-5322-481e-afd4-535dc3043163",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "0117b2fc-9de4-47b1-b9e7-1ce6f0fe0e14": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "8208b544-2046-4dcd-a47a-797da4429360"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.628130+00:00",
+        "expiresAt": "2026-09-29T15:35:24.134527+00:00",
+        "fencingToken": 2,
+        "leaseId": "ada684cf-cb7a-49bd-9e88-ff5050c03772",
+        "ownerWorkflowId": "auto/8208b544-2046-4dcd-a47a-797da4429360"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "8208b544-2046-4dcd-a47a-797da4429360": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "0117b2fc-9de4-47b1-b9e7-1ce6f0fe0e14",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "ada684cf-cb7a-49bd-9e88-ff5050c03772",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "03ca5364-a69c-4aea-9bf1-3fb6b749dbcd": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "43c321eb-d031-49ca-ba54-016dd6234b58"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.614753+00:00",
+        "expiresAt": "2026-09-29T15:35:23.599019+00:00",
+        "fencingToken": 2,
+        "leaseId": "8b314e18-9362-4fb8-a18b-e2c7148e08fb",
+        "ownerWorkflowId": "auto/43c321eb-d031-49ca-ba54-016dd6234b58"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "43c321eb-d031-49ca-ba54-016dd6234b58": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "03ca5364-a69c-4aea-9bf1-3fb6b749dbcd",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "8b314e18-9362-4fb8-a18b-e2c7148e08fb",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "06010455-5f0c-40d9-ab48-119ba8d13cca": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "c4a94b51-69f1-41ef-8dc2-b49c429f1654"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.589070+00:00",
+        "expiresAt": "2026-09-29T15:35:23.746448+00:00",
+        "fencingToken": 2,
+        "leaseId": "a0db6135-3892-4d1e-a5d8-97a95c7d70df",
+        "ownerWorkflowId": "auto/c4a94b51-69f1-41ef-8dc2-b49c429f1654"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "c4a94b51-69f1-41ef-8dc2-b49c429f1654": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "06010455-5f0c-40d9-ab48-119ba8d13cca",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "a0db6135-3892-4d1e-a5d8-97a95c7d70df",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "0a3ab020-dffe-41ba-b0d5-0d3029ff63c0": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "30533aa6-5ac7-4eb2-90ba-77c914728dbd"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.420598+00:00",
+        "expiresAt": "2026-09-29T15:35:23.597815+00:00",
+        "fencingToken": 2,
+        "leaseId": "739ca487-0f76-4c76-aaec-c606f8fa4b44",
+        "ownerWorkflowId": "auto/30533aa6-5ac7-4eb2-90ba-77c914728dbd"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "30533aa6-5ac7-4eb2-90ba-77c914728dbd": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "0a3ab020-dffe-41ba-b0d5-0d3029ff63c0",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "739ca487-0f76-4c76-aaec-c606f8fa4b44",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "0ae4f748-6c2b-493f-b657-06adba779823": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "c0e102f9-452a-4ca9-be88-7095c90d2b09"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.416977+00:00",
+        "expiresAt": "2026-09-29T15:35:23.596159+00:00",
+        "fencingToken": 2,
+        "leaseId": "d3778422-abeb-42aa-905b-91472241749a",
+        "ownerWorkflowId": "auto/c0e102f9-452a-4ca9-be88-7095c90d2b09"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "c0e102f9-452a-4ca9-be88-7095c90d2b09": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "0ae4f748-6c2b-493f-b657-06adba779823",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "d3778422-abeb-42aa-905b-91472241749a",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "0c01d32a-8070-4da3-998b-0151f098fdb7": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "3c935689-c333-4ee0-98d5-9ad77b434d6a"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.475604+00:00",
+        "expiresAt": "2026-09-29T15:35:23.693960+00:00",
+        "fencingToken": 2,
+        "leaseId": "b1ab17fc-5932-4ead-a325-69d9c3f93a23",
+        "ownerWorkflowId": "auto/3c935689-c333-4ee0-98d5-9ad77b434d6a"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "3c935689-c333-4ee0-98d5-9ad77b434d6a": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "0c01d32a-8070-4da3-998b-0151f098fdb7",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "b1ab17fc-5932-4ead-a325-69d9c3f93a23",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "0c540cd6-b68a-4777-b731-8b67f182662b": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "bb07ad21-7f63-4cff-b4e3-0841030dfcbb"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.199429+00:00",
+        "expiresAt": "2026-09-29T15:35:23.596973+00:00",
+        "fencingToken": 2,
+        "leaseId": "007bfda5-d9a1-4d60-8c68-22f1f2e22706",
+        "ownerWorkflowId": "auto/bb07ad21-7f63-4cff-b4e3-0841030dfcbb"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "bb07ad21-7f63-4cff-b4e3-0841030dfcbb": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "0c540cd6-b68a-4777-b731-8b67f182662b",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "007bfda5-d9a1-4d60-8c68-22f1f2e22706",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "0e22753d-1db4-40e8-a723-f5520d1b74a8": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "6cb2d680-5a02-4c6f-a36f-319de30fa5dc"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.458656+00:00",
+        "expiresAt": "2026-09-29T15:35:23.765858+00:00",
+        "fencingToken": 2,
+        "leaseId": "33214c61-c259-41e9-86c4-fad81ba6d059",
+        "ownerWorkflowId": "auto/6cb2d680-5a02-4c6f-a36f-319de30fa5dc"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "6cb2d680-5a02-4c6f-a36f-319de30fa5dc": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "0e22753d-1db4-40e8-a723-f5520d1b74a8",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "33214c61-c259-41e9-86c4-fad81ba6d059",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "0f42d724-515f-4543-b0a3-1875d5966e06": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "63482bca-f3f1-4de6-9511-73bc766c9df2"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.607749+00:00",
+        "expiresAt": "2026-09-29T15:35:23.609672+00:00",
+        "fencingToken": 2,
+        "leaseId": "83afa4e4-25c0-4987-ab8d-c689021310ec",
+        "ownerWorkflowId": "auto/63482bca-f3f1-4de6-9511-73bc766c9df2"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "63482bca-f3f1-4de6-9511-73bc766c9df2": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "0f42d724-515f-4543-b0a3-1875d5966e06",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "83afa4e4-25c0-4987-ab8d-c689021310ec",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "15b445ac-48b0-44f5-91b5-1df1e9ecf47e": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "cbafe023-d7e6-49c3-9501-986568cd3d8d"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.561960+00:00",
+        "expiresAt": "2026-09-29T15:35:23.746791+00:00",
+        "fencingToken": 2,
+        "leaseId": "ccc89817-bf7d-4a23-a64d-f116bd0ddaba",
+        "ownerWorkflowId": "auto/cbafe023-d7e6-49c3-9501-986568cd3d8d"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "cbafe023-d7e6-49c3-9501-986568cd3d8d": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "15b445ac-48b0-44f5-91b5-1df1e9ecf47e",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "ccc89817-bf7d-4a23-a64d-f116bd0ddaba",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "188fc1cf-94d3-41f7-9ae4-0ec54f0fa1cc": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "fc503049-c2a7-42dc-8e45-cc68dcdb468d"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.313185+00:00",
+        "expiresAt": "2026-09-29T15:35:23.600207+00:00",
+        "fencingToken": 2,
+        "leaseId": "c8aef97b-78b3-44cd-8ee9-709f30b1c914",
+        "ownerWorkflowId": "auto/fc503049-c2a7-42dc-8e45-cc68dcdb468d"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "fc503049-c2a7-42dc-8e45-cc68dcdb468d": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "188fc1cf-94d3-41f7-9ae4-0ec54f0fa1cc",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "c8aef97b-78b3-44cd-8ee9-709f30b1c914",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "1d96b521-8051-4870-9c40-f774ff9de11f": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "71d27d08-a3a4-4a26-9f48-0e514b22ff06"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.425907+00:00",
+        "expiresAt": "2026-09-29T15:35:23.612791+00:00",
+        "fencingToken": 2,
+        "leaseId": "21c4143e-32e3-4c7d-994c-121bf21a361b",
+        "ownerWorkflowId": "auto/71d27d08-a3a4-4a26-9f48-0e514b22ff06"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "71d27d08-a3a4-4a26-9f48-0e514b22ff06": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "1d96b521-8051-4870-9c40-f774ff9de11f",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "21c4143e-32e3-4c7d-994c-121bf21a361b",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "1e7b3059-3ab3-4a61-9e09-e298645cad09": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "6e4a6b94-f682-41a5-9eb7-98192945ea96"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.315127+00:00",
+        "expiresAt": "2026-09-29T15:35:23.746286+00:00",
+        "fencingToken": 2,
+        "leaseId": "dced42fb-b6a9-4bf6-ba24-fc8847ced054",
+        "ownerWorkflowId": "auto/6e4a6b94-f682-41a5-9eb7-98192945ea96"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "6e4a6b94-f682-41a5-9eb7-98192945ea96": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "1e7b3059-3ab3-4a61-9e09-e298645cad09",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "dced42fb-b6a9-4bf6-ba24-fc8847ced054",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "1f0a34f4-eb5c-4d0b-bd22-71b21761964a": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "74c73673-fdf1-4d23-8afc-4117d5c45182"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.524756+00:00",
+        "expiresAt": "2026-09-29T15:35:23.792279+00:00",
+        "fencingToken": 2,
+        "leaseId": "b9328b3c-fb64-4c46-9843-badc690c7641",
+        "ownerWorkflowId": "auto/74c73673-fdf1-4d23-8afc-4117d5c45182"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "74c73673-fdf1-4d23-8afc-4117d5c45182": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "1f0a34f4-eb5c-4d0b-bd22-71b21761964a",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "b9328b3c-fb64-4c46-9843-badc690c7641",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "2000097d-ddeb-4ffd-98f7-4add44d7a361": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "cf78aade-8da2-4c41-a77d-7abc164c2257"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.621357+00:00",
+        "expiresAt": "2026-09-29T15:35:23.787370+00:00",
+        "fencingToken": 2,
+        "leaseId": "f7264b28-58f2-45b4-a9db-54dbebf1bd1b",
+        "ownerWorkflowId": "auto/cf78aade-8da2-4c41-a77d-7abc164c2257"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "cf78aade-8da2-4c41-a77d-7abc164c2257": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "2000097d-ddeb-4ffd-98f7-4add44d7a361",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "f7264b28-58f2-45b4-a9db-54dbebf1bd1b",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "200b1c24-2bfa-4712-8a0a-7bf8b6907ad1": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "83deca91-a0fa-4e10-b2b6-f37f5b30f324"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.585491+00:00",
+        "expiresAt": "2026-09-29T15:35:23.915211+00:00",
+        "fencingToken": 2,
+        "leaseId": "30ac2a6c-e264-41c1-bd24-9a09833281b3",
+        "ownerWorkflowId": "auto/83deca91-a0fa-4e10-b2b6-f37f5b30f324"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "83deca91-a0fa-4e10-b2b6-f37f5b30f324": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "200b1c24-2bfa-4712-8a0a-7bf8b6907ad1",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "30ac2a6c-e264-41c1-bd24-9a09833281b3",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "2322014b-fbd2-4a3b-885f-21ee433f7155": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "ac39302f-8328-436e-b531-bb5af7e1da2f"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.402939+00:00",
+        "expiresAt": "2026-09-29T15:35:23.727822+00:00",
+        "fencingToken": 2,
+        "leaseId": "85bd469d-8fce-49e5-9f13-ac89e791e890",
+        "ownerWorkflowId": "auto/ac39302f-8328-436e-b531-bb5af7e1da2f"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "ac39302f-8328-436e-b531-bb5af7e1da2f": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "2322014b-fbd2-4a3b-885f-21ee433f7155",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "85bd469d-8fce-49e5-9f13-ac89e791e890",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "25336d3d-1ae2-4596-891b-954eba5e16c2": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "bf7969a7-00ca-4620-9db6-c6976b09af4f"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.561810+00:00",
+        "expiresAt": "2026-09-29T15:35:23.838858+00:00",
+        "fencingToken": 2,
+        "leaseId": "a0cc958b-e32d-48bc-8786-a05cf80066ee",
+        "ownerWorkflowId": "auto/bf7969a7-00ca-4620-9db6-c6976b09af4f"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "bf7969a7-00ca-4620-9db6-c6976b09af4f": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "25336d3d-1ae2-4596-891b-954eba5e16c2",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "a0cc958b-e32d-48bc-8786-a05cf80066ee",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "26ee59b8-8705-48fa-988e-686870e6aacb": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "eec6ff8e-96d2-454a-afd3-5237f32348c6"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.461722+00:00",
+        "expiresAt": "2026-09-29T15:35:23.674544+00:00",
+        "fencingToken": 2,
+        "leaseId": "e693a854-26f4-481f-b5ae-ff151f0845f4",
+        "ownerWorkflowId": "auto/eec6ff8e-96d2-454a-afd3-5237f32348c6"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "eec6ff8e-96d2-454a-afd3-5237f32348c6": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "26ee59b8-8705-48fa-988e-686870e6aacb",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "e693a854-26f4-481f-b5ae-ff151f0845f4",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "271b0cac-b5f4-4bc1-ba66-0bfd98631d38": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "552c2a40-4e7c-440b-9542-178ce459e609"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.570462+00:00",
+        "expiresAt": "2026-09-29T15:35:23.612676+00:00",
+        "fencingToken": 2,
+        "leaseId": "ac0eea82-d837-437d-b3cc-c8649a1d718c",
+        "ownerWorkflowId": "auto/552c2a40-4e7c-440b-9542-178ce459e609"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "552c2a40-4e7c-440b-9542-178ce459e609": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "271b0cac-b5f4-4bc1-ba66-0bfd98631d38",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "ac0eea82-d837-437d-b3cc-c8649a1d718c",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "2e81da41-b679-49a0-86c8-223545871439": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "a759357e-492d-4ca5-8641-c55cf5c5ca61"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.507953+00:00",
+        "expiresAt": "2026-09-29T15:35:23.598544+00:00",
+        "fencingToken": 2,
+        "leaseId": "3b963ccb-a49c-4931-8391-02e1d7e4cc41",
+        "ownerWorkflowId": "auto/a759357e-492d-4ca5-8641-c55cf5c5ca61"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "a759357e-492d-4ca5-8641-c55cf5c5ca61": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "2e81da41-b679-49a0-86c8-223545871439",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "3b963ccb-a49c-4931-8391-02e1d7e4cc41",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "35a302aa-db0f-4a8a-a08d-0238aae9569e": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "f5a630a9-f99a-4ea1-96ec-9f26eb9e9493"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.300939+00:00",
+        "expiresAt": "2026-09-29T15:35:23.709976+00:00",
+        "fencingToken": 2,
+        "leaseId": "13210413-627c-4528-8a51-9afb4e5a8901",
+        "ownerWorkflowId": "auto/f5a630a9-f99a-4ea1-96ec-9f26eb9e9493"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "f5a630a9-f99a-4ea1-96ec-9f26eb9e9493": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "35a302aa-db0f-4a8a-a08d-0238aae9569e",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "13210413-627c-4528-8a51-9afb4e5a8901",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "3c597260-acc2-485f-b0b7-f11fcbf8e996": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "dd40796d-44a0-4873-9d66-369b5d8d40aa"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.506859+00:00",
+        "expiresAt": "2026-09-29T15:35:23.598637+00:00",
+        "fencingToken": 2,
+        "leaseId": "e4282f84-7595-4c9b-bcb9-8141dc03b01b",
+        "ownerWorkflowId": "auto/dd40796d-44a0-4873-9d66-369b5d8d40aa"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "dd40796d-44a0-4873-9d66-369b5d8d40aa": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "3c597260-acc2-485f-b0b7-f11fcbf8e996",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "e4282f84-7595-4c9b-bcb9-8141dc03b01b",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "3f05f4b8-80a1-4d65-98cf-1ac4fa5a2d1f": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "c60948f0-57e7-433e-8e71-51c4529c98d9"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.599540+00:00",
+        "expiresAt": "2026-09-29T15:35:23.766034+00:00",
+        "fencingToken": 2,
+        "leaseId": "775b8c9c-f841-48ed-966a-56e4f85c0f6f",
+        "ownerWorkflowId": "auto/c60948f0-57e7-433e-8e71-51c4529c98d9"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "c60948f0-57e7-433e-8e71-51c4529c98d9": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "3f05f4b8-80a1-4d65-98cf-1ac4fa5a2d1f",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "775b8c9c-f841-48ed-966a-56e4f85c0f6f",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "40b5ee1f-6354-4c9b-b0fd-c02844312a49": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "e81c9ae9-dfdf-45dc-9195-225468a6cf2e"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.345968+00:00",
+        "expiresAt": "2026-09-29T15:35:23.616118+00:00",
+        "fencingToken": 2,
+        "leaseId": "0a819bce-f872-4550-9ffa-2796814e1cc1",
+        "ownerWorkflowId": "auto/e81c9ae9-dfdf-45dc-9195-225468a6cf2e"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "e81c9ae9-dfdf-45dc-9195-225468a6cf2e": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "40b5ee1f-6354-4c9b-b0fd-c02844312a49",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "0a819bce-f872-4550-9ffa-2796814e1cc1",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "42062c52-fc62-4258-af40-c99e7b22e34d": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "7c0fcaa4-51cb-49ea-a2e5-1ceecf125c27"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.513790+00:00",
+        "expiresAt": "2026-09-29T15:35:23.598926+00:00",
+        "fencingToken": 2,
+        "leaseId": "7bb227d1-eec5-4585-96be-7ef7ddf58f01",
+        "ownerWorkflowId": "auto/7c0fcaa4-51cb-49ea-a2e5-1ceecf125c27"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "7c0fcaa4-51cb-49ea-a2e5-1ceecf125c27": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "42062c52-fc62-4258-af40-c99e7b22e34d",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "7bb227d1-eec5-4585-96be-7ef7ddf58f01",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "43411073-4d3b-4b2d-bffc-6e35be948645": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "4a096770-9037-4d16-88c8-18de72ce517d"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.607076+00:00",
+        "expiresAt": "2026-09-29T15:35:23.787215+00:00",
+        "fencingToken": 2,
+        "leaseId": "90b05b34-5de6-4030-9d8e-91f267c833ef",
+        "ownerWorkflowId": "auto/4a096770-9037-4d16-88c8-18de72ce517d"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "4a096770-9037-4d16-88c8-18de72ce517d": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "43411073-4d3b-4b2d-bffc-6e35be948645",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "90b05b34-5de6-4030-9d8e-91f267c833ef",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "483f71b3-58ac-4647-8ded-3c2c90be5622": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "51ca5c56-f9b1-49a4-bea0-d74bd37f7f9d"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.606628+00:00",
+        "expiresAt": "2026-09-29T15:35:23.750367+00:00",
+        "fencingToken": 2,
+        "leaseId": "61d8854c-446c-428a-a79e-589acc8e4181",
+        "ownerWorkflowId": "auto/51ca5c56-f9b1-49a4-bea0-d74bd37f7f9d"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "51ca5c56-f9b1-49a4-bea0-d74bd37f7f9d": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "483f71b3-58ac-4647-8ded-3c2c90be5622",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "61d8854c-446c-428a-a79e-589acc8e4181",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "49d4c47a-29b6-45b2-a74b-4dd441c5b9ae": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "afbb9780-22a3-4a00-88ef-34865524d86d"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.592523+00:00",
+        "expiresAt": "2026-09-29T15:35:23.612266+00:00",
+        "fencingToken": 2,
+        "leaseId": "9ede4945-c327-4730-bde2-3c43acc1fc55",
+        "ownerWorkflowId": "auto/afbb9780-22a3-4a00-88ef-34865524d86d"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "afbb9780-22a3-4a00-88ef-34865524d86d": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "49d4c47a-29b6-45b2-a74b-4dd441c5b9ae",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "9ede4945-c327-4730-bde2-3c43acc1fc55",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "4a93a489-fe54-40c3-89bd-cddce1636c71": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "ab88f203-1ac9-486b-8131-4acab11582c6"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.484871+00:00",
+        "expiresAt": "2026-09-29T15:35:23.714714+00:00",
+        "fencingToken": 2,
+        "leaseId": "a03485e6-72ea-422c-8fc3-25365a4fce99",
+        "ownerWorkflowId": "auto/ab88f203-1ac9-486b-8131-4acab11582c6"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "ab88f203-1ac9-486b-8131-4acab11582c6": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "4a93a489-fe54-40c3-89bd-cddce1636c71",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "a03485e6-72ea-422c-8fc3-25365a4fce99",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "4c4dff39-f5d4-448a-b864-22b22ac35b16": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "2fd9a9ce-de4c-45c7-839d-249bb81f4733"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.497253+00:00",
+        "expiresAt": "2026-09-29T15:35:23.710131+00:00",
+        "fencingToken": 2,
+        "leaseId": "f7ac4793-b3ad-4729-a747-a2a08d8a5dba",
+        "ownerWorkflowId": "auto/2fd9a9ce-de4c-45c7-839d-249bb81f4733"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "2fd9a9ce-de4c-45c7-839d-249bb81f4733": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "4c4dff39-f5d4-448a-b864-22b22ac35b16",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "f7ac4793-b3ad-4729-a747-a2a08d8a5dba",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "4e5defa8-0960-47d5-a173-ab905b9b5053": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "9e6491f8-a8c6-4405-b133-4ae8b436f94d"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.442810+00:00",
+        "expiresAt": "2026-09-29T15:35:23.645849+00:00",
+        "fencingToken": 2,
+        "leaseId": "b5bde496-5d22-4500-a1e3-23c71fa8deed",
+        "ownerWorkflowId": "auto/9e6491f8-a8c6-4405-b133-4ae8b436f94d"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "9e6491f8-a8c6-4405-b133-4ae8b436f94d": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "4e5defa8-0960-47d5-a173-ab905b9b5053",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "b5bde496-5d22-4500-a1e3-23c71fa8deed",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "53076540-5149-44f9-80ac-6aea38afbc72": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "82b3ea26-86bc-4eeb-be92-e7a609aa4412"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.455889+00:00",
+        "expiresAt": "2026-09-29T15:35:23.691562+00:00",
+        "fencingToken": 2,
+        "leaseId": "216b7e2b-36a6-4d43-9e40-cdd5385d7625",
+        "ownerWorkflowId": "auto/82b3ea26-86bc-4eeb-be92-e7a609aa4412"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "82b3ea26-86bc-4eeb-be92-e7a609aa4412": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "53076540-5149-44f9-80ac-6aea38afbc72",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "216b7e2b-36a6-4d43-9e40-cdd5385d7625",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "5681cb50-21f1-4d7f-a54f-d3d1447fa63c": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "5694b942-080f-4ba7-8b7a-54de8d7adc41"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.522932+00:00",
+        "expiresAt": "2026-09-29T15:35:23.628754+00:00",
+        "fencingToken": 2,
+        "leaseId": "ed24e576-05a4-45cb-9612-1d152dcd687c",
+        "ownerWorkflowId": "auto/5694b942-080f-4ba7-8b7a-54de8d7adc41"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "5694b942-080f-4ba7-8b7a-54de8d7adc41": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "5681cb50-21f1-4d7f-a54f-d3d1447fa63c",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "ed24e576-05a4-45cb-9612-1d152dcd687c",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "57a6db40-a99d-4fe3-a90f-1c83dada3427": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "65577326-bcce-418e-85f1-0d3501fd040c"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.593314+00:00",
+        "expiresAt": "2026-09-29T15:35:23.732620+00:00",
+        "fencingToken": 2,
+        "leaseId": "185fd08a-074c-4939-b4ad-d68b1ea1aae2",
+        "ownerWorkflowId": "auto/65577326-bcce-418e-85f1-0d3501fd040c"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "65577326-bcce-418e-85f1-0d3501fd040c": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "57a6db40-a99d-4fe3-a90f-1c83dada3427",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "185fd08a-074c-4939-b4ad-d68b1ea1aae2",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "57e0b82f-7ff4-4ea9-8667-1ed4c7c33182": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "fa555d00-8f14-4233-95ba-979815b125b4"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.593942+00:00",
+        "expiresAt": "2026-09-29T15:35:23.915316+00:00",
+        "fencingToken": 2,
+        "leaseId": "39b16ff0-d6c5-4fd5-876e-b7af949a69e7",
+        "ownerWorkflowId": "auto/fa555d00-8f14-4233-95ba-979815b125b4"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "fa555d00-8f14-4233-95ba-979815b125b4": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "57e0b82f-7ff4-4ea9-8667-1ed4c7c33182",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "39b16ff0-d6c5-4fd5-876e-b7af949a69e7",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "5b967d8b-4de7-49ce-9806-61e4f744f0f4": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "8299b890-9864-4746-b007-34798f3ddf96"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.567781+00:00",
+        "expiresAt": "2026-09-29T15:35:23.817619+00:00",
+        "fencingToken": 2,
+        "leaseId": "a0b164f3-6cb8-4a17-80a9-22b3f911e311",
+        "ownerWorkflowId": "auto/8299b890-9864-4746-b007-34798f3ddf96"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "8299b890-9864-4746-b007-34798f3ddf96": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "5b967d8b-4de7-49ce-9806-61e4f744f0f4",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "a0b164f3-6cb8-4a17-80a9-22b3f911e311",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "5d8e274a-ddef-42a6-9172-d4c913e0a9be": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "da3dbc13-e050-43b9-8362-f09674c34102"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.609350+00:00",
+        "expiresAt": "2026-09-29T15:35:23.675108+00:00",
+        "fencingToken": 2,
+        "leaseId": "57d5c846-fc6b-4a59-b9fa-1ea0ee0851f9",
+        "ownerWorkflowId": "auto/da3dbc13-e050-43b9-8362-f09674c34102"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "da3dbc13-e050-43b9-8362-f09674c34102": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "5d8e274a-ddef-42a6-9172-d4c913e0a9be",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "57d5c846-fc6b-4a59-b9fa-1ea0ee0851f9",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "5f5b1581-152f-4bf6-b934-17a5e137ced3": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "bc9f1921-cc1f-4ecf-a2f6-a379fce06d97"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.488269+00:00",
+        "expiresAt": "2026-09-29T15:35:23.711669+00:00",
+        "fencingToken": 2,
+        "leaseId": "6cdd0951-8386-4620-abeb-d74bf632414d",
+        "ownerWorkflowId": "auto/bc9f1921-cc1f-4ecf-a2f6-a379fce06d97"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "bc9f1921-cc1f-4ecf-a2f6-a379fce06d97": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "5f5b1581-152f-4bf6-b934-17a5e137ced3",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "6cdd0951-8386-4620-abeb-d74bf632414d",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "647deb43-9b0c-4ae3-b15c-0d9e9d0fea4f": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "0493cab3-4970-465d-a7b0-3c155fcaf01c"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.523853+00:00",
+        "expiresAt": "2026-09-29T15:35:23.655734+00:00",
+        "fencingToken": 2,
+        "leaseId": "bdee78ab-79c7-4809-8705-b08d8ecace74",
+        "ownerWorkflowId": "auto/0493cab3-4970-465d-a7b0-3c155fcaf01c"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "0493cab3-4970-465d-a7b0-3c155fcaf01c": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "647deb43-9b0c-4ae3-b15c-0d9e9d0fea4f",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "bdee78ab-79c7-4809-8705-b08d8ecace74",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "65040622-a86d-480e-8caf-bbc3165710a7": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "d269c517-5ece-4d97-9720-3f70e6356769"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.594669+00:00",
+        "expiresAt": "2026-09-29T15:35:23.825869+00:00",
+        "fencingToken": 2,
+        "leaseId": "2b52e2ab-de4d-4293-9117-5d7b062487f6",
+        "ownerWorkflowId": "auto/d269c517-5ece-4d97-9720-3f70e6356769"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "d269c517-5ece-4d97-9720-3f70e6356769": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "65040622-a86d-480e-8caf-bbc3165710a7",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "2b52e2ab-de4d-4293-9117-5d7b062487f6",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "65278f57-cd0b-4a64-aa43-7fbdcb51ff7e": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "b5079fdb-34f0-44e0-9370-862701ecd7e1"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.591111+00:00",
+        "expiresAt": "2026-09-29T15:35:23.678001+00:00",
+        "fencingToken": 2,
+        "leaseId": "dd74c947-1bd1-491c-afe2-402b826b0707",
+        "ownerWorkflowId": "auto/b5079fdb-34f0-44e0-9370-862701ecd7e1"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "b5079fdb-34f0-44e0-9370-862701ecd7e1": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "65278f57-cd0b-4a64-aa43-7fbdcb51ff7e",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "dd74c947-1bd1-491c-afe2-402b826b0707",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "662fc635-9b86-4bad-9872-f5913f7c6ae7": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "efd0bac8-5d14-4604-9c86-3325e2ac03cf"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.551489+00:00",
+        "expiresAt": "2026-09-29T15:35:24.093669+00:00",
+        "fencingToken": 2,
+        "leaseId": "5bfe35b6-1edf-4dbf-baa5-c26bdd22b176",
+        "ownerWorkflowId": "auto/efd0bac8-5d14-4604-9c86-3325e2ac03cf"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "efd0bac8-5d14-4604-9c86-3325e2ac03cf": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "662fc635-9b86-4bad-9872-f5913f7c6ae7",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "5bfe35b6-1edf-4dbf-baa5-c26bdd22b176",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "6899b759-09ad-4f5b-a975-8ea6e32de2b4": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "754c5677-478f-4fa3-af00-456ec0ef2ee1"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.599718+00:00",
+        "expiresAt": "2026-09-29T15:35:23.729035+00:00",
+        "fencingToken": 2,
+        "leaseId": "e083295c-f627-4355-8e2d-49015f430a1f",
+        "ownerWorkflowId": "auto/754c5677-478f-4fa3-af00-456ec0ef2ee1"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "754c5677-478f-4fa3-af00-456ec0ef2ee1": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "6899b759-09ad-4f5b-a975-8ea6e32de2b4",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "e083295c-f627-4355-8e2d-49015f430a1f",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "6c9aca27-d5d0-4934-b852-2833a62adfce": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "e569ceb4-9784-4d99-ad64-7250b633964d"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.560451+00:00",
+        "expiresAt": "2026-09-29T15:35:23.734331+00:00",
+        "fencingToken": 2,
+        "leaseId": "8de6341c-c1d1-4a0b-99e3-5c82ca4d6f74",
+        "ownerWorkflowId": "auto/e569ceb4-9784-4d99-ad64-7250b633964d"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "e569ceb4-9784-4d99-ad64-7250b633964d": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "6c9aca27-d5d0-4934-b852-2833a62adfce",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "8de6341c-c1d1-4a0b-99e3-5c82ca4d6f74",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "6cfc7f10-5025-447a-b0d3-c93c78644870": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "c5bae861-2bf6-4574-90c4-15b32fe2cba1"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.576265+00:00",
+        "expiresAt": "2026-09-29T15:35:23.757388+00:00",
+        "fencingToken": 2,
+        "leaseId": "e9bf318c-2c03-402c-a82c-e7aa5e2e5998",
+        "ownerWorkflowId": "auto/c5bae861-2bf6-4574-90c4-15b32fe2cba1"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "c5bae861-2bf6-4574-90c4-15b32fe2cba1": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "6cfc7f10-5025-447a-b0d3-c93c78644870",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "e9bf318c-2c03-402c-a82c-e7aa5e2e5998",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "6e6a5706-caff-4d56-8cd8-eaa6e8d208c6": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "66616844-d756-4fc9-b508-fde4f10c790a"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.574010+00:00",
+        "expiresAt": "2026-09-29T15:35:23.817880+00:00",
+        "fencingToken": 2,
+        "leaseId": "974d8f9c-44b4-4302-84bc-042e5a5f5272",
+        "ownerWorkflowId": "auto/66616844-d756-4fc9-b508-fde4f10c790a"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "66616844-d756-4fc9-b508-fde4f10c790a": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "6e6a5706-caff-4d56-8cd8-eaa6e8d208c6",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "974d8f9c-44b4-4302-84bc-042e5a5f5272",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "6ebf0b81-25d9-42f9-90cc-e188047db429": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "f8622376-15c0-4e39-a689-ff087addc811"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.477184+00:00",
+        "expiresAt": "2026-09-29T15:35:23.692161+00:00",
+        "fencingToken": 2,
+        "leaseId": "2f55069d-58c7-44d2-8d14-cd4ca297f7d1",
+        "ownerWorkflowId": "auto/f8622376-15c0-4e39-a689-ff087addc811"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "f8622376-15c0-4e39-a689-ff087addc811": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "6ebf0b81-25d9-42f9-90cc-e188047db429",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "2f55069d-58c7-44d2-8d14-cd4ca297f7d1",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "76ee715b-854d-473d-b623-93e1703817f0": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "5eefc67f-bcbe-48b1-80d5-be424b015260"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.478933+00:00",
+        "expiresAt": "2026-09-29T15:35:23.886946+00:00",
+        "fencingToken": 2,
+        "leaseId": "95221604-4e92-46b3-9e50-6138566f84d4",
+        "ownerWorkflowId": "auto/5eefc67f-bcbe-48b1-80d5-be424b015260"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "5eefc67f-bcbe-48b1-80d5-be424b015260": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "76ee715b-854d-473d-b623-93e1703817f0",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "95221604-4e92-46b3-9e50-6138566f84d4",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "7ed5df25-c291-4c2b-aa19-ab8985d9e536": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "3cfc0c3e-6665-407a-a936-5bf70f72947f"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.475782+00:00",
+        "expiresAt": "2026-09-29T15:35:23.674232+00:00",
+        "fencingToken": 2,
+        "leaseId": "b9c1ba3b-9000-41a5-8162-db342f5100e4",
+        "ownerWorkflowId": "auto/3cfc0c3e-6665-407a-a936-5bf70f72947f"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "3cfc0c3e-6665-407a-a936-5bf70f72947f": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "7ed5df25-c291-4c2b-aa19-ab8985d9e536",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "b9c1ba3b-9000-41a5-8162-db342f5100e4",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "81839457-56fe-4f10-827e-88c8e8e90d99": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "9d5d929e-f31e-45b1-b044-98e8fa5fbee0"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.592372+00:00",
+        "expiresAt": "2026-09-29T15:35:23.939618+00:00",
+        "fencingToken": 2,
+        "leaseId": "6a224935-a3db-4c6e-a92f-404f1cffc1c1",
+        "ownerWorkflowId": "auto/9d5d929e-f31e-45b1-b044-98e8fa5fbee0"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "9d5d929e-f31e-45b1-b044-98e8fa5fbee0": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "81839457-56fe-4f10-827e-88c8e8e90d99",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "6a224935-a3db-4c6e-a92f-404f1cffc1c1",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "8452d27f-426f-4b76-9cbc-e8fd57f3e2c7": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "b52f6d5b-6224-49c9-8a80-f50b09193b67"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.610027+00:00",
+        "expiresAt": "2026-09-29T15:35:23.766153+00:00",
+        "fencingToken": 2,
+        "leaseId": "5c51ab8c-f95d-4bf7-a8de-f9ebf6ec5663",
+        "ownerWorkflowId": "auto/b52f6d5b-6224-49c9-8a80-f50b09193b67"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "b52f6d5b-6224-49c9-8a80-f50b09193b67": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "8452d27f-426f-4b76-9cbc-e8fd57f3e2c7",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "5c51ab8c-f95d-4bf7-a8de-f9ebf6ec5663",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "8abfd1b7-d4ec-485b-ac4b-b72fb677bc61": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "393ee9a4-ee8d-4238-ae83-83c6651d326d"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.512897+00:00",
+        "expiresAt": "2026-09-29T15:35:24.153859+00:00",
+        "fencingToken": 2,
+        "leaseId": "af23c54f-58b9-4880-bee5-b1d55a7e27df",
+        "ownerWorkflowId": "auto/393ee9a4-ee8d-4238-ae83-83c6651d326d"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "393ee9a4-ee8d-4238-ae83-83c6651d326d": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "8abfd1b7-d4ec-485b-ac4b-b72fb677bc61",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "af23c54f-58b9-4880-bee5-b1d55a7e27df",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "8afb7c31-a870-424d-8d89-d5bc45a9f808": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "a89b79c4-4cab-4194-a3c9-769e040fc07f"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.548510+00:00",
+        "expiresAt": "2026-09-29T15:35:23.598340+00:00",
+        "fencingToken": 2,
+        "leaseId": "35d2c779-7bf6-43d4-97c8-809da1fc4590",
+        "ownerWorkflowId": "auto/a89b79c4-4cab-4194-a3c9-769e040fc07f"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "a89b79c4-4cab-4194-a3c9-769e040fc07f": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "8afb7c31-a870-424d-8d89-d5bc45a9f808",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "35d2c779-7bf6-43d4-97c8-809da1fc4590",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "9283b977-6403-4319-94dc-c975917eef8d": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "e281fe73-a30d-45a5-ad6c-686fc0f7bd98"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.562949+00:00",
+        "expiresAt": "2026-09-29T15:35:23.924270+00:00",
+        "fencingToken": 2,
+        "leaseId": "38272e99-b41b-4e0d-a771-5210fe072bf8",
+        "ownerWorkflowId": "auto/e281fe73-a30d-45a5-ad6c-686fc0f7bd98"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "e281fe73-a30d-45a5-ad6c-686fc0f7bd98": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "9283b977-6403-4319-94dc-c975917eef8d",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "38272e99-b41b-4e0d-a771-5210fe072bf8",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "947212df-81a0-446f-90b9-c72f600c6ba8": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "76db8c7d-b70e-4e2c-a3b2-aafb50ca7985"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.506643+00:00",
+        "expiresAt": "2026-09-29T15:35:23.752306+00:00",
+        "fencingToken": 2,
+        "leaseId": "a30a52ef-06a2-4fe2-b69d-a8c0f7d6e2ff",
+        "ownerWorkflowId": "auto/76db8c7d-b70e-4e2c-a3b2-aafb50ca7985"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "76db8c7d-b70e-4e2c-a3b2-aafb50ca7985": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "947212df-81a0-446f-90b9-c72f600c6ba8",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "a30a52ef-06a2-4fe2-b69d-a8c0f7d6e2ff",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "98fb1955-5a6b-4419-ae54-095e5915f2e5": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "656def40-ae56-4fee-a5b8-797a087d5ae9"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.595543+00:00",
+        "expiresAt": "2026-09-29T15:35:24.093787+00:00",
+        "fencingToken": 2,
+        "leaseId": "bd9ab970-6a0e-4f4f-9962-b1b2bc0c14aa",
+        "ownerWorkflowId": "auto/656def40-ae56-4fee-a5b8-797a087d5ae9"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "656def40-ae56-4fee-a5b8-797a087d5ae9": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "98fb1955-5a6b-4419-ae54-095e5915f2e5",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "bd9ab970-6a0e-4f4f-9962-b1b2bc0c14aa",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "99c6b844-a29f-45e8-89b6-06b24a52660f": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "ca2a8f7c-c294-4ae0-a9db-c8c624d528d9"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.456600+00:00",
+        "expiresAt": "2026-09-29T15:35:23.612955+00:00",
+        "fencingToken": 2,
+        "leaseId": "0e4c65a3-d02f-43c5-a555-9ccc1a02720c",
+        "ownerWorkflowId": "auto/ca2a8f7c-c294-4ae0-a9db-c8c624d528d9"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "ca2a8f7c-c294-4ae0-a9db-c8c624d528d9": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "99c6b844-a29f-45e8-89b6-06b24a52660f",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "0e4c65a3-d02f-43c5-a555-9ccc1a02720c",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "9a1a4766-f0c0-4549-b6a2-06783d0ed528": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "c0d31b8c-8b0e-481e-848a-750409e985a1"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.318658+00:00",
+        "expiresAt": "2026-09-29T15:35:23.598447+00:00",
+        "fencingToken": 2,
+        "leaseId": "64a6056f-a7f2-4274-8d84-84531d6f44b3",
+        "ownerWorkflowId": "auto/c0d31b8c-8b0e-481e-848a-750409e985a1"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "c0d31b8c-8b0e-481e-848a-750409e985a1": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "9a1a4766-f0c0-4549-b6a2-06783d0ed528",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "64a6056f-a7f2-4274-8d84-84531d6f44b3",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "9af52a37-4fd8-44cf-9647-d0ac6d6f9225": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "5478f3c9-655c-459b-b262-f93c3d7c81e5"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.443155+00:00",
+        "expiresAt": "2026-09-29T15:35:23.640687+00:00",
+        "fencingToken": 2,
+        "leaseId": "dd306e0f-7382-411f-9443-a894a650ccd1",
+        "ownerWorkflowId": "auto/5478f3c9-655c-459b-b262-f93c3d7c81e5"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "5478f3c9-655c-459b-b262-f93c3d7c81e5": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "9af52a37-4fd8-44cf-9647-d0ac6d6f9225",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "dd306e0f-7382-411f-9443-a894a650ccd1",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "9c97bb60-56cf-4354-8219-ad6ba1ee652d": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "5dda005a-7e56-424c-913a-d82b09e15f94"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.559233+00:00",
+        "expiresAt": "2026-09-29T15:35:23.713352+00:00",
+        "fencingToken": 2,
+        "leaseId": "b0cf5481-5a77-43ec-85d0-f4d7268301db",
+        "ownerWorkflowId": "auto/5dda005a-7e56-424c-913a-d82b09e15f94"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "5dda005a-7e56-424c-913a-d82b09e15f94": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "9c97bb60-56cf-4354-8219-ad6ba1ee652d",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "b0cf5481-5a77-43ec-85d0-f4d7268301db",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "a37b4eac-b4c1-4d83-b7af-403db19c574f": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "30679b53-0e6e-451e-bb78-fcb3a507341a"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.585304+00:00",
+        "expiresAt": "2026-09-29T15:35:23.692263+00:00",
+        "fencingToken": 2,
+        "leaseId": "e604af98-873f-4375-aff7-b3e617651e27",
+        "ownerWorkflowId": "auto/30679b53-0e6e-451e-bb78-fcb3a507341a"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "30679b53-0e6e-451e-bb78-fcb3a507341a": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "a37b4eac-b4c1-4d83-b7af-403db19c574f",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "e604af98-873f-4375-aff7-b3e617651e27",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "a3ddee5a-61c1-4f25-909b-771853a8e95d": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "a009f5dd-afcb-4375-a7a0-d3405c4065be"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.500251+00:00",
+        "expiresAt": "2026-09-29T15:35:23.597688+00:00",
+        "fencingToken": 2,
+        "leaseId": "4d20b962-f9e8-46b3-8bbe-d2da6707cfdb",
+        "ownerWorkflowId": "auto/a009f5dd-afcb-4375-a7a0-d3405c4065be"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "a009f5dd-afcb-4375-a7a0-d3405c4065be": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "a3ddee5a-61c1-4f25-909b-771853a8e95d",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "4d20b962-f9e8-46b3-8bbe-d2da6707cfdb",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "a53a3bb3-ef1c-4cc7-a4b4-3a618df9e6d4": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "a9694c0c-95e3-4235-894e-0b45efeec853"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.442471+00:00",
+        "expiresAt": "2026-09-29T15:35:23.630199+00:00",
+        "fencingToken": 2,
+        "leaseId": "c8278b84-a502-42da-bc36-630bf2cc37e0",
+        "ownerWorkflowId": "auto/a9694c0c-95e3-4235-894e-0b45efeec853"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "a9694c0c-95e3-4235-894e-0b45efeec853": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "a53a3bb3-ef1c-4cc7-a4b4-3a618df9e6d4",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "c8278b84-a502-42da-bc36-630bf2cc37e0",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "aadfa34f-de84-4d47-bb75-fcda701daeb3": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "3aeeebf3-3f30-45ff-8fbe-9ff0d0f736fe"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.282550+00:00",
+        "expiresAt": "2026-09-29T15:35:23.710616+00:00",
+        "fencingToken": 2,
+        "leaseId": "046262fc-da6c-48db-8f98-e3a069927972",
+        "ownerWorkflowId": "auto/3aeeebf3-3f30-45ff-8fbe-9ff0d0f736fe"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "3aeeebf3-3f30-45ff-8fbe-9ff0d0f736fe": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "aadfa34f-de84-4d47-bb75-fcda701daeb3",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "046262fc-da6c-48db-8f98-e3a069927972",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "ae5562f8-45c5-4527-a009-8ef52facf26b": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "a23bb346-aeab-4f39-9ad6-cc1c30d62975"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.562789+00:00",
+        "expiresAt": "2026-09-29T15:35:23.642413+00:00",
+        "fencingToken": 2,
+        "leaseId": "1999b859-4b1e-4cd0-bc8e-7c0821ef17c5",
+        "ownerWorkflowId": "auto/a23bb346-aeab-4f39-9ad6-cc1c30d62975"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "a23bb346-aeab-4f39-9ad6-cc1c30d62975": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "ae5562f8-45c5-4527-a009-8ef52facf26b",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "1999b859-4b1e-4cd0-bc8e-7c0821ef17c5",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "b04a82db-e731-4b7d-bf92-2a00875635e9": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "f9a43d35-b102-4fc8-bccc-8a409a71b70d"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.548697+00:00",
+        "expiresAt": "2026-09-29T15:35:23.710785+00:00",
+        "fencingToken": 2,
+        "leaseId": "e42d0157-5eb7-4d39-b7b7-87c3fc17581e",
+        "ownerWorkflowId": "auto/f9a43d35-b102-4fc8-bccc-8a409a71b70d"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "f9a43d35-b102-4fc8-bccc-8a409a71b70d": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "b04a82db-e731-4b7d-bf92-2a00875635e9",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "e42d0157-5eb7-4d39-b7b7-87c3fc17581e",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "b5d4d3b8-7315-413f-b9ec-47dc60ea5c60": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "7fdb0f18-943f-47ed-9f7f-b592c6441d98"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.224408+00:00",
+        "expiresAt": "2026-09-29T15:35:23.612100+00:00",
+        "fencingToken": 2,
+        "leaseId": "883cacc0-6d9a-44fa-bfe4-b603305a06c8",
+        "ownerWorkflowId": "auto/7fdb0f18-943f-47ed-9f7f-b592c6441d98"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "7fdb0f18-943f-47ed-9f7f-b592c6441d98": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "b5d4d3b8-7315-413f-b9ec-47dc60ea5c60",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "883cacc0-6d9a-44fa-bfe4-b603305a06c8",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "b665566d-224e-4369-9623-0317eb9ad82c": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "661c4283-838b-4c31-b629-ab74b9b02c1c"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.403134+00:00",
+        "expiresAt": "2026-09-29T15:35:23.727963+00:00",
+        "fencingToken": 2,
+        "leaseId": "2b16f048-60d7-454f-8e72-1dc5a145fff9",
+        "ownerWorkflowId": "auto/661c4283-838b-4c31-b629-ab74b9b02c1c"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "661c4283-838b-4c31-b629-ab74b9b02c1c": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "b665566d-224e-4369-9623-0317eb9ad82c",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "2b16f048-60d7-454f-8e72-1dc5a145fff9",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "b9e8e28b-4779-4a23-a75e-1f5d6f915b34": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "a9758096-9f63-4bd1-a96c-c2e6dd6d884b"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.410053+00:00",
+        "expiresAt": "2026-09-29T15:35:23.710890+00:00",
+        "fencingToken": 2,
+        "leaseId": "aff9bf0e-3bf1-4c67-af1e-a6e89be051e6",
+        "ownerWorkflowId": "auto/a9758096-9f63-4bd1-a96c-c2e6dd6d884b"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "a9758096-9f63-4bd1-a96c-c2e6dd6d884b": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "b9e8e28b-4779-4a23-a75e-1f5d6f915b34",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "aff9bf0e-3bf1-4c67-af1e-a6e89be051e6",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "ba640f5b-b0b5-4574-bad4-efe0d6e5a63a": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "b77245f4-57cc-4653-81a9-7310286fa91c"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.557776+00:00",
+        "expiresAt": "2026-09-29T15:35:23.746904+00:00",
+        "fencingToken": 2,
+        "leaseId": "a92685e7-d7d5-4608-b928-a7047cc3e82e",
+        "ownerWorkflowId": "auto/b77245f4-57cc-4653-81a9-7310286fa91c"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "b77245f4-57cc-4653-81a9-7310286fa91c": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "ba640f5b-b0b5-4574-bad4-efe0d6e5a63a",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "a92685e7-d7d5-4608-b928-a7047cc3e82e",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "ba7e172c-c283-4160-9a70-d7b191e0c2b1": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "2e239a97-654d-456c-9569-8fa02d130c20"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.437843+00:00",
+        "expiresAt": "2026-09-29T15:35:23.627369+00:00",
+        "fencingToken": 2,
+        "leaseId": "5e3409d0-f1fe-4089-aed8-241299885c3c",
+        "ownerWorkflowId": "auto/2e239a97-654d-456c-9569-8fa02d130c20"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "2e239a97-654d-456c-9569-8fa02d130c20": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "ba7e172c-c283-4160-9a70-d7b191e0c2b1",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "5e3409d0-f1fe-4089-aed8-241299885c3c",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "bafbfbee-aa62-4906-abdb-63faa76ac6f1": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "fe70c48e-0fea-41d3-bd27-88bbb41238f9"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.613489+00:00",
+        "expiresAt": "2026-09-29T15:35:23.691458+00:00",
+        "fencingToken": 2,
+        "leaseId": "140cae90-844a-44aa-bed6-f87b757ea507",
+        "ownerWorkflowId": "auto/fe70c48e-0fea-41d3-bd27-88bbb41238f9"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "fe70c48e-0fea-41d3-bd27-88bbb41238f9": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "bafbfbee-aa62-4906-abdb-63faa76ac6f1",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "140cae90-844a-44aa-bed6-f87b757ea507",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "bb9a8b0e-3359-432b-be6d-ed2969c40111": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "2611ef9d-fa1d-427c-8466-8ee88c5cd537"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.563604+00:00",
+        "expiresAt": "2026-09-29T15:35:23.868390+00:00",
+        "fencingToken": 2,
+        "leaseId": "93c416f2-9b30-41d1-bc90-3748e7a32dce",
+        "ownerWorkflowId": "auto/2611ef9d-fa1d-427c-8466-8ee88c5cd537"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "2611ef9d-fa1d-427c-8466-8ee88c5cd537": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "bb9a8b0e-3359-432b-be6d-ed2969c40111",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "93c416f2-9b30-41d1-bc90-3748e7a32dce",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "bcf7f3f6-ad47-4658-8b21-01307ab474a4": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "6b4114ae-fc4a-4f54-9e0c-ba87e12557b1"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.591810+00:00",
+        "expiresAt": "2026-09-29T15:35:23.599117+00:00",
+        "fencingToken": 2,
+        "leaseId": "1f3d47a9-6e38-4775-abe1-a9cc6a910313",
+        "ownerWorkflowId": "auto/6b4114ae-fc4a-4f54-9e0c-ba87e12557b1"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "6b4114ae-fc4a-4f54-9e0c-ba87e12557b1": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "bcf7f3f6-ad47-4658-8b21-01307ab474a4",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "1f3d47a9-6e38-4775-abe1-a9cc6a910313",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "bf1f0eee-6cc3-4850-8940-dbb69152d684": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "eb3f00ec-7a5a-4247-be4c-a3ae759ab42f"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.357857+00:00",
+        "expiresAt": "2026-09-29T15:35:23.625326+00:00",
+        "fencingToken": 2,
+        "leaseId": "98e8c0d9-c32c-44b6-a416-a0555d81eae6",
+        "ownerWorkflowId": "auto/eb3f00ec-7a5a-4247-be4c-a3ae759ab42f"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "eb3f00ec-7a5a-4247-be4c-a3ae759ab42f": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "bf1f0eee-6cc3-4850-8940-dbb69152d684",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "98e8c0d9-c32c-44b6-a416-a0555d81eae6",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "c9bef811-c188-44bc-9e4d-8f9971248a1d": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "2a2e8a9e-476a-46ad-b00f-2c2b641f7487"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.561292+00:00",
+        "expiresAt": "2026-09-29T15:35:23.911487+00:00",
+        "fencingToken": 2,
+        "leaseId": "fe9aebe3-93f5-4284-996e-90f2656c7679",
+        "ownerWorkflowId": "auto/2a2e8a9e-476a-46ad-b00f-2c2b641f7487"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "2a2e8a9e-476a-46ad-b00f-2c2b641f7487": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "c9bef811-c188-44bc-9e4d-8f9971248a1d",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "fe9aebe3-93f5-4284-996e-90f2656c7679",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "cbb245fe-45ad-43c0-8e31-5fab0c2d7ec8": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "45146c48-6423-425a-b7f0-79d991de65ae"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.466547+00:00",
+        "expiresAt": "2026-09-29T15:35:23.675635+00:00",
+        "fencingToken": 2,
+        "leaseId": "54ffd9a0-79fb-46b2-974b-59cab2510db4",
+        "ownerWorkflowId": "auto/45146c48-6423-425a-b7f0-79d991de65ae"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "45146c48-6423-425a-b7f0-79d991de65ae": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "cbb245fe-45ad-43c0-8e31-5fab0c2d7ec8",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "54ffd9a0-79fb-46b2-974b-59cab2510db4",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "cbc8d639-c99f-42a8-9cff-07cf4950475d": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "a0134424-4b39-4187-af8a-06e06ec267fc"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.578796+00:00",
+        "expiresAt": "2026-09-29T15:35:23.591836+00:00",
+        "fencingToken": 2,
+        "leaseId": "bb62527c-3c95-43f7-ad35-57ea55b15ea1",
+        "ownerWorkflowId": "auto/a0134424-4b39-4187-af8a-06e06ec267fc"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "a0134424-4b39-4187-af8a-06e06ec267fc": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "cbc8d639-c99f-42a8-9cff-07cf4950475d",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "bb62527c-3c95-43f7-ad35-57ea55b15ea1",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "cf358f23-64a7-4efb-9f13-e278fa41892b": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "593da39d-1eec-4a5d-a084-1ddf10595c5a"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.340936+00:00",
+        "expiresAt": "2026-09-29T15:35:23.613862+00:00",
+        "fencingToken": 2,
+        "leaseId": "0cd0b041-b701-458d-84c4-a23303fd6fa1",
+        "ownerWorkflowId": "auto/593da39d-1eec-4a5d-a084-1ddf10595c5a"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "593da39d-1eec-4a5d-a084-1ddf10595c5a": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "cf358f23-64a7-4efb-9f13-e278fa41892b",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "0cd0b041-b701-458d-84c4-a23303fd6fa1",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "d0cc4b4e-a05e-4c6a-884f-3013c3dee17e": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "0d60bf35-46ac-414f-92f8-2d261d83c27e"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.391191+00:00",
+        "expiresAt": "2026-09-29T15:35:23.675239+00:00",
+        "fencingToken": 2,
+        "leaseId": "3e418285-8a3a-4e97-8337-69511e332b3a",
+        "ownerWorkflowId": "auto/0d60bf35-46ac-414f-92f8-2d261d83c27e"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "0d60bf35-46ac-414f-92f8-2d261d83c27e": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "d0cc4b4e-a05e-4c6a-884f-3013c3dee17e",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "3e418285-8a3a-4e97-8337-69511e332b3a",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "d5be44da-1f5c-4876-8334-ba14cd50927a": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "4d2e62fe-d9b0-4095-869b-6db910fd1926"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.553011+00:00",
+        "expiresAt": "2026-09-29T15:35:23.729708+00:00",
+        "fencingToken": 2,
+        "leaseId": "9f6fcc30-464f-4d08-a5e1-4556aa196650",
+        "ownerWorkflowId": "auto/4d2e62fe-d9b0-4095-869b-6db910fd1926"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "4d2e62fe-d9b0-4095-869b-6db910fd1926": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "d5be44da-1f5c-4876-8334-ba14cd50927a",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "9f6fcc30-464f-4d08-a5e1-4556aa196650",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "dad22820-4b16-4be4-9701-6fd5623a63f1": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "9bff8a6c-53c3-4c44-8026-314ee65404b4"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.418772+00:00",
+        "expiresAt": "2026-09-29T15:35:23.598827+00:00",
+        "fencingToken": 2,
+        "leaseId": "2bc25afa-7512-4be8-a963-a3af09f8db14",
+        "ownerWorkflowId": "auto/9bff8a6c-53c3-4c44-8026-314ee65404b4"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "9bff8a6c-53c3-4c44-8026-314ee65404b4": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "dad22820-4b16-4be4-9701-6fd5623a63f1",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "2bc25afa-7512-4be8-a963-a3af09f8db14",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "dafd7287-b555-4ff8-9c51-72abd83b2227": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "6e688612-305b-4131-8806-912865d309e0"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.527726+00:00",
+        "expiresAt": "2026-09-29T15:35:23.674441+00:00",
+        "fencingToken": 2,
+        "leaseId": "ef47e08d-7816-4070-b551-826723563e1f",
+        "ownerWorkflowId": "auto/6e688612-305b-4131-8806-912865d309e0"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "6e688612-305b-4131-8806-912865d309e0": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "dafd7287-b555-4ff8-9c51-72abd83b2227",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "ef47e08d-7816-4070-b551-826723563e1f",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "dbbeaac2-58c9-47be-8ad4-546eeb627beb": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "c308a396-cddb-4c47-938c-3fd633e63771"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.626174+00:00",
+        "expiresAt": "2026-09-29T15:35:23.747105+00:00",
+        "fencingToken": 2,
+        "leaseId": "cee963ed-7078-4b90-94e0-a555435050d6",
+        "ownerWorkflowId": "auto/c308a396-cddb-4c47-938c-3fd633e63771"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "c308a396-cddb-4c47-938c-3fd633e63771": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "dbbeaac2-58c9-47be-8ad4-546eeb627beb",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "cee963ed-7078-4b90-94e0-a555435050d6",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "e0275047-7f27-461f-8809-70a26c603e8f": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "c75c714b-cf9f-444a-8aba-a6de2e725b5e"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.537834+00:00",
+        "expiresAt": "2026-09-29T15:35:23.628642+00:00",
+        "fencingToken": 2,
+        "leaseId": "01122c53-e5e1-46b2-872f-b4ca7fadca04",
+        "ownerWorkflowId": "auto/c75c714b-cf9f-444a-8aba-a6de2e725b5e"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "c75c714b-cf9f-444a-8aba-a6de2e725b5e": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "e0275047-7f27-461f-8809-70a26c603e8f",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "01122c53-e5e1-46b2-872f-b4ca7fadca04",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "e6cb4347-e3a8-4f20-ac37-9cd79df19617": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "a3ded999-9507-4101-a152-07d99bd7c9a3"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.425506+00:00",
+        "expiresAt": "2026-09-29T15:35:23.597938+00:00",
+        "fencingToken": 2,
+        "leaseId": "38bb9bf8-8b05-43d3-8ecf-3c5d190ed289",
+        "ownerWorkflowId": "auto/a3ded999-9507-4101-a152-07d99bd7c9a3"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "a3ded999-9507-4101-a152-07d99bd7c9a3": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "e6cb4347-e3a8-4f20-ac37-9cd79df19617",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "38bb9bf8-8b05-43d3-8ecf-3c5d190ed289",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "e82604ef-3e24-45ea-aa16-8a41d4aa5f97": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "880e3964-6055-4aea-9caf-ea04a697a81d"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.363553+00:00",
+        "expiresAt": "2026-09-29T15:35:23.659140+00:00",
+        "fencingToken": 2,
+        "leaseId": "d10229a1-00ca-4313-be63-c805870c9f5c",
+        "ownerWorkflowId": "auto/880e3964-6055-4aea-9caf-ea04a697a81d"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "880e3964-6055-4aea-9caf-ea04a697a81d": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "e82604ef-3e24-45ea-aa16-8a41d4aa5f97",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "d10229a1-00ca-4313-be63-c805870c9f5c",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "e8267fe6-b504-4798-a1c3-e3cc9d12b1e7": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "778744f7-5151-4aa7-93eb-514aafa8b9ec"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.605825+00:00",
+        "expiresAt": "2026-09-29T15:35:23.915089+00:00",
+        "fencingToken": 2,
+        "leaseId": "f1a3029a-29d7-45cd-bdfe-297e9f460bd0",
+        "ownerWorkflowId": "auto/778744f7-5151-4aa7-93eb-514aafa8b9ec"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "778744f7-5151-4aa7-93eb-514aafa8b9ec": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "e8267fe6-b504-4798-a1c3-e3cc9d12b1e7",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "f1a3029a-29d7-45cd-bdfe-297e9f460bd0",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "f4052fc6-4a1c-4c48-8685-8159f5c11f21": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "79bf172e-045d-4924-8b15-daed82e3734f"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.077590+00:00",
+        "expiresAt": "2026-09-29T15:35:23.627229+00:00",
+        "fencingToken": 2,
+        "leaseId": "bbf923af-9eb1-4bc3-9801-ccc296fe34dc",
+        "ownerWorkflowId": "auto/79bf172e-045d-4924-8b15-daed82e3734f"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "79bf172e-045d-4924-8b15-daed82e3734f": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "f4052fc6-4a1c-4c48-8685-8159f5c11f21",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "bbf923af-9eb1-4bc3-9801-ccc296fe34dc",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "f7bb5ec2-302e-4408-9e6e-f96f5f521442": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "f522a177-48bd-4fbd-967b-239a3f5478d7"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.580336+00:00",
+        "expiresAt": "2026-09-29T15:35:23.817771+00:00",
+        "fencingToken": 2,
+        "leaseId": "cad2b46a-7fc2-4cea-879a-a44ccc70f3e5",
+        "ownerWorkflowId": "auto/f522a177-48bd-4fbd-967b-239a3f5478d7"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "f522a177-48bd-4fbd-967b-239a3f5478d7": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "f7bb5ec2-302e-4408-9e6e-f96f5f521442",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "cad2b46a-7fc2-4cea-879a-a44ccc70f3e5",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "f8a833a4-ac5e-4bfc-8af9-ea429f376b39": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "bc20260d-9a04-4493-861d-a6e97e5a6210"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.579036+00:00",
+        "expiresAt": "2026-09-29T15:35:23.690152+00:00",
+        "fencingToken": 2,
+        "leaseId": "6280fbd3-9725-4ff9-a609-494cf85a0c69",
+        "ownerWorkflowId": "auto/bc20260d-9a04-4493-861d-a6e97e5a6210"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "bc20260d-9a04-4493-861d-a6e97e5a6210": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "f8a833a4-ac5e-4bfc-8af9-ea429f376b39",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "6280fbd3-9725-4ff9-a609-494cf85a0c69",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "f95a9cbb-a142-403d-98e0-19f685bec34f": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "6c4ed798-1cd8-42c8-a1d2-934027ecd092"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.591271+00:00",
+        "expiresAt": "2026-09-29T15:35:23.747009+00:00",
+        "fencingToken": 2,
+        "leaseId": "ec27128f-97c1-41e3-8a5e-54afc56230f9",
+        "ownerWorkflowId": "auto/6c4ed798-1cd8-42c8-a1d2-934027ecd092"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "6c4ed798-1cd8-42c8-a1d2-934027ecd092": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "f95a9cbb-a142-403d-98e0-19f685bec34f",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "ec27128f-97c1-41e3-8a5e-54afc56230f9",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "fb40c67d-6c1e-4d72-b79c-d3362c46ee43": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "0c646913-b031-49a9-8276-b383a81b9358"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.603132+00:00",
+        "expiresAt": "2026-09-29T15:35:23.708586+00:00",
+        "fencingToken": 2,
+        "leaseId": "ca9b6870-7a54-445a-83ce-b15822728247",
+        "ownerWorkflowId": "auto/0c646913-b031-49a9-8276-b383a81b9358"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "0c646913-b031-49a9-8276-b383a81b9358": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "fb40c67d-6c1e-4d72-b79c-d3362c46ee43",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "ca9b6870-7a54-445a-83ce-b15822728247",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "fbff2d20-0b5d-471b-befc-0c85d9172b81": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "fd9b397a-5fa5-4b17-8d72-9481e4b57c08"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.605646+00:00",
+        "expiresAt": "2026-09-29T15:35:23.940377+00:00",
+        "fencingToken": 2,
+        "leaseId": "104bf244-0bf2-4309-9e1c-1f9a1e6a047c",
+        "ownerWorkflowId": "auto/fd9b397a-5fa5-4b17-8d72-9481e4b57c08"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "fd9b397a-5fa5-4b17-8d72-9481e4b57c08": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "fbff2d20-0b5d-471b-befc-0c85d9172b81",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "104bf244-0bf2-4309-9e1c-1f9a1e6a047c",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "fd82ab01-300b-4faf-9c2c-de34f71a0844": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "9ea76a1b-6f77-4f14-b043-7262e4e5c06b"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.204823+00:00",
+        "expiresAt": "2026-09-29T15:35:23.597335+00:00",
+        "fencingToken": 2,
+        "leaseId": "b8616b5a-5f6f-4857-bb8b-b221d8014c9e",
+        "ownerWorkflowId": "auto/9ea76a1b-6f77-4f14-b043-7262e4e5c06b"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "9ea76a1b-6f77-4f14-b043-7262e4e5c06b": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "fd82ab01-300b-4faf-9c2c-de34f71a0844",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "b8616b5a-5f6f-4857-bb8b-b221d8014c9e",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "fd88de87-a506-469d-8ec2-a2fd05d388dc": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "5a56714e-d138-4699-8a63-a52c7ba9755b"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.476773+00:00",
+        "expiresAt": "2026-09-29T15:35:23.860523+00:00",
+        "fencingToken": 2,
+        "leaseId": "cdbf7516-20dc-484e-bdd0-76bd9736592b",
+        "ownerWorkflowId": "auto/5a56714e-d138-4699-8a63-a52c7ba9755b"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "5a56714e-d138-4699-8a63-a52c7ba9755b": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "fd88de87-a506-469d-8ec2-a2fd05d388dc",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "cdbf7516-20dc-484e-bdd0-76bd9736592b",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "fed6408a-96a9-401b-9022-a83e088e8323": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "ca1bec99-629f-411d-a9bd-af859b209112"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.579943+00:00",
+        "expiresAt": "2026-09-29T15:35:23.728774+00:00",
+        "fencingToken": 2,
+        "leaseId": "29d1a9f3-049e-40e0-a8c9-644a178abd99",
+        "ownerWorkflowId": "auto/ca1bec99-629f-411d-a9bd-af859b209112"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "ca1bec99-629f-411d-a9bd-af859b209112": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "fed6408a-96a9-401b-9022-a83e088e8323",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "29d1a9f3-049e-40e0-a8c9-644a178abd99",
+          "status": "SUCCEEDED"
+        }
+      }
+    },
+    "ff65289f-d4e8-44f1-b9e7-13a274b0bf49": {
+      "claimAttempts": 1,
+      "claimed": 1,
+      "completed": 1,
+      "completedTaskIds": [
+        "9feaff25-bc65-4369-9868-80360458d420"
+      ],
+      "deviceLease": {
+        "canceledAt": "2026-09-29T15:34:24.607904+00:00",
+        "expiresAt": "2026-09-29T15:35:23.710501+00:00",
+        "fencingToken": 2,
+        "leaseId": "29316acf-d4ba-42cb-94f5-a5be245580b1",
+        "ownerWorkflowId": "auto/9feaff25-bc65-4369-9868-80360458d420"
+      },
+      "errors": [],
+      "exitReason": "completed",
+      "expected": 1,
+      "guardExhausted": false,
+      "httpStatusCounts": {
+        "claim-200": 1,
+        "complete-200": 1,
+        "event-201": 1
+      },
+      "reclaimed": 0,
+      "released": 0,
+      "remaining": 0,
+      "remainingTaskIds": [],
+      "stranded": 0,
+      "strandedTaskIds": [],
+      "taskStates": {
+        "9feaff25-bc65-4369-9868-80360458d420": {
+          "attempt": 1,
+          "businessState": "SUCCEEDED",
+          "deviceId": "ff65289f-d4e8-44f1-b9e7-13a274b0bf49",
+          "errorCode": null,
+          "lastSequence": 1,
+          "leaseExpiresAt": null,
+          "leaseId": "29316acf-d4ba-42cb-94f5-a5be245580b1",
+          "status": "SUCCEEDED"
+        }
+      }
+    }
+  },
+  "scenario": "clients-100",
+  "simulatedClientsNotRealDevices": true
+}

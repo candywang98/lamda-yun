@@ -40,8 +40,24 @@ jobs:
             printf 'PostgreSQL test binary: %s\n' "$pg_bin/$tool"
           done
           printf '%s\n' "$pg_bin" >> "$GITHUB_PATH"
-      - run: pytest -q -rs
+      - id: pytest
+        run: pytest -q -rs --basetemp "$RUNNER_TEMP/cloudctl-pytest"
       - run: bash scripts/check-security-boundaries.sh
+      - name: Diagnose fleet latency after pytest failure
+        if: failure() && steps.pytest.outcome == 'failure'
+        timeout-minutes: 5
+        run: python -m tests.load.fleet.ci_diagnostics --basetemp "$RUNNER_TEMP/cloudctl-fleet-diagnostic"
+      - name: Upload fleet diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fleet-evidence-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/cloudctl-pytest/**/load-report-*.json
+            ${{ runner.temp }}/cloudctl-fleet-diagnostic/load-report-*.json
+            ${{ runner.temp }}/cloudctl-fleet-diagnostic/diagnostic.json
+          retention-days: 7
+          if-no-files-found: warn
 
   frontend:
     runs-on: ubuntu-latest

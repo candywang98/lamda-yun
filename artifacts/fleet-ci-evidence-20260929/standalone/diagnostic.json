@@ -1,0 +1,192 @@
+{
+  "diagnosticOnlyNotAcceptance": true,
+  "target": "tests.load.fleet.test_fleet_load.test_hundred_simulated_clients_control_plane_holds",
+  "exit": 0,
+  "errorType": null,
+  "host": {
+    "system": "macOS-26.0-arm64-arm-64bit-Mach-O",
+    "machine": "arm64",
+    "cpuCount": 11,
+    "python": "3.13.5"
+  },
+  "database": {
+    "engine": "test-owned-loopback-postgresql",
+    "driver": "asyncpg",
+    "serverVersion": [
+      16,
+      15
+    ],
+    "sqlalchemy": "2.0.52",
+    "pool": {
+      "type": "AsyncAdaptedQueuePool",
+      "size": 5,
+      "maxOverflow": 10,
+      "timeoutSeconds": 30.0,
+      "prePing": true
+    }
+  },
+  "methodInvocations": {
+    "changed_cancel": 0,
+    "changed_resume": 0,
+    "changed_take_control": 0,
+    "authenticate": 300,
+    "claimService": 100
+  },
+  "timings": {
+    "outside:outside:poolAcquireTotal": {
+      "count": 101,
+      "sumSeconds": 0.030552420997992158,
+      "p50Seconds": 0.00022004199854563922,
+      "p95Seconds": 0.00028695799119304866,
+      "maxSeconds": 0.010009499994339421
+    },
+    "eventLoopLag": {
+      "count": 66,
+      "sumSeconds": 0.16070887781097554,
+      "p50Seconds": 0.00019529099517967552,
+      "p95Seconds": 0.01644608299829997,
+      "maxSeconds": 0.03306712499761488
+    },
+    "other:outside:poolAcquireTotal": {
+      "count": 1000,
+      "sumSeconds": 21.46585358522134,
+      "p50Seconds": 0.00026270899979863316,
+      "p95Seconds": 0.1646004170033848,
+      "maxSeconds": 0.4367676669935463
+    },
+    "http:other": {
+      "count": 800,
+      "sumSeconds": 55.55440829473082,
+      "p50Seconds": 0.0034700420073932037,
+      "p95Seconds": 0.39936458300508093,
+      "maxSeconds": 0.7167650410119677
+    },
+    "claim:authenticate:poolAcquireTotal": {
+      "count": 100,
+      "sumSeconds": 13.41863721102709,
+      "p50Seconds": 0.11645175000012387,
+      "p95Seconds": 0.34078758300165646,
+      "maxSeconds": 0.5611866249964805
+    },
+    "claim:authenticate": {
+      "count": 100,
+      "sumSeconds": 14.951356669072993,
+      "p50Seconds": 0.13200987500022165,
+      "p95Seconds": 0.35983629200200085,
+      "maxSeconds": 0.5749672919919249
+    },
+    "claim:claimService:poolAcquireTotal": {
+      "count": 100,
+      "sumSeconds": 19.609646795041044,
+      "p50Seconds": 0.17794504199991934,
+      "p95Seconds": 0.5542488749924814,
+      "maxSeconds": 0.6453800829913234
+    },
+    "claim:claimService": {
+      "count": 100,
+      "sumSeconds": 25.053749666010845,
+      "p50Seconds": 0.22935345899895765,
+      "p95Seconds": 0.5910692089964869,
+      "maxSeconds": 0.6804853330104379
+    },
+    "http:claim": {
+      "count": 100,
+      "sumSeconds": 46.17831187412958,
+      "p50Seconds": 0.4474554999906104,
+      "p95Seconds": 0.8292112500057556,
+      "maxSeconds": 0.9849209579988383
+    },
+    "other:authenticate:poolAcquireTotal": {
+      "count": 200,
+      "sumSeconds": 21.853472503906232,
+      "p50Seconds": 0.08598387500387616,
+      "p95Seconds": 0.2865528330003144,
+      "maxSeconds": 0.5781956249993527
+    },
+    "other:authenticate": {
+      "count": 200,
+      "sumSeconds": 25.11274070518266,
+      "p50Seconds": 0.10067299999354873,
+      "p95Seconds": 0.30631608300609514,
+      "maxSeconds": 0.5950670840102248
+    }
+  },
+  "claimSql": {
+    "authenticate:SELECT:mobile_binding": {
+      "count": 100,
+      "elapsedSeconds": 0.43015329202171415
+    },
+    "authenticate:UPDATE:mobile_binding": {
+      "count": 100,
+      "elapsedSeconds": 0.2206597450422123
+    },
+    "authenticate:SELECT:device": {
+      "count": 100,
+      "elapsedSeconds": 0.2117097429872956
+    },
+    "authenticate:UPDATE:device": {
+      "count": 100,
+      "elapsedSeconds": 0.21721700398484245
+    },
+    "claimService:SELECT:device:FOR_UPDATE": {
+      "count": 100,
+      "elapsedSeconds": 0.5677220829820726
+    },
+    "claimService:SELECT:mobile_action_commit": {
+      "count": 200,
+      "elapsedSeconds": 0.6087994198751403
+    },
+    "claimService:SELECT:fleet_device_session": {
+      "count": 100,
+      "elapsedSeconds": 0.2670922529796371
+    },
+    "claimService:SELECT:mobile_task": {
+      "count": 100,
+      "elapsedSeconds": 0.2670772069686791
+    },
+    "claimService:SELECT:mobile_task:FOR_UPDATE": {
+      "count": 200,
+      "elapsedSeconds": 0.6704948300321121
+    },
+    "claimService:SELECT:device_lease:FOR_UPDATE": {
+      "count": 100,
+      "elapsedSeconds": 0.3599367790593533
+    },
+    "claimService:SELECT:account_device_binding": {
+      "count": 100,
+      "elapsedSeconds": 0.24531850291532464
+    },
+    "claimService:INSERT:device_lease": {
+      "count": 100,
+      "elapsedSeconds": 0.2689371220913017
+    },
+    "claimService:UPDATE:device": {
+      "count": 100,
+      "elapsedSeconds": 0.28623042003891896
+    },
+    "claimService:UPDATE:mobile_task": {
+      "count": 200,
+      "elapsedSeconds": 0.5847009651333792
+    },
+    "claimService:SELECT:recipe_device_deployment": {
+      "count": 100,
+      "elapsedSeconds": 0.25806920796458144
+    },
+    "claimService:INSERT:audit_event": {
+      "count": 100,
+      "elapsedSeconds": 0.26824250795471016
+    }
+  },
+  "sqlErrors": 0,
+  "cleanup": {
+    "patchesAndListenersRemoved": true,
+    "observerDone": true
+  },
+  "limits": [
+    "Instrumented local ASGI simulation, not acceptance or causal proof.",
+    "Pool.connect total includes acquisition, connection creation, pre-ping and hooks; not queue-only waiting. SQLAlchemy 2.0.52 implementation reviewed.",
+    "SQL cursor counts exclude implicit protocol, pre-ping and commit/rollback.",
+    "Wall intervals overlap across clients; SQL time excludes pool acquisition.",
+    "Loop lag is sampled every 50 ms across the whole diagnostic, including setup."
+  ]
+}

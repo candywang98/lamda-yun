@@ -1,0 +1,6 @@
+tests/ops/test_ci_python_portability.py:10: error: Library stubs not installed for "yaml"  [import-untyped]
+tests/ops/test_ci_python_portability.py:10: note: Hint: "python3 -m pip install types-PyYAML"
+tests/ops/test_ci_python_portability.py:10: note: (or run "mypy --install-types" to install all missing stub packages)
+tests/ops/test_ci_python_portability.py:10: note: See https://mypy.readthedocs.io/en/stable/running_mypy.html#missing-imports
+tests/ops/test_ci_python_portability.py:43: error: Returning Any from function declared to return "dict[str, Any]"  [no-any-return]
+Found 2 errors in 1 file (checked 3 source files)

@@ -1,0 +1,6 @@
+/Users/wangziheng/Desktop/01-主战场/LAMDA云控系统/cloudctl-source/tests/ops/test_ci_python_portability.py
+  /Users/wangziheng/Desktop/01-主战场/LAMDA云控系统/cloudctl-source/tests/ops/test_ci_python_portability.py:207:71 - error: "unavailable" is possibly unbound (reportPossiblyUnboundVariable)
+1 error, 0 warnings, 0 informations
+WARNING: there is a new pyright version available (v1.1.411 -> v1.1.414).
+Please install the new version or set PYRIGHT_PYTHON_FORCE_VERSION to `latest`
+

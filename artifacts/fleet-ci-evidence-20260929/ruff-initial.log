@@ -1,0 +1,64 @@
+ASYNC109 Async function definition with a `timeout` parameter
+   --> tests/load/fleet/ci_diagnostics.py:228:36
+    |
+228 | async def diagnose(basetemp: Path, timeout: float = DEADLINE_SECONDS) -> int:
+    |                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+229 |     from .test_fleet_load import test_hundred_simulated_clients_control_plane_holds
+    |
+help: Use `asyncio.timeout` instead
+
+ASYNC240 Async functions should not use pathlib.Path methods, use trio.Path or anyio.path
+   --> tests/load/fleet/ci_diagnostics.py:232:5
+    |
+231 |     # Refuse to erase or reuse a gate report directory.
+232 |     basetemp.mkdir(parents=True, exist_ok=False)
+    |     ^^^^^^^^^^^^^^
+233 |     probe = Probe()
+234 |     code, error_type = 0, None
+    |
+
+ASYNC240 Async functions should not use pathlib.Path methods, use trio.Path or anyio.path
+   --> tests/load/fleet/test_ci_diagnostics.py:105:16
+    |
+103 |     # Unit-test only the runner's exit/cleanup contract, not workload success.
+104 |     async def target(path: Path) -> None:
+105 |         assert path.is_dir()
+    |                ^^^^^^^^^^^
+106 |         if outcome == "assertion":
+107 |             raise AssertionError("unit-test failure")
+    |
+
+E501 Line too long (102 > 100)
+   --> tests/load/fleet/test_ci_diagnostics.py:111:101
+    |
+109 |             await asyncio.sleep(10)
+110 |
+111 |     monkeypatch.setattr(test_fleet_load, "test_hundred_simulated_clients_control_plane_holds", target)
+    |                                                                                                     ^^
+112 |     directory = tmp_path / "diagnostic"
+113 |     exit_code = await diagnose(directory, timeout=0.01)
+    |
+
+E501 Line too long (106 > 100)
+  --> tests/ops/test_ci_python_portability.py:76:101
+   |
+74 |             "uses": "actions/upload-artifact@v4",
+75 |             "with": {
+76 |                 "name": "fleet-evidence-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}",
+   |                                                                                                     ^^^^^^
+77 |                 "path": REPORT_PATHS,
+78 |                 "retention-days": 7,
+   |
+
+E501 Line too long (102 > 100)
+   --> tests/ops/test_ci_python_portability.py:140:101
+    |
+138 |         diagnostic["if"] = "always()"
+139 |     elif mutation == "same-basetemp":
+140 |         diagnostic["run"] = DIAGNOSTIC_COMMAND.replace("cloudctl-fleet-diagnostic", "cloudctl-pytest")
+    |                                                                                                     ^^
+141 |     else:
+142 |         job["steps"].insert(-2, deepcopy(diagnostic))
+    |
+
+Found 6 errors.

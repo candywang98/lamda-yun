@@ -2,6 +2,7 @@ import os
 import shutil
 import stat
 import subprocess
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +14,17 @@ WORKFLOW = ROOT / ".github" / "workflows" / "ci.yml"
 PG_DISCOVERY_STEP = "Discover PostgreSQL test binaries"
 PG_TOOLS = ("initdb", "pg_ctl", "createdb")
 SECURITY_SCRIPT = Path("scripts/check-security-boundaries.sh")
+DIAGNOSTIC_NAME = "Diagnose fleet latency after pytest failure"
+UPLOAD_NAME = "Upload fleet diagnostic evidence"
+GATE_COMMAND = 'pytest -q -rs --basetemp "$RUNNER_TEMP/cloudctl-pytest"'
+DIAGNOSTIC_COMMAND = (
+    'python -m tests.load.fleet.ci_diagnostics --basetemp "$RUNNER_TEMP/cloudctl-fleet-diagnostic"'
+)
+REPORT_PATHS = (
+    "${{ runner.temp }}/cloudctl-pytest/**/load-report-*.json\n"
+    "${{ runner.temp }}/cloudctl-fleet-diagnostic/load-report-*.json\n"
+    "${{ runner.temp }}/cloudctl-fleet-diagnostic/diagnostic.json\n"
+)
 
 
 def workflow_jobs() -> dict[str, Any]:
@@ -45,10 +57,33 @@ def test_only_python_checkout_requests_full_history_for_q02() -> None:
         assert other == [{"uses": "actions/checkout@v4"}]
 
 
-def test_python_workflow_keeps_all_gates_without_ancestry_shortcuts() -> None:
-    job = workflow_jobs()["python"]
-    commands = [step["run"] for step in job["steps"] if "run" in step]
-
+def assert_python_gates(job: dict[str, Any]) -> None:
+    steps = job["steps"]
+    supplementary = steps[-2:]
+    assert supplementary == [
+        {
+            "name": DIAGNOSTIC_NAME,
+            "if": "failure() && steps.pytest.outcome == 'failure'",
+            "timeout-minutes": 5,
+            "run": DIAGNOSTIC_COMMAND,
+        },
+        {
+            "name": UPLOAD_NAME,
+            "if": "always()",
+            "uses": "actions/upload-artifact@v4",
+            "with": {
+                "name": (
+                    "fleet-evidence-${{ github.sha }}-"
+                    "${{ github.run_id }}-${{ github.run_attempt }}"
+                ),
+                "path": REPORT_PATHS,
+                "retention-days": 7,
+                "if-no-files-found": "warn",
+            },
+        },
+    ]
+    core = steps[:-2]
+    commands = [step["run"] for step in core if "run" in step]
     assert commands == [
         "pip install -e '.[dev,lamda]'",
         "ruff format --check .",
@@ -56,13 +91,72 @@ def test_python_workflow_keeps_all_gates_without_ancestry_shortcuts() -> None:
         "pyright",
         "mypy",
         postgres_discovery_step()["run"],
-        "pytest -q -rs",
+        GATE_COMMAND,
         "bash scripts/check-security-boundaries.sh",
     ]
-    for section in (job, *job["steps"]):
+    assert [step for step in core if step.get("id") == "pytest"] == [
+        {"id": "pytest", "run": GATE_COMMAND}
+    ]
+    for section in (job, *core):
         assert "if" not in section
+    for section in (job, *steps):
         assert "continue-on-error" not in section
+
+
+def test_python_workflow_keeps_all_gates_without_ancestry_shortcuts() -> None:
+    assert_python_gates(workflow_jobs()["python"])
     assert "Q02_EXPECTED_SHA" not in WORKFLOW.read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "conditional-core",
+        "conditional-job",
+        "continue",
+        "skip-core",
+        "replace-gate",
+        "retry-gate",
+        "broad-upload",
+        "conditional-upload",
+        "implicit-success",
+        "diagnostic-always",
+        "same-basetemp",
+        "extra-diagnostic",
+    ],
+)
+def test_python_evidence_steps_cannot_bypass_or_replace_gate(mutation: str) -> None:
+    job = deepcopy(workflow_jobs()["python"])
+    gate = next(step for step in job["steps"] if step.get("id") == "pytest")
+    diagnostic, upload = job["steps"][-2:]
+    if mutation == "conditional-core":
+        gate["if"] = "false"
+    elif mutation == "conditional-job":
+        job["if"] = "false"
+    elif mutation == "continue":
+        diagnostic["continue-on-error"] = True
+    elif mutation == "skip-core":
+        job["steps"].remove(gate)
+    elif mutation == "replace-gate":
+        gate["run"] = DIAGNOSTIC_COMMAND
+    elif mutation == "retry-gate":
+        gate["run"] += " || pytest -q -rs"
+    elif mutation == "broad-upload":
+        upload["with"]["path"] = "${{ runner.temp }}/**"
+    elif mutation == "conditional-upload":
+        upload["if"] = "success()"
+    elif mutation == "implicit-success":
+        diagnostic["if"] = "steps.pytest.outcome == 'failure'"
+    elif mutation == "diagnostic-always":
+        diagnostic["if"] = "always()"
+    elif mutation == "same-basetemp":
+        diagnostic["run"] = DIAGNOSTIC_COMMAND.replace(
+            "cloudctl-fleet-diagnostic", "cloudctl-pytest"
+        )
+    else:
+        job["steps"].insert(-2, deepcopy(diagnostic))
+    with pytest.raises(AssertionError):
+        assert_python_gates(job)
 
 
 @pytest.mark.parametrize("forbidden_import", [False, True], ids=["benign", "forbidden-import"])
@@ -105,7 +199,11 @@ def test_parsed_security_gate_runs_nonexecutable_guard(
     assert direct.returncode == 126, direct.stdout + direct.stderr
     assert "Permission denied" in direct.stderr
 
-    command = workflow_jobs()["python"]["steps"][-1]["run"]
+    command = next(
+        step["run"]
+        for step in workflow_jobs()["python"]["steps"]
+        if step.get("run") == "bash scripts/check-security-boundaries.sh"
+    )
     result = execute(command)
     assert result.returncode == (1 if forbidden_import else 0), result.stdout + result.stderr
     if forbidden_import:
