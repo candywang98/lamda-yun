@@ -23,6 +23,7 @@ class InputRoutePolicyTest {
         assertEquals(InputChannel.TEMPORARY_IME, InputRoutePolicy.channel(32))
         assertTrue(InputRoutePolicy.ready(31, accessibilityActive = true, imeEnabled = true, imeSelected = false))
         assertFalse(InputRoutePolicy.ready(31, accessibilityActive = true, imeEnabled = false, imeSelected = false))
+        assertFalse(InputRoutePolicy.ready(31, accessibilityActive = true, imeEnabled = true, imeSelected = true))
         assertTrue(InputRoutePolicy.requiresSetup(30, imeEnabled = false, imeSelected = false))
         assertFalse(InputRoutePolicy.requiresSetup(32, imeEnabled = true, imeSelected = false))
     }

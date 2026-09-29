@@ -1,6 +1,8 @@
 package com.company.cloudctl.companion.ime
 
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 
 /**
  * Outcome of putting the user's keyboard back. [leftUserChoice] means a third
@@ -30,9 +32,13 @@ internal class TemporaryImeSwitch(
     private val pause: suspend () -> Unit = { delay(50) },
     private val observeAttempts: Int = 8,
     private val onEngaged: (() -> Unit)? = null,
+    private val onSwitchStarted: (() -> Unit)? = null,
+    private val onSwitchFinished: (() -> Unit)? = null,
 ) {
     /**
-     * Switches to CloudCtl for [block] and always attempts to restore.
+     * Switches to CloudCtl for [block] and always attempts to restore. If it
+     * was already selected, there is no known keyboard to restore, so input
+     * is refused before the block runs.
      *
      * A user who picks a third IME mid-transaction keeps that choice: the block
      * fails with [USER_INTERFERENCE] and restore does not overwrite it. A failed
@@ -44,53 +50,55 @@ internal class TemporaryImeSwitch(
             ?: fail("INPUT_IME_REQUIRED", "The current keyboard id could not be read")
         val ours = switcher.cloudCtlIds()
         if (ours.isEmpty()) fail("INPUT_IME_REQUIRED", "CloudCtl Input is not enabled")
-        val startedAsOurs = original in ours
-        if (!startedAsOurs) {
-            val targetId = ours.first()
-            if (!switcher.switchTo(targetId) || !awaitSelected(ours)) {
-                // The switch itself failed. Still try to put the original id back
-                // in case the platform moved part-way, then refuse the write.
-                val rollback = restore(original, ours)
+        if (original in ours) {
+            fail(
+                "INPUT_IME_RECOVERY_REQUIRED",
+                "CloudCtl Input is already the default keyboard; select a normal keyboard in system input settings before retrying",
+            )
+        }
+        onSwitchStarted?.invoke()
+        try {
+            try {
+                if (!switcher.switchTo(ours.first()) || !awaitSelected(ours)) {
+                    fail("INPUT_IME_REQUIRED", "CloudCtl Input could not be selected for this field")
+                }
+            } catch (error: Throwable) {
+                // A cancellation can arrive after the platform moved part-way.
+                val rollback = withContext(NonCancellable) { restore(original, ours) }
                 if (!rollback.restored && !rollback.leftUserChoice) {
                     fail("IME_RESTORE_FAILED", "Temporary keyboard switch failed and the original keyboard was not restored")
                 }
-                fail("INPUT_IME_REQUIRED", "CloudCtl Input could not be selected for this field")
+                throw error
             }
-        }
-        var blockError: Throwable? = null
-        var result: T? = null
-        try {
-            val selected = switcher.observeSelectedId()
-            if (selected !in ours) {
-                fail("USER_INTERFERENCE", "The keyboard changed before input started")
+            var blockError: Throwable? = null
+            var result: T? = null
+            try {
+                val selected = switcher.observeSelectedId()
+                if (selected !in ours) {
+                    fail("USER_INTERFERENCE", "The keyboard changed before input started")
+                }
+                onEngaged?.invoke()
+                result = block()
+            } catch (error: Throwable) {
+                blockError = error
             }
-            onEngaged?.invoke()
-            result = block()
-        } catch (error: Throwable) {
-            blockError = error
-        } finally {
-            // Cancellation and failure both reach here: the original id is restored
-            // unless the user already picked a different keyboard.
-        }
-        if (startedAsOurs) {
+            val report = withContext(NonCancellable) { restore(original, ours) }
+            when {
+                report.leftUserChoice -> fail(
+                    "USER_INTERFERENCE",
+                    "The user selected another keyboard; that choice was kept",
+                )
+                !report.restored -> fail(
+                    "IME_RESTORE_FAILED",
+                    "The original keyboard ${original} was not restored (now ${report.observedId ?: "unknown"})",
+                )
+            }
             blockError?.let { throw it }
             @Suppress("UNCHECKED_CAST")
             return result as T
+        } finally {
+            onSwitchFinished?.invoke()
         }
-        val report = restore(original, ours)
-        when {
-            report.leftUserChoice -> fail(
-                "USER_INTERFERENCE",
-                "The user selected another keyboard; that choice was kept",
-            )
-            !report.restored -> fail(
-                "IME_RESTORE_FAILED",
-                "The original keyboard ${original} was not restored (now ${report.observedId ?: "unknown"})",
-            )
-        }
-        blockError?.let { throw it }
-        @Suppress("UNCHECKED_CAST")
-        return result as T
     }
 
     private suspend fun restore(original: String, ours: Set<String>): ImeRestoreReport {

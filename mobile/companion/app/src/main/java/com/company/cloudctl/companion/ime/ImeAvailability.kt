@@ -23,4 +23,13 @@ internal object ImeAvailability {
      * shown the caller keeps its actionable INPUT_IME_REQUIRED failure.
      */
     fun pickerRequest(opensSystemPicker: () -> Unit): Boolean = runCatching(opensSystemPicker).isSuccess
+
+    /** Prefer the public picker; input-method settings are a contained fallback only. */
+    fun recoveryRequest(
+        requestsSystemPicker: () -> Boolean,
+        opensInputMethodSettings: () -> Unit,
+    ): Boolean {
+        if (runCatching(requestsSystemPicker).getOrDefault(false)) return true
+        return runCatching(opensInputMethodSettings).isSuccess
+    }
 }

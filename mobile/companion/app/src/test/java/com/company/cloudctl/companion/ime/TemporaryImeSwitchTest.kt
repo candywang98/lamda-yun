@@ -13,6 +13,7 @@ class TemporaryImeSwitchTest {
         val cloud = setOf("com.company.cloudctl.companion/.ime.CloudCtlInputMethod")
         var switchResult = true
         var observeAfterSwitch: String? = null
+        var staleSelectionReads = 0
         val switches = mutableListOf<String>()
         override fun currentDefaultId(): String? = current
         override fun cloudCtlIds(): Set<String> = cloud
@@ -22,7 +23,8 @@ class TemporaryImeSwitchTest {
             current = observeAfterSwitch ?: id
             return true
         }
-        override fun observeSelectedId(): String? = current
+        override fun observeSelectedId(): String? =
+            if (staleSelectionReads-- > 0) "com.sogou/.SogouIME" else current
     }
 
     @Test fun switchesForTheBlockAndRestoresTheOriginalId() = runBlocking {
@@ -38,12 +40,51 @@ class TemporaryImeSwitchTest {
         assertEquals(listOf<String?>(fake.cloud.first()), seen)
     }
 
-    @Test fun alreadyOnCloudCtlDoesNotSwitchAway() = runBlocking {
+    @Test fun alreadyOnCloudCtlRefusesInputUntilUserSelectsAKeyboard() = runBlocking {
         val fake = Fake().apply { current = cloud.first() }
-        val value = TemporaryImeSwitch(fake, pause = {}).around<String> { "ok" }
-        assertEquals("ok", value)
+        var committed = false
+        var started = false
+        val error = assertFailsWith<ExecutorFailure> {
+            TemporaryImeSwitch(fake, pause = {}, onSwitchStarted = { started = true }).around {
+                committed = true
+                "typed"
+            }
+        }
+        assertEquals("INPUT_IME_RECOVERY_REQUIRED", error.code)
+        assertTrue(error.message.orEmpty().contains("system input settings"))
+        assertTrue(!committed)
+        assertTrue(!started)
         assertTrue(fake.switches.isEmpty())
         assertEquals(fake.cloud.first(), fake.current)
+    }
+
+    @Test fun temporarySelectionEndsAfterSuccessFailureAndCancellation() {
+        fun transaction(fake: Fake, block: suspend () -> String): Pair<String?, List<Boolean>> {
+            val states = mutableListOf<Boolean>()
+            val result = runCatching {
+                runBlocking {
+                    TemporaryImeSwitch(
+                        fake,
+                        pause = {},
+                        onSwitchStarted = { states += true },
+                        onSwitchFinished = { states += false },
+                    ).around(block)
+                }
+            }
+            return (result.exceptionOrNull() as? ExecutorFailure)?.code to states
+        }
+
+        assertEquals(null to listOf(true, false), transaction(Fake()) { "ok" })
+        assertEquals("INPUT_IME_REQUIRED" to listOf(true, false), transaction(Fake().apply { switchResult = false }) { "nope" })
+        val restoreFailure = Fake()
+        assertEquals("IME_RESTORE_FAILED" to listOf(true, false), transaction(restoreFailure) {
+            restoreFailure.switchResult = false
+            "typed"
+        })
+        assertEquals(restoreFailure.cloud.first(), restoreFailure.current)
+        assertEquals(null to listOf(true, false), transaction(Fake()) {
+            throw kotlinx.coroutines.CancellationException("stopped")
+        })
     }
 
     @Test fun thirdPartyKeyboardIsNotTakenOver() {
@@ -94,6 +135,23 @@ class TemporaryImeSwitchTest {
                 }
             }
         }
+        assertEquals("com.sogou/.SogouIME", fake.current)
+    }
+
+    @Test fun cancellationWhileSelectingStillRollsBackAndClearsTemporaryState() {
+        val fake = Fake().apply { staleSelectionReads = 1 }
+        val states = mutableListOf<Boolean>()
+        assertFailsWith<kotlinx.coroutines.CancellationException> {
+            runBlocking {
+                TemporaryImeSwitch(
+                    fake,
+                    pause = { throw kotlinx.coroutines.CancellationException("selection interrupted") },
+                    onSwitchStarted = { states += true },
+                    onSwitchFinished = { states += false },
+                ).around { "never typed" }
+            }
+        }
+        assertEquals(listOf(true, false), states)
         assertEquals("com.sogou/.SogouIME", fake.current)
     }
 

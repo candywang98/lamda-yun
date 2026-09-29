@@ -81,17 +81,18 @@ internal object InputRoutePolicy {
 
     /**
      * Claim-time input capability. Editor binding is not part of this decision:
-     * API 33 is ready once accessibility is active; API 30–32 once CloudCtl is
-     * enabled; API 29 only when it is also the current keyboard.
+     * API 33 is ready once accessibility is active; API 30–32 needs CloudCtl
+     * enabled and a different default keyboard to restore; API 29 requires
+     * CloudCtl as the current keyboard.
      */
     fun ready(sdk: Int, accessibilityActive: Boolean, imeEnabled: Boolean, imeSelected: Boolean): Boolean =
         accessibilityActive && when (channel(sdk)) {
             InputChannel.ACCESSIBILITY -> true
-            InputChannel.TEMPORARY_IME -> imeEnabled
+            InputChannel.TEMPORARY_IME -> imeEnabled && !imeSelected
             InputChannel.MANUAL_IME -> imeEnabled && imeSelected
         }
 
-    /** True when the status UI must still ask the user to touch the keyboard settings. */
+    /** Initial enablement/manual setup; default-keyboard recovery is prompted separately. */
     fun requiresSetup(sdk: Int, imeEnabled: Boolean, imeSelected: Boolean): Boolean = when (channel(sdk)) {
         InputChannel.ACCESSIBILITY -> false
         InputChannel.TEMPORARY_IME -> !imeEnabled

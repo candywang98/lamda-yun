@@ -1,6 +1,7 @@
 package com.company.cloudctl.companion.ime
 
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -33,5 +34,50 @@ class ImeAvailabilityTest {
         assertFalse(
             ImeAvailability.pickerRequest { throw IllegalStateException("window lost") },
         )
+    }
+
+    @Test
+    fun recoveryRequestStopsAfterThePickerOpens() {
+        val calls = mutableListOf<String>()
+
+        assertTrue(
+            ImeAvailability.recoveryRequest(
+                requestsSystemPicker = { calls += "picker"; true },
+                opensInputMethodSettings = { calls += "settings" },
+            ),
+        )
+        assertEquals(listOf("picker"), calls)
+    }
+
+    @Test
+    fun recoveryRequestFallsBackToSettingsAfterPickerUnavailability() {
+        val calls = mutableListOf<String>()
+
+        assertTrue(
+            ImeAvailability.recoveryRequest(
+                requestsSystemPicker = { calls += "picker"; false },
+                opensInputMethodSettings = { calls += "settings" },
+            ),
+        )
+        assertEquals(listOf("picker", "settings"), calls)
+    }
+
+    @Test
+    fun recoveryRequestContainsPickerAndSettingsFailures() {
+        val calls = mutableListOf<String>()
+
+        assertFalse(
+            ImeAvailability.recoveryRequest(
+                requestsSystemPicker = {
+                    calls += "picker"
+                    throw IllegalStateException("picker unavailable")
+                },
+                opensInputMethodSettings = {
+                    calls += "settings"
+                    throw IllegalStateException("settings unavailable")
+                },
+            ),
+        )
+        assertEquals(listOf("picker", "settings"), calls)
     }
 }

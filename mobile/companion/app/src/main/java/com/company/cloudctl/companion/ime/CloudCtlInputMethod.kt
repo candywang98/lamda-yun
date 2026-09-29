@@ -1,7 +1,9 @@
 package com.company.cloudctl.companion.ime
 
 import android.content.Context
+import android.content.Intent
 import android.inputmethodservice.InputMethodService
+import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
 import android.util.Log
@@ -9,13 +11,17 @@ import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
 import android.view.inputmethod.InputMethodManager
-import android.widget.FrameLayout
+import android.widget.Button
+import android.widget.LinearLayout
+import android.widget.TextView
+import com.company.cloudctl.companion.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /** Companion-owned IME. Text requests never survive an input session or a failed call. */
 class CloudCtlInputMethod : InputMethodService() {
     private var session: Long? = null
+    private var recoveryView: View? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -25,13 +31,32 @@ class CloudCtlInputMethod : InputMethodService() {
 
     override fun onDestroy() {
         session = null
+        recoveryView = null
         if (active === this) active = null
         super.onDestroy()
     }
 
-    override fun onCreateInputView(): View = FrameLayout(this).apply {
-        layoutParams = FrameLayout.LayoutParams(0, 0)
-        visibility = View.GONE
+    override fun onCreateInputView(): View = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        val padding = (8 * resources.displayMetrics.density).toInt()
+        setPadding(padding, padding, padding, padding)
+        addView(TextView(context).apply {
+            text = getString(R.string.ime_recovery_message)
+        }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        addView(Button(context).apply {
+            text = getString(R.string.ime_recovery_action)
+            setOnClickListener {
+                if (!requestUserRecovery(this@CloudCtlInputMethod)) {
+                    Log.w(TAG, "Could not open the input-method picker or settings")
+                }
+            }
+        })
+        recoveryView = this
+        updateRecoveryView()
+    }
+
+    private fun updateRecoveryView() {
+        recoveryView?.visibility = if (temporarySelection) View.GONE else View.VISIBLE
     }
 
     override fun onStartInput(attribute: EditorInfo?, restarting: Boolean) {
@@ -50,10 +75,21 @@ class CloudCtlInputMethod : InputMethodService() {
     companion object {
         private const val TAG = "CloudCtlIme"
         private val gate = ImeSessionGate()
+        @Volatile private var temporarySelection = false
 
         @Volatile
         var active: CloudCtlInputMethod? = null
             private set
+
+        /** The recovery control is hidden only during a scoped temporary switch. */
+        internal fun setTemporarySelection(activeTransaction: Boolean) {
+            temporarySelection = activeTransaction
+            if (Looper.myLooper() == Looper.getMainLooper()) {
+                active?.updateRecoveryView()
+            } else {
+                Handler(Looper.getMainLooper()).post { active?.updateRecoveryView() }
+            }
+        }
 
         /** Enabled check uses only the public InputMethodManager API. */
         fun isEnabled(context: Context): Boolean {
@@ -88,6 +124,16 @@ class CloudCtlInputMethod : InputMethodService() {
             val manager = context.getSystemService(InputMethodManager::class.java) ?: return false
             return ImeAvailability.pickerRequest { manager.showInputMethodPicker() }
         }
+
+        /** Picker-first recovery for a user left with CloudCtl as the default keyboard. */
+        fun requestUserRecovery(context: Context): Boolean = ImeAvailability.recoveryRequest(
+            requestsSystemPicker = { requestUserSelection(context) },
+            opensInputMethodSettings = {
+                context.startActivity(
+                    Intent(Settings.ACTION_INPUT_METHOD_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                )
+            },
+        )
 
         /** Identity of the editor the IME is currently bound to; null without a live editor. */
         fun currentEditorIdentity(): ImeSessionIdentity.FieldIdentity? =

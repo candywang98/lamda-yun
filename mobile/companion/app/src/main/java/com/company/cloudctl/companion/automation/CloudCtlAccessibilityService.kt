@@ -1184,6 +1184,8 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
             override fun observeSelectedId(): String? = currentDefaultId()
         },
         onEngaged = { imeSwitchEngaged = true },
+        onSwitchStarted = { CloudCtlInputMethod.setTemporarySelection(true) },
+        onSwitchFinished = { CloudCtlInputMethod.setTemporarySelection(false) },
     )
 
     /**

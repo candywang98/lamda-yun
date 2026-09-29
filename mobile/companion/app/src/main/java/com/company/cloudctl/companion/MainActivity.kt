@@ -69,6 +69,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.company.cloudctl.companion.ime.CloudCtlInputMethod
 import com.company.cloudctl.companion.ime.InputChannel
 import com.company.cloudctl.companion.ime.InputRoutePolicy
 import com.company.cloudctl.companion.model.CompanionState
@@ -170,6 +171,7 @@ private fun CompanionScreen(state: CompanionState, model: CompanionViewModel) {
         ) {
             if (BuildConfig.HEARTBEAT_DIAGNOSTIC) {
                 Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    if (state.permissions.inputMethodCurrent) KeyboardRecoveryPrompt()
                     Text("连接诊断模式", style = MaterialTheme.typography.titleLarge)
                     Text("仅健康心跳；任务、消息补传、远程预览和自动更新均已禁用。")
                     Text("版本：${BuildConfig.VERSION_NAME}")
@@ -178,7 +180,7 @@ private fun CompanionScreen(state: CompanionState, model: CompanionViewModel) {
                     Text("最近成功心跳：${state.lastHeartbeatAt ?: "尚无记录"}")
                     Text("本版本不申请权限、不重新绑定；退出诊断需经授权更新应用。")
                 }
-            } else if (state.binding == null) EnrollmentForm(state.busy, state.error, model)
+            } else if (state.binding == null) EnrollmentForm(state.busy, state.error, state.permissions.inputMethodCurrent, model)
             else StatusContent(state, model)
             if (state.busy) CircularProgressIndicator(Modifier.align(Alignment.Center))
         }
@@ -186,7 +188,7 @@ private fun CompanionScreen(state: CompanionState, model: CompanionViewModel) {
 }
 
 @Composable
-private fun EnrollmentForm(busy: Boolean, error: String?, model: CompanionViewModel) {
+private fun EnrollmentForm(busy: Boolean, error: String?, imeSelected: Boolean, model: CompanionViewModel) {
     var code by remember { mutableStateOf("") }
     // Preconfigured staging server settings
     val defaultCloudUrl = "https://43.133.243.154.sslip.io"
@@ -196,6 +198,7 @@ private fun EnrollmentForm(busy: Boolean, error: String?, model: CompanionViewMo
         modifier = Modifier.fillMaxSize().padding(20.dp).verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
+        if (imeSelected) KeyboardRecoveryPrompt()
         Text(
             "设备入网",
             style = MaterialTheme.typography.headlineSmall,
@@ -242,6 +245,7 @@ private fun StatusContent(state: CompanionState, model: CompanionViewModel) {
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
+        if (state.permissions.inputMethodCurrent) KeyboardRecoveryPrompt()
         CurrentRunStrip(state)
         AccountAuthorizationPanel(state)
         if (!state.permissions.lamdaServiceCertificateEnabled) {
@@ -392,17 +396,29 @@ private fun CurrentRunStrip(state: CompanionState) {
 private fun inputMethodStatus(state: CompanionState): String {
     val channel = InputRoutePolicy.channel(Build.VERSION.SDK_INT)
     return when (channel) {
-        InputChannel.ACCESSIBILITY -> "由无障碍输入，不必切换日常键盘"
+        InputChannel.ACCESSIBILITY -> if (state.permissions.inputMethodCurrent) "当前占用日常键盘，请切回" else "由无障碍输入，不必切换日常键盘"
         InputChannel.TEMPORARY_IME -> when {
+            state.permissions.inputMethodCurrent -> "当前占用日常键盘，请切回"
             state.permissions.inputMethodEnabled -> "已启用，输入时临时切换并恢复"
             else -> "需要先启用备用输入法"
         }
         InputChannel.MANUAL_IME -> when {
-            state.permissions.inputMethodCurrent -> "当前键盘"
+            state.permissions.inputMethodCurrent -> "当前键盘，不支持手打"
             state.permissions.inputMethodEnabled -> "已启用，需手动设为当前"
             else -> "需要授权并手动设为当前"
         }
     }
+}
+
+@Composable
+private fun KeyboardRecoveryPrompt() {
+    val context = LocalContext.current
+    KeepAlivePrompt(
+        title = "CloudCtl Input 正占用系统键盘",
+        detail = "它不支持手打。请从系统键盘选择器切回常用键盘；若选择器无法显示，将打开输入法设置。",
+        action = "切换键盘",
+        onClick = { CloudCtlInputMethod.requestUserRecovery(context) },
+    )
 }
 
 private enum class CompanionStatusTab(val label: String) {
