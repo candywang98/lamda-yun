@@ -128,9 +128,7 @@ async def postgres_pair(
         context = app.router.lifespan_context(app)
         await context.__aenter__()
         contexts.append(context)
-        client = httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=app), base_url="http://test"
-        )
+        client = httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test")
         instances.append((client, app))
     try:
         yield instances
@@ -204,7 +202,9 @@ async def task_count(app: FastAPI, queue_id: str) -> int:
     async with app.state.database.unit_of_work() as session:
         return int(
             await session.scalar(
-                select(func.count()).select_from(MobileTaskRow).where(
+                select(func.count())
+                .select_from(MobileTaskRow)
+                .where(
                     MobileTaskRow.tenant_id == TENANT,
                     MobileTaskRow.batch_id == queue_id,
                 )
@@ -292,9 +292,7 @@ async def test_postgres_serializes_concurrent_dispatch_across_api_instances(
     assert first.status_code == 200, first.text
     assert second.status_code == 409, second.text
     queue = (
-        await second_client.get(
-            f"/api/v1/xianyu/publish/queues/{queue_id}", headers=identity()
-        )
+        await second_client.get(f"/api/v1/xianyu/publish/queues/{queue_id}", headers=identity())
     ).json()
     assert [target["state"] for target in queue["targets"]] == ["IN_FLIGHT", "PENDING"]
     assert len(queue["targets"][0]["taskIds"]) == 1
@@ -321,10 +319,7 @@ async def test_task_create_commit_then_failure_recovers_same_dispatch_key(
         return views, created
 
     monkeypatch.setattr(app.state.platform_task_service, "create", create_then_fail)
-    path = (
-        "/api/v1/xianyu/publish/queues/dispatch-recovery/targets/"
-        f"{target_id}/dispatch"
-    )
+    path = f"/api/v1/xianyu/publish/queues/dispatch-recovery/targets/{target_id}/dispatch"
     failed = await client.post(path, headers=identity())
     assert failed.status_code == 422, failed.text
     queue = (
@@ -349,8 +344,7 @@ async def test_dispatch_claim_pause_preserves_queue_identity_without_success_con
     device_id, targets = await create_queue(client, "dispatch-pause", item_count=1)
     target_id = targets[0]["targetId"]
     dispatch = await client.post(
-        "/api/v1/xianyu/publish/queues/dispatch-pause/targets/"
-        f"{target_id}/dispatch",
+        f"/api/v1/xianyu/publish/queues/dispatch-pause/targets/{target_id}/dispatch",
         headers=identity(),
     )
     assert dispatch.status_code == 200, dispatch.text
@@ -385,8 +379,7 @@ async def test_dispatch_claim_pause_preserves_queue_identity_without_success_con
         task_row = await session.get(MobileTaskRow, task_id)
         assert task_row is not None
         assert not any(
-            step.get("locatorRef") == "xianyu_publish_button"
-            for step in list(task_row.steps or [])
+            step.get("locatorRef") == "xianyu_publish_button" for step in list(task_row.steps or [])
         )
 
     paused = await client.post(
@@ -420,7 +413,9 @@ async def test_dispatch_claim_pause_preserves_queue_identity_without_success_con
     assert target["confirmedAt"] is None
     async with app.state.database.unit_of_work() as session:
         confirmations = await session.scalar(
-            select(func.count()).select_from(AuditEventRow).where(
+            select(func.count())
+            .select_from(AuditEventRow)
+            .where(
                 AuditEventRow.tenant_id == TENANT,
                 AuditEventRow.resource_id == target_id,
                 AuditEventRow.action == "xianyu.publish.confirmed",

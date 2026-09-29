@@ -354,8 +354,7 @@ def test_two_device_ambiguous_label_and_missing_crashed_heading_fail_closed() ->
         "crashed": "UNKNOWN",
     }
     assert all(
-        device["localBusinessPrerequisites"]["state"] == "UNKNOWN"
-        for device in report["devices"]
+        device["localBusinessPrerequisites"]["state"] == "UNKNOWN" for device in report["devices"]
     )
     assert report["localPreflight"] == {"state": "UNKNOWN", "ready": False}
     assert report["cloudAccountReadiness"]["ready"] is False
