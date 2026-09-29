@@ -903,19 +903,42 @@ class XianyuPublishQueueService:
     ) -> dict[str, Any]:
         """Mint the MobileTask for a target (publish-target identity is stamped
         into the frozen command payload so device side and server side agree
-        on which target this execution belongs to)."""
+        on which target this execution belongs to).
+
+        The queue rows stay locked across the task mint and target commit. This
+        makes the serial eligibility check authoritative across API processes,
+        while the stable dispatch key recovers a task committed just before an
+        interrupted queue transaction.
+        """
         require_permissions(actor.roles, Permission.TASK_CREATE)
         # Late import: platform_tasks imports this module (no import cycle).
+        from cloudctl_domain import ConflictError, NotFoundError
+
         from .platform_tasks import PlatformTaskCreate
 
         async with self.database.unit_of_work() as session:
-            row = await self._locked_target(session, str(actor.tenant_id), queue_id, target_id)
+            rows = await self._locked_queue_rows(session, str(actor.tenant_id), queue_id)
+            if not rows:
+                raise NotFoundError("publish queue was not found")
+            row = next((candidate for candidate in rows if candidate.id == target_id), None)
+            if row is None:
+                raise NotFoundError("publish target was not found in this queue")
             if row.state not in {TARGET_PENDING, TARGET_FAILED_UNCONFIRMED}:
-                from cloudctl_domain import ConflictError
-
                 raise ConflictError(
                     f"target is {row.state}; only PENDING or FAILED_UNCONFIRMED can be dispatched"
                 )
+            if any(candidate.state == TARGET_IN_FLIGHT for candidate in rows):
+                raise ConflictError("another target in this queue is already IN_FLIGHT")
+            eligible = next(
+                (
+                    candidate
+                    for candidate in rows
+                    if candidate.state in {TARGET_PENDING, TARGET_FAILED_UNCONFIRMED}
+                ),
+                None,
+            )
+            if eligible is None or eligible.id != row.id:
+                raise ConflictError("only the first eligible target in the queue can be dispatched")
             item = dict(row.item)
             parameters: dict[str, Any] = {
                 "listingBody": item["description"],
@@ -936,10 +959,8 @@ class XianyuPublishQueueService:
             )
             attempt = len(row.task_ids) + 1
             dispatch_key = f"xianyu-publish:{row.id}:{attempt}"
-        views, _created = await platform_task_service.create(actor, dispatch_key, body)
-        task_id = str(views[0]["taskId"])
-        async with self.database.unit_of_work() as session:
-            row = await self._locked_target(session, str(actor.tenant_id), queue_id, target_id)
+            views, _created = await platform_task_service.create(actor, dispatch_key, body)
+            task_id = str(views[0]["taskId"])
             task = await session.get(MobileTaskRow, task_id, with_for_update=True)
             if task is not None:
                 payload = dict(task.command_payload or {})
@@ -1113,6 +1134,21 @@ class XianyuPublishQueueService:
         if row is None or row.tenant_id != tenant_id or row.queue_id != queue_id:
             raise NotFoundError("publish target was not found in this queue")
         return row
+
+    async def _locked_queue_rows(
+        self, session: AsyncSession, tenant_id: str, queue_id: str
+    ) -> list[XianyuPublishTargetRow]:
+        return list(
+            await session.scalars(
+                select(XianyuPublishTargetRow)
+                .where(
+                    XianyuPublishTargetRow.tenant_id == tenant_id,
+                    XianyuPublishTargetRow.queue_id == queue_id,
+                )
+                .order_by(XianyuPublishTargetRow.position)
+                .with_for_update()
+            )
+        )
 
     @staticmethod
     def _target_view(row: XianyuPublishTargetRow) -> dict[str, Any]:
