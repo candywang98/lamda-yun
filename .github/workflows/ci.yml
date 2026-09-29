@@ -41,7 +41,7 @@ jobs:
           done
           printf '%s\n' "$pg_bin" >> "$GITHUB_PATH"
       - run: pytest -q -rs
-      - run: scripts/check-security-boundaries.sh
+      - run: bash scripts/check-security-boundaries.sh
 
   frontend:
     runs-on: ubuntu-latest

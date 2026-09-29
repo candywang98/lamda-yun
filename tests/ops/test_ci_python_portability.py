@@ -1,4 +1,6 @@
 import os
+import shutil
+import stat
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -10,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = ROOT / ".github" / "workflows" / "ci.yml"
 PG_DISCOVERY_STEP = "Discover PostgreSQL test binaries"
 PG_TOOLS = ("initdb", "pg_ctl", "createdb")
+SECURITY_SCRIPT = Path("scripts/check-security-boundaries.sh")
 
 
 def workflow_jobs() -> dict[str, Any]:
@@ -54,12 +57,65 @@ def test_python_workflow_keeps_all_gates_without_ancestry_shortcuts() -> None:
         "mypy",
         postgres_discovery_step()["run"],
         "pytest -q -rs",
-        "scripts/check-security-boundaries.sh",
+        "bash scripts/check-security-boundaries.sh",
     ]
     for section in (job, *job["steps"]):
         assert "if" not in section
         assert "continue-on-error" not in section
     assert "Q02_EXPECTED_SHA" not in WORKFLOW.read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("forbidden_import", [False, True], ids=["benign", "forbidden-import"])
+def test_parsed_security_gate_runs_nonexecutable_guard(
+    tmp_path: Path, forbidden_import: bool
+) -> None:
+    guard = tmp_path / SECURITY_SCRIPT
+    guard.parent.mkdir()
+    shutil.copyfile(ROOT / SECURITY_SCRIPT, guard)
+    guard.chmod(0o644)
+    assert stat.S_IMODE(guard.stat().st_mode) == 0o644
+    assert guard.read_bytes() == (ROOT / SECURITY_SCRIPT).read_bytes()
+    for directory in ("infra", "services", "apps"):
+        (tmp_path / directory).mkdir()
+    statement = " ".join(("import", "lamda")) if forbidden_import else "value = 1"
+    (tmp_path / "services" / "probe.py").write_text(f"{statement}\n", encoding="utf-8")
+
+    def execute(command: str, *, errexit: bool = True) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(  # noqa: S603 - workflow command in an isolated repository fixture
+            [
+                "/bin/bash",
+                "--noprofile",
+                "--norc",
+                *(["-e"] if errexit else []),
+                "-o",
+                "pipefail",
+                "-c",
+                command,
+            ],
+            cwd=tmp_path,
+            env={"PATH": os.defpath, "LC_ALL": "C"},
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=10,
+        )
+
+    # Bash 3.2 with -e maps EACCES to 1; inspect the raw command status here.
+    direct = execute(SECURITY_SCRIPT.as_posix(), errexit=False)
+    assert direct.returncode == 126, direct.stdout + direct.stderr
+    assert "Permission denied" in direct.stderr
+
+    command = workflow_jobs()["python"]["steps"][-1]["run"]
+    result = execute(command)
+    assert result.returncode == (1 if forbidden_import else 0), result.stdout + result.stderr
+    if forbidden_import:
+        assert result.stderr == (
+            f"LAMDA import outside packages/lamda-driver: ./services/probe.py:1:{statement}\n"
+        )
+        assert result.stdout == ""
+    else:
+        assert result.stdout == "Security boundary checks passed.\n"
+        assert result.stderr == ""
 
 
 def test_postgres_discovery_uses_bash_only_in_python_job() -> None:
