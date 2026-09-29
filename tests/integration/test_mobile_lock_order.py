@@ -1,7 +1,6 @@
-"""PG-LOCK-ORDER: real PostgreSQL characterization and deliberately red regressions.
+"""PG-LOCK-ORDER: real PostgreSQL same-device lock-order regressions.
 
-Frozen production baseline: 7d58f6b28158292722c7d037998163f5fcbfca89.
-Do not merge the desired-no-deadlock tests until a separately approved fix exists.
+The immutable red characterization is in commit 2140f6954ed51c47c08949b6935e27ec722b7d61.
 Only the scheduling of real production row locks is instrumented; SQL, request
 authentication, task/lease validation, and transaction handling stay unchanged.
 """
@@ -31,6 +30,7 @@ from fastapi import FastAPI
 from sqlalchemy import event, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.pool import AsyncAdaptedQueuePool
+from test_fleet_live_session import ack, establish, take_control
 from test_mobile_task_api import create_direct_device, enroll, identity
 
 SOURCE_SHA = "7d58f6b28158292722c7d037998163f5fcbfca89"
@@ -351,7 +351,7 @@ class LockSchedule:
             if f"FROM {table} " not in normalized:
                 continue
             self.sql.append({"operation": role, "table": table, "sql": normalized})
-            if role == "claim" and table == "mobile_task":
+            if role == "claim" and table == "mobile_task" and not self.claim_requests_task.is_set():
                 self.locks_at_claim_task_request = {
                     owner: dict(locks) for owner, locks in self.acquired.items()
                 }
@@ -537,34 +537,66 @@ async def test_sequential_claim_and_update_preserve_valid_state(pg_api, operatio
 
 @pytest.mark.parametrize("operation", OPERATIONS)
 @pytest.mark.parametrize("phase", PHASES)
-async def test_characterizes_claim_lock_cycle(pg_api, monkeypatch, operation, phase):
-    report = await probe(pg_api, operation, phase, monkeypatch)
-    locks = report["locks_at_claim_task_request"]
-    assert locks["claim"]["device"] == locks["claim"]["device_lease"]
-    assert locks["claim"]["device_lease"] != locks[operation]["mobile_task"]
-    failures = [outcome for outcome in report["outcomes"] if outcome["sqlstates"]]
-    assert len(failures) == 1, report["outcomes"]
-    assert failures[0]["sqlstates"] == ["40P01"], failures
-    for outcome in report["outcomes"]:
-        if outcome is failures[0]:
-            continue
-        expected_status = 204 if outcome["operation"] == "claim" else 200
-        assert outcome.get("http_status") == expected_status, outcome
-    if failures[0]["operation"] == operation:
-        assert report["after"] == report["before"], "aborted runner must roll back completely"
-    else:
-        assert_updated(report["after"], operation)
-
-
-@pytest.mark.parametrize("operation", OPERATIONS)
-@pytest.mark.parametrize("phase", PHASES)
 async def test_claim_and_update_should_not_deadlock(pg_api, monkeypatch, operation, phase):
-    """Desired behavior. Intentionally RED on the frozen baseline; no xfail/skip."""
+    """Both operations complete without deadlock, retry, or altered validation."""
     report = await probe(pg_api, operation, phase, monkeypatch)
     for outcome in report["outcomes"]:
         expected_status = 204 if outcome["operation"] == "claim" else 200
         assert outcome.get("http_status") == expected_status, outcome
     assert_updated(report["after"], operation)
+
+
+@pytest.mark.parametrize("phase", PHASES)
+async def test_remote_lease_guard_preserves_active_task_precedence(pg_api, phase):
+    client, app = pg_api
+    active = await prepare_active(client, phase)
+    opened = await establish(client, active.device_id, "INTERACTIVE_REMOTE")
+    assert opened.status_code == 201, opened.text
+    sid, token = opened.json()["sessionId"], opened.json()["sessionToken"]
+    acknowledged = await ack(client, active.auth, sid, granted=True)
+    assert acknowledged.status_code == 200, acknowledged.text
+    controlled = await take_control(client, sid, token)
+    assert controlled.status_code == 200, controlled.text
+    assert controlled.json()["state"] == "REMOTE"
+
+    async def snapshot() -> dict[str, Any]:
+        async with app.state.database.unit_of_work() as session:
+            task = await session.get(MobileTaskRow, active.task_id)
+            lease = await session.get(DeviceLeaseRow, active.device_id)
+            device = await session.get(DeviceRow, active.device_id)
+            assert task is not None and lease is not None and device is not None
+            assert task.lease_id == active.lease_id
+            assert task.lease_expires_at is not None
+            assert task.lease_expires_at > datetime.now(UTC)
+            assert lease.owner_type == "REMOTE"
+            assert lease.owner_workflow_id == f"live/{sid}"
+            assert lease.expires_at > datetime.now(UTC)
+            assert lease.canceled_at is None
+            assert lease.fencing_token == device.fencing_counter
+            return {
+                "task_status": task.status,
+                "business_state": task.business_state,
+                "task_lease": task.lease_id,
+                "task_expiry": task.lease_expires_at,
+                "attempt": task.attempt,
+                "remote_lease": lease.lease_id,
+                "remote_expiry": lease.expires_at,
+                "fencing_token": lease.fencing_token,
+            }
+
+    before = await snapshot()
+    claimed = await request_operation(client, active, "claim")
+    if phase == "PREFLIGHT":
+        assert before["task_status"] == "CLAIMED"
+        assert before["business_state"] == "PREFLIGHT"
+        assert claimed.status_code == 409, claimed.text
+        assert "device write lease is held by remote control" in claimed.text
+    else:
+        assert before["task_status"] == "RUNNING"
+        assert before["business_state"] == "PAUSED_WAITING_USER"
+        assert claimed.status_code == 204, claimed.text
+    assert await snapshot() == before
+    await assert_database_idle(app.state.database)
 
 
 async def test_cancelled_probe_drains_workers_before_database_disposal(pg_api, monkeypatch):

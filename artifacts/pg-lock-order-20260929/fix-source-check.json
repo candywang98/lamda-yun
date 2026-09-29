@@ -1,0 +1,10 @@
+{
+  "repro_commit": "2140f6954ed51c47c08949b6935e27ec722b7d61",
+  "production_baseline": "7d58f6b28158292722c7d037998163f5fcbfca89",
+  "file": "services/control-api/src/cloudctl_api/mobile_service.py",
+  "baseline_sha256": "b026eba59dc3a8bcbd01302eb439c4c00898849c19b6743d8afb7dde21416d1c",
+  "tested_production_sha256": "b2e5face24d05885bd444be05010c7f8194ffbc14a63e10235c975bd3bcea2d1",
+  "tested_test_sha256": "fa8f8f54973d91ae4ab27229664d94fd0786342f88ab7601602f0302f7636724",
+  "only_ast_change": "Move existing active-task SELECT FOR UPDATE immediately before existing lease get/REMOTE guard; all other AST nodes unchanged.",
+  "ast_permutation_verified": true
+}

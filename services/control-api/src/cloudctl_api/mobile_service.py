@@ -1518,16 +1518,6 @@ class MobileTaskService:
             )
             if blocking is not None:
                 return None
-            existing_lease = await session.get(
-                DeviceLeaseRow, binding.device_id, with_for_update=True
-            )
-            if (
-                existing_lease is not None
-                and existing_lease.canceled_at is None
-                and _aware(existing_lease.expires_at) > now
-                and existing_lease.owner_type == "REMOTE"
-            ):
-                raise ConflictError("device write lease is held by remote control")
             active = await session.scalar(
                 select(MobileTaskRow)
                 .where(
@@ -1538,6 +1528,16 @@ class MobileTaskService:
                 .order_by(MobileTaskRow.created_at)
                 .with_for_update()
             )
+            existing_lease = await session.get(
+                DeviceLeaseRow, binding.device_id, with_for_update=True
+            )
+            if (
+                existing_lease is not None
+                and existing_lease.canceled_at is None
+                and _aware(existing_lease.expires_at) > now
+                and existing_lease.owner_type == "REMOTE"
+            ):
+                raise ConflictError("device write lease is held by remote control")
             if (
                 active is not None
                 and active.lease_expires_at is not None

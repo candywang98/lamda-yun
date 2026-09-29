@@ -1,0 +1,8 @@
+........................................................................ [ 38%]
+........................................................................ [ 77%]
+...................sss....................                               [100%]
+=========================== short test summary info ============================
+SKIPPED [1] tests/integration/test_fleet_two_devices.py:1168: device-item q10-device-real-partition-after-intent: physical network partition after the gated intent commit requires real hardware (B10/B11); software projection covered by lease-lapse + open-UNKNOWN tests
+SKIPPED [1] tests/integration/test_fleet_two_devices.py:1177: device-item q10-device-arbiter-single-writer: B10 on-device DeviceArbiter arbitration executes inside the Android Companion process; API-side projection is the at-most-one-active-task-per-device invariant
+SKIPPED [1] tests/integration/test_fleet_two_devices.py:1186: device-item q10-device-real-executable-gates: accessibility/IME/screen-unlock gates against a real Android runtime (B10/B11); software gate evaluation is covered by the A10 mirror tests at this SHA
+183 passed, 3 skipped in 54.91s
