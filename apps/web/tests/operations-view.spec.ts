@@ -163,13 +163,18 @@ describe('OperationsView', () => {
   })
 
   it('aligns xianyu publish goods with product list fields', async () => {
-    await renderRoute('/operations/xy-tasks/xy-tasks-01')
-    expect(screen.getByRole('heading', { name: '发布某鱼商品' })).toBeTruthy()
+    const { container } = await renderRoute('/operations/xy-tasks/xy-tasks-01')
+    expect(screen.getByRole('heading', { name: '闲鱼商品发布前队列' })).toBeTruthy()
     expect(screen.getByLabelText('主闲鱼')).toBeTruthy()
     expect(screen.getByLabelText('均匀分配')).toBeTruthy()
     expect(screen.getByText('智能视频')).toBeTruthy()
     expect(screen.getByRole('button', { name: '添加至待发布' })).toBeTruthy()
-    expect(screen.getAllByRole('button', { name: '创建任务' }).length).toBeGreaterThan(0)
+    const queueActions = screen.getAllByRole('button', { name: '创建或查询队列' })
+    expect(queueActions.length).toBeGreaterThan(0)
+    for (const action of queueActions) expect(action.matches(':disabled')).toBe(true)
+    const legacyControls = container.querySelectorAll('.legacy-settings input, .legacy-settings select, .legacy-settings button')
+    expect(legacyControls.length).toBeGreaterThan(0)
+    for (const control of legacyControls) expect(control.matches(':disabled')).toBe(true)
     expect(screen.queryByText('竞品页面依据')).toBeNull()
   })
 
@@ -200,12 +205,18 @@ describe('OperationsView', () => {
   })
 
   it('reuses the xianyu publish goods form on product management publish', async () => {
-    await renderRoute('/operations/product-management/product-management-05')
-    expect(screen.getByRole('heading', { name: '发布某鱼商品' })).toBeTruthy()
+    const { container } = await renderRoute('/operations/product-management/product-management-05')
+    expect(screen.getByRole('heading', { name: '闲鱼商品发布前队列' })).toBeTruthy()
     expect(screen.getByLabelText('主闲鱼')).toBeTruthy()
     expect(screen.getByRole('button', { name: '添加至待发布' })).toBeTruthy()
     expect(screen.getByText('宝贝分组')).toBeTruthy()
     expect(screen.getByText('商品图片/视频')).toBeTruthy()
+    const queueActions = screen.getAllByRole('button', { name: '创建或查询队列' })
+    expect(queueActions.length).toBeGreaterThan(0)
+    for (const action of queueActions) expect(action.matches(':disabled')).toBe(true)
+    const legacyControls = container.querySelectorAll('.legacy-settings input, .legacy-settings select, .legacy-settings button')
+    expect(legacyControls.length).toBeGreaterThan(0)
+    for (const control of legacyControls) expect(control.matches(':disabled')).toBe(true)
     expect(screen.queryByText('竞品页面依据')).toBeNull()
   })
 
