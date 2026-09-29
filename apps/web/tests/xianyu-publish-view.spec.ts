@@ -5,7 +5,7 @@ import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import type { XianyuPublishQueueRequest } from '@/data/xianyu-publish-goods'
 import { XY_PUBLISH_GOODS_CONFIG_KEY, XY_PUBLISH_GOODS_TASKS_KEY } from '@/data/xianyu-publish-goods'
-import { account, device, product, queueResponse } from './xianyu-publish-fixtures'
+import { account, device, dispatchedTarget, platformTask, product, queueResponse } from './xianyu-publish-fixtures'
 import XianyuPublishGoodsView from '@/views/XianyuPublishGoodsView.vue'
 import { useSessionStore } from '@/stores/session'
 
@@ -27,6 +27,12 @@ let catalogError = false
 let malformed = false
 let inFlight = false
 let pausePost: Promise<void> | null = null
+let pauseDispatch: Promise<void> | null = null
+let dispatchMode: 'success' | 'lost' | 'conflict' | 'wrong-target' | 'wrong-task' = 'success'
+let queueTargetState = 'PENDING'
+let queueTaskIds: string[] = []
+let taskOverrides: Record<string, unknown> = {}
+let platformTaskError = false
 let requests = new Map<string, XianyuPublishQueueRequest>()
 let noSession = false
 let currentSession: ReturnType<typeof useSessionStore>
@@ -68,6 +74,10 @@ async function submit(view: VueWrapper) {
 function writes() {
   return state.fetch.mock.calls.filter(([, init]) => init.method === 'POST')
 }
+function dispatchWrites() {
+  return state.fetch.mock.calls.filter(([url, init]) =>
+    init.method === 'POST' && new URL(url).pathname.endsWith('/dispatch'))
+}
 function payload(call = 0): XianyuPublishQueueRequest {
   return JSON.parse(writes()[call]![1].body)
 }
@@ -89,6 +99,12 @@ beforeEach(() => {
   malformed = false
   inFlight = false
   pausePost = null
+  pauseDispatch = null
+  dispatchMode = 'success'
+  queueTargetState = 'PENDING'
+  queueTaskIds = []
+  taskOverrides = {}
+  platformTaskError = false
   requests = new Map()
   state.fetch.mockReset().mockImplementation(async (url: string, init: RequestInit) => {
     const path = new URL(url).pathname
@@ -105,16 +121,37 @@ beforeEach(() => {
       const raw = queueResponse(input)
       return response(malformed ? { ...raw, accountId: 'wrong-account' } : raw, 201)
     }
+    const dispatchMatch = path.match(/^\/api\/v1\/xianyu\/publish\/queues\/([^/]+)\/targets\/([^/]+)\/dispatch$/)
+    if (dispatchMatch && init.method === 'POST') {
+      expect(init.body).toBeUndefined()
+      const input = requests.get(dispatchMatch[1]!)!
+      if (pauseDispatch) await pauseDispatch
+      if (dispatchMode === 'wrong-target') return response({ ...dispatchedTarget(input), targetId: 'target-other' })
+      if (dispatchMode === 'wrong-task') return response({ ...dispatchedTarget(input), taskId: 'task-other' })
+      queueTargetState = 'IN_FLIGHT'
+      queueTaskIds = ['task-1']
+      if (dispatchMode === 'lost') throw new Error('dispatch response lost')
+      if (dispatchMode === 'conflict') {
+        return response({ detail: 'target already dispatched', status: 409, code: 'CONFLICT' }, 409)
+      }
+      return response(dispatchedTarget(input))
+    }
     if (path.startsWith('/api/v1/xianyu/publish/queues/') && init.method === 'GET') {
       if (getError) throw new Error('query unavailable')
       const input = requests.get(path.split('/').at(-1)!)!
       const raw = queueResponse(input)
-      if (inFlight) {
-        raw.serialAdvanceBlocked = true
-        raw.targets[0]!.state = 'IN_FLIGHT'
-        raw.targets[0]!.taskIds = ['task-1']
+      if (inFlight || queueTargetState !== 'PENDING') {
+        const effectiveState = inFlight ? 'IN_FLIGHT' : queueTargetState
+        raw.serialAdvanceBlocked = effectiveState === 'IN_FLIGHT'
+        raw.targets[0]!.state = effectiveState
+        raw.targets[0]!.taskIds = inFlight ? ['task-1'] : [...queueTaskIds]
       }
       return response(raw)
+    }
+    if (path === '/api/v1/platform-tasks/task-1' && init.method === 'GET') {
+      if (platformTaskError) throw new Error('task query unavailable')
+      const input = [...requests.values()][0]!
+      return response(platformTask(input, taskOverrides))
     }
     throw new Error(`Forbidden endpoint ${init.method} ${path}`)
   })
@@ -189,6 +226,119 @@ describe('publish view with local Control API transport mocks', () => {
       ['/api/v1/devices', 'GET'], ['/api/v1/accounts', 'GET'], ['/api/v1/products', 'GET'],
       ['/api/v1/xianyu/publish/queues', 'POST'],
     ])
+  })
+
+  it('dispatches only the first PENDING target once and shows actual paused task evidence without claiming publication', async () => {
+    taskOverrides = {
+      state: 'PAUSED_WAITING_USER', runnerStatus: 'PAUSED',
+      events: [{ taskId: 'task-1', sequence: 1, eventType: 'STEP', stepId: 'open-listing-form' }],
+    }
+    let release!: () => void
+    pauseDispatch = new Promise<void>((resolve) => { release = resolve })
+    const view = await renderView()
+    await submit(view)
+    const button = view.get('[data-testid="dispatch-pending-target"]')
+    button.element.dispatchEvent(new MouseEvent('click'))
+    button.element.dispatchEvent(new MouseEvent('click'))
+    await vi.waitFor(() => expect(dispatchWrites()).toHaveLength(1))
+    release()
+    await vi.waitFor(() => expect(view.text()).toContain('等待操作员处理'))
+    expect(view.text()).toContain('open-listing-form')
+    expect(view.text()).toContain('task-1')
+    expect(view.text()).toContain('派发不等于发布成功')
+    expect(view.text()).not.toContain('已发布成功')
+    expect(dispatchWrites()).toHaveLength(1)
+  })
+
+  it.each([
+    ['FAILED', 'FAILED', 'UPLOAD_FAILED', '媒体上传失败', '任务状态：FAILED'],
+    ['UNKNOWN', 'UNKNOWN', null, null, '任务状态：UNKNOWN'],
+    ['SUCCEEDED', 'SUCCEEDED', null, null, '任务执行成功；不等于商品发布成功'],
+  ])('refreshes the same queue and displays %s task truth and errors', async (stateName, runnerStatus, errorCode, detail, expected) => {
+    const view = await renderView()
+    await submit(view)
+    await view.get('[data-testid="dispatch-pending-target"]').trigger('click')
+    await vi.waitFor(() => expect(view.text()).toContain('task-1'))
+    taskOverrides = { state: stateName, runnerStatus, errorCode, detail, events: [] }
+    await view.get('[data-testid="refresh-publish-queue"]').trigger('click')
+    await vi.waitFor(() => expect(view.text()).toContain(expected))
+    if (errorCode) expect(view.text()).toContain(`${errorCode} · ${detail}`)
+    expect(dispatchWrites()).toHaveLength(1)
+  })
+
+  it.each(['lost', 'conflict'] as const)('recovers a %s dispatch result by querying only the same queue and never dispatches again', async (mode) => {
+    dispatchMode = mode
+    const view = await renderView()
+    await submit(view)
+    const queueId = payload().queueId
+    await view.get('[data-testid="dispatch-pending-target"]').trigger('click')
+    await vi.waitFor(() => expect(view.get('[role="alert"]').text()).toContain('已仅查询同一队列'))
+    expect(view.text()).toContain('IN_FLIGHT')
+    expect(dispatchWrites()).toHaveLength(1)
+    expect(state.fetch.mock.calls.filter(([url, init]) =>
+      init.method === 'GET' && new URL(url).pathname === `/api/v1/xianyu/publish/queues/${queueId}`)).toHaveLength(1)
+  })
+
+  it.each(['wrong-target', 'wrong-task'] as const)('rejects %s dispatch identity and keeps the recovered queue PENDING', async (mode) => {
+    dispatchMode = mode
+    const view = await renderView()
+    await submit(view)
+    await view.get('[data-testid="dispatch-pending-target"]').trigger('click')
+    await vi.waitFor(() => expect(view.get('[role="alert"]').text()).toContain('身份不匹配'))
+    expect(view.text()).toContain('原始状态：PENDING')
+    expect(view.text()).not.toContain('任务状态：')
+    expect(dispatchWrites()).toHaveLength(1)
+  })
+
+  it('rejects a platform task with the wrong queue or target identity and preserves the target snapshot', async () => {
+    taskOverrides = { batchId: 'wrong-queue', events: [] }
+    const view = await renderView()
+    await submit(view)
+    await view.get('[data-testid="dispatch-pending-target"]').trigger('click')
+    await vi.waitFor(() => expect(view.text()).toContain('任务读取错误'))
+    expect(view.text()).toContain('身份不匹配')
+    expect(view.text()).toContain('原始状态：IN_FLIGHT')
+    expect(view.text()).not.toContain('任务状态：')
+  })
+
+  it('never retries FAILED_UNCONFIRMED and does not skip it to dispatch a later PENDING target', async () => {
+    products.push(product({ id: 'product-2', price: '20' }))
+    const view = await renderView({ productIds: ['product-1', 'product-2'] })
+    await submit(view)
+    queueTargetState = 'FAILED_UNCONFIRMED'
+    await view.get('[data-testid="refresh-publish-queue"]').trigger('click')
+    await vi.waitFor(() => expect(view.get('[data-testid="dispatch-block"]').text()).toContain('本页不允许重试'))
+    expect(view.find('[data-testid="dispatch-pending-target"]').exists()).toBe(false)
+    expect(dispatchWrites()).toHaveLength(0)
+  })
+
+  it('fences a dispatch response when task.create is revoked during the await and performs no recovery request', async () => {
+    let release!: () => void
+    pauseDispatch = new Promise<void>((resolve) => { release = resolve })
+    const view = await renderView()
+    await submit(view)
+    await view.get('[data-testid="dispatch-pending-target"]').trigger('click')
+    await vi.waitFor(() => expect(dispatchWrites()).toHaveLength(1))
+    currentSession.applySession({ ...currentSession.session!, roles: ['viewer'] })
+    release()
+    await vi.waitFor(() => expect(view.get('[role="alert"]').text()).toContain('task.create 权限已变化'))
+    expect(view.text()).toContain('原始状态：PENDING')
+    expect(state.fetch.mock.calls.filter(([url, init]) =>
+      init.method === 'GET' && new URL(url).pathname.includes('/xianyu/publish/queues/'))).toHaveLength(0)
+  })
+
+  it('does not apply or follow up a pending dispatch response after unmount', async () => {
+    let release!: () => void
+    pauseDispatch = new Promise<void>((resolve) => { release = resolve })
+    const view = await renderView()
+    await submit(view)
+    await view.get('[data-testid="dispatch-pending-target"]').trigger('click')
+    await vi.waitFor(() => expect(dispatchWrites()).toHaveLength(1))
+    view.unmount()
+    release()
+    await flushPromises()
+    expect(state.fetch.mock.calls.filter(([url, init]) =>
+      init.method === 'GET' && new URL(url).pathname.includes('/platform-tasks/'))).toHaveLength(0)
   })
 
   it('early-returns on a concurrent click before the DOM disables the other button', async () => {
@@ -266,7 +416,12 @@ describe('publish view with local Control API transport mocks', () => {
     expect(view.get('[data-testid="xianyu-publish-queue-result"]').text()).toBe(known)
     view.unmount()
     sessionStorage.clear()
-    vi.spyOn(Object.getPrototypeOf(window.sessionStorage), 'setItem').mockImplementation(() => { throw new Error('QuotaExceededError') })
+    const storagePrototype = Object.getPrototypeOf(window.sessionStorage) as Storage
+    const originalSetItem = storagePrototype.setItem
+    vi.spyOn(storagePrototype, 'setItem').mockImplementation(function (this: Storage, key: string, value: string) {
+      if (this === window.sessionStorage) throw new Error('QuotaExceededError')
+      return originalSetItem.call(this, key, value)
+    })
     const next = await renderView()
     await submit(next)
     expect(writes()).toHaveLength(1)

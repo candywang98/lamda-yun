@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { fileURLToPath } from 'node:url'
-import { account, device, product, queueResponse } from '../tests/xianyu-publish-fixtures'
+import { account, device, dispatchedTarget, platformTask, product, queueResponse } from '../tests/xianyu-publish-fixtures'
 import type { XianyuPublishQueueRequest } from '../src/data/xianyu-publish-goods'
 
 async function isolatedApi(page: Page, longLabels = false) {
@@ -23,18 +23,22 @@ async function isolatedApi(page: Page, longLabels = false) {
       category: `商品分组-${'LongCategoryLabel'.repeat(5)}`,
     } : {}),
   })
-  const queueView = (body: XianyuPublishQueueRequest) => {
-    const result = queueResponse(body)
-    if (longLabels) result.targets[0]!.targetId = '44444444-4444-4444-8444-444444444444'
-    return result
-  }
   const state = {
     tenantId: 'tenant-1', sessionAvailable: true, lostResponse: !longLabels,
     roles: ['publisher'],
     deviceLabel: deviceRow.logical_name, productTitle: productRow.title,
     requests: [] as XianyuPublishQueueRequest[],
     logicalQueues: new Map<string, XianyuPublishQueueRequest>(),
+    queueState: 'PENDING', taskIds: [] as string[], dispatchCalls: 0,
     forbidden: [] as string[],
+  }
+  const queueView = (body: XianyuPublishQueueRequest) => {
+    const result = queueResponse(body)
+    if (longLabels) result.targets[0]!.targetId = '44444444-4444-4444-8444-444444444444'
+    result.targets[0]!.state = state.queueState
+    result.targets[0]!.taskIds = [...state.taskIds]
+    result.serialAdvanceBlocked = state.queueState === 'IN_FLIGHT'
+    return result
   }
   await page.route('**/*', async (route) => {
     const request = route.request()
@@ -73,9 +77,27 @@ async function isolatedApi(page: Page, longLabels = false) {
       }
       return route.fulfill({ status: 201, json: { ...queueView(body), replayed: !!existing } })
     }
+    const dispatchMatch = url.pathname.match(/^\/api\/v1\/xianyu\/publish\/queues\/([^/]+)\/targets\/([^/]+)\/dispatch$/)
+    if (method === 'POST' && dispatchMatch) {
+      state.dispatchCalls += 1
+      const body = state.logicalQueues.get(`${state.tenantId}:${dispatchMatch[1]}`)
+      if (body) {
+        state.queueState = 'IN_FLIGHT'
+        state.taskIds = ['task-1']
+        return route.fulfill({ json: { ...dispatchedTarget(body, 0, 'task-1'), targetId: dispatchMatch[2] } })
+      }
+    }
     if (method === 'GET' && /^\/api\/v1\/xianyu\/publish\/queues\/[^/]+$/.test(url.pathname)) {
       const body = state.logicalQueues.get(`${state.tenantId}:${url.pathname.split('/').at(-1)}`)
       if (body) return route.fulfill({ json: queueView(body) })
+    }
+    if (method === 'GET' && url.pathname === '/api/v1/platform-tasks/task-1') {
+      const body = [...state.logicalQueues.values()][0]
+      if (body) return route.fulfill({ json: platformTask(body, {
+        publishTargetId: longLabels ? '44444444-4444-4444-8444-444444444444' : 'target-0',
+        state: 'PAUSED_WAITING_USER', runnerStatus: 'PAUSED',
+        events: [{ taskId: 'task-1', sequence: 1, eventType: 'STEP', stepId: 'open-listing-form' }],
+      }) })
     }
     state.forbidden.push(`${method} ${url.pathname}`)
     return route.abort('blockedbyclient')
@@ -220,5 +242,24 @@ test('long labels and UUID identities stay within the viewport and queue result'
     expect(tableGeometry.scrollLeft).toBeGreaterThan(0)
   }
   expect(state.requests).toHaveLength(1)
+  expect(state.forbidden).toEqual([])
+})
+
+test('explicit dispatch shows matching paused task truth without auto advance or publication claim', async ({ page }) => {
+  const state = await isolatedApi(page, true)
+  await page.goto('/operations/xy-tasks/xy-tasks-01')
+  await submit(page)
+  const dispatch = page.getByTestId('dispatch-pending-target')
+  await expect(dispatch).toBeEnabled()
+  await dispatch.click()
+  const result = page.getByTestId('xianyu-publish-queue-result')
+  await expect(result).toContainText('IN_FLIGHT')
+  await expect(result).toContainText('等待操作员处理')
+  await expect(result).toContainText('open-listing-form')
+  await expect(result).toContainText('派发不等于发布成功')
+  await expect(page.getByTestId('dispatch-pending-target')).toHaveCount(0)
+  await page.getByTestId('refresh-publish-queue').click()
+  await expect(result).toContainText('task-1')
+  expect(state.dispatchCalls).toBe(1)
   expect(state.forbidden).toEqual([])
 })

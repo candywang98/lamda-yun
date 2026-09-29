@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import type { ProductView } from '@cloudctl/api-contracts'
+import { Play, RefreshCw } from 'lucide-vue-next'
 import { controlApiConfigured } from '@/api/control'
 import { useSessionStore } from '@/stores/session'
 import { createProductCatalog } from '@/api/product-catalog'
@@ -10,6 +11,8 @@ import MediaThumb from '@/components/MediaThumb.vue'
 import {
   buildXianyuPublishQueueItems,
   createXianyuPublishQueue,
+  dispatchXianyuPublishTarget,
+  getXianyuPublishTask,
   getXianyuPublishQueue,
   persistXianyuPublishQueue,
   publishQueueScope,
@@ -19,6 +22,7 @@ import {
   savePublishGoodsConfig,
   type XianyuPublishQueueView,
   type XianyuPublishQueueRequest,
+  type XianyuPublishTaskView,
   VIDEO_MUSIC_OPTIONS,
 } from '@/data/xianyu-publish-goods'
 import { clipText, downloadDataUrl, parseAttributes, productGroupName, productImages, productSpecLabel } from '@/data/product-fields'
@@ -52,7 +56,14 @@ const loading = ref(true)
 const loadError = ref('')
 const attemptQueueId = ref('')
 const queueResult = ref<XianyuPublishQueueView | null>(null)
+const activeRequest = ref<XianyuPublishQueueRequest | null>(null)
+const taskResults = ref<Record<string, XianyuPublishTaskView>>({})
+const taskErrors = ref<Record<string, string>>({})
+const dispatchBusy = ref(false)
+const refreshBusy = ref(false)
 const attempts = new Map<string, { request: XianyuPublishQueueRequest; confirmed: boolean }>()
+let disposed = false
+let responseFence = 0
 const creationBlock = computed(() => {
   if (!controlApiConfigured) return '未配置 Control API；不能创建服务端队列'
   if (!scope.value || sessionStore.loading) return '缺少已验证的租户和用户会话，不能创建队列'
@@ -69,9 +80,29 @@ const creationBlock = computed(() => {
 const queueStatus = computed(() => queueResult.value?.targets.every((target) =>
   target.state === 'PENDING' && target.taskIds.length === 0 && target.externalItemId === null)
   ? '尚未派发、尚未发布（服务端状态快照）'
-  : '服务端队列状态已变化，以各 target 状态为准；本页面未执行派发或发布')
-watch(scope, () => {
+  : '服务端队列状态已变化，以各 target 状态为准；派发不等于发布成功')
+const firstQueueCandidate = computed(() => {
+  if (!queueResult.value || queueResult.value.serialAdvanceBlocked) return null
+  return queueResult.value.targets.find((target) =>
+    target.state === 'PENDING' || target.state === 'FAILED_UNCONFIRMED') ?? null
+})
+const dispatchTarget = computed(() => firstQueueCandidate.value?.state === 'PENDING' ? firstQueueCandidate.value : null)
+const dispatchBlock = computed(() => {
+  if (!activeRequest.value || !queueResult.value) return '请先创建或查询队列'
+  if (busy.value || refreshBusy.value || dispatchBusy.value) return '当前请求尚未完成'
+  if (!scope.value || sessionStore.loading || JSON.stringify(scope.value) !== loadedScope.value) return '会话或 API 环境已变化'
+  if (!sessionStore.can('task.create')) return '缺少 task.create 权限，不能派发'
+  if (queueResult.value.serialAdvanceBlocked) return '已有 IN_FLIGHT 目标，请先刷新状态'
+  if (firstQueueCandidate.value?.state === 'FAILED_UNCONFIRMED') return '首个可处理目标为 FAILED_UNCONFIRMED；本页不允许重试'
+  if (!dispatchTarget.value) return '没有可显式派发的 PENDING 目标'
+  return ''
+})
+watch(() => JSON.stringify(scope.value), () => {
+  responseFence += 1
   queueResult.value = null
+  activeRequest.value = null
+  taskResults.value = {}
+  taskErrors.value = {}
   successMessage.value = ''
   attemptQueueId.value = ''
 })
@@ -145,8 +176,74 @@ function saveConfig() {
   }
 }
 
+function requestStillCurrent(fence: number, scopeIdentity: string, requireCreate = false) {
+  return !disposed && responseFence === fence && !sessionStore.loading
+    && JSON.stringify(scope.value) === scopeIdentity
+    && (!requireCreate || sessionStore.can('task.create'))
+}
+
+function installQueue(request: XianyuPublishQueueRequest, result: XianyuPublishQueueView) {
+  if (activeRequest.value?.queueId !== request.queueId) {
+    taskResults.value = {}
+    taskErrors.value = {}
+  }
+  activeRequest.value = request
+  queueResult.value = result
+}
+
+function targetStateLabel(state: string) {
+  return {
+    PENDING: '待显式派发',
+    IN_FLIGHT: '已派发，等待任务与人工判定',
+    FAILED_UNCONFIRMED: '未确认失败（本页禁止重试）',
+    SUCCEEDED_CONFIRMED: '服务端已确认成功',
+    FAILED_CONFIRMED: '服务端已确认失败',
+    CANCELLED: '已取消',
+  }[state] ?? state
+}
+
+function taskStateLabel(task: XianyuPublishTaskView) {
+  if (task.state === 'PAUSED_WAITING_USER') return '等待操作员处理；不代表已到发布页或已发布'
+  if (task.state === 'SUCCEEDED') return '任务执行成功；不等于商品发布成功'
+  return task.state
+}
+
+function actualTaskStep(task: XianyuPublishTaskView) {
+  for (let index = task.rawEvents.length - 1; index >= 0; index -= 1) {
+    const stepId = task.rawEvents[index]?.stepId
+    if (typeof stepId === 'string' && stepId.trim()) return stepId
+  }
+  return ''
+}
+
+async function refreshTaskResults(
+  request: XianyuPublishQueueRequest,
+  result: XianyuPublishQueueView,
+  fence: number,
+  scopeIdentity: string,
+) {
+  const entries = result.targets.flatMap((target) => target.taskIds.map((taskId) => ({ target, taskId })))
+  if (!entries.length) return
+  const settled = await Promise.allSettled(entries.map(({ target, taskId }) =>
+    getXianyuPublishTask(request, target, taskId)))
+  if (!requestStillCurrent(fence, scopeIdentity)) return
+  const nextResults = { ...taskResults.value }
+  const nextErrors = { ...taskErrors.value }
+  settled.forEach((outcome, index) => {
+    const taskId = entries[index]!.taskId
+    if (outcome.status === 'fulfilled') {
+      nextResults[taskId] = outcome.value
+      delete nextErrors[taskId]
+    } else {
+      nextErrors[taskId] = outcome.reason instanceof Error ? outcome.reason.message : '任务状态读取失败'
+    }
+  })
+  taskResults.value = nextResults
+  taskErrors.value = nextErrors
+}
+
 async function createTask() {
-  if (busy.value) return
+  if (busy.value || dispatchBusy.value || refreshBusy.value) return
   errorMessage.value = ''
   successMessage.value = ''
   if (creationBlock.value) {
@@ -156,6 +253,7 @@ async function createTask() {
   const device = devices.value.find((item) => item.id === form.deviceIds[0])
   if (!device?.accountId) return
   busy.value = true
+  const fence = ++responseFence
   const requestScope = scope.value
   const scopeIdentity = JSON.stringify(requestScope)
   try {
@@ -164,7 +262,7 @@ async function createTask() {
     const key = JSON.stringify({ scope: requestScope, productIds, ...input })
     let attempt = attempts.get(key)
     const request = await persistXianyuPublishQueue(requestScope, input, productIds, attempt?.request)
-    if (JSON.stringify(scope.value) !== scopeIdentity || sessionStore.loading) throw new Error('会话已变化，请重新加载页面')
+    if (!requestStillCurrent(fence, scopeIdentity)) throw new Error('会话已变化，请重新加载页面')
     if (!sessionStore.can('task.create')) throw new Error('缺少 task.create 权限，已阻止队列请求')
     if (!attempt) {
       attempt = { request, confirmed: false }
@@ -174,14 +272,94 @@ async function createTask() {
     const result = await (attempt.confirmed
       ? getXianyuPublishQueue(attempt.request)
       : createXianyuPublishQueue(attempt.request))
-    if (JSON.stringify(scope.value) !== scopeIdentity || sessionStore.loading) throw new Error('会话已变化，未展示旧会话结果')
-    queueResult.value = result
+    if (!requestStillCurrent(fence, scopeIdentity, true)) throw new Error('会话或权限已变化，未展示旧会话结果')
+    installQueue(attempt.request, result)
     attempt.confirmed = true
-    successMessage.value = `服务端队列 ${queueResult.value.queueId} 已确认。${queueStatus.value}`
+    successMessage.value = `服务端队列 ${result.queueId} 已确认。${queueStatus.value}`
+    await refreshTaskResults(attempt.request, result, fence, scopeIdentity)
   } catch (error) {
-    errorMessage.value = `${error instanceof Error ? error.message : '队列请求失败'}。未确认本次结果，保留已有结果；相同会话、商品与设备重试复用原 queueId。`
+    if (!disposed && responseFence === fence) {
+      errorMessage.value = `${error instanceof Error ? error.message : '队列请求失败'}。未确认本次结果，保留已有结果；相同会话、商品与设备重试复用原 queueId。`
+    }
   } finally {
-    busy.value = false
+    if (!disposed) busy.value = false
+  }
+}
+
+async function refreshQueueStatus() {
+  if (busy.value || dispatchBusy.value || refreshBusy.value || !activeRequest.value || !queueResult.value) return
+  errorMessage.value = ''
+  successMessage.value = ''
+  refreshBusy.value = true
+  const fence = ++responseFence
+  const request = activeRequest.value
+  const scopeIdentity = JSON.stringify(scope.value)
+  try {
+    const result = await getXianyuPublishQueue(request)
+    if (!requestStillCurrent(fence, scopeIdentity)) throw new Error('会话已变化，未展示旧会话结果')
+    installQueue(request, result)
+    await refreshTaskResults(request, result, fence, scopeIdentity)
+    if (requestStillCurrent(fence, scopeIdentity)) successMessage.value = '已刷新同一队列及其已知任务状态'
+  } catch (error) {
+    if (!disposed && responseFence === fence) {
+      errorMessage.value = `${error instanceof Error ? error.message : '队列刷新失败'}；已保留上次已核实结果`
+    }
+  } finally {
+    if (!disposed) refreshBusy.value = false
+  }
+}
+
+async function dispatchPendingTarget() {
+  if (busy.value || dispatchBusy.value || refreshBusy.value) return
+  errorMessage.value = ''
+  successMessage.value = ''
+  if (dispatchBlock.value || !dispatchTarget.value || !activeRequest.value || !queueResult.value) {
+    errorMessage.value = dispatchBlock.value || '没有可派发目标'
+    return
+  }
+  dispatchBusy.value = true
+  const fence = ++responseFence
+  const request = activeRequest.value
+  const target = dispatchTarget.value
+  const scopeIdentity = JSON.stringify(scope.value)
+  try {
+    const dispatched = await dispatchXianyuPublishTarget(request, target.targetId)
+    if (!requestStillCurrent(fence, scopeIdentity, true)) {
+      throw new Error('会话或 task.create 权限已变化；未采信派发响应，也未继续请求')
+    }
+    const result = {
+      ...queueResult.value,
+      serialAdvanceBlocked: true,
+      targets: queueResult.value.targets.map((item) => item.targetId === target.targetId ? dispatched.target : item),
+    }
+    installQueue(request, result)
+    successMessage.value = `已显式派发 target ${target.targetId}，taskId ${dispatched.taskId}；这不是发布成功证明`
+    await refreshTaskResults(request, result, fence, scopeIdentity)
+  } catch (dispatchError) {
+    if (!requestStillCurrent(fence, scopeIdentity, true)) {
+      if (!disposed && responseFence === fence) {
+        errorMessage.value = '会话或 task.create 权限已变化；已保留旧结果，未继续查询'
+      }
+      return
+    }
+    try {
+      const recovered = await getXianyuPublishQueue(request)
+      if (!requestStillCurrent(fence, scopeIdentity, true)) throw new Error('会话或权限已变化')
+      installQueue(request, recovered)
+      await refreshTaskResults(request, recovered, fence, scopeIdentity)
+      if (!requestStillCurrent(fence, scopeIdentity, true)) return
+      const recoveredTarget = recovered.targets.find((item) => item.targetId === target.targetId)
+      const reason = dispatchError instanceof Error ? dispatchError.message : '派发响应丢失'
+      errorMessage.value = `${reason}；已仅查询同一队列。目标当前为 ${recoveredTarget?.state ?? '未知'}，不会自动再次派发`
+    } catch (recoveryError) {
+      if (!disposed && responseFence === fence) {
+        const reason = dispatchError instanceof Error ? dispatchError.message : '派发结果未确认'
+        const recovery = recoveryError instanceof Error ? recoveryError.message : '同队列查询失败'
+        errorMessage.value = `${reason}；${recovery}。已保留已知结果，不会自动再次派发`
+      }
+    }
+  } finally {
+    if (!disposed) dispatchBusy.value = false
   }
 }
 
@@ -208,6 +386,11 @@ onMounted(async () => {
     loading.value = false
   }
 })
+
+onUnmounted(() => {
+  disposed = true
+  responseFence += 1
+})
 </script>
 
 <template>
@@ -221,7 +404,7 @@ onMounted(async () => {
           <button class="primary" type="button" :disabled="busy" @click="saveConfig">保存选择</button>
         </div>
       </div>
-      <p class="hint">仅创建单机商品队列；不执行派发、排期、手机填表或发布。媒体暂存 ID 不代表图片已送达。</p>
+      <p class="hint">队列创建后仅可由操作员显式派发首个 PENDING 目标；不自动重试、推进、确认或发布。媒体暂存 ID 不代表图片已送达。</p>
       <p v-if="loadError" class="flash error" role="alert">{{ loadError }}</p>
       <p v-if="creationBlock" class="flash error" data-testid="creation-block">{{ creationBlock }}</p>
       <fieldset class="selection" :disabled="busy">
@@ -441,13 +624,47 @@ onMounted(async () => {
       <p v-if="errorMessage" class="flash error" role="alert">{{ errorMessage }}</p>
       <p v-if="successMessage" class="flash ok" role="status">{{ successMessage }}</p>
       <div v-if="queueResult" class="queue-result" data-testid="xianyu-publish-queue-result">
-        <strong>最近已核实的服务端队列</strong>
-        <span>queueId：{{ queueResult.queueId }}</span>
-        <span>设备：{{ queueResult.deviceId }} · 账号：{{ queueResult.accountId }}</span>
+        <div class="queue-heading">
+          <div>
+            <strong>最近已核实的服务端队列</strong>
+            <span>queueId：{{ queueResult.queueId }}</span>
+            <span>设备：{{ queueResult.deviceId }} · 账号：{{ queueResult.accountId }}</span>
+          </div>
+          <button class="outline with-icon" type="button" data-testid="refresh-publish-queue" :disabled="busy || dispatchBusy || refreshBusy" @click="refreshQueueStatus">
+            <RefreshCw class="button-icon" :size="15" aria-hidden="true" />
+            {{ refreshBusy ? '刷新中...' : '刷新队列与任务' }}
+          </button>
+        </div>
         <span>{{ queueStatus }}</span>
-        <span v-for="target in queueResult.targets" :key="target.targetId">
-          targetId：{{ target.targetId }} · {{ target.state }} · 商品 {{ target.position + 1 }} · 任务 {{ target.taskIds.length }}
-        </span>
+        <p v-if="dispatchBlock" class="dispatch-note" data-testid="dispatch-block">{{ dispatchBlock }}</p>
+        <div v-for="target in queueResult.targets" :key="target.targetId" class="target-row" :data-target-id="target.targetId">
+          <div class="target-heading">
+            <strong>商品 {{ target.position + 1 }} · {{ targetStateLabel(target.state) }}</strong>
+            <button
+              v-if="dispatchTarget?.targetId === target.targetId"
+              class="primary with-icon"
+              type="button"
+              data-testid="dispatch-pending-target"
+              :disabled="!!dispatchBlock"
+              @click="dispatchPendingTarget"
+            ><Play class="button-icon" :size="15" aria-hidden="true" />{{ dispatchBusy ? '派发中...' : '显式派发' }}</button>
+          </div>
+          <span>targetId：{{ target.targetId }}</span>
+          <span>原始状态：{{ target.state }} · taskIds：{{ target.taskIds.length ? target.taskIds.join('，') : '无' }}</span>
+          <div v-for="taskId in target.taskIds" :key="taskId" class="task-row" :data-task-id="taskId">
+            <template v-if="taskResults[taskId]">
+              <strong>taskId：{{ taskId }}</strong>
+              <span>任务状态：{{ taskStateLabel(taskResults[taskId]!) }} · runner：{{ taskResults[taskId]!.runnerStatus }}</span>
+              <span>身份：batch {{ taskResults[taskId]!.batchId }} · target {{ taskResults[taskId]!.publishTargetId }}</span>
+              <span v-if="actualTaskStep(taskResults[taskId]!)">实际事件步骤：{{ actualTaskStep(taskResults[taskId]!) }}</span>
+              <span v-if="taskResults[taskId]!.errorCode || taskResults[taskId]!.detail" class="task-error">
+                错误：{{ taskResults[taskId]!.errorCode || '无代码' }} · {{ taskResults[taskId]!.detail || '无详情' }}
+              </span>
+            </template>
+            <span v-else>taskId：{{ taskId }} · 尚无已验证任务快照</span>
+            <span v-if="taskErrors[taskId]" class="task-error">任务读取错误：{{ taskErrors[taskId] }}</span>
+          </div>
+        </div>
       </div>
       <div class="footer">
         <button class="primary" type="button" :disabled="busy || !!creationBlock" @click="createTask">{{ busy ? '请求中...' : '创建或查询队列' }}</button>
@@ -578,10 +795,18 @@ select { width: min(280px, 100%); }
 .primary { height: 34px; padding: 0 16px; border: 0; border-radius: 4px; background: #0f766e; color: #fff; }
 .primary:disabled { opacity: 0.6; cursor: not-allowed; }
 .outline { height: 32px; padding: 0 12px; border-radius: 4px; border: 1px solid #0f766e; background: #fff; color: #0f766e; }
+.with-icon { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.button-icon { flex: 0 0 auto; }
 .flash { margin: 0; padding-left: 100px; font-size: 13px; }
 .flash.error { color: #b91c1c; }
 .flash.ok { color: #166534; }
 .queue-result { display: grid; gap: 4px; border-top: 1px solid #bbf7d0; padding-top: 12px; color: #166534; font-size: 13px; overflow-wrap: anywhere; }
+.queue-heading, .target-heading { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.queue-heading > div { display: grid; gap: 4px; min-width: 0; }
+.dispatch-note { margin: 4px 0; color: #92400e; }
+.target-row { display: grid; gap: 4px; padding: 10px 0; border-top: 1px solid #dcfce7; }
+.task-row { display: grid; gap: 3px; margin-top: 4px; padding: 8px 10px; border-left: 3px solid #cbd5e1; color: #475569; }
+.task-error { color: #b91c1c; }
 .selection, .legacy-settings fieldset { border: 0; padding: 0; margin: 0; min-width: 0; display: grid; gap: 14px; }
 .selection :deep(.chip) { box-sizing: border-box; max-width: calc(100% - 10px); }
 .selection :deep(.chip-name) { min-width: 0; overflow-wrap: anywhere; }

@@ -112,6 +112,20 @@ export interface XianyuPublishQueueView {
   targets: XianyuPublishQueueTarget[]
 }
 
+export interface XianyuPublishTaskView {
+  taskId: string
+  deviceId: string
+  accountId: string
+  batchId: string
+  commandType: 'xianyu.publish_listing.v1'
+  publishTargetId: string
+  state: string
+  runnerStatus: string
+  errorCode: string | null
+  detail: string | null
+  rawEvents: readonly Record<string, unknown>[]
+}
+
 export function emptyPublishGoodsConfig(partial: Partial<XianyuPublishGoodsConfig> = {}): XianyuPublishGoodsConfig {
   return {
     deviceIds: [],
@@ -194,6 +208,39 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 const targetStates = new Set(['PENDING', 'IN_FLIGHT', 'FAILED_UNCONFIRMED', 'SUCCEEDED_CONFIRMED', 'FAILED_CONFIRMED', 'CANCELLED'])
 const boundaries = new Set(['FULL_AUTO', 'AUTO_FILL_HUMAN_PRICE', 'AUTO_FILL_HUMAN_COMMIT', PUBLISH_QUEUE_BOUNDARY])
 
+function parseXianyuPublishTarget(
+  raw: unknown,
+  expected: XianyuPublishQueueRequest,
+  targetIds: Set<string>,
+  positions: Set<number>,
+): XianyuPublishQueueTarget {
+  const invalid = () => new Error(`队列 ${expected.queueId} 响应不完整或与请求不一致；结果未确认，请重试查询同一队列`)
+  if (!isRecord(raw) || !validText(raw.targetId, 36) || targetIds.has(raw.targetId)
+    || raw.queueId !== expected.queueId || raw.deviceId !== expected.deviceId || raw.accountId !== expected.accountId
+    || typeof raw.position !== 'number' || !Number.isInteger(raw.position) || positions.has(raw.position)
+    || typeof raw.state !== 'string' || !targetStates.has(raw.state)
+    || !Array.isArray(raw.taskIds) || !raw.taskIds.every((id: unknown) => validText(id, 36))
+    || new Set(raw.taskIds).size !== raw.taskIds.length
+    || !(raw.externalItemId === null || validText(raw.externalItemId, 64))
+    || !(raw.recordedBoundary === null || typeof raw.recordedBoundary === 'string' && boundaries.has(raw.recordedBoundary))
+    || typeof raw.boundaryDowngraded !== 'boolean' || !isRecord(raw.judgment) || !isRecord(raw.result)
+    || !(raw.confirmedAt === null || typeof raw.confirmedAt === 'string' && Number.isFinite(Date.parse(raw.confirmedAt)))
+    || !isRecord(raw.item)) throw invalid()
+  const item = expected.items[raw.position]
+  if (!item || raw.claimedBoundary !== item.completionBoundary
+    || raw.item.description !== item.description || raw.item.price !== item.price
+    || raw.item.completionBoundary !== item.completionBoundary || raw.item.deliveryId !== item.deliveryId
+    || JSON.stringify(raw.item.mediaAssetIds) !== JSON.stringify(item.mediaAssetIds)
+    || Object.keys(raw.item).some((key) => !['description', 'price', 'completionBoundary', 'mediaAssetIds', 'deliveryId'].includes(key))) throw invalid()
+  targetIds.add(raw.targetId)
+  positions.add(raw.position)
+  return {
+    targetId: raw.targetId, queueId: expected.queueId, position: raw.position,
+    deviceId: expected.deviceId, accountId: expected.accountId, state: raw.state,
+    item, taskIds: [...raw.taskIds], externalItemId: raw.externalItemId,
+  }
+}
+
 export function parseXianyuPublishQueue(raw: unknown, expected: XianyuPublishQueueRequest): XianyuPublishQueueView {
   const invalid = () => new Error(`队列 ${expected.queueId} 响应不完整或与请求不一致；结果未确认，请重试查询同一队列`)
   if (!isRecord(raw) || raw.queueId !== expected.queueId || raw.deviceId !== expected.deviceId
@@ -202,32 +249,7 @@ export function parseXianyuPublishQueue(raw: unknown, expected: XianyuPublishQue
     || raw.targets.length !== expected.items.length) throw invalid()
   const targetIds = new Set<string>()
   const positions = new Set<number>()
-  const targets = raw.targets.map((target: unknown): XianyuPublishQueueTarget => {
-    if (!isRecord(target) || !validText(target.targetId, 36) || targetIds.has(target.targetId)
-      || target.queueId !== expected.queueId || target.deviceId !== expected.deviceId || target.accountId !== expected.accountId
-      || typeof target.position !== 'number' || !Number.isInteger(target.position) || positions.has(target.position)
-      || typeof target.state !== 'string' || !targetStates.has(target.state)
-      || !Array.isArray(target.taskIds) || !target.taskIds.every((id: unknown) => validText(id, 36))
-      || new Set(target.taskIds).size !== target.taskIds.length
-      || !(target.externalItemId === null || validText(target.externalItemId, 64))
-      || !(target.recordedBoundary === null || typeof target.recordedBoundary === 'string' && boundaries.has(target.recordedBoundary))
-      || typeof target.boundaryDowngraded !== 'boolean' || !isRecord(target.judgment) || !isRecord(target.result)
-      || !(target.confirmedAt === null || typeof target.confirmedAt === 'string' && Number.isFinite(Date.parse(target.confirmedAt)))
-      || !isRecord(target.item)) throw invalid()
-    const item = expected.items[target.position]
-    if (!item || target.claimedBoundary !== item.completionBoundary
-      || target.item.description !== item.description || target.item.price !== item.price
-      || target.item.completionBoundary !== item.completionBoundary || target.item.deliveryId !== item.deliveryId
-      || JSON.stringify(target.item.mediaAssetIds) !== JSON.stringify(item.mediaAssetIds)
-      || Object.keys(target.item).some((key) => !['description', 'price', 'completionBoundary', 'mediaAssetIds', 'deliveryId'].includes(key))) throw invalid()
-    targetIds.add(target.targetId)
-    positions.add(target.position)
-    return {
-      targetId: target.targetId, queueId: expected.queueId, position: target.position,
-      deviceId: expected.deviceId, accountId: expected.accountId, state: target.state,
-      item, taskIds: [...target.taskIds], externalItemId: target.externalItemId,
-    }
-  })
+  const targets = raw.targets.map((target: unknown) => parseXianyuPublishTarget(target, expected, targetIds, positions))
   if (raw.serialAdvanceBlocked !== targets.some((target) => target.state === 'IN_FLIGHT')) throw invalid()
   return {
     queueId: expected.queueId, deviceId: expected.deviceId, accountId: expected.accountId,
@@ -346,6 +368,74 @@ export async function createXianyuPublishQueue(input: XianyuPublishQueueRequest)
 export async function getXianyuPublishQueue(input: XianyuPublishQueueRequest): Promise<XianyuPublishQueueView> {
   if (!controlApiConfigured) throw new Error('当前未连接 Control API，不能查询服务端队列')
   return parseXianyuPublishQueue(await createControlApiClient().xianyuPublishQueue(input.queueId), input)
+}
+
+export function parseXianyuPublishDispatch(
+  raw: unknown,
+  expected: XianyuPublishQueueRequest,
+  expectedTargetId: string,
+): { target: XianyuPublishQueueTarget; taskId: string } {
+  const invalid = () => new Error(`队列 ${expected.queueId} 的派发响应身份不匹配；已阻止采信，只能查询同一队列`)
+  if (!isRecord(raw) || !validText(raw.taskId, 36)) throw invalid()
+  const target = parseXianyuPublishTarget(raw, expected, new Set(), new Set())
+  if (target.targetId !== expectedTargetId || target.state !== 'IN_FLIGHT'
+    || !target.taskIds.includes(raw.taskId)) throw invalid()
+  return { target, taskId: raw.taskId }
+}
+
+export async function dispatchXianyuPublishTarget(
+  input: XianyuPublishQueueRequest,
+  targetId: string,
+): Promise<{ target: XianyuPublishQueueTarget; taskId: string }> {
+  if (!controlApiConfigured) throw new Error('当前未连接 Control API，不能派发队列目标')
+  return parseXianyuPublishDispatch(
+    await createControlApiClient().dispatchXianyuPublishTarget(input.queueId, targetId),
+    input,
+    targetId,
+  )
+}
+
+export function parseXianyuPublishTask(
+  raw: unknown,
+  expected: XianyuPublishQueueRequest,
+  target: XianyuPublishQueueTarget,
+  taskId: string,
+): XianyuPublishTaskView {
+  const invalid = () => new Error(`任务 ${taskId} 的队列、目标或执行身份不匹配；已阻止展示`)
+  if (!isRecord(raw) || raw.taskId !== taskId || raw.deviceId !== expected.deviceId
+    || raw.accountId !== expected.accountId || raw.batchId !== expected.queueId
+    || raw.commandType !== 'xianyu.publish_listing.v1' || !isRecord(raw.commandPayload)
+    || raw.commandPayload.publishTargetId !== target.targetId
+    || ('completionBoundary' in raw.commandPayload
+      && raw.commandPayload.completionBoundary !== PUBLISH_QUEUE_BOUNDARY)
+    || !validText(raw.state, 64) || !validText(raw.runnerStatus, 64)
+    || !(raw.errorCode === null || validText(raw.errorCode, 128))
+    || !(raw.detail === null || validText(raw.detail, 2000))
+    || !Array.isArray(raw.events)) throw invalid()
+  const rawEvents = raw.events.map((event: unknown) => {
+    if (!isRecord(event) || event.taskId !== taskId) throw invalid()
+    return { ...event }
+  })
+  return {
+    taskId, deviceId: expected.deviceId, accountId: expected.accountId,
+    batchId: expected.queueId, commandType: 'xianyu.publish_listing.v1',
+    publishTargetId: target.targetId, state: raw.state, runnerStatus: raw.runnerStatus,
+    errorCode: raw.errorCode, detail: raw.detail, rawEvents,
+  }
+}
+
+export async function getXianyuPublishTask(
+  input: XianyuPublishQueueRequest,
+  target: XianyuPublishQueueTarget,
+  taskId: string,
+): Promise<XianyuPublishTaskView> {
+  if (!controlApiConfigured) throw new Error('当前未连接 Control API，不能查询派发任务')
+  return parseXianyuPublishTask(
+    await createControlApiClient().getPlatformTask(taskId) as unknown,
+    input,
+    target,
+    taskId,
+  )
 }
 
 export function allocateProducts(productIds: string[], deviceIds: string[], allocation: PublishAllocation): Array<{ deviceId: string; productId: string }> {

@@ -336,6 +336,13 @@ export class CloudCtlApiClient {
     return this.request(`/api/v1/xianyu/publish/queues/${segment(queueId)}`)
   }
 
+  dispatchXianyuPublishTarget(queueId: string, targetId: string): Promise<JsonObject> {
+    return this.request(
+      `/api/v1/xianyu/publish/queues/${segment(queueId)}/targets/${segment(targetId)}/dispatch`,
+      { method: 'POST' },
+    )
+  }
+
   createContent(body: ContentCreate): Promise<ContentView> {
     return this.request('/api/v1/content', { method: 'POST', body })
   }

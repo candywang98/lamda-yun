@@ -2,10 +2,11 @@ import { webcrypto } from 'node:crypto'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   buildXianyuPublishQueueItems, createXianyuPublishQueue, getXianyuPublishQueue,
-  parseXianyuPublishQueue, prepareXianyuPublishQueue, PUBLISH_QUEUE_BOUNDARY,
+  dispatchXianyuPublishTarget, getXianyuPublishTask, parseXianyuPublishDispatch,
+  parseXianyuPublishQueue, parseXianyuPublishTask, prepareXianyuPublishQueue, PUBLISH_QUEUE_BOUNDARY,
   persistXianyuPublishQueue, type PublishQueueScope,
 } from '@/data/xianyu-publish-goods'
-import { product, queueResponse } from './xianyu-publish-fixtures'
+import { dispatchedTarget, platformTask, product, queueResponse } from './xianyu-publish-fixtures'
 
 const state = vi.hoisted(() => ({ configured: true, fetch: vi.fn() }))
 vi.mock('@/api/control', async () => {
@@ -174,6 +175,47 @@ describe('runtime response correlation', () => {
     raw.targets[1]!.targetId = raw.targets[0]!.targetId
     expect(() => parseXianyuPublishQueue(raw, input)).toThrow()
   })
+
+  it('accepts only an IN_FLIGHT dispatch response for the requested target and task', () => {
+    const input = request()
+    expect(parseXianyuPublishDispatch(dispatchedTarget(input), input, 'target-0')).toMatchObject({
+      taskId: 'task-1', target: { targetId: 'target-0', state: 'IN_FLIGHT', taskIds: ['task-1'] },
+    })
+    expect(() => parseXianyuPublishDispatch({ ...dispatchedTarget(input), targetId: 'target-other' }, input, 'target-0'))
+      .toThrow('身份不匹配')
+    expect(() => parseXianyuPublishDispatch({ ...dispatchedTarget(input), taskId: 'task-other' }, input, 'target-0'))
+      .toThrow('身份不匹配')
+  })
+
+  it('requires platform task identity and retains only raw events belonging to that task', () => {
+    const input = request()
+    const target = parseXianyuPublishDispatch(dispatchedTarget(input), input, 'target-0').target
+    const raw = platformTask(input, {
+      state: 'PAUSED_WAITING_USER', runnerStatus: 'PAUSED',
+      events: [{ taskId: 'task-1', sequence: 1, eventType: 'STEP', stepId: 'open-form' }],
+    })
+    expect(parseXianyuPublishTask(raw, input, target, 'task-1')).toMatchObject({
+      taskId: 'task-1', state: 'PAUSED_WAITING_USER', rawEvents: [{ stepId: 'open-form' }],
+    })
+    expect(() => parseXianyuPublishTask({ ...raw, batchId: 'other-queue' }, input, target, 'task-1')).toThrow('身份不匹配')
+    expect(() => parseXianyuPublishTask({ ...raw, commandPayload: { ...raw.commandPayload, publishTargetId: 'other-target' } }, input, target, 'task-1'))
+      .toThrow('身份不匹配')
+    expect(() => parseXianyuPublishTask({ ...raw, events: [{ taskId: 'task-other' }] }, input, target, 'task-1'))
+      .toThrow('身份不匹配')
+  })
+
+  it('keeps a recovered older task readable when completionBoundary is absent, but rejects a present mismatch', () => {
+    const input = request()
+    const target = parseXianyuPublishDispatch(dispatchedTarget(input), input, 'target-0').target
+    const raw = platformTask(input)
+    const legacyPayload: Record<string, unknown> = { ...raw.commandPayload }
+    delete legacyPayload.completionBoundary
+    expect(parseXianyuPublishTask({ ...raw, commandPayload: legacyPayload }, input, target, 'task-1'))
+      .toMatchObject({ taskId: 'task-1', publishTargetId: 'target-0' })
+    expect(() => parseXianyuPublishTask({
+      ...raw, commandPayload: { ...raw.commandPayload, completionBoundary: 'FULL_AUTO' },
+    }, input, target, 'task-1')).toThrow('身份不匹配')
+  })
 })
 
 describe('create/get API surface', () => {
@@ -198,5 +240,18 @@ describe('create/get API surface', () => {
     await expect(createXianyuPublishQueue(request())).rejects.toThrow('未连接')
     await expect(getXianyuPublishQueue(request())).rejects.toThrow('未连接')
     expect(state.fetch).not.toHaveBeenCalled()
+  })
+
+  it('dispatches with no body and reads the exact platform task endpoint', async () => {
+    const input = request()
+    const target = dispatchedTarget(input)
+    state.fetch.mockResolvedValueOnce(new Response(JSON.stringify(target)))
+      .mockResolvedValueOnce(new Response(JSON.stringify(platformTask(input))))
+    const dispatched = await dispatchXianyuPublishTarget(input, 'target-0')
+    await getXianyuPublishTask(input, dispatched.target, dispatched.taskId)
+    expect(state.fetch.mock.calls.map(([url, init]) => [url, init.method, init.body])).toEqual([
+      [`https://control.invalid/api/v1/xianyu/publish/queues/${input.queueId}/targets/target-0/dispatch`, 'POST', undefined],
+      ['https://control.invalid/api/v1/platform-tasks/task-1', 'GET', undefined],
+    ])
   })
 })

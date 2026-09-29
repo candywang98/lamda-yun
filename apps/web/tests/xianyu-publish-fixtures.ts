@@ -24,6 +24,24 @@ export function queueResponse(request: XianyuPublishQueueRequest) {
   }
 }
 
+export function dispatchedTarget(request: XianyuPublishQueueRequest, position = 0, taskId = 'task-1') {
+  const target = queueResponse(request).targets[position]!
+  return { ...target, state: 'IN_FLIGHT', taskIds: [taskId], taskId }
+}
+
+export function platformTask(request: XianyuPublishQueueRequest, overrides: Record<string, unknown> = {}) {
+  const targetId = String(overrides.publishTargetId ?? 'target-0')
+  const taskId = String(overrides.taskId ?? 'task-1')
+  return {
+    id: taskId, taskId, deviceId: request.deviceId, accountId: request.accountId,
+    batchId: request.queueId, commandType: 'xianyu.publish_listing.v1',
+    commandPayload: { publishTargetId: targetId, completionBoundary: 'HUMAN_PRICE_HUMAN_COMMIT' },
+    state: 'RUNNING', runnerStatus: 'RUNNING', errorCode: null, detail: null,
+    events: [] as Record<string, unknown>[],
+    ...overrides,
+  }
+}
+
 export function account(deviceId = 'device-1', id = 'account-1') {
   return {
     id, tenantId: 'tenant-1', platform: 'xianyu', externalSubjectRef: 'seller-1',
