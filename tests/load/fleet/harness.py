@@ -1,6 +1,6 @@
-"""D11 fleet load harness: in-process simulated companions over real HTTP.
+"""D11 fleet load harness: in-process simulated companions over ASGI.
 
-在真实 ASGI 应用上跑模拟 companion（enroll→claim→complete/release），
+在真实 ASGI 应用上跑模拟 companion（enroll→claim→event/heartbeat→complete），
 用 observability.DeviceFleetMetrics 记录每设备 queueAge/claimLatency/冲突/
 UNKNOWN/输入失败/证据上传，并产出含主机规格与测试配置的 JSON 负载报告。
 模拟客户端 ≠ 真机：报告显式标注。
@@ -14,16 +14,21 @@ import os
 import platform as host_platform
 import time
 import uuid
+from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
+from tempfile import TemporaryDirectory
+from types import TracebackType
 from typing import Any
 
 import httpx
 from cloudctl_api import create_app
+from cloudctl_api.db import Database, DeviceLeaseRow, MobileTaskRow
 from cloudctl_api.settings import Settings
 from cloudctl_observability import DeviceFleetMetrics
 from fastapi import FastAPI
+from sqlalchemy import select
 
 TENANT = "00000000-0000-7000-8000-000000000111"
 OPERATOR = "00000000-0000-7000-8000-000000000222"
@@ -49,25 +54,64 @@ class WorkerOutcome:
     stranded: int = 0
     reclaimed: int = 0
     errors: list[str] = field(default_factory=list)
+    claim_attempts: int = 0
+    guard_exhausted: bool = False
+    exit_reason: str = ""
+    http_status_counts: dict[str, int] = field(default_factory=dict)
+    completed_task_ids: list[str] = field(default_factory=list)
+    stranded_task_ids: list[str] = field(default_factory=list)
+    remaining_task_ids: list[str] = field(default_factory=list)
+    task_states: dict[str, dict[str, Any]] = field(default_factory=dict)
+    device_lease: dict[str, Any] | None = None
+
+    def record_response(self, operation: str, response: httpx.Response, expected: set[int]) -> None:
+        key = f"{operation}-{response.status_code}"
+        self.http_status_counts[key] = self.http_status_counts.get(key, 0) + 1
+        if response.status_code not in expected:
+            error = f"{key}:{response.text[:200]}"
+            if error not in self.errors:
+                self.errors.append(error)
 
 
 class FleetLoadApp:
     def __init__(self) -> None:
-        self.app: FastAPI = create_app(
-            Settings(env="test", repository_mode="memory", dev_auth_bypass=True)
-        )
+        self.app: FastAPI
+        self.client: httpx.AsyncClient
+        self._stack = AsyncExitStack()
         self.metrics = DeviceFleetMetrics()
 
     async def __aenter__(self) -> FleetLoadApp:
-        self._lifespan = self.app.router.lifespan_context(self.app)
-        await self._lifespan.__aenter__()
-        transport = httpx.ASGITransport(app=self.app)
-        self.client = httpx.AsyncClient(transport=transport, base_url="http://load")
-        return self
+        await self._stack.__aenter__()
+        try:
+            root = Path(self._stack.enter_context(TemporaryDirectory(prefix="fleet-load-")))
+            # Concurrent sessions must not share the in-memory StaticPool connection.
+            self.app = create_app(
+                Settings(
+                    env="test",
+                    repository_mode="sqlite",
+                    sqlite_path=root / "fleet.db",
+                    object_store_mode="memory",
+                    dev_auth_bypass=True,
+                )
+            )
+            await self._stack.enter_async_context(self.app.router.lifespan_context(self.app))
+            self.client = await self._stack.enter_async_context(
+                httpx.AsyncClient(
+                    transport=httpx.ASGITransport(app=self.app), base_url="http://load"
+                )
+            )
+            return self
+        except BaseException:
+            await self._stack.aclose()
+            raise
 
-    async def __aexit__(self, *exc: object) -> None:
-        await self.client.aclose()
-        await self._lifespan.__aexit__(*exc)
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        await self._stack.__aexit__(exc_type, exc, traceback)
 
     async def seed_device(self, name: str) -> str:
         response = await self.client.post(
@@ -142,6 +186,80 @@ class FleetLoadApp:
         response.raise_for_status()
         return str(response.json()["items"][0]["taskId"]), minted_at
 
+    async def reconcile_outcome(
+        self, outcome: WorkerOutcome, task_ids: list[str], *, intentional_failure: bool
+    ) -> None:
+        """Compare client acknowledgements with durable state after all workers stop."""
+        database: Database = self.app.state.database
+        async with database.unit_of_work() as session:
+            rows = {
+                row.id: row
+                for row in await session.scalars(
+                    select(MobileTaskRow).where(
+                        MobileTaskRow.tenant_id == TENANT, MobileTaskRow.id.in_(task_ids)
+                    )
+                )
+            }
+            for task_id in task_ids:
+                row = rows.get(task_id)
+                outcome.task_states[task_id] = (
+                    {
+                        "status": row.status,
+                        "businessState": row.business_state,
+                        "deviceId": row.device_id,
+                        "attempt": row.attempt,
+                        "lastSequence": row.last_sequence,
+                        "leaseId": row.lease_id,
+                        "leaseExpiresAt": row.lease_expires_at.isoformat()
+                        if row.lease_expires_at
+                        else None,
+                        "errorCode": row.error_code,
+                    }
+                    if row is not None
+                    else {"status": "MISSING"}
+                )
+            lease = await session.get(DeviceLeaseRow, outcome.device_id)
+            if lease is not None:
+                outcome.device_lease = {
+                    "leaseId": lease.lease_id,
+                    "ownerWorkflowId": lease.owner_workflow_id,
+                    "fencingToken": lease.fencing_token,
+                    "expiresAt": lease.expires_at.isoformat(),
+                    "canceledAt": lease.canceled_at.isoformat() if lease.canceled_at else None,
+                }
+        for task_id in task_ids:
+            state = outcome.task_states[task_id]
+            if state.get("deviceId") != outcome.device_id:
+                outcome.errors.append(f"missing-or-wrong-device-task:{task_id}:{state}")
+            elif task_id in outcome.completed_task_ids and (
+                state["status"] != "SUCCEEDED" or state["businessState"] != "SUCCEEDED"
+            ):
+                outcome.errors.append(f"completion-not-persisted:{task_id}:{state}")
+
+        expected_stall = (
+            intentional_failure
+            and outcome.stranded == 1
+            and outcome.completed == 0
+            and not outcome.errors
+            and all(
+                outcome.task_states[task_id]["status"]
+                == ("RUNNING" if task_id in outcome.stranded_task_ids else "QUEUED")
+                for task_id in task_ids
+            )
+        )
+        if expected_stall:
+            outcome.exit_reason = "intentional-device-failure"
+        elif outcome.remaining_task_ids:
+            outcome.exit_reason = "guard-exhausted" if outcome.guard_exhausted else "incomplete"
+            outcome.errors.append(
+                f"{outcome.exit_reason}:remaining={len(outcome.remaining_task_ids)};"
+                f"claimAttempts={outcome.claim_attempts};"
+                f"httpStatuses={json.dumps(outcome.http_status_counts, sort_keys=True)};"
+                f"taskStates={json.dumps(outcome.task_states, sort_keys=True)}"
+            )
+        else:
+            outcome.exit_reason = "failed" if outcome.errors else "completed"
+
 
 async def run_scenario(
     *,
@@ -200,6 +318,7 @@ async def run_scenario(
             guard = tasks_per_device * 30 + 50
             while remaining and guard > 0:
                 guard -= 1
+                outcome.claim_attempts += 1
                 if claim_pacing_seconds:
                     await asyncio.sleep(claim_pacing_seconds)
                 claim_started = time.perf_counter()
@@ -209,6 +328,7 @@ async def run_scenario(
                     json={"leaseSeconds": 60},
                 )
                 claim_latency = time.perf_counter() - claim_started
+                outcome.record_response("claim", claim, {200, 204})
                 if claim.status_code == 204:
                     await asyncio.sleep(0.005)
                     continue
@@ -218,12 +338,10 @@ async def run_scenario(
                     continue
                 if claim.status_code == 422:
                     harness.metrics.incr(device["id"], "inputFailure")
-                    outcome.errors.append(f"claim-422:{claim.text[:80]}")
                     await asyncio.sleep(0.005)
                     continue
                 if claim.status_code >= 500:
-                    # 已登记的并发领租竞态（device_lease 唯一冲突）→ 客户端退避重试。
-                    harness.metrics.incr(device["id"], "leaseConflict")
+                    # Preserve the error; a 5xx alone does not establish lease contention.
                     await asyncio.sleep(0.01)
                     continue
                 claim.raise_for_status()
@@ -232,6 +350,7 @@ async def run_scenario(
                 if task_id not in remaining:
                     # 服务器重发了未清点的任务（如租约归还）；记录但不重复计量。
                     outcome.reclaimed += 1
+                    outcome.errors.append(f"unexpected-claim:{task_id}")
                     await asyncio.sleep(0.005)
                     continue
                 harness.metrics.observe(device["id"], "claimLatencySeconds", claim_latency)
@@ -241,12 +360,16 @@ async def run_scenario(
                 outcome.claimed += 1
                 if device["fail"]:
                     # 故障设备：领取后不完成，只心跳一次然后放弃（任务滞留）。
-                    await harness.client.post(
+                    heartbeat = await harness.client.post(
                         f"/companion/v2/tasks/{task_id}/heartbeat",
                         headers=device["auth"],
                         json={"leaseId": body["leaseId"]},
                     )
+                    outcome.record_response("heartbeat", heartbeat, {200})
+                    if heartbeat.status_code != 200:
+                        break
                     outcome.stranded += 1
+                    outcome.stranded_task_ids.append(task_id)
                     remaining.discard(task_id)
                     continue
                 if emit_progress_events:
@@ -256,11 +379,12 @@ async def run_scenario(
                         json={
                             "leaseId": body["leaseId"],
                             "sequence": 1,
-                            "eventType": "PROGRESS",
+                            "eventType": "STEP_STARTED",
                             "stepIndex": 0,
                             "payload": {"note": "load"},
                         },
                     )
+                    outcome.record_response("event", event, {201})
                     if event.status_code == 201:
                         harness.metrics.incr(device["id"], "evidenceUploads")
                 complete = await harness.client.post(
@@ -275,6 +399,7 @@ async def run_scenario(
                         },
                     },
                 )
+                outcome.record_response("complete", complete, {200})
                 if complete.status_code != 200:
                     # 瞬时冲突（租约/检查点竞态）退避后重试一次。
                     await asyncio.sleep(0.02)
@@ -290,21 +415,25 @@ async def run_scenario(
                             },
                         },
                     )
+                    outcome.record_response("complete", complete, {200})
                 if complete.status_code == 200:
                     outcome.completed += 1
+                    outcome.completed_task_ids.append(task_id)
                     remaining.discard(task_id)
                 else:
-                    # 真实 companion 的恢复行为：冲突后放弃租约，任务回队列重领。
+                    # Completion failure is evidence, not an accessibility-release reason.
                     harness.metrics.incr(device["id"], "inputFailure")
-                    outcome.errors.append(f"complete-{complete.status_code}:{complete.text[:80]}")
-                    await harness.client.post(
-                        f"/companion/v2/tasks/{task_id}/release",
-                        headers=device["auth"],
-                        json={"leaseId": body["leaseId"]},
-                    )
-                    await asyncio.sleep(0.01)
+                    break
+            outcome.remaining_task_ids = sorted(remaining)
+            outcome.guard_exhausted = bool(remaining) and guard == 0
 
         await asyncio.gather(*(worker(device) for device in devices))
+        for device in devices:
+            await harness.reconcile_outcome(
+                outcomes[device["id"]],
+                [task_id for task_id, _ in minted[device["id"]]],
+                intentional_failure=device["fail"],
+            )
         duration = time.perf_counter() - started
         snapshot = harness.metrics.snapshot()
         report = {
@@ -317,7 +446,11 @@ async def run_scenario(
                 "system": host_platform.platform(),
                 "cpuCount": os.cpu_count(),
             },
-            "db": {"repositoryMode": "memory", "engine": "in-process-sqlite-memory"},
+            "db": {
+                "repositoryMode": "sqlite",
+                "engine": "temporary-file-sqlite",
+                "pool": type(harness.app.state.database.engine.pool).__name__,
+            },
             "config": {
                 "deviceCount": device_count,
                 "tasksPerDevice": tasks_per_device,
@@ -331,12 +464,26 @@ async def run_scenario(
                     "claimed": o.claimed,
                     "completed": o.completed,
                     "stranded": o.stranded,
-                    "errors": o.errors[:3],
+                    "released": o.released,
+                    "reclaimed": o.reclaimed,
+                    "errors": o.errors,
+                    "expected": tasks_per_device,
+                    "remaining": len(o.remaining_task_ids),
+                    "remainingTaskIds": o.remaining_task_ids,
+                    "completedTaskIds": o.completed_task_ids,
+                    "strandedTaskIds": o.stranded_task_ids,
+                    "claimAttempts": o.claim_attempts,
+                    "guardExhausted": o.guard_exhausted,
+                    "exitReason": o.exit_reason,
+                    "httpStatusCounts": o.http_status_counts,
+                    "taskStates": o.task_states,
+                    "deviceLease": o.device_lease,
                 }
                 for device_id, o in outcomes.items()
             },
             "limits": (
-                "in-process ASGI transport; single-host in-memory repo; "
+                "in-process ASGI transport; temporary file-backed SQLite with separate "
+                "transaction connections, not PostgreSQL row-lock evidence; "
                 "not a networked multi-node benchmark"
             ),
         }

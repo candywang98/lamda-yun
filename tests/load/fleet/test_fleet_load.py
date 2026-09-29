@@ -6,6 +6,7 @@ head-of-line；UNKNOWN 证据不随 50 条事件压缩丢失。模拟客户端 �
 
 from __future__ import annotations
 
+import json
 import uuid
 from pathlib import Path
 
@@ -14,30 +15,39 @@ from sqlalchemy import select
 
 from .harness import FleetLoadApp, identity, run_scenario
 
-REPORT_DIR = Path(__file__).resolve().parents[3] / "artifacts" / "tasks" / "D11"
-
 
 @pytest.mark.asyncio
-async def test_baseline_two_devices_twenty_tasks_report() -> None:
+async def test_baseline_two_devices_twenty_tasks_report(tmp_path: Path) -> None:
     result = await run_scenario(
         device_count=2,
         tasks_per_device=20,
         scenario_name="baseline-2x20",
-        report_dir=REPORT_DIR,
+        report_dir=tmp_path,
     )
     report = result["report"]
     outcomes = result["outcomes"]
 
     assert report["simulatedClientsNotRealDevices"] is True
     assert report["host"]["cpuCount"] >= 1
-    assert report["db"]["repositoryMode"] == "memory"
+    assert report["db"]["repositoryMode"] == "sqlite"
+    assert report["db"]["engine"] == "temporary-file-sqlite"
     assert report["config"]["deviceCount"] == 2
 
     for _device_id, outcome in outcomes.items():
         assert outcome.completed == 20, outcome.errors
         assert outcome.claimed >= 20, outcome.errors
         assert outcome.stranded == 0
+        assert outcome.errors == []
+        assert outcome.remaining_task_ids == []
+        assert outcome.exit_reason == "completed"
+        assert outcome.http_status_counts == {"claim-200": 20, "event-201": 20, "complete-200": 20}
+        assert len(outcome.task_states) == 20
+        assert all(state["status"] == "SUCCEEDED" for state in outcome.task_states.values())
+        assert all(state["lastSequence"] == 1 for state in outcome.task_states.values())
 
+    saved = json.loads((tmp_path / "load-report-baseline-2x20.json").read_text())
+    assert saved == report
+    assert all(outcome["remaining"] == 0 for outcome in saved["outcomes"].values())
     fleet = report["metrics"]["fleet"]
     assert fleet["queueAgeSeconds"]["count"] >= 40
     assert fleet["claimLatencySeconds"]["count"] >= 40
@@ -48,17 +58,21 @@ async def test_baseline_two_devices_twenty_tasks_report() -> None:
 
 
 @pytest.mark.asyncio
-async def test_hundred_simulated_clients_control_plane_holds() -> None:
+async def test_hundred_simulated_clients_control_plane_holds(tmp_path: Path) -> None:
     result = await run_scenario(
         device_count=100,
         tasks_per_device=1,
         scenario_name="clients-100",
-        report_dir=REPORT_DIR,
+        report_dir=tmp_path,
     )
     report = result["report"]
     assert report["config"]["deviceCount"] == 100
     completed = sum(o.completed for o in result["outcomes"].values())
     assert completed == 100
+    assert all(not o.errors and o.exit_reason == "completed" for o in result["outcomes"].values())
+    for outcome in result["outcomes"].values():
+        assert outcome.http_status_counts == {"claim-200": 1, "event-201": 1, "complete-200": 1}
+        assert all(state["lastSequence"] == 1 for state in outcome.task_states.values())
     fleet = report["metrics"]["fleet"]
     assert fleet["queueAgeSeconds"]["count"] >= 100
     assert fleet["claimLatencySeconds"]["p95"] < 5.0
@@ -66,13 +80,13 @@ async def test_hundred_simulated_clients_control_plane_holds() -> None:
 
 
 @pytest.mark.asyncio
-async def test_broken_device_is_not_a_global_head_of_line() -> None:
+async def test_broken_device_is_not_a_global_head_of_line(tmp_path: Path) -> None:
     result = await run_scenario(
         device_count=2,
         tasks_per_device=10,
         fail_device_names={"load-hol-000"},
         scenario_name="hol",
-        report_dir=REPORT_DIR,
+        report_dir=tmp_path,
         emit_progress_events=False,
         # 20ms 节流避开已登记的 device_lease 并发竞态窗口（BLK-011，platform 线修复）。
         claim_pacing_seconds=0.02,
@@ -86,8 +100,14 @@ async def test_broken_device_is_not_a_global_head_of_line() -> None:
     assert broken[0].claimed == 1
     assert broken[0].stranded == 1
     assert broken[0].completed == 0
+    assert broken[0].exit_reason == "intentional-device-failure"
+    assert broken[0].errors == []
+    assert len(broken[0].remaining_task_ids) == 9
+    assert broken[0].guard_exhausted is True
     assert healthy[0].completed == 10
     assert healthy[0].claimed >= 10
+    assert healthy[0].remaining_task_ids == []
+    assert healthy[0].errors == []
 
     report = result["report"]
     per_device = report["metrics"]["perDevice"]
