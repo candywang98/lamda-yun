@@ -1,9 +1,17 @@
 package com.company.cloudctl.companion.ime
 
 import com.company.cloudctl.companion.automation.ExecutorFailure
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
@@ -162,5 +170,113 @@ class TemporaryImeSwitchTest {
         }
         assertEquals("INPUT_IME_REQUIRED", error.code)
         assertTrue("com.sogou/.SogouIME" == fake.current)
+    }
+
+    @Test fun cancelledJobAwaitsRestorationWhileSelecting() =
+        assertCancelledJobAwaitsRestoration(cancelWhileSelecting = true)
+
+    @Test fun cancelledJobAwaitsRestorationWhileInputIsSuspended() =
+        assertCancelledJobAwaitsRestoration(cancelWhileSelecting = false)
+
+    private fun assertCancelledJobAwaitsRestoration(cancelWhileSelecting: Boolean) = runBlocking {
+        withTimeout(10_000) {
+            val original = "com.sogou/.SogouIME"
+            val cloud = "com.company.cloudctl.companion/.ime.CloudCtlInputMethod"
+            var selected = original
+            var restoring = false
+            var temporary = false
+            var finished = false
+            var blockEntered = false
+            var blockContinued = false
+            var returnedSuccess = false
+            var cancellationObserved = false
+            val cancelPoint = CompletableDeferred<Unit>()
+            val holdInput = CompletableDeferred<Unit>()
+            val restoreStarted = CompletableDeferred<Unit>()
+            val releaseRestore = CompletableDeferred<Unit>()
+            val switches = mutableListOf<String>()
+            val switcher = object : ImeSwitcher {
+                override fun currentDefaultId() = original
+                override fun cloudCtlIds() = setOf(cloud)
+                override fun switchTo(id: String): Boolean {
+                    switches += id
+                    if (id == original) {
+                        // The restore request succeeds before its selection is observable.
+                        restoring = true
+                    } else {
+                        selected = id
+                    }
+                    return true
+                }
+                override fun observeSelectedId() =
+                    if (cancelWhileSelecting && !restoring) original else selected
+            }
+            val job = launch {
+                try {
+                    TemporaryImeSwitch(
+                        switcher,
+                        pause = {
+                            if (restoring) {
+                                restoreStarted.complete(Unit)
+                                releaseRestore.await()
+                                selected = original
+                            } else {
+                                cancelPoint.complete(Unit)
+                                holdInput.await()
+                            }
+                        },
+                        onSwitchStarted = { temporary = true },
+                        onSwitchFinished = { temporary = false; finished = true },
+                    ).around {
+                        blockEntered = true
+                        cancelPoint.complete(Unit)
+                        holdInput.await()
+                        blockContinued = true
+                        "typed"
+                    }
+                    returnedSuccess = true
+                } catch (error: CancellationException) {
+                    cancellationObserved = true
+                    throw error
+                }
+            }
+            try {
+                cancelPoint.await()
+                assertTrue(temporary)
+                assertEquals(!cancelWhileSelecting, blockEntered)
+                job.cancel()
+                restoreStarted.await()
+                assertTrue(job.isCancelled)
+                assertFalse(job.isCompleted)
+                assertTrue(temporary)
+                assertFalse(finished)
+                assertEquals(cloud, selected)
+                assertFalse(blockContinued)
+                assertFalse(returnedSuccess)
+                assertFalse(cancellationObserved)
+
+                releaseRestore.complete(Unit)
+                job.join()
+                assertTrue(job.isCompleted)
+                assertTrue(job.isCancelled)
+                assertTrue(cancellationObserved)
+                assertEquals(original, selected)
+                assertEquals(listOf(cloud, original), switches)
+                assertFalse(temporary)
+                assertTrue(finished)
+                assertEquals(!cancelWhileSelecting, blockEntered)
+                assertFalse(blockContinued)
+                assertFalse(returnedSuccess)
+            } finally {
+                job.cancel()
+                holdInput.complete(Unit)
+                releaseRestore.complete(Unit)
+                cancelPoint.complete(Unit)
+                restoreStarted.complete(Unit)
+                withContext(NonCancellable) {
+                    withTimeout(10_000) { job.cancelAndJoin() }
+                }
+            }
+        }
     }
 }
