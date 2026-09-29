@@ -579,34 +579,35 @@ class PlatformTaskService:
                 body=mobile_body,
             )
             created_any = created_any or created
-            command_payload = {
-                "commandType": command_type,
-                "parameters": body.parameters,
-                "accountId": body.account_id,
-                "expectedBindingVersion": body.expected_binding_version,
-                "publishTargetId": body.publish_target_id,
-                "productId": body.product_id or body.parameters.get("productId"),
-                "mediaDeliveryId": body.media_delivery_id,
-                "snapshotId": f"snap-{view['taskId']}",
-                "recipe": builtin_recipe_ref(command_type),
-            }
-            # task-schedule/v1 §2/D1: freeze the minting operationId into the
-            # snapshot; §5: freeze the template revision the command was minted from.
-            if body.operation_id:
-                command_payload["operationId"] = body.operation_id
-            if body.template_revision is not None:
-                command_payload["templateRevision"] = body.template_revision
-            command_payload["snapshotSha256"] = hashlib.sha256(
-                _canonical(command_payload).encode()
-            ).hexdigest()
-            await self._stamp_business_fields(
-                task_id=view["taskId"],
-                command_type=command_type,
-                command_payload=command_payload,
-                batch_id=batch_id,
-                scheduled_for=body.scheduled_for,
-                operation_id=body.operation_id,
-            )
+            if created:
+                command_payload = {
+                    "commandType": command_type,
+                    "parameters": body.parameters,
+                    "accountId": body.account_id,
+                    "expectedBindingVersion": body.expected_binding_version,
+                    "publishTargetId": body.publish_target_id,
+                    "productId": body.product_id or body.parameters.get("productId"),
+                    "mediaDeliveryId": body.media_delivery_id,
+                    "snapshotId": f"snap-{view['taskId']}",
+                    "recipe": builtin_recipe_ref(command_type),
+                }
+                # task-schedule/v1 §2/D1: freeze the minting operationId into the
+                # snapshot; §5: freeze the template revision the command was minted from.
+                if body.operation_id:
+                    command_payload["operationId"] = body.operation_id
+                if body.template_revision is not None:
+                    command_payload["templateRevision"] = body.template_revision
+                command_payload["snapshotSha256"] = hashlib.sha256(
+                    _canonical(command_payload).encode()
+                ).hexdigest()
+                await self._stamp_business_fields(
+                    task_id=view["taskId"],
+                    command_type=command_type,
+                    command_payload=command_payload,
+                    batch_id=batch_id,
+                    scheduled_for=body.scheduled_for,
+                    operation_id=body.operation_id,
+                )
             views.append(await self.get(actor, view["taskId"]))
         return views, created_any
 

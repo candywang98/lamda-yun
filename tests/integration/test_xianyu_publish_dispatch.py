@@ -305,7 +305,7 @@ async def test_task_create_commit_then_failure_recovers_same_dispatch_key(
     api: tuple[httpx.AsyncClient, FastAPI], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     client, app = api
-    _, targets = await create_queue(client, "dispatch-recovery", item_count=1)
+    device_id, targets = await create_queue(client, "dispatch-recovery", item_count=1)
     target_id = targets[0]["targetId"]
     original_create = app.state.platform_task_service.create
     failed_once = False
@@ -329,11 +329,180 @@ async def test_task_create_commit_then_failure_recovers_same_dispatch_key(
     assert queue["targets"][0]["taskIds"] == []
     assert await task_count(app, "dispatch-recovery") == 1
 
+    enrollment = await client.post(
+        "/api/v1/mobile/enrollments",
+        headers=identity(),
+        json={"deviceId": device_id, "ttlSeconds": 600},
+    )
+    assert enrollment.status_code == 201, enrollment.text
+    enrolled = await client.post(
+        "/companion/v2/enroll",
+        json={
+            "code": enrollment.json()["code"],
+            "appInstanceId": "dispatch-recovery-instance",
+            "companionVersion": "1.0.0",
+        },
+    )
+    assert enrolled.status_code == 201, enrolled.text
+    companion_auth = {"Authorization": f"Bearer {enrolled.json()['bindingToken']}"}
+    claimed = await client.post(
+        "/companion/v2/tasks/claim",
+        headers=companion_auth,
+        json={"leaseSeconds": 60},
+    )
+    assert claimed.status_code == 200, claimed.text
+    task_id = claimed.json()["taskId"]
+    paused = await client.post(
+        f"/companion/v2/tasks/{task_id}/events",
+        headers=companion_auth,
+        json={
+            "leaseId": claimed.json()["leaseId"],
+            "sequence": 1,
+            "eventType": "PAUSED_WAITING_USER",
+            "stepIndex": 0,
+            "payload": {"reason": "recovery state must survive"},
+        },
+    )
+    assert paused.status_code == 201, paused.text
+    async with app.state.database.unit_of_work() as session:
+        task_row = await session.get(MobileTaskRow, task_id, with_for_update=True)
+        assert task_row is not None
+        task_row.result = {"checkpoint": "preserve-during-recovery"}
+    before = await client.get(f"/api/v1/platform-tasks/{task_id}", headers=identity())
+    assert before.status_code == 200, before.text
+    assert before.json()["state"] == "PAUSED_WAITING_USER"
+    assert before.json()["controlMode"] == "REMOTE"
+
     retry = await client.post(path, headers=identity())
     assert retry.status_code == 200, retry.text
     assert retry.json()["state"] == "IN_FLIGHT"
-    assert retry.json()["taskIds"] == [retry.json()["taskId"]]
+    assert retry.json()["taskId"] == task_id
+    assert retry.json()["taskIds"] == [task_id]
     assert await task_count(app, "dispatch-recovery") == 1
+    after = await client.get(f"/api/v1/platform-tasks/{task_id}", headers=identity())
+    assert after.status_code == 200, after.text
+    assert after.json()["state"] == "PAUSED_WAITING_USER"
+    assert after.json()["controlMode"] == "REMOTE"
+    assert after.json()["result"] == before.json()["result"]
+    assert after.json()["commandPayload"] == before.json()["commandPayload"]
+    assert after.json()["snapshotSha256"] == before.json()["snapshotSha256"]
+
+
+@pytest.mark.asyncio
+async def test_dispatch_recovery_fails_closed_on_partial_mismatching_task(
+    api: tuple[httpx.AsyncClient, FastAPI],
+) -> None:
+    client, app = api
+    device_id, targets = await create_queue(client, "dispatch-mismatch", item_count=1)
+    target = targets[0]
+    dispatch_key = f"xianyu-publish:{target['targetId']}:1"
+    created = await client.post(
+        "/api/v1/platform-tasks",
+        headers={**identity(), "Idempotency-Key": dispatch_key},
+        json={
+            "deviceId": device_id,
+            "accountId": target["accountId"],
+            "commandType": "xianyu.publish_listing.v1",
+            "parameters": {"listingBody": "dispatch item 0", "price": "1.00"},
+            "publishTargetId": target["targetId"],
+            "batchId": "dispatch-mismatch",
+        },
+    )
+    assert created.status_code == 201, created.text
+    task_id = created.json()["items"][0]["taskId"]
+    corrupted_payload = {"publishTargetId": "wrong-target"}
+    async with app.state.database.unit_of_work() as session:
+        task_row = await session.get(MobileTaskRow, task_id, with_for_update=True)
+        assert task_row is not None
+        task_row.command_payload = corrupted_payload
+
+    dispatch = await client.post(
+        f"/api/v1/xianyu/publish/queues/dispatch-mismatch/targets/{target['targetId']}/dispatch",
+        headers=identity(),
+    )
+    assert dispatch.status_code == 409, dispatch.text
+    queue = (
+        await client.get("/api/v1/xianyu/publish/queues/dispatch-mismatch", headers=identity())
+    ).json()
+    assert queue["targets"][0]["state"] == "PENDING"
+    assert queue["targets"][0]["taskIds"] == []
+    task = await client.get(f"/api/v1/platform-tasks/{task_id}", headers=identity())
+    assert task.status_code == 200, task.text
+    assert task.json()["state"] == "QUEUED"
+    assert task.json()["controlMode"] == "AUTO"
+    assert task.json()["commandPayload"] == corrupted_payload
+
+
+@pytest.mark.asyncio
+async def test_platform_task_idempotent_replay_preserves_started_task(
+    api: tuple[httpx.AsyncClient, FastAPI],
+) -> None:
+    client, app = api
+    device_id, account_id = await setup_device_and_account(client, "platform-replay")
+    task_body = {
+        "deviceId": device_id,
+        "accountId": account_id,
+        "commandType": "xianyu.publish_listing.v1",
+        "parameters": {"listingBody": "platform replay item", "price": "9.00"},
+        "publishTargetId": "platform-replay-target",
+        "batchId": "platform-replay",
+    }
+    task_headers = {**identity(), "Idempotency-Key": "platform-replay-preserves-state"}
+    created = await client.post("/api/v1/platform-tasks", headers=task_headers, json=task_body)
+    assert created.status_code == 201, created.text
+    task_id = created.json()["items"][0]["taskId"]
+    enrollment = await client.post(
+        "/api/v1/mobile/enrollments",
+        headers=identity(),
+        json={"deviceId": device_id, "ttlSeconds": 600},
+    )
+    assert enrollment.status_code == 201, enrollment.text
+    enrolled = await client.post(
+        "/companion/v2/enroll",
+        json={
+            "code": enrollment.json()["code"],
+            "appInstanceId": "platform-replay-instance",
+            "companionVersion": "1.0.0",
+        },
+    )
+    assert enrolled.status_code == 201, enrolled.text
+    companion_auth = {"Authorization": f"Bearer {enrolled.json()['bindingToken']}"}
+    claimed = await client.post(
+        "/companion/v2/tasks/claim",
+        headers=companion_auth,
+        json={"leaseSeconds": 60},
+    )
+    assert claimed.status_code == 200, claimed.text
+    assert claimed.json()["taskId"] == task_id
+    paused = await client.post(
+        f"/companion/v2/tasks/{task_id}/events",
+        headers=companion_auth,
+        json={
+            "leaseId": claimed.json()["leaseId"],
+            "sequence": 1,
+            "eventType": "PAUSED_WAITING_USER",
+            "stepIndex": 0,
+            "payload": {"reason": "idempotent replay must preserve state"},
+        },
+    )
+    assert paused.status_code == 201, paused.text
+    async with app.state.database.unit_of_work() as session:
+        task_row = await session.get(MobileTaskRow, task_id, with_for_update=True)
+        assert task_row is not None
+        task_row.result = {"checkpoint": "platform-replay"}
+    before = await client.get(f"/api/v1/platform-tasks/{task_id}", headers=identity())
+    assert before.status_code == 200, before.text
+
+    replay = await client.post("/api/v1/platform-tasks", headers=task_headers, json=task_body)
+    assert replay.status_code == 200, replay.text
+    assert replay.json()["items"][0]["taskId"] == task_id
+    after = await client.get(f"/api/v1/platform-tasks/{task_id}", headers=identity())
+    assert after.status_code == 200, after.text
+    assert after.json()["state"] == "PAUSED_WAITING_USER"
+    assert after.json()["controlMode"] == "REMOTE"
+    assert after.json()["result"] == before.json()["result"]
+    assert after.json()["commandPayload"] == before.json()["commandPayload"]
+    assert after.json()["snapshotSha256"] == before.json()["snapshotSha256"]
 
 
 @pytest.mark.asyncio

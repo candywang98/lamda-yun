@@ -959,10 +959,27 @@ class XianyuPublishQueueService:
             )
             attempt = len(row.task_ids) + 1
             dispatch_key = f"xianyu-publish:{row.id}:{attempt}"
-            views, _created = await platform_task_service.create(actor, dispatch_key, body)
-            task_id = str(views[0]["taskId"])
-            task = await session.get(MobileTaskRow, task_id, with_for_update=True)
-            if task is not None:
+            task = await self._locked_dispatch_task(session, str(actor.tenant_id), dispatch_key)
+            created = False
+            if task is None:
+                views, created = await platform_task_service.create(actor, dispatch_key, body)
+                if len(views) != 1:
+                    raise ConflictError("publish dispatch must mint exactly one platform task")
+                task_id = str(views[0]["taskId"])
+                task = await session.get(MobileTaskRow, task_id, with_for_update=True)
+                if task is None:
+                    raise ConflictError("publish dispatch task was not persisted")
+            else:
+                task_id = task.id
+            self._validate_dispatch_task(
+                task,
+                tenant_id=str(actor.tenant_id),
+                dispatch_key=dispatch_key,
+                target=row,
+                parameters=parameters,
+                media_delivery_id=item.get("deliveryId"),
+            )
+            if created:
                 payload = dict(task.command_payload or {})
                 # P10: freeze the claimed completion boundary into the task
                 # snapshot so the confirm-time judgment is judged against what
@@ -978,7 +995,7 @@ class XianyuPublishQueueService:
                 actor_id=str(actor.user_id),
                 action="dispatched",
                 target=row,
-                extra={"taskId": task_id, "attempt": attempt},
+                extra={"taskId": task_id, "attempt": attempt, "recovered": not created},
             )
             view = self._target_view(row)
         view["taskId"] = task_id
@@ -1149,6 +1166,66 @@ class XianyuPublishQueueService:
                 .with_for_update()
             )
         )
+
+    async def _locked_dispatch_task(
+        self, session: AsyncSession, tenant_id: str, dispatch_key: str
+    ) -> MobileTaskRow | None:
+        task: MobileTaskRow | None = await session.scalar(
+            select(MobileTaskRow)
+            .where(
+                MobileTaskRow.tenant_id == tenant_id,
+                MobileTaskRow.idempotency_key == dispatch_key,
+            )
+            .with_for_update()
+        )
+        return task
+
+    @staticmethod
+    def _validate_dispatch_task(
+        task: MobileTaskRow,
+        *,
+        tenant_id: str,
+        dispatch_key: str,
+        target: XianyuPublishTargetRow,
+        parameters: dict[str, Any],
+        media_delivery_id: object,
+    ) -> None:
+        from cloudctl_domain import ConflictError
+
+        payload = dict(task.command_payload or {})
+        snapshot_payload = dict(payload)
+        snapshot_sha256 = snapshot_payload.pop("snapshotSha256", None)
+        expected_snapshot = hashlib.sha256(_canonical(snapshot_payload).encode()).hexdigest()
+        identity_matches = (
+            task.tenant_id == tenant_id
+            and task.idempotency_key == dispatch_key
+            and task.device_id == target.device_id
+            and task.account_id == target.account_id
+            and task.batch_id == target.queue_id
+            and task.target_package == XIANYU_PACKAGE
+            and task.command_type == "xianyu.publish_listing.v1"
+            and payload.get("commandType") == "xianyu.publish_listing.v1"
+            and payload.get("parameters") == parameters
+            and payload.get("accountId") == target.account_id
+            and payload.get("publishTargetId") == target.id
+            and payload.get("mediaDeliveryId") == media_delivery_id
+            and payload.get("snapshotId") == f"snap-{task.id}"
+            and (
+                "completionBoundary" not in payload
+                or payload["completionBoundary"] == target.claimed_boundary
+            )
+            and isinstance(payload.get("recipe"), dict)
+            and isinstance(snapshot_sha256, str)
+            and snapshot_sha256 == expected_snapshot
+            and isinstance(task.request_sha256, str)
+            and len(task.request_sha256) == 64
+            and task.attempt_id is not None
+            and bool(task.steps)
+        )
+        if not identity_matches:
+            raise ConflictError(
+                "existing dispatch task is partial or does not match the publish queue target"
+            )
 
     @staticmethod
     def _target_view(row: XianyuPublishTargetRow) -> dict[str, Any]:
