@@ -9,6 +9,7 @@ Date: 2026-09-29
 - Frozen baseline: `933964b2ded8a22f0d3c74d8bb061a0098b2266b`
 - Implementation commit: `f058b9d41a7c3ae29b23b559329788ba22e3459c`
 - Started-task recovery follow-up: `4c572efd64b59a9c8891258839d80f4a71628c4c`
+- Canonical snapshot follow-up: `de86c6325854e05495ae382ff7beb823600bb975`
 - Model/effort requested: `gpt-5.6-sol/high`
 
 ## Files
@@ -21,6 +22,11 @@ Implementation commit:
 Started-task recovery follow-up:
 
 - `services/control-api/src/cloudctl_api/platform_tasks.py`
+- `services/control-api/src/cloudctl_api/xianyu_publish.py`
+- `tests/integration/test_xianyu_publish_dispatch.py`
+
+Canonical snapshot follow-up:
+
 - `services/control-api/src/cloudctl_api/xianyu_publish.py`
 - `tests/integration/test_xianyu_publish_dispatch.py`
 
@@ -200,6 +206,57 @@ $PYTHON -m mypy \
 ```
 
 Result: exit `0`, `Success: no issues found in 2 source files`.
+
+## Canonical Snapshot Follow-up
+
+Final consistency review found that a newly created queue task added
+`completionBoundary` and then hashed a payload that still contained the old
+`snapshotSha256`. The stored hash therefore did not equal the SHA-256 of the
+canonical payload with the hash field removed.
+
+### Red proof
+
+```sh
+$PYTHON -m pytest -q \
+  tests/integration/test_xianyu_publish_dispatch.py::test_new_dispatch_snapshot_hash_matches_canonical_payload
+```
+
+Before the fix: exit `1`, `1 failed in 0.24s`; stored and expected hashes differed.
+
+### Fix and green proof
+
+For `created=True` only, queue dispatch now removes the old `snapshotSha256`,
+adds the claimed `completionBoundary`, and hashes that new canonical payload.
+Recovered or started tasks do not enter this branch and are not rehashed.
+
+```sh
+$PYTHON -m pytest -q \
+  tests/integration/test_xianyu_publish_dispatch.py::test_new_dispatch_snapshot_hash_matches_canonical_payload
+```
+
+Result: exit `0`, `1 passed in 0.24s`.
+
+```sh
+$PYTHON -m pytest -q tests/integration/test_xianyu_publish_dispatch.py
+```
+
+Result: exit `0`, `9 passed in 3.44s`.
+
+```sh
+$PYTHON -m pytest -q \
+  tests/integration/test_xianyu_publish_dispatch.py \
+  tests/integration/test_xianyu_publish_permissions.py \
+  tests/unit/test_xianyu_publish_recipe.py \
+  tests/integration/test_xianyu_publish_delta.py \
+  tests/integration/test_publish_commands.py \
+  tests/integration/test_platform_tasks.py
+```
+
+Result: exit `0`, `64 passed in 12.88s`.
+
+Ruff lint and format checks passed for the two production modules and dispatch
+test (`3 files already formatted`). Scoped mypy passed for both production
+modules (`Success: no issues found in 2 source files`).
 
 ### Static checks
 
