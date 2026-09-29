@@ -18,7 +18,6 @@ from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from tempfile import TemporaryDirectory
 from types import TracebackType
 from typing import Any
 
@@ -29,6 +28,8 @@ from cloudctl_api.settings import Settings
 from cloudctl_observability import DeviceFleetMetrics
 from fastapi import FastAPI
 from sqlalchemy import select
+
+from .postgres import FleetPostgres
 
 TENANT = "00000000-0000-7000-8000-000000000111"
 OPERATOR = "00000000-0000-7000-8000-000000000222"
@@ -77,24 +78,31 @@ class FleetLoadApp:
     def __init__(self) -> None:
         self.app: FastAPI
         self.client: httpx.AsyncClient
+        self.postgres: FleetPostgres
         self._stack = AsyncExitStack()
         self.metrics = DeviceFleetMetrics()
 
     async def __aenter__(self) -> FleetLoadApp:
         await self._stack.__aenter__()
         try:
-            root = Path(self._stack.enter_context(TemporaryDirectory(prefix="fleet-load-")))
-            # Concurrent sessions must not share the in-memory StaticPool connection.
+            self.postgres = self._stack.enter_context(FleetPostgres())
             self.app = create_app(
                 Settings(
                     env="test",
-                    repository_mode="sqlite",
-                    sqlite_path=root / "fleet.db",
+                    repository_mode="postgresql",
+                    database_url=self.postgres.database_url,
                     object_store_mode="memory",
                     dev_auth_bypass=True,
                 )
             )
-            await self._stack.enter_async_context(self.app.router.lifespan_context(self.app))
+            database: Database = self.app.state.database
+            try:
+                await database.create_schema()
+                await self._stack.enter_async_context(self.app.router.lifespan_context(self.app))
+            except BaseException:
+                # Lifespan owns disposal only once its entry has succeeded.
+                await database.dispose()
+                raise
             self.client = await self._stack.enter_async_context(
                 httpx.AsyncClient(
                     transport=httpx.ASGITransport(app=self.app), base_url="http://load"
@@ -427,7 +435,9 @@ async def run_scenario(
             outcome.remaining_task_ids = sorted(remaining)
             outcome.guard_exhausted = bool(remaining) and guard == 0
 
-        await asyncio.gather(*(worker(device) for device in devices))
+        async with asyncio.TaskGroup() as workers:
+            for device in devices:
+                workers.create_task(worker(device), name=f"fleet-worker:{device['id']}")
         for device in devices:
             await harness.reconcile_outcome(
                 outcomes[device["id"]],
@@ -447,8 +457,12 @@ async def run_scenario(
                 "cpuCount": os.cpu_count(),
             },
             "db": {
-                "repositoryMode": "sqlite",
-                "engine": "temporary-file-sqlite",
+                "repositoryMode": "postgresql",
+                "engine": "temporary-postgresql",
+                "driver": harness.app.state.database.engine.dialect.driver,
+                "serverVersion": list(
+                    harness.app.state.database.engine.dialect.server_version_info
+                ),
                 "pool": type(harness.app.state.database.engine.pool).__name__,
             },
             "config": {
@@ -482,9 +496,8 @@ async def run_scenario(
                 for device_id, o in outcomes.items()
             },
             "limits": (
-                "in-process ASGI transport; temporary file-backed SQLite with separate "
-                "transaction connections, not PostgreSQL row-lock evidence; "
-                "not a networked multi-node benchmark"
+                "in-process ASGI simulated clients; test-owned loopback PostgreSQL; "
+                "not hardware, networked multi-node, or production-capacity evidence"
             ),
         }
         if report_dir is not None:

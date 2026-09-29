@@ -29,8 +29,9 @@ async def test_baseline_two_devices_twenty_tasks_report(tmp_path: Path) -> None:
 
     assert report["simulatedClientsNotRealDevices"] is True
     assert report["host"]["cpuCount"] >= 1
-    assert report["db"]["repositoryMode"] == "sqlite"
-    assert report["db"]["engine"] == "temporary-file-sqlite"
+    assert report["db"]["repositoryMode"] == "postgresql"
+    assert report["db"]["engine"] == "temporary-postgresql"
+    assert report["db"]["driver"] == "asyncpg"
     assert report["config"]["deviceCount"] == 2
 
     for _device_id, outcome in outcomes.items():
@@ -71,6 +72,9 @@ async def test_hundred_simulated_clients_control_plane_holds(tmp_path: Path) -> 
     assert completed == 100
     assert all(not o.errors and o.exit_reason == "completed" for o in result["outcomes"].values())
     for outcome in result["outcomes"].values():
+        assert outcome.remaining_task_ids == []
+        assert len(outcome.task_states) == 1
+        assert all(state["status"] == "SUCCEEDED" for state in outcome.task_states.values())
         assert outcome.http_status_counts == {"claim-200": 1, "event-201": 1, "complete-200": 1}
         assert all(state["lastSequence"] == 1 for state in outcome.task_states.values())
     fleet = report["metrics"]["fleet"]

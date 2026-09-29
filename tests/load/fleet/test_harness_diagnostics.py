@@ -51,7 +51,7 @@ async def test_guard_exhaustion_reports_remaining_tasks_and_http_statuses(
     assert saved_outcome["errors"] == outcome.errors
     assert saved_outcome["remainingTaskIds"] == outcome.remaining_task_ids
     assert saved_outcome["taskStates"] == outcome.task_states
-    assert saved["db"]["engine"] == "temporary-file-sqlite"
+    assert saved["db"]["engine"] == "temporary-postgresql"
 
 
 @pytest.mark.asyncio
