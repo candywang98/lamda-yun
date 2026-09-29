@@ -171,7 +171,8 @@ async def test_runner_records_honest_exit_and_refuses_directory_reuse(
         test_fleet_load, "test_hundred_simulated_clients_control_plane_holds", target
     )
     directory = tmp_path / "diagnostic"
-    exit_code = await diagnose(directory, deadline_seconds=0.01)
+    deadline_seconds = 0.01 if outcome == "timeout" else ci_diagnostics.DEADLINE_SECONDS
+    exit_code = await diagnose(directory, deadline_seconds=deadline_seconds)
     report = json.loads((directory / "diagnostic.json").read_text())
     assert exit_code == report["exit"] == (0 if outcome == "success" else 1)
     assert (
