@@ -552,6 +552,19 @@ class FleetLiveService:
     async def take_control(self, actor: Actor, sid: str, token: str | None) -> dict[str, Any]:
         async def work(db: Any) -> dict[str, Any]:
             live = self._authenticate(actor, None, sid, token)
+            device = await db.get(DeviceRow, live.device_id, with_for_update=True)
+            # Sweep may write the lease; heartbeat can make active runners
+            # RUNNING without the device mutex. Lock their superset first.
+            await db.execute(
+                select(MobileTaskRow.id)
+                .where(
+                    MobileTaskRow.device_id == live.device_id,
+                    (MobileTaskRow.business_state == "RUNNING")
+                    | MobileTaskRow.status.in_(("CLAIMED", "RUNNING")),
+                )
+                .order_by(MobileTaskRow.id)
+                .with_for_update()
+            )
             await self._sweep_locked(db, live)
             self._require_open(live)
             if live.state == REMOTE:
@@ -566,7 +579,6 @@ class FleetLiveService:
                 raise LiveAuthRequiredError(
                     "MediaProjection authorization must be confirmed before take-control"
                 )
-            device = await db.get(DeviceRow, live.device_id, with_for_update=True)
             assert device is not None
             row = await db.get(DeviceLeaseRow, live.device_id, with_for_update=True)
             now = _utcnow()

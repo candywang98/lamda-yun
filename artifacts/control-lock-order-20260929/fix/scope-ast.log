@@ -1,0 +1,2 @@
+services/control-api/src/cloudctl_api/platform_tasks.py: AST outside approved method bodies unchanged
+services/control-api/src/cloudctl_api/fleet_live.py: AST outside approved method bodies unchanged

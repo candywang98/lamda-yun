@@ -697,8 +697,18 @@ class PlatformTaskService:
         require_permissions(actor.roles, Permission.TASK_CREATE)
         now = _now()
         async with self.database.unit_of_work() as session:
-            row = await session.get(MobileTaskRow, task_id, with_for_update=True)
-            if row is None or row.tenant_id != str(actor.tenant_id):
+            located = await session.get(MobileTaskRow, task_id)
+            if located is None or located.tenant_id != str(actor.tenant_id):
+                raise NotFoundError("platform task was not found")
+            device_id = located.device_id
+            # Share claim's device mutex; never decide from the unlocked task.
+            device = await session.get(DeviceRow, device_id, with_for_update=True)
+            if device is None or device.tenant_id != str(actor.tenant_id):
+                raise NotFoundError("device was not found")
+            row = await session.get(
+                MobileTaskRow, task_id, with_for_update=True, populate_existing=True
+            )
+            if row is None or row.tenant_id != str(actor.tenant_id) or row.device_id != device_id:
                 raise NotFoundError("platform task was not found")
             # A12: the decision is read from the explicit transition matrix.
             outcome = CANCEL_TRANSITIONS[_business_state_of(row)]
@@ -1036,8 +1046,18 @@ class PlatformTaskService:
         require_permissions(actor.roles, Permission.DEVICE_CONTROL)
         now = _now()
         async with self.database.unit_of_work() as session:
-            row = await session.get(MobileTaskRow, task_id, with_for_update=True)
-            if row is None or row.tenant_id != str(actor.tenant_id):
+            located = await session.get(MobileTaskRow, task_id)
+            if located is None or located.tenant_id != str(actor.tenant_id):
+                raise NotFoundError("platform task was not found")
+            device_id = located.device_id
+            # Resolve identity first, but decide only from refreshed locked state.
+            device = await session.get(DeviceRow, device_id, with_for_update=True)
+            if device is None or device.tenant_id != str(actor.tenant_id):
+                raise NotFoundError("device was not found")
+            row = await session.get(
+                MobileTaskRow, task_id, with_for_update=True, populate_existing=True
+            )
+            if row is None or row.tenant_id != str(actor.tenant_id) or row.device_id != device_id:
                 raise NotFoundError("platform task was not found")
             # A12: the state guard is read from the explicit transition matrix.
             outcome = RESUME_TRANSITIONS[_business_state_of(row)]
@@ -1073,9 +1093,6 @@ class PlatformTaskService:
                     row.binding_version is not None and live.binding_version != row.binding_version
                 ):
                     raise ConflictError("account or binding changed; original task cannot continue")
-            device = await session.get(DeviceRow, row.device_id, with_for_update=True)
-            if device is None or device.tenant_id != row.tenant_id:
-                raise NotFoundError("device was not found")
             existing_lease = await session.get(DeviceLeaseRow, row.device_id, with_for_update=True)
             if existing_lease is not None:
                 existing_lease.canceled_at = now

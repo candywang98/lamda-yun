@@ -1,0 +1,52 @@
+diff --git a/services/control-api/src/cloudctl_api/fleet_live.py b/services/control-api/src/cloudctl_api/fleet_live.py
+index 8008432..62f6030 100644
+--- a/services/control-api/src/cloudctl_api/fleet_live.py
++++ b/services/control-api/src/cloudctl_api/fleet_live.py
+@@ -568,6 +568,18 @@ class FleetLiveService:
+                 )
+             device = await db.get(DeviceRow, live.device_id, with_for_update=True)
+             assert device is not None
++            # Heartbeat can turn CLAIMED/PREFLIGHT into RUNNING without the
++            # device mutex. Lock that superset before taking the lease lock.
++            await db.execute(
++                select(MobileTaskRow.id)
++                .where(
++                    MobileTaskRow.device_id == live.device_id,
++                    (MobileTaskRow.business_state == "RUNNING")
++                    | MobileTaskRow.status.in_(("CLAIMED", "RUNNING")),
++                )
++                .order_by(MobileTaskRow.id)
++                .with_for_update()
++            )
+             row = await db.get(DeviceLeaseRow, live.device_id, with_for_update=True)
+             now = _utcnow()
+             if (
+diff --git a/services/control-api/src/cloudctl_api/platform_tasks.py b/services/control-api/src/cloudctl_api/platform_tasks.py
+index bae6445..bff6545 100644
+--- a/services/control-api/src/cloudctl_api/platform_tasks.py
++++ b/services/control-api/src/cloudctl_api/platform_tasks.py
+@@ -697,8 +697,22 @@ class PlatformTaskService:
+         require_permissions(actor.roles, Permission.TASK_CREATE)
+         now = _now()
+         async with self.database.unit_of_work() as session:
+-            row = await session.get(MobileTaskRow, task_id, with_for_update=True)
+-            if row is None or row.tenant_id != str(actor.tenant_id):
++            located = await session.get(MobileTaskRow, task_id)
++            if located is None or located.tenant_id != str(actor.tenant_id):
++                raise NotFoundError("platform task was not found")
++            device_id = located.device_id
++            # Share claim's device mutex; never decide from the unlocked task.
++            device = await session.get(DeviceRow, device_id, with_for_update=True)
++            if device is None or device.tenant_id != str(actor.tenant_id):
++                raise NotFoundError("device was not found")
++            row = await session.get(
++                MobileTaskRow, task_id, with_for_update=True, populate_existing=True
++            )
++            if (
++                row is None
++                or row.tenant_id != str(actor.tenant_id)
++                or row.device_id != device_id
++            ):
+                 raise NotFoundError("platform task was not found")
+             # A12: the decision is read from the explicit transition matrix.
+             outcome = CANCEL_TRANSITIONS[_business_state_of(row)]

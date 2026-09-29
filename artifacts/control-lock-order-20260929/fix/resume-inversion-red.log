@@ -1,0 +1,263 @@
+{"timestamp":"2026-09-29T13:41:37.128539+00:00","level":"INFO","logger":"httpx","message":"HTTP Request: POST http://test/api/v1/mobile/devices \"HTTP/1.1 201 Created\""}
+{"timestamp":"2026-09-29T13:41:37.134956+00:00","level":"INFO","logger":"httpx","message":"HTTP Request: POST http://test/api/v1/mobile/enrollments \"HTTP/1.1 201 Created\""}
+{"timestamp":"2026-09-29T13:41:37.178751+00:00","level":"INFO","logger":"httpx","message":"HTTP Request: POST http://test/companion/v2/enroll \"HTTP/1.1 201 Created\""}
+{"timestamp":"2026-09-29T13:41:37.185804+00:00","level":"INFO","logger":"httpx","message":"HTTP Request: POST http://test/api/v1/mobile/tasks \"HTTP/1.1 201 Created\""}
+{"timestamp":"2026-09-29T13:41:37.203574+00:00","level":"INFO","logger":"httpx","message":"HTTP Request: POST http://test/companion/v2/tasks/claim \"HTTP/1.1 200 OK\""}
+{"timestamp":"2026-09-29T13:41:37.212017+00:00","level":"INFO","logger":"httpx","message":"HTTP Request: POST http://test/companion/v2/tasks/1646065b-5f3a-4210-b333-afdd94c696ca/heartbeat \"HTTP/1.1 200 OK\""}
+{"timestamp":"2026-09-29T13:41:37.217160+00:00","level":"INFO","logger":"httpx","message":"HTTP Request: POST http://test/api/v1/platform-tasks/1646065b-5f3a-4210-b333-afdd94c696ca:pause \"HTTP/1.1 200 OK\""}
+{"timestamp":"2026-09-29T13:41:37.220780+00:00","level":"INFO","logger":"httpx","message":"HTTP Request: POST http://test/api/v1/platform-tasks/1646065b-5f3a-4210-b333-afdd94c696ca:ack-paused \"HTTP/1.1 200 OK\""}
+{"timestamp":"2026-09-29T13:41:38.313875+00:00","level":"INFO","logger":"httpx","message":"HTTP Request: POST http://test/api/v1/platform-tasks/1646065b-5f3a-4210-b333-afdd94c696ca:cancel \"HTTP/1.1 500 Internal Server Error\""}
+{"timestamp":"2026-09-29T13:41:38.335836+00:00","level":"INFO","logger":"httpx","message":"HTTP Request: POST http://test/api/v1/platform-tasks/1646065b-5f3a-4210-b333-afdd94c696ca:resume \"HTTP/1.1 200 OK\""}
+CONTROL_LOCK_RESUME_EVIDENCE {"after": {"fencingCounter": 3, "lease": {"canceledAt": null, "expiresAt": "2026-09-29 13:42:37.226653+00:00", "fencingToken": 3, "id": "9d6b8bcb-e947-4968-bc31-73639ff7b541", "owner": "AUTO", "workflow": "auto/1646065b-5f3a-4210-b333-afdd94c696ca"}, "tasks": [{"attempt": 1, "businessState": "RESUME_CHECK", "errorCode": null, "id": "1646065b-5f3a-4210-b333-afdd94c696ca", "leaseExpiresAt": "2026-09-29 13:42:37.226653+00:00", "leaseId": "9d6b8bcb-e947-4968-bc31-73639ff7b541", "result": {}, "status": "RUNNING"}]}, "before": {"fencingCounter": 2, "lease": {"canceledAt": null, "expiresAt": "2026-09-29 13:42:37.209453+00:00", "fencingToken": 2, "id": "ce9126f1-a5cd-4cd2-ba71-ed55f7c1b2e8", "owner": "AUTO", "workflow": "auto/1646065b-5f3a-4210-b333-afdd94c696ca"}, "tasks": [{"attempt": 1, "businessState": "PAUSED_WAITING_USER", "errorCode": null, "id": "1646065b-5f3a-4210-b333-afdd94c696ca", "leaseExpiresAt": "2026-09-29 13:42:37.209453+00:00", "leaseId": "ce9126f1-a5cd-4cd2-ba71-ed55f7c1b2e8", "result": {}, "status": "RUNNING"}]}, "checkedOutConnections": 0, "errors": [{"error": "<class 'asyncpg.exceptions.DeadlockDetectedError'>: deadlock detected\nDETAIL:  Process 9900 waits for ShareLock on transaction 742; blocked by process 9898.\nProcess 9898 waits for ShareLock on transaction 743; blocked by process 9900.\nHINT:  See server log for query details.", "role": "cancel", "sqlstate": "40P01"}], "http": {"cancel": {"body": "Internal Server Error", "status": 500}, "resume": {"body": "{\"id\":\"1646065b-5f3a-4210-b333-afdd94c696ca\",\"taskId\":\"1646065b-5f3a-4210-b333-afdd94c696ca\",\"deviceId\":\"761faca3-94ca-4fb9-a6da-c7240a261cdd\",\"accountId\":null,\"bindingVersion\":null,\"deviceIdAtExecution\":\"761faca3-94ca-4fb9-a6da-c7240a261cdd\",\"commandType\":null,\"operationId\":null,\"commandPayload\":{},\"snapshotSha256\":null,\"state\":\"RESUME_CHECK\",\"runnerStatus\":\"RUNNING\",\"controlMode\":\"AUTO\",\"batchId\":null,\"attempt\":1,\"attemptId\":\"31b92f20-2c61-463f-8597-fc795e66a5f3\",\"scheduledFor\":null,\"stallReason\":\"operator verified current page\",\"resumeCount\":1,\"controlEpoch\":3,\"controlRevision\":3,\"controlEvents\":[{\"revision\":1,\"event\":\"PAUSE_REQUESTED\",\"reason\":\"operator pause before verified resume\",\"actor\":\"operator:00000000-0000-7000-8000-000000000222\",\"issuedAt\":\"2026-09-29T13:41:37.213866+00:00\"},{\"revision\":2,\"event\":\"PAUSE_ACKED\",\"reason\":\"operator pause before verified resume\",\"actor\":\"companion\",\"issuedAt\":\"2026-09-29T13:41:37.218675+00:00\"},{\"revision\":3,\"event\":\"RESUMED\",\"reason\":\"operator verified current page\",\"actor\":\"operator:00000000-0000-7000-8000-000000000222\",\"issuedAt\":\"2026-09-29T13:41:37.226653+00:00\"}],\"pauseAckAt\":\"2026-09-29T13:41:37.218675Z\",\"reconciliation\":{},\"errorCode\":null,\"detail\":null,\"result\":{},\"createdBy\":\"00000000-0000-7000-8000-000000000222\",\"createdAt\":\"2026-09-29T13:41:37.181246Z\",\"startedAt\":\"2026-09-29T13:41:37.190305Z\",\"completedAt\":null}", "status": 200}}, "liveState": null, "locksBeforeRelease": [{"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9898, "relation": "ix_mobile_task_account_id", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9898, "relation": "ix_mobile_task_batch_id", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9898, "relation": "ix_mobile_task_business_state", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9898, "relation": "ix_mobile_task_command_type", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9898, "relation": "ix_mobile_task_device_id", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9898, "relation": "ix_mobile_task_operation_id", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9898, "relation": "ix_mobile_task_status", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9898, "relation": "ix_mobile_task_tenant_id", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9898, "relation": "mobile_task", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9898, "relation": "mobile_task_lease_id_key", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9898, "relation": "mobile_task_pkey", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9898, "relation": "mobile_task_tenant_id_idempotency_key_key", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9898, "relation": "uq_mobile_task_device_active", "transactionid": null}, {"granted": true, "locktype": "transactionid", "mode": "ExclusiveLock", "pid": 9898, "relation": null, "transactionid": 742}, {"granted": true, "locktype": "virtualxid", "mode": "ExclusiveLock", "pid": 9898, "relation": null, "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9900, "relation": "device", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9900, "relation": "device_pkey", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9900, "relation": "device_tenant_id_logical_name_key", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9900, "relation": "ix_device_tenant_id", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "AccessShareLock", "pid": 9900, "relation": "ix_mobile_task_account_id", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9900, "relation": "ix_mobile_task_account_id", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "AccessShareLock", "pid": 9900, "relation": "ix_mobile_task_batch_id", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9900, "relation": "ix_mobile_task_batch_id", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "AccessShareLock", "pid": 9900, "relation": "ix_mobile_task_business_state", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9900, "relation": "ix_mobile_task_business_state", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "AccessShareLock", "pid": 9900, "relation": "ix_mobile_task_command_type", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9900, "relation": "ix_mobile_task_command_type", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "AccessShareLock", "pid": 9900, "relation": "ix_mobile_task_device_id", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9900, "relation": "ix_mobile_task_device_id", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "AccessShareLock", "pid": 9900, "relation": "ix_mobile_task_operation_id", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9900, "relation": "ix_mobile_task_operation_id", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "AccessShareLock", "pid": 9900, "relation": "ix_mobile_task_status", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9900, "relation": "ix_mobile_task_status", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "AccessShareLock", "pid": 9900, "relation": "ix_mobile_task_tenant_id", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9900, "relation": "ix_mobile_task_tenant_id", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "AccessShareLock", "pid": 9900, "relation": "mobile_task", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9900, "relation": "mobile_task", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "AccessShareLock", "pid": 9900, "relation": "mobile_task_lease_id_key", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9900, "relation": "mobile_task_lease_id_key", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "AccessShareLock", "pid": 9900, "relation": "mobile_task_pkey", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9900, "relation": "mobile_task_pkey", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "AccessShareLock", "pid": 9900, "relation": "mobile_task_tenant_id_idempotency_key_key", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9900, "relation": "mobile_task_tenant_id_idempotency_key_key", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "AccessShareLock", "pid": 9900, "relation": "uq_mobile_task_device_active", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9900, "relation": "uq_mobile_task_device_active", "transactionid": null}, {"granted": true, "locktype": "transactionid", "mode": "ExclusiveLock", "pid": 9900, "relation": null, "transactionid": 743}, {"granted": false, "locktype": "transactionid", "mode": "ShareLock", "pid": 9900, "relation": null, "transactionid": 742}, {"granted": true, "locktype": "tuple", "mode": "AccessExclusiveLock", "pid": 9900, "relation": "mobile_task", "transactionid": null}, {"granted": true, "locktype": "virtualxid", "mode": "ExclusiveLock", "pid": 9900, "relation": null, "transactionid": null}], "pids": {"cancel": 9900, "resume": 9898}, "remainingWorkers": 0, "scenario": "paused_resume_vs_cancel", "taskAfter": {"business": "RESUME_CHECK", "device": "761faca3-94ca-4fb9-a6da-c7240a261cdd", "expires": "2026-09-29 13:42:37.226653+00:00", "lease": "9d6b8bcb-e947-4968-bc31-73639ff7b541", "mode": "AUTO", "payload": {}, "result": {}, "runner": "RUNNING", "steps": [{"controlEpoch": 3, "controlEvents": [{"actor": "operator:00000000-0000-7000-8000-000000000222", "event": "PAUSE_REQUESTED", "issuedAt": "2026-09-29T13:41:37.213866+00:00", "reason": "operator pause before verified resume", "revision": 1}, {"actor": "companion", "event": "PAUSE_ACKED", "issuedAt": "2026-09-29T13:41:37.218675+00:00", "reason": "operator pause before verified resume", "revision": 2}, {"actor": "operator:00000000-0000-7000-8000-000000000222", "event": "RESUMED", "issuedAt": "2026-09-29T13:41:37.226653+00:00", "reason": "operator verified current page", "revision": 3}], "controlRevision": 3, "fleetSessionId": "sess-be62190e191e434590e8b308c66d41a0", "mediaDelivery": null, "totalTimeoutMs": 60000}, {"action": "ui.find", "locatorRef": "screen.status", "stepId": "inspect", "timeoutMs": 5000}], "tenant": "00000000-0000-7000-8000-000000000111"}, "taskBefore": {"business": "PAUSED_WAITING_USER", "device": "761faca3-94ca-4fb9-a6da-c7240a261cdd", "expires": "2026-09-29 13:42:37.209453+00:00", "lease": "ce9126f1-a5cd-4cd2-ba71-ed55f7c1b2e8", "mode": "REMOTE", "payload": {}, "result": {}, "runner": "RUNNING", "steps": [{"controlEpoch": 2, "controlEvents": [{"actor": "operator:00000000-0000-7000-8000-000000000222", "event": "PAUSE_REQUESTED", "issuedAt": "2026-09-29T13:41:37.213866+00:00", "reason": "operator pause before verified resume", "revision": 1}, {"actor": "companion", "event": "PAUSE_ACKED", "issuedAt": "2026-09-29T13:41:37.218675+00:00", "reason": "operator pause before verified resume", "revision": 2}], "controlRevision": 2, "fleetSessionId": "sess-be62190e191e434590e8b308c66d41a0", "mediaDelivery": null, "totalTimeoutMs": 60000}, {"action": "ui.find", "locatorRef": "screen.status", "stepId": "inspect", "timeoutMs": 5000}], "tenant": "00000000-0000-7000-8000-000000000111"}, "trace": [{"args": ["1646065b-5f3a-4210-b333-afdd94c696ca"], "phase": "requested", "pid": 9898, "role": "resume", "sql": "SELECT ... FROM mobile_task WHERE mobile_task.id = $1::VARCHAR FOR UPDATE"}, {"args": ["1646065b-5f3a-4210-b333-afdd94c696ca"], "phase": "completed", "pid": 9898, "role": "resume", "sql": "SELECT ... FROM mobile_task WHERE mobile_task.id = $1::VARCHAR FOR UPDATE"}, {"args": ["761faca3-94ca-4fb9-a6da-c7240a261cdd"], "phase": "requested", "pid": 9900, "role": "cancel", "sql": "SELECT ... FROM device WHERE device.id = $1::VARCHAR FOR UPDATE"}, {"args": ["761faca3-94ca-4fb9-a6da-c7240a261cdd"], "phase": "completed", "pid": 9900, "role": "cancel", "sql": "SELECT ... FROM device WHERE device.id = $1::VARCHAR FOR UPDATE"}, {"args": ["1646065b-5f3a-4210-b333-afdd94c696ca"], "phase": "requested", "pid": 9900, "role": "cancel", "sql": "SELECT ... FROM mobile_task WHERE mobile_task.id = $1::VARCHAR FOR UPDATE"}, {"phase": "barrier_released"}, {"args": ["761faca3-94ca-4fb9-a6da-c7240a261cdd"], "phase": "requested", "pid": 9898, "role": "resume", "sql": "SELECT ... FROM device WHERE device.id = $1::VARCHAR FOR UPDATE"}, {"args": ["761faca3-94ca-4fb9-a6da-c7240a261cdd"], "phase": "completed", "pid": 9898, "role": "resume", "sql": "SELECT ... FROM device WHERE device.id = $1::VARCHAR FOR UPDATE"}, {"args": ["761faca3-94ca-4fb9-a6da-c7240a261cdd"], "phase": "requested", "pid": 9898, "role": "resume", "sql": "SELECT ... FROM device_lease WHERE device_lease.device_id = $1::VARCHAR FOR UPDATE"}, {"args": ["761faca3-94ca-4fb9-a6da-c7240a261cdd"], "phase": "completed", "pid": 9898, "role": "resume", "sql": "SELECT ... FROM device_lease WHERE device_lease.device_id = $1::VARCHAR FOR UPDATE"}, {"args": ["RESUME_CHECK", "AUTO", "operator verified current page", 1, "[{\"totalTimeoutMs\": 60000, \"mediaDelivery\": null, \"controlEpoch\": 3, \"fleetSessionId\": \"sess-be62190e191e434590e8b308c66d41a0\", \"controlRevision\": 3, \"controlEvents\": [{\"revision\": 1, \"event\": \"PAUSE_REQUESTED\", \"reason\": \"operator pause before verified resume\", \"actor\": \"operator:00000000-0000-7000-8000-000000000222\", \"issuedAt\": \"2026-09-29T13:41:37.213866+00:00\"}, {\"revision\": 2, \"event\": \"PAUSE_ACKED\", \"reason\": \"operator pause before verified resume\", \"actor\": \"companion\", \"issuedAt\": \"2026-09-29T13:41:37.218675+00:00\"}, {\"revision\": 3, \"event\": \"RESUMED\", \"reason\": \"operator verified current page\", \"actor\": \"operator:00000000-0000-7000-8000-000000000222\", \"issuedAt\": \"2026-09-29T13:41:37.226653+00:00\"}]}, {\"stepId\": \"inspect\", \"locatorRef\": \"screen.status\", \"timeoutMs\": 5000, \"action\": \"ui.find\"}]", "9d6b8bcb-e947-4968-bc31-73639ff7b541", "2026-09-29 13:42:37.226653+00:00", "1646065b-5f3a-4210-b333-afdd94c696ca"], "phase": "requested", "pid": 9898, "role": "resume", "sql": "UPDATE mobile_task SET business_state=$1::VARCHAR, control_mode=$2::VARCHAR, stall_reason=$3::VARCHAR, resume_count=$4::INTEGER, steps=$5::JSON, lease_id=$6::VARCHAR, lease_expires_at=$7::TIMESTAMP WITH TIME ZONE WHERE mobile_task.id = $8::VARCHAR"}, {"args": ["RESUME_CHECK", "AUTO", "operator verified current page", 1, "[{\"totalTimeoutMs\": 60000, \"mediaDelivery\": null, \"controlEpoch\": 3, \"fleetSessionId\": \"sess-be62190e191e434590e8b308c66d41a0\", \"controlRevision\": 3, \"controlEvents\": [{\"revision\": 1, \"event\": \"PAUSE_REQUESTED\", \"reason\": \"operator pause before verified resume\", \"actor\": \"operator:00000000-0000-7000-8000-000000000222\", \"issuedAt\": \"2026-09-29T13:41:37.213866+00:00\"}, {\"revision\": 2, \"event\": \"PAUSE_ACKED\", \"reason\": \"operator pause before verified resume\", \"actor\": \"companion\", \"issuedAt\": \"2026-09-29T13:41:37.218675+00:00\"}, {\"revision\": 3, \"event\": \"RESUMED\", \"reason\": \"operator verified current page\", \"actor\": \"operator:00000000-0000-7000-8000-000000000222\", \"issuedAt\": \"2026-09-29T13:41:37.226653+00:00\"}]}, {\"stepId\": \"inspect\", \"locatorRef\": \"screen.status\", \"timeoutMs\": 5000, \"action\": \"ui.find\"}]", "9d6b8bcb-e947-4968-bc31-73639ff7b541", "2026-09-29 13:42:37.226653+00:00", "1646065b-5f3a-4210-b333-afdd94c696ca"], "phase": "completed", "pid": 9898, "role": "resume", "sql": "UPDATE mobile_task SET business_state=$1::VARCHAR, control_mode=$2::VARCHAR, stall_reason=$3::VARCHAR, resume_count=$4::INTEGER, steps=$5::JSON, lease_id=$6::VARCHAR, lease_expires_at=$7::TIMESTAMP WITH TIME ZONE WHERE mobile_task.id = $8::VARCHAR"}], "wait_edge": {"blockers": [9898], "pid": 9900, "query": "SELECT mobile_task.id AS mobile_task_id, mobile_task.tenant_id AS mobile_task_tenant_id, mobile_task.device_id AS mobile_task_device_id, mobile_task.idempotency_key AS mobile_task_idempotency_key, mobile_task.request_sha256 AS mobile_task_request_sha256, mobile_task.requested_by AS mobile_task_requested_by, mobile_task.target_package AS mobile_task_target_package, mobile_task.account_id AS mobile_task_account_id, mobile_task.binding_version AS mobile_task_binding_version, mobile_task.device_id_at_execution AS mobile_task_device_id_at_execution, mobile_task.operation_id AS mobile_task_operation_id, mobile_task.command_type AS mobile_task_command_type, mobile_task.command_payload AS mobile_task_command_payload, mobile_task.recipe_pin AS mobile_task_recipe_pin, mobile_task.business_state AS mobile_task_business_state, mobile_task.control_mode AS mobile_task_control_mode, mobile_task.batch_id AS mobile_task_batch_id, mobile_task.scheduled_for AS mobile_task_scheduled_for, mobile_task.stall_reason AS mobile_task_", "wait_event": "transactionid", "wait_event_type": "Lock"}}
+F{"timestamp":"2026-09-29T13:41:39.011040+00:00","level":"INFO","logger":"httpx","message":"HTTP Request: POST http://test/api/v1/mobile/devices \"HTTP/1.1 201 Created\""}
+{"timestamp":"2026-09-29T13:41:39.017088+00:00","level":"INFO","logger":"httpx","message":"HTTP Request: POST http://test/api/v1/mobile/enrollments \"HTTP/1.1 201 Created\""}
+{"timestamp":"2026-09-29T13:41:39.057416+00:00","level":"INFO","logger":"httpx","message":"HTTP Request: POST http://test/companion/v2/enroll \"HTTP/1.1 201 Created\""}
+{"timestamp":"2026-09-29T13:41:39.136903+00:00","level":"INFO","logger":"httpx","message":"HTTP Request: POST http://test/api/v1/live/devices/9927e248-7082-41da-88d1-0fc48014cac7/sessions \"HTTP/1.1 201 Created\""}
+{"timestamp":"2026-09-29T13:41:39.144324+00:00","level":"INFO","logger":"httpx","message":"HTTP Request: POST http://test/companion/v2/fleet-live/9a0d27e7-76f6-43a1-bfed-a084d6414af9/ack \"HTTP/1.1 200 OK\""}
+{"timestamp":"2026-09-29T13:41:39.151097+00:00","level":"INFO","logger":"httpx","message":"HTTP Request: POST http://test/api/v1/mobile/tasks \"HTTP/1.1 201 Created\""}
+{"timestamp":"2026-09-29T13:41:39.173612+00:00","level":"INFO","logger":"httpx","message":"HTTP Request: POST http://test/companion/v2/tasks/claim \"HTTP/1.1 200 OK\""}
+{"timestamp":"2026-09-29T13:41:39.182596+00:00","level":"INFO","logger":"httpx","message":"HTTP Request: POST http://test/companion/v2/tasks/a103c8ce-da71-48b6-8943-dbb96f442974/heartbeat \"HTTP/1.1 200 OK\""}
+{"timestamp":"2026-09-29T13:41:39.187119+00:00","level":"INFO","logger":"httpx","message":"HTTP Request: POST http://test/api/v1/platform-tasks/a103c8ce-da71-48b6-8943-dbb96f442974:pause \"HTTP/1.1 200 OK\""}
+{"timestamp":"2026-09-29T13:41:39.192833+00:00","level":"INFO","logger":"httpx","message":"HTTP Request: POST http://test/api/v1/platform-tasks/a103c8ce-da71-48b6-8943-dbb96f442974:ack-paused \"HTTP/1.1 200 OK\""}
+{"timestamp":"2026-09-29T13:41:40.207938+00:00","level":"INFO","logger":"httpx","message":"HTTP Request: POST http://test/api/v1/live/sessions/9a0d27e7-76f6-43a1-bfed-a084d6414af9:take-control \"HTTP/1.1 500 Internal Server Error\""}
+{"timestamp":"2026-09-29T13:41:40.210860+00:00","level":"INFO","logger":"httpx","message":"HTTP Request: POST http://test/api/v1/platform-tasks/a103c8ce-da71-48b6-8943-dbb96f442974:resume \"HTTP/1.1 200 OK\""}
+CONTROL_LOCK_APIS_CLEANUP clients closed; lifespans exited; engines disposed
+CONTROL_LOCK_RESUME_EVIDENCE {"after": {"fencingCounter": 4, "lease": {"canceledAt": null, "expiresAt": "2026-09-29 13:42:39.199341+00:00", "fencingToken": 4, "id": "2e00bb43-6af1-42db-bda2-cce5a4640a24", "owner": "AUTO", "workflow": "auto/a103c8ce-da71-48b6-8943-dbb96f442974"}, "tasks": [{"attempt": 1, "businessState": "RESUME_CHECK", "errorCode": null, "id": "a103c8ce-da71-48b6-8943-dbb96f442974", "leaseExpiresAt": "2026-09-29 13:42:39.199341+00:00", "leaseId": "2e00bb43-6af1-42db-bda2-cce5a4640a24", "result": {}, "status": "RUNNING"}]}, "before": {"fencingCounter": 3, "lease": {"canceledAt": null, "expiresAt": "2026-09-29 13:42:39.180326+00:00", "fencingToken": 3, "id": "97446a04-1d0b-49cb-8e04-c9dff88ea6b1", "owner": "AUTO", "workflow": "auto/a103c8ce-da71-48b6-8943-dbb96f442974"}, "tasks": [{"attempt": 1, "businessState": "PAUSED_WAITING_USER", "errorCode": null, "id": "a103c8ce-da71-48b6-8943-dbb96f442974", "leaseExpiresAt": "2026-09-29 13:42:39.180326+00:00", "leaseId": "97446a04-1d0b-49cb-8e04-c9dff88ea6b1", "result": {}, "status": "RUNNING"}]}, "checkedOutConnections": 0, "errors": [{"error": "<class 'asyncpg.exceptions.DeadlockDetectedError'>: deadlock detected\nDETAIL:  Process 9920 waits for ShareLock on transaction 759; blocked by process 9916.\nProcess 9916 waits for ShareLock on transaction 760; blocked by process 9920.\nHINT:  See server log for query details.", "role": "take_control", "sqlstate": "40P01"}], "http": {"resume": {"body": "{\"id\":\"a103c8ce-da71-48b6-8943-dbb96f442974\",\"taskId\":\"a103c8ce-da71-48b6-8943-dbb96f442974\",\"deviceId\":\"9927e248-7082-41da-88d1-0fc48014cac7\",\"accountId\":null,\"bindingVersion\":null,\"deviceIdAtExecution\":\"9927e248-7082-41da-88d1-0fc48014cac7\",\"commandType\":null,\"operationId\":null,\"commandPayload\":{},\"snapshotSha256\":null,\"state\":\"RESUME_CHECK\",\"runnerStatus\":\"RUNNING\",\"controlMode\":\"AUTO\",\"batchId\":null,\"attempt\":1,\"attemptId\":\"53b6ccd4-8e37-40f4-9e02-4d9e740352bc\",\"scheduledFor\":null,\"stallReason\":\"operator verified current page\",\"resumeCount\":1,\"controlEpoch\":4,\"controlRevision\":3,\"controlEvents\":[{\"revision\":1,\"event\":\"PAUSE_REQUESTED\",\"reason\":\"operator pause before verified resume\",\"actor\":\"operator:00000000-0000-7000-8000-000000000222\",\"issuedAt\":\"2026-09-29T13:41:39.184243+00:00\"},{\"revision\":2,\"event\":\"PAUSE_ACKED\",\"reason\":\"operator pause before verified resume\",\"actor\":\"companion\",\"issuedAt\":\"2026-09-29T13:41:39.188723+00:00\"},{\"revision\":3,\"event\":\"RESUMED\",\"reason\":\"operator verified current page\",\"actor\":\"operator:00000000-0000-7000-8000-000000000222\",\"issuedAt\":\"2026-09-29T13:41:39.199341+00:00\"}],\"pauseAckAt\":\"2026-09-29T13:41:39.188723Z\",\"reconciliation\":{},\"errorCode\":null,\"detail\":null,\"result\":{},\"createdBy\":\"00000000-0000-7000-8000-000000000222\",\"createdAt\":\"2026-09-29T13:41:39.145972Z\",\"startedAt\":\"2026-09-29T13:41:39.155856Z\",\"completedAt\":null}", "status": 200}, "take_control": {"body": "Internal Server Error", "status": 500}}, "liveState": "VIEWING", "locksBeforeRelease": [{"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9916, "relation": "ix_mobile_task_account_id", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9916, "relation": "ix_mobile_task_batch_id", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9916, "relation": "ix_mobile_task_business_state", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9916, "relation": "ix_mobile_task_command_type", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9916, "relation": "ix_mobile_task_device_id", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9916, "relation": "ix_mobile_task_operation_id", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9916, "relation": "ix_mobile_task_status", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9916, "relation": "ix_mobile_task_tenant_id", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9916, "relation": "mobile_task", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9916, "relation": "mobile_task_lease_id_key", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9916, "relation": "mobile_task_pkey", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9916, "relation": "mobile_task_tenant_id_idempotency_key_key", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9916, "relation": "uq_mobile_task_device_active", "transactionid": null}, {"granted": true, "locktype": "transactionid", "mode": "ExclusiveLock", "pid": 9916, "relation": null, "transactionid": 759}, {"granted": true, "locktype": "virtualxid", "mode": "ExclusiveLock", "pid": 9916, "relation": null, "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9920, "relation": "device", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9920, "relation": "device_pkey", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9920, "relation": "device_tenant_id_logical_name_key", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9920, "relation": "ix_device_tenant_id", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9920, "relation": "ix_mobile_task_account_id", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9920, "relation": "ix_mobile_task_batch_id", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9920, "relation": "ix_mobile_task_business_state", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9920, "relation": "ix_mobile_task_command_type", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9920, "relation": "ix_mobile_task_device_id", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9920, "relation": "ix_mobile_task_operation_id", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9920, "relation": "ix_mobile_task_status", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9920, "relation": "ix_mobile_task_tenant_id", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9920, "relation": "mobile_task", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9920, "relation": "mobile_task_lease_id_key", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9920, "relation": "mobile_task_pkey", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9920, "relation": "mobile_task_tenant_id_idempotency_key_key", "transactionid": null}, {"granted": true, "locktype": "relation", "mode": "RowShareLock", "pid": 9920, "relation": "uq_mobile_task_device_active", "transactionid": null}, {"granted": true, "locktype": "transactionid", "mode": "ExclusiveLock", "pid": 9920, "relation": null, "transactionid": 760}, {"granted": false, "locktype": "transactionid", "mode": "ShareLock", "pid": 9920, "relation": null, "transactionid": 759}, {"granted": true, "locktype": "tuple", "mode": "AccessExclusiveLock", "pid": 9920, "relation": "mobile_task", "transactionid": null}, {"granted": true, "locktype": "virtualxid", "mode": "ExclusiveLock", "pid": 9920, "relation": null, "transactionid": null}], "pids": {"resume": 9916, "take_control": 9920}, "remainingWorkers": 0, "scenario": "paused_resume_vs_take_control", "taskAfter": {"business": "RESUME_CHECK", "device": "9927e248-7082-41da-88d1-0fc48014cac7", "expires": "2026-09-29 13:42:39.199341+00:00", "lease": "2e00bb43-6af1-42db-bda2-cce5a4640a24", "mode": "AUTO", "payload": {}, "result": {}, "runner": "RUNNING", "steps": [{"controlEpoch": 4, "controlEvents": [{"actor": "operator:00000000-0000-7000-8000-000000000222", "event": "PAUSE_REQUESTED", "issuedAt": "2026-09-29T13:41:39.184243+00:00", "reason": "operator pause before verified resume", "revision": 1}, {"actor": "companion", "event": "PAUSE_ACKED", "issuedAt": "2026-09-29T13:41:39.188723+00:00", "reason": "operator pause before verified resume", "revision": 2}, {"actor": "operator:00000000-0000-7000-8000-000000000222", "event": "RESUMED", "issuedAt": "2026-09-29T13:41:39.199341+00:00", "reason": "operator verified current page", "revision": 3}], "controlRevision": 3, "fleetSessionId": "sess-44de6321ba8a45e9b83f5690e8f6e591", "mediaDelivery": null, "totalTimeoutMs": 60000}, {"action": "ui.find", "locatorRef": "screen.status", "stepId": "inspect", "timeoutMs": 5000}], "tenant": "00000000-0000-7000-8000-000000000111"}, "taskBefore": {"business": "PAUSED_WAITING_USER", "device": "9927e248-7082-41da-88d1-0fc48014cac7", "expires": "2026-09-29 13:42:39.180326+00:00", "lease": "97446a04-1d0b-49cb-8e04-c9dff88ea6b1", "mode": "REMOTE", "payload": {}, "result": {}, "runner": "RUNNING", "steps": [{"controlEpoch": 3, "controlEvents": [{"actor": "operator:00000000-0000-7000-8000-000000000222", "event": "PAUSE_REQUESTED", "issuedAt": "2026-09-29T13:41:39.184243+00:00", "reason": "operator pause before verified resume", "revision": 1}, {"actor": "companion", "event": "PAUSE_ACKED", "issuedAt": "2026-09-29T13:41:39.188723+00:00", "reason": "operator pause before verified resume", "revision": 2}], "controlRevision": 2, "fleetSessionId": "sess-44de6321ba8a45e9b83f5690e8f6e591", "mediaDelivery": null, "totalTimeoutMs": 60000}, {"action": "ui.find", "locatorRef": "screen.status", "stepId": "inspect", "timeoutMs": 5000}], "tenant": "00000000-0000-7000-8000-000000000111"}, "trace": [{"args": ["a103c8ce-da71-48b6-8943-dbb96f442974"], "phase": "requested", "pid": 9916, "role": "resume", "sql": "SELECT ... FROM mobile_task WHERE mobile_task.id = $1::VARCHAR FOR UPDATE"}, {"args": ["a103c8ce-da71-48b6-8943-dbb96f442974"], "phase": "completed", "pid": 9916, "role": "resume", "sql": "SELECT ... FROM mobile_task WHERE mobile_task.id = $1::VARCHAR FOR UPDATE"}, {"args": ["9927e248-7082-41da-88d1-0fc48014cac7"], "phase": "requested", "pid": 9920, "role": "take_control", "sql": "SELECT ... FROM device WHERE device.id = $1::VARCHAR FOR UPDATE"}, {"args": ["9927e248-7082-41da-88d1-0fc48014cac7"], "phase": "completed", "pid": 9920, "role": "take_control", "sql": "SELECT ... FROM device WHERE device.id = $1::VARCHAR FOR UPDATE"}, {"args": ["9927e248-7082-41da-88d1-0fc48014cac7", "RUNNING", "CLAIMED", "RUNNING"], "phase": "requested", "pid": 9920, "role": "take_control", "sql": "SELECT ... FROM mobile_task WHERE mobile_task.device_id = $1::VARCHAR AND (mobile_task.business_state = $2::VARCHAR OR mobile_task.status IN ($3::VARCHAR, $4::VARCHAR)) ORDER BY mobile_task.id FOR UPDATE"}, {"phase": "barrier_released"}, {"args": ["9927e248-7082-41da-88d1-0fc48014cac7"], "phase": "requested", "pid": 9916, "role": "resume", "sql": "SELECT ... FROM device WHERE device.id = $1::VARCHAR FOR UPDATE"}, {"args": ["9927e248-7082-41da-88d1-0fc48014cac7"], "phase": "completed", "pid": 9916, "role": "resume", "sql": "SELECT ... FROM device WHERE device.id = $1::VARCHAR FOR UPDATE"}, {"args": ["9927e248-7082-41da-88d1-0fc48014cac7"], "phase": "requested", "pid": 9916, "role": "resume", "sql": "SELECT ... FROM device_lease WHERE device_lease.device_id = $1::VARCHAR FOR UPDATE"}, {"args": ["9927e248-7082-41da-88d1-0fc48014cac7"], "phase": "completed", "pid": 9916, "role": "resume", "sql": "SELECT ... FROM device_lease WHERE device_lease.device_id = $1::VARCHAR FOR UPDATE"}, {"args": ["RESUME_CHECK", "AUTO", "operator verified current page", 1, "[{\"totalTimeoutMs\": 60000, \"mediaDelivery\": null, \"controlEpoch\": 4, \"fleetSessionId\": \"sess-44de6321ba8a45e9b83f5690e8f6e591\", \"controlRevision\": 3, \"controlEvents\": [{\"revision\": 1, \"event\": \"PAUSE_REQUESTED\", \"reason\": \"operator pause before verified resume\", \"actor\": \"operator:00000000-0000-7000-8000-000000000222\", \"issuedAt\": \"2026-09-29T13:41:39.184243+00:00\"}, {\"revision\": 2, \"event\": \"PAUSE_ACKED\", \"reason\": \"operator pause before verified resume\", \"actor\": \"companion\", \"issuedAt\": \"2026-09-29T13:41:39.188723+00:00\"}, {\"revision\": 3, \"event\": \"RESUMED\", \"reason\": \"operator verified current page\", \"actor\": \"operator:00000000-0000-7000-8000-000000000222\", \"issuedAt\": \"2026-09-29T13:41:39.199341+00:00\"}]}, {\"stepId\": \"inspect\", \"locatorRef\": \"screen.status\", \"timeoutMs\": 5000, \"action\": \"ui.find\"}]", "2e00bb43-6af1-42db-bda2-cce5a4640a24", "2026-09-29 13:42:39.199341+00:00", "a103c8ce-da71-48b6-8943-dbb96f442974"], "phase": "requested", "pid": 9916, "role": "resume", "sql": "UPDATE mobile_task SET business_state=$1::VARCHAR, control_mode=$2::VARCHAR, stall_reason=$3::VARCHAR, resume_count=$4::INTEGER, steps=$5::JSON, lease_id=$6::VARCHAR, lease_expires_at=$7::TIMESTAMP WITH TIME ZONE WHERE mobile_task.id = $8::VARCHAR"}, {"args": ["RESUME_CHECK", "AUTO", "operator verified current page", 1, "[{\"totalTimeoutMs\": 60000, \"mediaDelivery\": null, \"controlEpoch\": 4, \"fleetSessionId\": \"sess-44de6321ba8a45e9b83f5690e8f6e591\", \"controlRevision\": 3, \"controlEvents\": [{\"revision\": 1, \"event\": \"PAUSE_REQUESTED\", \"reason\": \"operator pause before verified resume\", \"actor\": \"operator:00000000-0000-7000-8000-000000000222\", \"issuedAt\": \"2026-09-29T13:41:39.184243+00:00\"}, {\"revision\": 2, \"event\": \"PAUSE_ACKED\", \"reason\": \"operator pause before verified resume\", \"actor\": \"companion\", \"issuedAt\": \"2026-09-29T13:41:39.188723+00:00\"}, {\"revision\": 3, \"event\": \"RESUMED\", \"reason\": \"operator verified current page\", \"actor\": \"operator:00000000-0000-7000-8000-000000000222\", \"issuedAt\": \"2026-09-29T13:41:39.199341+00:00\"}]}, {\"stepId\": \"inspect\", \"locatorRef\": \"screen.status\", \"timeoutMs\": 5000, \"action\": \"ui.find\"}]", "2e00bb43-6af1-42db-bda2-cce5a4640a24", "2026-09-29 13:42:39.199341+00:00", "a103c8ce-da71-48b6-8943-dbb96f442974"], "phase": "completed", "pid": 9916, "role": "resume", "sql": "UPDATE mobile_task SET business_state=$1::VARCHAR, control_mode=$2::VARCHAR, stall_reason=$3::VARCHAR, resume_count=$4::INTEGER, steps=$5::JSON, lease_id=$6::VARCHAR, lease_expires_at=$7::TIMESTAMP WITH TIME ZONE WHERE mobile_task.id = $8::VARCHAR"}], "wait_edge": {"blockers": [9916], "pid": 9920, "query": "SELECT mobile_task.id \nFROM mobile_task \nWHERE mobile_task.device_id = $1::VARCHAR AND (mobile_task.business_state = $2::VARCHAR OR mobile_task.status IN ($3::VARCHAR, $4::VARCHAR)) ORDER BY mobile_task.id FOR UPDATE", "wait_event": "transactionid", "wait_event_type": "Lock"}}
+FCONTROL_LOCK_APIS_CLEANUP clients closed; lifespans exited; engines disposed
+CONTROL_LOCK_CLUSTER_CLEANUP /private/var/folders/6b/g5wj9vms7b35lw_73jr6dk940000gn/T/pytest-of-wangziheng/pytest-114/control-lock-owned-pg0: stopped and removed
+
+=================================== FAILURES ===================================
+_____ test_paused_resume_and_control_finish_without_lock_inversion[cancel] _____
+
+control_apis = (Api(app=<fastapi.applications.FastAPI object at 0x10dc24410>, client=<httpx.AsyncClient object at 0x10dcbf0e0>), Api(app=<fastapi.applications.FastAPI object at 0x10dcf6350>, client=<httpx.AsyncClient object at 0x10d96df90>))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d88ac40>
+control = 'cancel'
+
+    @pytest.mark.parametrize("control", ["cancel", "take_control"])
+    async def test_paused_resume_and_control_finish_without_lock_inversion(
+        control_apis: tuple[Api, Api], monkeypatch: pytest.MonkeyPatch, control: str
+    ) -> None:
+        api, other = control_apis
+        device, auth = await provision(api)
+        live = await viewing_session(other, device, auth) if control == "take_control" else None
+        task_id = await create_read_task(api, device)
+        claimed = await post(api, "/companion/v2/tasks/claim", auth, {"leaseSeconds": 60})
+        assert claimed["id"] == task_id
+        await post(
+            api,
+            f"/companion/v2/tasks/{task_id}/heartbeat",
+            auth,
+            {"leaseId": claimed["leaseId"], "leaseSeconds": 60},
+        )
+        paused = await post(
+            api,
+            f"/api/v1/platform-tasks/{task_id}:pause",
+            operator_headers(),
+            {"reason": "operator pause before verified resume"},
+        )
+        assert paused["state"] == "PAUSE_REQUESTED"
+        acknowledged = await post(
+            api, f"/api/v1/platform-tasks/{task_id}:ack-paused", operator_headers(), {}
+        )
+        assert acknowledged["state"] == "PAUSED_WAITING_USER"
+        before = await durable(api, device)
+        task_before = await task_snapshot(api, task_id)
+        assert task_before is not None
+        assert task_before["runner"] == "RUNNING"
+        assert task_before["business"] == "PAUSED_WAITING_USER"
+        assert not task_before["payload"].get("commitIntent")
+        first = Request(
+            api,
+            "resume",
+            f"/api/v1/platform-tasks/{task_id}:resume",
+            operator_headers(),
+            {"reason": "operator verified current page", "pageVerified": True},
+        )
+        if control == "cancel":
+            second = Request(
+                other,
+                control,
+                f"/api/v1/platform-tasks/{task_id}:cancel",
+                operator_headers(),
+                {"reason": "concurrent operator cancellation"},
+            )
+        else:
+            assert live is not None
+            second = Request(
+                other,
+                control,
+                f"/api/v1/live/sessions/{live['sessionId']}:take-control",
+                live_headers(live),
+                None,
+            )
+        schedule = LockSchedule(first.role)
+        with monkeypatch.context() as scoped:
+            schedule.install(scoped, control_apis)
+            try:
+                responses = await schedule.run(first, second)
+            finally:
+                schedule.uninstall(control_apis)
+        after = await durable(api, device)
+        assert all(app.app.state.database.engine.pool.checkedout() == 0 for app in control_apis)
+        assert not any(
+            task.get_name().startswith("control-lock-") and not task.done()
+            for task in asyncio.all_tasks()
+        )
+        report = {
+            "scenario": f"paused_resume_vs_{control}",
+            "before": before,
+            "after": after,
+            "taskBefore": task_before,
+            "taskAfter": await task_snapshot(api, task_id),
+            "trace": schedule.trace,
+            "pids": schedule.pids,
+            "wait_edge": schedule.wait_edge,
+            "locksBeforeRelease": schedule.locks_before_release,
+            "errors": schedule.errors,
+            "http": {
+                role: {"status": response.status_code, "body": response.text}
+                for role, response in responses.items()
+            },
+            "liveState": None
+            if live is None
+            else other.app.state.fleet_live_service.sessions[live["sessionId"]].state,
+            "remainingWorkers": 0,
+            "checkedOutConnections": 0,
+        }
+        print("CONTROL_LOCK_RESUME_EVIDENCE " + json.dumps(report, default=str, sort_keys=True))
+>       assert not report["errors"], report
+E       AssertionError: {'scenario': 'paused_resume_vs_cancel', 'before': {'fencingCounter': 2, 'tasks': [{'id': '1646065b-5f3a-4210-b333-afdd...', 'device': '761faca3-94ca-4fb9-a6da-c7240a261cdd', 'runner': 'RUNNING', 'business': 'PAUSED_WAITING_USER', ...}, ...}
+E       assert not [{'role': 'cancel', 'sqlstate': '40P01', 'error': "<class 'asyncpg.exceptions.DeadlockDetectedError'>: deadlock detect...cess 9898 waits for ShareLock on transaction 743; blocked by process 9900.\nHINT:  See server log for query details."}]
+
+tests/integration/test_fleet_control_lock_order.py:958: AssertionError
+------------------------------ Captured log call -------------------------------
+INFO     httpx:_client.py:1740 HTTP Request: POST http://test/api/v1/mobile/devices "HTTP/1.1 201 Created"
+INFO     httpx:_client.py:1740 HTTP Request: POST http://test/api/v1/mobile/enrollments "HTTP/1.1 201 Created"
+INFO     httpx:_client.py:1740 HTTP Request: POST http://test/companion/v2/enroll "HTTP/1.1 201 Created"
+INFO     httpx:_client.py:1740 HTTP Request: POST http://test/api/v1/mobile/tasks "HTTP/1.1 201 Created"
+INFO     httpx:_client.py:1740 HTTP Request: POST http://test/companion/v2/tasks/claim "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1740 HTTP Request: POST http://test/companion/v2/tasks/1646065b-5f3a-4210-b333-afdd94c696ca/heartbeat "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1740 HTTP Request: POST http://test/api/v1/platform-tasks/1646065b-5f3a-4210-b333-afdd94c696ca:pause "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1740 HTTP Request: POST http://test/api/v1/platform-tasks/1646065b-5f3a-4210-b333-afdd94c696ca:ack-paused "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1740 HTTP Request: POST http://test/api/v1/platform-tasks/1646065b-5f3a-4210-b333-afdd94c696ca:cancel "HTTP/1.1 500 Internal Server Error"
+INFO     httpx:_client.py:1740 HTTP Request: POST http://test/api/v1/platform-tasks/1646065b-5f3a-4210-b333-afdd94c696ca:resume "HTTP/1.1 200 OK"
+__ test_paused_resume_and_control_finish_without_lock_inversion[take_control] __
+
+control_apis = (Api(app=<fastapi.applications.FastAPI object at 0x10e207c50>, client=<httpx.AsyncClient object at 0x10d96dd10>), Api(app=<fastapi.applications.FastAPI object at 0x10e6b51d0>, client=<httpx.AsyncClient object at 0x10e5b3a80>))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10db55850>
+control = 'take_control'
+
+    @pytest.mark.parametrize("control", ["cancel", "take_control"])
+    async def test_paused_resume_and_control_finish_without_lock_inversion(
+        control_apis: tuple[Api, Api], monkeypatch: pytest.MonkeyPatch, control: str
+    ) -> None:
+        api, other = control_apis
+        device, auth = await provision(api)
+        live = await viewing_session(other, device, auth) if control == "take_control" else None
+        task_id = await create_read_task(api, device)
+        claimed = await post(api, "/companion/v2/tasks/claim", auth, {"leaseSeconds": 60})
+        assert claimed["id"] == task_id
+        await post(
+            api,
+            f"/companion/v2/tasks/{task_id}/heartbeat",
+            auth,
+            {"leaseId": claimed["leaseId"], "leaseSeconds": 60},
+        )
+        paused = await post(
+            api,
+            f"/api/v1/platform-tasks/{task_id}:pause",
+            operator_headers(),
+            {"reason": "operator pause before verified resume"},
+        )
+        assert paused["state"] == "PAUSE_REQUESTED"
+        acknowledged = await post(
+            api, f"/api/v1/platform-tasks/{task_id}:ack-paused", operator_headers(), {}
+        )
+        assert acknowledged["state"] == "PAUSED_WAITING_USER"
+        before = await durable(api, device)
+        task_before = await task_snapshot(api, task_id)
+        assert task_before is not None
+        assert task_before["runner"] == "RUNNING"
+        assert task_before["business"] == "PAUSED_WAITING_USER"
+        assert not task_before["payload"].get("commitIntent")
+        first = Request(
+            api,
+            "resume",
+            f"/api/v1/platform-tasks/{task_id}:resume",
+            operator_headers(),
+            {"reason": "operator verified current page", "pageVerified": True},
+        )
+        if control == "cancel":
+            second = Request(
+                other,
+                control,
+                f"/api/v1/platform-tasks/{task_id}:cancel",
+                operator_headers(),
+                {"reason": "concurrent operator cancellation"},
+            )
+        else:
+            assert live is not None
+            second = Request(
+                other,
+                control,
+                f"/api/v1/live/sessions/{live['sessionId']}:take-control",
+                live_headers(live),
+                None,
+            )
+        schedule = LockSchedule(first.role)
+        with monkeypatch.context() as scoped:
+            schedule.install(scoped, control_apis)
+            try:
+                responses = await schedule.run(first, second)
+            finally:
+                schedule.uninstall(control_apis)
+        after = await durable(api, device)
+        assert all(app.app.state.database.engine.pool.checkedout() == 0 for app in control_apis)
+        assert not any(
+            task.get_name().startswith("control-lock-") and not task.done()
+            for task in asyncio.all_tasks()
+        )
+        report = {
+            "scenario": f"paused_resume_vs_{control}",
+            "before": before,
+            "after": after,
+            "taskBefore": task_before,
+            "taskAfter": await task_snapshot(api, task_id),
+            "trace": schedule.trace,
+            "pids": schedule.pids,
+            "wait_edge": schedule.wait_edge,
+            "locksBeforeRelease": schedule.locks_before_release,
+            "errors": schedule.errors,
+            "http": {
+                role: {"status": response.status_code, "body": response.text}
+                for role, response in responses.items()
+            },
+            "liveState": None
+            if live is None
+            else other.app.state.fleet_live_service.sessions[live["sessionId"]].state,
+            "remainingWorkers": 0,
+            "checkedOutConnections": 0,
+        }
+        print("CONTROL_LOCK_RESUME_EVIDENCE " + json.dumps(report, default=str, sort_keys=True))
+>       assert not report["errors"], report
+E       AssertionError: {'scenario': 'paused_resume_vs_take_control', 'before': {'fencingCounter': 3, 'tasks': [{'id': 'a103c8ce-da71-48b6-894...', 'device': '9927e248-7082-41da-88d1-0fc48014cac7', 'runner': 'RUNNING', 'business': 'PAUSED_WAITING_USER', ...}, ...}
+E       assert not [{'role': 'take_control', 'sqlstate': '40P01', 'error': "<class 'asyncpg.exceptions.DeadlockDetectedError'>: deadlock ...cess 9916 waits for ShareLock on transaction 760; blocked by process 9920.\nHINT:  See server log for query details."}]
+
+tests/integration/test_fleet_control_lock_order.py:958: AssertionError
+------------------------------ Captured log call -------------------------------
+INFO     httpx:_client.py:1740 HTTP Request: POST http://test/api/v1/mobile/devices "HTTP/1.1 201 Created"
+INFO     httpx:_client.py:1740 HTTP Request: POST http://test/api/v1/mobile/enrollments "HTTP/1.1 201 Created"
+INFO     httpx:_client.py:1740 HTTP Request: POST http://test/companion/v2/enroll "HTTP/1.1 201 Created"
+INFO     httpx:_client.py:1740 HTTP Request: POST http://test/api/v1/live/devices/9927e248-7082-41da-88d1-0fc48014cac7/sessions "HTTP/1.1 201 Created"
+INFO     httpx:_client.py:1740 HTTP Request: POST http://test/companion/v2/fleet-live/9a0d27e7-76f6-43a1-bfed-a084d6414af9/ack "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1740 HTTP Request: POST http://test/api/v1/mobile/tasks "HTTP/1.1 201 Created"
+INFO     httpx:_client.py:1740 HTTP Request: POST http://test/companion/v2/tasks/claim "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1740 HTTP Request: POST http://test/companion/v2/tasks/a103c8ce-da71-48b6-8943-dbb96f442974/heartbeat "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1740 HTTP Request: POST http://test/api/v1/platform-tasks/a103c8ce-da71-48b6-8943-dbb96f442974:pause "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1740 HTTP Request: POST http://test/api/v1/platform-tasks/a103c8ce-da71-48b6-8943-dbb96f442974:ack-paused "HTTP/1.1 200 OK"
+INFO     httpx:_client.py:1740 HTTP Request: POST http://test/api/v1/live/sessions/9a0d27e7-76f6-43a1-bfed-a084d6414af9:take-control "HTTP/1.1 500 Internal Server Error"
+INFO     httpx:_client.py:1740 HTTP Request: POST http://test/api/v1/platform-tasks/a103c8ce-da71-48b6-8943-dbb96f442974:resume "HTTP/1.1 200 OK"
+=========================== short test summary info ============================
+FAILED tests/integration/test_fleet_control_lock_order.py::test_paused_resume_and_control_finish_without_lock_inversion[cancel]
+FAILED tests/integration/test_fleet_control_lock_order.py::test_paused_resume_and_control_finish_without_lock_inversion[take_control]
+2 failed, 13 deselected in 4.68s
