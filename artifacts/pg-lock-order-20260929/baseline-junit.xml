@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="4" skipped="0" tests="13" time="15.273" timestamp="2026-09-29T20:53:35.067066+08:00" hostname="192.168.5.13"><testcase classname="tests.integration.test_mobile_lock_order" name="test_sequential_claim_and_update_preserve_valid_state[PREFLIGHT-finish]" time="1.010" /><testcase classname="tests.integration.test_mobile_lock_order" name="test_sequential_claim_and_update_preserve_valid_state[PREFLIGHT-heartbeat]" time="0.381" /><testcase classname="tests.integration.test_mobile_lock_order" name="test_sequential_claim_and_update_preserve_valid_state[RUNNING-finish]" time="0.376" /><testcase classname="tests.integration.test_mobile_lock_order" name="test_sequential_claim_and_update_preserve_valid_state[RUNNING-heartbeat]" time="0.363" /><testcase classname="tests.integration.test_mobile_lock_order" name="test_characterizes_claim_lock_cycle[PREFLIGHT-finish]" time="1.439" /><testcase classname="tests.integration.test_mobile_lock_order" name="test_characterizes_claim_lock_cycle[PREFLIGHT-heartbeat]" time="1.362" /><testcase classname="tests.integration.test_mobile_lock_order" name="test_characterizes_claim_lock_cycle[RUNNING-finish]" time="1.399" /><testcase classname="tests.integration.test_mobile_lock_order" name="test_characterizes_claim_lock_cycle[RUNNING-heartbeat]" time="1.373" /><testcase classname="tests.integration.test_mobile_lock_order" name="test_claim_and_update_should_not_deadlock[PREFLIGHT-finish]" time="1.367"><failure message="AssertionError: {'operation': 'claim', 'exception': 'DBAPIError', 'sqlstates': ['40P01'], 'database_errors': [{'type': 'Error', 'sqlst...43; blocked by process 91313.&#10;  Process 91313 waits for ShareLock on transaction 845; blocked by process 91330.'}], ...}&#10;assert None == 204&#10; +  where None = &lt;built-in method get of dict object at 0x10eab3580&gt;('http_status')&#10; +    where &lt;built-in method get of dict object at 0x10eab3580&gt; = {'operation': 'claim', 'exception': 'DBAPIError', 'sqlstates': ['40P01'], 'database_errors': [{'type': 'Error', 'sqlst...43; blocked by process 91313.\nProcess 91313 waits for ShareLock on transaction 845; blocked by process 91330.'}], ...}.get">pg_api = (&lt;httpx.AsyncClient object at 0x10e72c550&gt;, &lt;fastapi.applications.FastAPI object at 0x10e6a3c50&gt;)
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x10e0a4de0&gt;
+operation = 'finish', phase = 'PREFLIGHT'
+
+    @pytest.mark.parametrize("operation", OPERATIONS)
+    @pytest.mark.parametrize("phase", PHASES)
+    async def test_claim_and_update_should_not_deadlock(pg_api, monkeypatch, operation, phase):
+        """Desired behavior. Intentionally RED on the frozen baseline; no xfail/skip."""
+        report = await probe(pg_api, operation, phase, monkeypatch)
+        for outcome in report["outcomes"]:
+            expected_status = 204 if outcome["operation"] == "claim" else 200
+&gt;           assert outcome.get("http_status") == expected_status, outcome
+E           AssertionError: {'operation': 'claim', 'exception': 'DBAPIError', 'sqlstates': ['40P01'], 'database_errors': [{'type': 'Error', 'sqlst...43; blocked by process 91313.
+E             Process 91313 waits for ShareLock on transaction 845; blocked by process 91330.'}], ...}
+E           assert None == 204
+E            +  where None = &lt;built-in method get of dict object at 0x10eab3580&gt;('http_status')
+E            +    where &lt;built-in method get of dict object at 0x10eab3580&gt; = {'operation': 'claim', 'exception': 'DBAPIError', 'sqlstates': ['40P01'], 'database_errors': [{'type': 'Error', 'sqlst...43; blocked by process 91313.\nProcess 91313 waits for ShareLock on transaction 845; blocked by process 91330.'}], ...}.get
+
+tests/integration/test_mobile_lock_order.py:530: AssertionError</failure></testcase><testcase classname="tests.integration.test_mobile_lock_order" name="test_claim_and_update_should_not_deadlock[PREFLIGHT-heartbeat]" time="1.874"><failure message="AssertionError: {'operation': 'heartbeat', 'exception': 'DBAPIError', 'sqlstates': ['40P01'], 'database_errors': [{'type': 'Error', 's...57; blocked by process 91369.&#10;  Process 91369 waits for ShareLock on transaction 855; blocked by process 91368.'}], ...}&#10;assert None == 200&#10; +  where None = &lt;built-in method get of dict object at 0x10eea3cc0&gt;('http_status')&#10; +    where &lt;built-in method get of dict object at 0x10eea3cc0&gt; = {'operation': 'heartbeat', 'exception': 'DBAPIError', 'sqlstates': ['40P01'], 'database_errors': [{'type': 'Error', 's...57; blocked by process 91369.\nProcess 91369 waits for ShareLock on transaction 855; blocked by process 91368.'}], ...}.get">pg_api = (&lt;httpx.AsyncClient object at 0x10ea8c450&gt;, &lt;fastapi.applications.FastAPI object at 0x10ea88910&gt;)
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x10e1c6430&gt;
+operation = 'heartbeat', phase = 'PREFLIGHT'
+
+    @pytest.mark.parametrize("operation", OPERATIONS)
+    @pytest.mark.parametrize("phase", PHASES)
+    async def test_claim_and_update_should_not_deadlock(pg_api, monkeypatch, operation, phase):
+        """Desired behavior. Intentionally RED on the frozen baseline; no xfail/skip."""
+        report = await probe(pg_api, operation, phase, monkeypatch)
+        for outcome in report["outcomes"]:
+            expected_status = 204 if outcome["operation"] == "claim" else 200
+&gt;           assert outcome.get("http_status") == expected_status, outcome
+E           AssertionError: {'operation': 'heartbeat', 'exception': 'DBAPIError', 'sqlstates': ['40P01'], 'database_errors': [{'type': 'Error', 's...57; blocked by process 91369.
+E             Process 91369 waits for ShareLock on transaction 855; blocked by process 91368.'}], ...}
+E           assert None == 200
+E            +  where None = &lt;built-in method get of dict object at 0x10eea3cc0&gt;('http_status')
+E            +    where &lt;built-in method get of dict object at 0x10eea3cc0&gt; = {'operation': 'heartbeat', 'exception': 'DBAPIError', 'sqlstates': ['40P01'], 'database_errors': [{'type': 'Error', 's...57; blocked by process 91369.\nProcess 91369 waits for ShareLock on transaction 855; blocked by process 91368.'}], ...}.get
+
+tests/integration/test_mobile_lock_order.py:530: AssertionError</failure></testcase><testcase classname="tests.integration.test_mobile_lock_order" name="test_claim_and_update_should_not_deadlock[RUNNING-finish]" time="1.380"><failure message="AssertionError: {'operation': 'finish', 'exception': 'DBAPIError', 'sqlstates': ['40P01'], 'database_errors': [{'type': 'Error', 'sqls...71; blocked by process 91391.&#10;  Process 91391 waits for ShareLock on transaction 869; blocked by process 91390.'}], ...}&#10;assert None == 200&#10; +  where None = &lt;built-in method get of dict object at 0x10f2b0880&gt;('http_status')&#10; +    where &lt;built-in method get of dict object at 0x10f2b0880&gt; = {'operation': 'finish', 'exception': 'DBAPIError', 'sqlstates': ['40P01'], 'database_errors': [{'type': 'Error', 'sqls...71; blocked by process 91391.\nProcess 91391 waits for ShareLock on transaction 869; blocked by process 91390.'}], ...}.get">pg_api = (&lt;httpx.AsyncClient object at 0x10ef145f0&gt;, &lt;fastapi.applications.FastAPI object at 0x10eed8a50&gt;)
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x10cd04c90&gt;
+operation = 'finish', phase = 'RUNNING'
+
+    @pytest.mark.parametrize("operation", OPERATIONS)
+    @pytest.mark.parametrize("phase", PHASES)
+    async def test_claim_and_update_should_not_deadlock(pg_api, monkeypatch, operation, phase):
+        """Desired behavior. Intentionally RED on the frozen baseline; no xfail/skip."""
+        report = await probe(pg_api, operation, phase, monkeypatch)
+        for outcome in report["outcomes"]:
+            expected_status = 204 if outcome["operation"] == "claim" else 200
+&gt;           assert outcome.get("http_status") == expected_status, outcome
+E           AssertionError: {'operation': 'finish', 'exception': 'DBAPIError', 'sqlstates': ['40P01'], 'database_errors': [{'type': 'Error', 'sqls...71; blocked by process 91391.
+E             Process 91391 waits for ShareLock on transaction 869; blocked by process 91390.'}], ...}
+E           assert None == 200
+E            +  where None = &lt;built-in method get of dict object at 0x10f2b0880&gt;('http_status')
+E            +    where &lt;built-in method get of dict object at 0x10f2b0880&gt; = {'operation': 'finish', 'exception': 'DBAPIError', 'sqlstates': ['40P01'], 'database_errors': [{'type': 'Error', 'sqls...71; blocked by process 91391.\nProcess 91391 waits for ShareLock on transaction 869; blocked by process 91390.'}], ...}.get
+
+tests/integration/test_mobile_lock_order.py:530: AssertionError</failure></testcase><testcase classname="tests.integration.test_mobile_lock_order" name="test_claim_and_update_should_not_deadlock[RUNNING-heartbeat]" time="1.376"><failure message="AssertionError: {'operation': 'claim', 'exception': 'DBAPIError', 'sqlstates': ['40P01'], 'database_errors': [{'type': 'Error', 'sqlst...83; blocked by process 91397.&#10;  Process 91397 waits for ShareLock on transaction 885; blocked by process 91398.'}], ...}&#10;assert None == 204&#10; +  where None = &lt;built-in method get of dict object at 0x10f6992c0&gt;('http_status')&#10; +    where &lt;built-in method get of dict object at 0x10f6992c0&gt; = {'operation': 'claim', 'exception': 'DBAPIError', 'sqlstates': ['40P01'], 'database_errors': [{'type': 'Error', 'sqlst...83; blocked by process 91397.\nProcess 91397 waits for ShareLock on transaction 885; blocked by process 91398.'}], ...}.get">pg_api = (&lt;httpx.AsyncClient object at 0x10eb73d40&gt;, &lt;fastapi.applications.FastAPI object at 0x10f2d4050&gt;)
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x10ef54210&gt;
+operation = 'heartbeat', phase = 'RUNNING'
+
+    @pytest.mark.parametrize("operation", OPERATIONS)
+    @pytest.mark.parametrize("phase", PHASES)
+    async def test_claim_and_update_should_not_deadlock(pg_api, monkeypatch, operation, phase):
+        """Desired behavior. Intentionally RED on the frozen baseline; no xfail/skip."""
+        report = await probe(pg_api, operation, phase, monkeypatch)
+        for outcome in report["outcomes"]:
+            expected_status = 204 if outcome["operation"] == "claim" else 200
+&gt;           assert outcome.get("http_status") == expected_status, outcome
+E           AssertionError: {'operation': 'claim', 'exception': 'DBAPIError', 'sqlstates': ['40P01'], 'database_errors': [{'type': 'Error', 'sqlst...83; blocked by process 91397.
+E             Process 91397 waits for ShareLock on transaction 885; blocked by process 91398.'}], ...}
+E           assert None == 204
+E            +  where None = &lt;built-in method get of dict object at 0x10f6992c0&gt;('http_status')
+E            +    where &lt;built-in method get of dict object at 0x10f6992c0&gt; = {'operation': 'claim', 'exception': 'DBAPIError', 'sqlstates': ['40P01'], 'database_errors': [{'type': 'Error', 'sqlst...83; blocked by process 91397.\nProcess 91397 waits for ShareLock on transaction 885; blocked by process 91398.'}], ...}.get
+
+tests/integration/test_mobile_lock_order.py:530: AssertionError</failure></testcase><testcase classname="tests.integration.test_mobile_lock_order" name="test_cancelled_probe_drains_workers_before_database_disposal" time="1.459" /></testsuite></testsuites>

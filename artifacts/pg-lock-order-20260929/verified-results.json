@@ -1,0 +1,575 @@
+{
+  "baseline_sha": "7d58f6b28158292722c7d037998163f5fcbfca89",
+  "cancellation_connection_error_logs": 2,
+  "cancellation_drained_marker": true,
+  "cases": [
+    {
+      "durable_after": {
+        "attempt": 1,
+        "business_state": "SUCCEEDED",
+        "completed_at": "2026-09-29T12:57:28.928748+00:00",
+        "current_step": null,
+        "detail": null,
+        "device_id": "34de7976-2fb8-403b-8823-607147f285d2",
+        "error_code": null,
+        "fencing_token": 2,
+        "lease_canceled_at": "2026-09-29T12:57:28.928748+00:00",
+        "lease_expires_at": "2026-09-29T12:58:28.898970+00:00",
+        "lease_id": "a05e9086-47a9-44bf-9498-4bedb25c2e01",
+        "result": {
+          "lockOrderProbe": true
+        },
+        "status": "SUCCEEDED",
+        "task_expires_at": null,
+        "task_id": "0fcbc22f-0ad6-4998-912f-853e5f63399c"
+      },
+      "durable_before": {
+        "attempt": 1,
+        "business_state": "PREFLIGHT",
+        "completed_at": null,
+        "current_step": null,
+        "detail": null,
+        "device_id": "34de7976-2fb8-403b-8823-607147f285d2",
+        "error_code": null,
+        "fencing_token": 2,
+        "lease_canceled_at": null,
+        "lease_expires_at": "2026-09-29T12:58:28.898970+00:00",
+        "lease_id": "a05e9086-47a9-44bf-9498-4bedb25c2e01",
+        "result": {},
+        "status": "CLAIMED",
+        "task_expires_at": "2026-09-29T12:58:28.898970+00:00",
+        "task_id": "0fcbc22f-0ad6-4998-912f-853e5f63399c"
+      },
+      "group": "characterization",
+      "locks_at_claim_task_request": {
+        "claim": {
+          "device": 92465,
+          "device_lease": 92465
+        },
+        "finish": {
+          "mobile_task": 92462
+        }
+      },
+      "operation": "finish",
+      "outcomes": [
+        {
+          "exception": "DBAPIError",
+          "operation": "claim",
+          "sqlstates": [
+            "40P01"
+          ]
+        },
+        {
+          "http_status": 200,
+          "operation": "finish",
+          "sqlstates": []
+        }
+      ],
+      "phase": "PREFLIGHT",
+      "pool_checked_out": 0,
+      "rollback_unchanged": false,
+      "runtime_service_file": "/Users/wangziheng/Desktop/01-\u4e3b\u6218\u573a/LAMDA\u4e91\u63a7\u7cfb\u7edf/sol-publish-queue-20260929/services/control-api/src/cloudctl_api/mobile_service.py",
+      "unfinished_transactions": 0,
+      "workers_drained": true
+    },
+    {
+      "durable_after": {
+        "attempt": 1,
+        "business_state": "PREFLIGHT",
+        "completed_at": null,
+        "current_step": null,
+        "detail": null,
+        "device_id": "5ce59e99-d83e-4b76-bb2e-5af713e0b6b8",
+        "error_code": null,
+        "fencing_token": 2,
+        "lease_canceled_at": null,
+        "lease_expires_at": "2026-09-29T12:58:30.333269+00:00",
+        "lease_id": "1b63fd9c-ed5f-4c9f-97f4-0ccbda231189",
+        "result": {},
+        "status": "CLAIMED",
+        "task_expires_at": "2026-09-29T12:58:30.333269+00:00",
+        "task_id": "2ec71db5-f956-4c29-babc-6b3a8d2b7f35"
+      },
+      "durable_before": {
+        "attempt": 1,
+        "business_state": "PREFLIGHT",
+        "completed_at": null,
+        "current_step": null,
+        "detail": null,
+        "device_id": "5ce59e99-d83e-4b76-bb2e-5af713e0b6b8",
+        "error_code": null,
+        "fencing_token": 2,
+        "lease_canceled_at": null,
+        "lease_expires_at": "2026-09-29T12:58:30.333269+00:00",
+        "lease_id": "1b63fd9c-ed5f-4c9f-97f4-0ccbda231189",
+        "result": {},
+        "status": "CLAIMED",
+        "task_expires_at": "2026-09-29T12:58:30.333269+00:00",
+        "task_id": "2ec71db5-f956-4c29-babc-6b3a8d2b7f35"
+      },
+      "group": "characterization",
+      "locks_at_claim_task_request": {
+        "claim": {
+          "device": 92471,
+          "device_lease": 92471
+        },
+        "heartbeat": {
+          "mobile_task": 92470
+        }
+      },
+      "operation": "heartbeat",
+      "outcomes": [
+        {
+          "http_status": 204,
+          "operation": "claim",
+          "sqlstates": []
+        },
+        {
+          "exception": "DBAPIError",
+          "operation": "heartbeat",
+          "sqlstates": [
+            "40P01"
+          ]
+        }
+      ],
+      "phase": "PREFLIGHT",
+      "pool_checked_out": 0,
+      "rollback_unchanged": true,
+      "runtime_service_file": "/Users/wangziheng/Desktop/01-\u4e3b\u6218\u573a/LAMDA\u4e91\u63a7\u7cfb\u7edf/sol-publish-queue-20260929/services/control-api/src/cloudctl_api/mobile_service.py",
+      "unfinished_transactions": 0,
+      "workers_drained": true
+    },
+    {
+      "durable_after": {
+        "attempt": 1,
+        "business_state": "RUNNING",
+        "completed_at": null,
+        "current_step": 0,
+        "detail": null,
+        "device_id": "782d2218-6293-49f0-88bc-8c4012fd0738",
+        "error_code": null,
+        "fencing_token": 2,
+        "lease_canceled_at": null,
+        "lease_expires_at": "2026-09-29T12:58:31.755362+00:00",
+        "lease_id": "3f404337-1b25-4c26-b995-565db7fea245",
+        "result": {},
+        "status": "RUNNING",
+        "task_expires_at": "2026-09-29T12:58:31.755362+00:00",
+        "task_id": "7ba388b2-e1ac-481f-bd21-2635a632d0bb"
+      },
+      "durable_before": {
+        "attempt": 1,
+        "business_state": "RUNNING",
+        "completed_at": null,
+        "current_step": 0,
+        "detail": null,
+        "device_id": "782d2218-6293-49f0-88bc-8c4012fd0738",
+        "error_code": null,
+        "fencing_token": 2,
+        "lease_canceled_at": null,
+        "lease_expires_at": "2026-09-29T12:58:31.755362+00:00",
+        "lease_id": "3f404337-1b25-4c26-b995-565db7fea245",
+        "result": {},
+        "status": "RUNNING",
+        "task_expires_at": "2026-09-29T12:58:31.755362+00:00",
+        "task_id": "7ba388b2-e1ac-481f-bd21-2635a632d0bb"
+      },
+      "group": "characterization",
+      "locks_at_claim_task_request": {
+        "claim": {
+          "device": 92481,
+          "device_lease": 92481
+        },
+        "finish": {
+          "mobile_task": 92480
+        }
+      },
+      "operation": "finish",
+      "outcomes": [
+        {
+          "http_status": 204,
+          "operation": "claim",
+          "sqlstates": []
+        },
+        {
+          "exception": "DBAPIError",
+          "operation": "finish",
+          "sqlstates": [
+            "40P01"
+          ]
+        }
+      ],
+      "phase": "RUNNING",
+      "pool_checked_out": 0,
+      "rollback_unchanged": true,
+      "runtime_service_file": "/Users/wangziheng/Desktop/01-\u4e3b\u6218\u573a/LAMDA\u4e91\u63a7\u7cfb\u7edf/sol-publish-queue-20260929/services/control-api/src/cloudctl_api/mobile_service.py",
+      "unfinished_transactions": 0,
+      "workers_drained": true
+    },
+    {
+      "durable_after": {
+        "attempt": 1,
+        "business_state": "RUNNING",
+        "completed_at": null,
+        "current_step": 1,
+        "detail": null,
+        "device_id": "621e197d-e4f0-4769-acf9-426a1a64b197",
+        "error_code": null,
+        "fencing_token": 2,
+        "lease_canceled_at": null,
+        "lease_expires_at": "2026-09-29T12:58:33.164088+00:00",
+        "lease_id": "b204c37d-39d1-41ef-9c3c-5463438870f0",
+        "result": {},
+        "status": "RUNNING",
+        "task_expires_at": "2026-09-29T12:58:33.164088+00:00",
+        "task_id": "19043066-cfaa-4869-bae0-7f726fa6cc14"
+      },
+      "durable_before": {
+        "attempt": 1,
+        "business_state": "RUNNING",
+        "completed_at": null,
+        "current_step": 0,
+        "detail": null,
+        "device_id": "621e197d-e4f0-4769-acf9-426a1a64b197",
+        "error_code": null,
+        "fencing_token": 2,
+        "lease_canceled_at": null,
+        "lease_expires_at": "2026-09-29T12:58:33.144735+00:00",
+        "lease_id": "b204c37d-39d1-41ef-9c3c-5463438870f0",
+        "result": {},
+        "status": "RUNNING",
+        "task_expires_at": "2026-09-29T12:58:33.144735+00:00",
+        "task_id": "19043066-cfaa-4869-bae0-7f726fa6cc14"
+      },
+      "group": "characterization",
+      "locks_at_claim_task_request": {
+        "claim": {
+          "device": 92490,
+          "device_lease": 92490
+        },
+        "heartbeat": {
+          "mobile_task": 92489
+        }
+      },
+      "operation": "heartbeat",
+      "outcomes": [
+        {
+          "exception": "DBAPIError",
+          "operation": "claim",
+          "sqlstates": [
+            "40P01"
+          ]
+        },
+        {
+          "http_status": 200,
+          "operation": "heartbeat",
+          "sqlstates": []
+        }
+      ],
+      "phase": "RUNNING",
+      "pool_checked_out": 0,
+      "rollback_unchanged": false,
+      "runtime_service_file": "/Users/wangziheng/Desktop/01-\u4e3b\u6218\u573a/LAMDA\u4e91\u63a7\u7cfb\u7edf/sol-publish-queue-20260929/services/control-api/src/cloudctl_api/mobile_service.py",
+      "unfinished_transactions": 0,
+      "workers_drained": true
+    },
+    {
+      "durable_after": {
+        "attempt": 1,
+        "business_state": "SUCCEEDED",
+        "completed_at": "2026-09-29T12:57:34.549028+00:00",
+        "current_step": null,
+        "detail": null,
+        "device_id": "67b8dd03-11eb-46b5-bede-a0919dfcef47",
+        "error_code": null,
+        "fencing_token": 2,
+        "lease_canceled_at": "2026-09-29T12:57:34.549028+00:00",
+        "lease_expires_at": "2026-09-29T12:58:34.519271+00:00",
+        "lease_id": "6a99b62b-bf32-41e4-8d24-f5bab4b5cf88",
+        "result": {
+          "lockOrderProbe": true
+        },
+        "status": "SUCCEEDED",
+        "task_expires_at": null,
+        "task_id": "8b388e23-0f62-4ae3-bf2b-9c6fc6f2fe58"
+      },
+      "durable_before": {
+        "attempt": 1,
+        "business_state": "PREFLIGHT",
+        "completed_at": null,
+        "current_step": null,
+        "detail": null,
+        "device_id": "67b8dd03-11eb-46b5-bede-a0919dfcef47",
+        "error_code": null,
+        "fencing_token": 2,
+        "lease_canceled_at": null,
+        "lease_expires_at": "2026-09-29T12:58:34.519271+00:00",
+        "lease_id": "6a99b62b-bf32-41e4-8d24-f5bab4b5cf88",
+        "result": {},
+        "status": "CLAIMED",
+        "task_expires_at": "2026-09-29T12:58:34.519271+00:00",
+        "task_id": "8b388e23-0f62-4ae3-bf2b-9c6fc6f2fe58"
+      },
+      "group": "desired_no_deadlock",
+      "locks_at_claim_task_request": {
+        "claim": {
+          "device": 92494,
+          "device_lease": 92494
+        },
+        "finish": {
+          "mobile_task": 92493
+        }
+      },
+      "operation": "finish",
+      "outcomes": [
+        {
+          "exception": "DBAPIError",
+          "operation": "claim",
+          "sqlstates": [
+            "40P01"
+          ]
+        },
+        {
+          "http_status": 200,
+          "operation": "finish",
+          "sqlstates": []
+        }
+      ],
+      "phase": "PREFLIGHT",
+      "pool_checked_out": 0,
+      "rollback_unchanged": false,
+      "runtime_service_file": "/Users/wangziheng/Desktop/01-\u4e3b\u6218\u573a/LAMDA\u4e91\u63a7\u7cfb\u7edf/sol-publish-queue-20260929/services/control-api/src/cloudctl_api/mobile_service.py",
+      "unfinished_transactions": 0,
+      "workers_drained": true
+    },
+    {
+      "durable_after": {
+        "attempt": 1,
+        "business_state": "RUNNING",
+        "completed_at": null,
+        "current_step": 1,
+        "detail": null,
+        "device_id": "c0f7d5b2-9db0-4146-a6f9-175cd508acd7",
+        "error_code": null,
+        "fencing_token": 2,
+        "lease_canceled_at": null,
+        "lease_expires_at": "2026-09-29T12:58:35.961977+00:00",
+        "lease_id": "4f779688-e27a-401b-90d3-2703543998fe",
+        "result": {},
+        "status": "RUNNING",
+        "task_expires_at": "2026-09-29T12:58:35.961977+00:00",
+        "task_id": "08e7d213-3596-4afd-8988-1304acc21d15"
+      },
+      "durable_before": {
+        "attempt": 1,
+        "business_state": "PREFLIGHT",
+        "completed_at": null,
+        "current_step": null,
+        "detail": null,
+        "device_id": "c0f7d5b2-9db0-4146-a6f9-175cd508acd7",
+        "error_code": null,
+        "fencing_token": 2,
+        "lease_canceled_at": null,
+        "lease_expires_at": "2026-09-29T12:58:35.929113+00:00",
+        "lease_id": "4f779688-e27a-401b-90d3-2703543998fe",
+        "result": {},
+        "status": "CLAIMED",
+        "task_expires_at": "2026-09-29T12:58:35.929113+00:00",
+        "task_id": "08e7d213-3596-4afd-8988-1304acc21d15"
+      },
+      "group": "desired_no_deadlock",
+      "locks_at_claim_task_request": {
+        "claim": {
+          "device": 92502,
+          "device_lease": 92502
+        },
+        "heartbeat": {
+          "mobile_task": 92501
+        }
+      },
+      "operation": "heartbeat",
+      "outcomes": [
+        {
+          "exception": "DBAPIError",
+          "operation": "claim",
+          "sqlstates": [
+            "40P01"
+          ]
+        },
+        {
+          "http_status": 200,
+          "operation": "heartbeat",
+          "sqlstates": []
+        }
+      ],
+      "phase": "PREFLIGHT",
+      "pool_checked_out": 0,
+      "rollback_unchanged": false,
+      "runtime_service_file": "/Users/wangziheng/Desktop/01-\u4e3b\u6218\u573a/LAMDA\u4e91\u63a7\u7cfb\u7edf/sol-publish-queue-20260929/services/control-api/src/cloudctl_api/mobile_service.py",
+      "unfinished_transactions": 0,
+      "workers_drained": true
+    },
+    {
+      "durable_after": {
+        "attempt": 1,
+        "business_state": "SUCCEEDED",
+        "completed_at": "2026-09-29T12:57:37.842272+00:00",
+        "current_step": 0,
+        "detail": null,
+        "device_id": "f951e8ae-fb37-4c4e-970c-f03f54573c8a",
+        "error_code": null,
+        "fencing_token": 2,
+        "lease_canceled_at": "2026-09-29T12:57:37.842272+00:00",
+        "lease_expires_at": "2026-09-29T12:58:37.767358+00:00",
+        "lease_id": "db7b885a-2187-4166-9071-4d89b2e5c4dd",
+        "result": {
+          "lockOrderProbe": true
+        },
+        "status": "SUCCEEDED",
+        "task_expires_at": null,
+        "task_id": "54efc1fd-df45-44b8-9991-52046b46f6b4"
+      },
+      "durable_before": {
+        "attempt": 1,
+        "business_state": "RUNNING",
+        "completed_at": null,
+        "current_step": 0,
+        "detail": null,
+        "device_id": "f951e8ae-fb37-4c4e-970c-f03f54573c8a",
+        "error_code": null,
+        "fencing_token": 2,
+        "lease_canceled_at": null,
+        "lease_expires_at": "2026-09-29T12:58:37.767358+00:00",
+        "lease_id": "db7b885a-2187-4166-9071-4d89b2e5c4dd",
+        "result": {},
+        "status": "RUNNING",
+        "task_expires_at": "2026-09-29T12:58:37.767358+00:00",
+        "task_id": "54efc1fd-df45-44b8-9991-52046b46f6b4"
+      },
+      "group": "desired_no_deadlock",
+      "locks_at_claim_task_request": {
+        "claim": {
+          "device": 92510,
+          "device_lease": 92510
+        },
+        "finish": {
+          "mobile_task": 92507
+        }
+      },
+      "operation": "finish",
+      "outcomes": [
+        {
+          "exception": "DBAPIError",
+          "operation": "claim",
+          "sqlstates": [
+            "40P01"
+          ]
+        },
+        {
+          "http_status": 200,
+          "operation": "finish",
+          "sqlstates": []
+        }
+      ],
+      "phase": "RUNNING",
+      "pool_checked_out": 0,
+      "rollback_unchanged": false,
+      "runtime_service_file": "/Users/wangziheng/Desktop/01-\u4e3b\u6218\u573a/LAMDA\u4e91\u63a7\u7cfb\u7edf/sol-publish-queue-20260929/services/control-api/src/cloudctl_api/mobile_service.py",
+      "unfinished_transactions": 0,
+      "workers_drained": true
+    },
+    {
+      "durable_after": {
+        "attempt": 1,
+        "business_state": "RUNNING",
+        "completed_at": null,
+        "current_step": 0,
+        "detail": null,
+        "device_id": "d2187bc8-6f36-4b91-9ea6-0844cda8bd8b",
+        "error_code": null,
+        "fencing_token": 2,
+        "lease_canceled_at": null,
+        "lease_expires_at": "2026-09-29T12:58:39.242880+00:00",
+        "lease_id": "e25a9048-9dfd-4e58-a643-b64876f730d1",
+        "result": {},
+        "status": "RUNNING",
+        "task_expires_at": "2026-09-29T12:58:39.242880+00:00",
+        "task_id": "03cff1ef-6913-4330-9046-fde82dfc4e36"
+      },
+      "durable_before": {
+        "attempt": 1,
+        "business_state": "RUNNING",
+        "completed_at": null,
+        "current_step": 0,
+        "detail": null,
+        "device_id": "d2187bc8-6f36-4b91-9ea6-0844cda8bd8b",
+        "error_code": null,
+        "fencing_token": 2,
+        "lease_canceled_at": null,
+        "lease_expires_at": "2026-09-29T12:58:39.242880+00:00",
+        "lease_id": "e25a9048-9dfd-4e58-a643-b64876f730d1",
+        "result": {},
+        "status": "RUNNING",
+        "task_expires_at": "2026-09-29T12:58:39.242880+00:00",
+        "task_id": "03cff1ef-6913-4330-9046-fde82dfc4e36"
+      },
+      "group": "desired_no_deadlock",
+      "locks_at_claim_task_request": {
+        "claim": {
+          "device": 92564,
+          "device_lease": 92564
+        },
+        "heartbeat": {
+          "mobile_task": 92563
+        }
+      },
+      "operation": "heartbeat",
+      "outcomes": [
+        {
+          "http_status": 204,
+          "operation": "claim",
+          "sqlstates": []
+        },
+        {
+          "exception": "DBAPIError",
+          "operation": "heartbeat",
+          "sqlstates": [
+            "40P01"
+          ]
+        }
+      ],
+      "phase": "RUNNING",
+      "pool_checked_out": 0,
+      "rollback_unchanged": true,
+      "runtime_service_file": "/Users/wangziheng/Desktop/01-\u4e3b\u6218\u573a/LAMDA\u4e91\u63a7\u7cfb\u7edf/sol-publish-queue-20260929/services/control-api/src/cloudctl_api/mobile_service.py",
+      "unfinished_transactions": 0,
+      "workers_drained": true
+    }
+  ],
+  "cluster_stopped_marker": "PG_CLUSTER_STOPPED=/private/var/folders/6b/g5wj9vms7b35lw_73jr6dk940000gn/T/pytest-of-wangziheng/pytest-102/mobile-lock-order-pg0",
+  "event_loop_closed_present": false,
+  "files_sha256": {
+    "services/control-api/src/cloudctl_api/mobile_service.py": "b026eba59dc3a8bcbd01302eb439c4c00898849c19b6743d8afb7dde21416d1c",
+    "tests/integration/test_mobile_lock_order.py": "dd42cefe3e73d8c5eaee28bc66fe60a468e9f0c6b242a0f11d5682ccc7b66bd3"
+  },
+  "junit_counts": {
+    "errors": "0",
+    "failures": "4",
+    "hostname": "192.168.5.13",
+    "name": "pytest",
+    "skipped": "0",
+    "tests": "13",
+    "time": "15.460",
+    "timestamp": "2026-09-29T20:57:26.280040+08:00"
+  },
+  "pytest_exit_code": 1,
+  "python": "3.13.5",
+  "versions": {
+    "asyncpg": "0.31.0",
+    "pyright": "1.1.411",
+    "pytest": "9.1.1",
+    "pytest-asyncio": "1.4.0",
+    "ruff": "0.16.5",
+    "sqlalchemy": "2.0.52"
+  }
+}
