@@ -1,0 +1,12 @@
+3.13.5 (main, Jun 12 2025, 12:22:43) [Clang 20.1.4 ]
+/Users/wangziheng/Desktop/01-主战场/LAMDA云控系统/sol-ime-picker-20260929/../cloudctl-source/.venv/bin/python
+cloudctl_domain: /Users/wangziheng/Desktop/01-主战场/LAMDA云控系统/sol-ime-picker-20260929/packages/domain/src/cloudctl_domain/__init__.py
+cloudctl_edge_protocol: /Users/wangziheng/Desktop/01-主战场/LAMDA云控系统/sol-ime-picker-20260929/packages/edge-protocol/src/cloudctl_edge_protocol/__init__.py
+cloudctl_lamda_driver: /Users/wangziheng/Desktop/01-主战场/LAMDA云控系统/sol-ime-picker-20260929/packages/lamda-driver/src/cloudctl_lamda_driver/__init__.py
+cloudctl_automation_sdk: /Users/wangziheng/Desktop/01-主战场/LAMDA云控系统/sol-ime-picker-20260929/packages/automation-sdk/src/cloudctl_automation_sdk/__init__.py
+cloudctl_observability: /Users/wangziheng/Desktop/01-主战场/LAMDA云控系统/sol-ime-picker-20260929/packages/observability/src/cloudctl_observability/__init__.py
+cloudctl_api: /Users/wangziheng/Desktop/01-主战场/LAMDA云控系统/sol-ime-picker-20260929/services/control-api/src/cloudctl_api/__init__.py
+cloudctl_worker: /Users/wangziheng/Desktop/01-主战场/LAMDA云控系统/sol-ime-picker-20260929/services/temporal-worker/src/cloudctl_worker/__init__.py
+cloudctl_edge_hub: /Users/wangziheng/Desktop/01-主战场/LAMDA云控系统/sol-ime-picker-20260929/services/edge-hub/src/cloudctl_edge_hub/__init__.py
+cloudctl_outbox: /Users/wangziheng/Desktop/01-主战场/LAMDA云控系统/sol-ime-picker-20260929/services/outbox-dispatcher/src/cloudctl_outbox/__init__.py
+cloudctl_edge: /Users/wangziheng/Desktop/01-主战场/LAMDA云控系统/sol-ime-picker-20260929/edge/gateway/src/cloudctl_edge/__init__.py
