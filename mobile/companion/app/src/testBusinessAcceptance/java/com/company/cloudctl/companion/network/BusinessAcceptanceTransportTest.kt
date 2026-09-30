@@ -14,12 +14,12 @@ class BusinessAcceptanceTransportTest {
     @Test
     fun keepsOriginalIdentityWithoutDiagnosticOrHoldSwitches() {
         assertEquals("com.company.cloudctl.companion", BuildConfig.APPLICATION_ID)
-        assertEquals(7, BuildConfig.VERSION_CODE)
+        assertEquals(8, BuildConfig.VERSION_CODE)
         assertFalse(BuildConfig.DEBUG)
         assertFalse(BuildConfig.HEARTBEAT_DIAGNOSTIC)
         assertFalse(BuildConfig.IM_UPLOAD_HOLD_ALLOWED)
         assertEquals("{}", BuildConfig.RECIPE_SIGNING_PUBLIC_KEYS)
-        assertTrue(BuildConfig.VERSION_NAME.endsWith("-business-acceptance.7"))
+        assertTrue(BuildConfig.VERSION_NAME.endsWith("-business-acceptance.8"))
     }
 
     @Test
