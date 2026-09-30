@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { createPostCatalog } from '@/api/post-catalog'
 import XianyuDevicePicker from '@/components/XianyuDevicePicker.vue'
@@ -35,6 +35,8 @@ const pickerOpen = ref(false)
 const filterOpen = ref(false)
 const tableSelected = ref<string[]>([])
 const busy = ref(false)
+const loadError = ref('')
+const loaded = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
 
@@ -50,35 +52,62 @@ const totalPages = computed(() => Math.max(1, Math.ceil(filtered.value.length / 
 const paged = computed(() => filtered.value.slice((page.value - 1) * pageSize.value, page.value * pageSize.value))
 const assignments = computed(() => allocatePosts(form.postIds, form.deviceIds, form.allocation))
 const isXianyu = computed(() => props.platform === 'xianyu')
+function isGraphicPost(post: PostRecord) { return !post.videoAssetId && !post.videoUrl && !post.videoName }
+const selectablePage = computed(() => paged.value.filter(isGraphicPost))
 const allSelected = computed({
-  get: () => paged.value.length > 0 && paged.value.every((item) => tableSelected.value.includes(item.id)),
+  get: () => selectablePage.value.length > 0 && selectablePage.value.every((item) => tableSelected.value.includes(item.id)),
   set: (value: boolean) => {
-    if (value) tableSelected.value = [...new Set([...tableSelected.value, ...paged.value.map((item) => item.id)])]
+    if (value) tableSelected.value = [...new Set([...tableSelected.value, ...selectablePage.value.map((item) => item.id)])]
     else tableSelected.value = tableSelected.value.filter((id) => !paged.value.some((item) => item.id === id))
   },
 })
 
-async function loadDevices() {
-  devices.value = await fetchXianyuTaskDevices()
+async function loadData() {
+  if (busy.value) return
+  busy.value = true
+  loaded.value = false
+  loadError.value = ''
+  const results = await Promise.allSettled([
+    fetchXianyuTaskDevices((message) => { loadError.value = message }),
+    catalog.list(),
+  ])
+  const [deviceResult, postResult] = results
+  if (deviceResult.status === 'fulfilled') devices.value = deviceResult.value
+  else loadError.value = '设备读取失败：' + String(deviceResult.reason)
+  if (postResult.status === 'fulfilled') posts.value = postResult.value
+  else loadError.value += (loadError.value ? '；' : '') + '帖子读取失败：' + String(postResult.reason)
+  loaded.value = !loadError.value
+  if (loaded.value) {
+    form.postIds = form.postIds.filter((id) => posts.value.some((item) => item.id === id && isGraphicPost(item)))
+    form.deviceIds = form.deviceIds.filter((id) => devices.value.some((item) => item.id === id))
+    tableSelected.value = tableSelected.value.filter((id) => posts.value.some((item) => item.id === id && isGraphicPost(item)))
+  }
+  busy.value = false
 }
 
-async function loadPosts() {
-  posts.value = await catalog.list()
+watch(totalPages, (total) => { page.value = Math.min(page.value, total) })
+function jumpToPage() {
+  const requested = Number(jumpPage.value)
+  page.value = Math.min(totalPages.value, Math.max(1, Number.isFinite(requested) ? Math.trunc(requested) : 1))
+  jumpPage.value = String(page.value)
 }
 
 function togglePost(id: string) {
+  if (!loaded.value || !posts.value.some((item) => item.id === id && isGraphicPost(item))) return
   form.postIds = form.postIds.includes(id)
     ? form.postIds.filter((item) => item !== id)
     : [...form.postIds, id]
 }
 
 function toggleTableSelected(id: string) {
+  if (!loaded.value || !posts.value.some((item) => item.id === id && isGraphicPost(item))) return
   tableSelected.value = tableSelected.value.includes(id)
     ? tableSelected.value.filter((item) => item !== id)
     : [...tableSelected.value, id]
 }
 
 function addSelectedToQueue() {
+  if (!loaded.value) return
   form.postIds = [...new Set([...form.postIds, ...tableSelected.value])]
 }
 
@@ -105,127 +134,103 @@ function exportCsv() {
   downloadDataUrl(`data:text/csv;charset=utf-8,${encodeURIComponent(rows.map((line) => line.map((cell) => `"${cell.replaceAll('"', '""')}"`).join(',')).join('\n'))}`, `${copy.value.title}.csv`)
 }
 
-function saveConfig() {
-  savePublishConfig(props.platform, form)
-  successMessage.value = '配置已保存到当前浏览器'
-  errorMessage.value = ''
-}
-
-function createTask() {
+function savePlan() {
+  if (busy.value || !loaded.value) return
   errorMessage.value = ''
   successMessage.value = ''
-  if (form.deviceIds.length === 0) {
-    errorMessage.value = '请先选择执行设备'
-    return
-  }
-  if (form.postIds.length === 0) {
-    errorMessage.value = `请先选择要发布的${copy.value.itemLabel}`
-    return
-  }
   if (isXianyu.value) {
-    errorMessage.value = '闲鱼已下线「发布帖子」功能，本任务暂无法执行。配置已保留，入口恢复后无需重新设置。'
-    savePublishConfig(props.platform, form)
+    errorMessage.value = '当前 CloudCtl 版本未接入闲鱼帖子发布。'
     return
   }
-  savePublishConfig(props.platform, form)
-  successMessage.value = `已保存发布计划：${assignments.value.length} 条分配记录。不会登录小红书，也不会下发到手机。`
+  if (!form.deviceIds.length || !form.postIds.length) {
+    errorMessage.value = '请先选择计划设备和笔记'
+    return
+  }
+  const snapshot = emptyPublishConfig({ ...form, deviceIds: [...form.deviceIds], postIds: [...form.postIds], autoVideo: false, watermark: false })
+  try {
+    savePublishConfig(props.platform, snapshot)
+    const count = allocatePosts(snapshot.postIds, snapshot.deviceIds, snapshot.allocation).length
+    successMessage.value = '计划已保存到当前浏览器：' + count + ' 条分配记录。未创建任务，未下发到手机，未发布内容。'
+  } catch (error) {
+    errorMessage.value = '浏览器计划保存失败：' + (error instanceof Error ? error.message : String(error))
+  }
 }
 
-onMounted(async () => {
-  Object.assign(form, loadPublishConfig(props.platform))
-  await Promise.all([loadDevices(), loadPosts()])
-  form.postIds = form.postIds.filter((id) => posts.value.some((item) => item.id === id))
-  form.deviceIds = form.deviceIds.filter((id) => devices.value.some((item) => item.id === id))
+onMounted(() => {
+  Object.assign(form, loadPublishConfig(props.platform), { autoVideo: false, watermark: false })
+  void loadData()
 })
 </script>
 
 <template>
   <section class="pub-page">
     <div class="card">
-      <h2>{{ copy.title }}</h2>
-      <div v-if="isXianyu" class="notice">闲鱼已下线「发布帖子」功能，本任务暂无法执行。若后续入口恢复，无需重新配置即可直接使用。</div>
-      <XianyuDevicePicker v-model="form.deviceIds" :devices="devices" />
-      <div class="row top">
-        <span class="label">发布的{{ copy.itemLabel }}</span>
-        <div>
-          <button class="picker" type="button" @click="pickerOpen = true">{{ selectedPosts.length ? selectedPosts.map((item) => item.title).join('，') : copy.pickerPlaceholder }}</button>
-          <div class="links">
-            已选 <b>{{ form.postIds.length }}</b> {{ copy.itemUnit }}
-            <button type="button" @click="pickerOpen = true">选择{{ copy.itemLabel }}</button>
-            <button type="button" @click="form.postIds = []">清空</button>
-          </div>
-        </div>
-      </div>
-      <div class="row">
-        <span class="label">{{ copy.itemLabel }}分配</span>
-        <div>
-          <label class="radio" for="pub-alloc-default"><input id="pub-alloc-default" v-model="form.allocation" type="radio" value="default" /> 默认</label>
-          <label class="radio" for="pub-alloc-even"><input id="pub-alloc-even" v-model="form.allocation" type="radio" value="even" /> 均匀分配</label>
-          <p class="hint">分配规则具体解释可阅读本页面底部说明</p>
-        </div>
-      </div>
-      <div v-if="isXianyu" class="row">
-        <span class="label">执行应用</span>
-        <div>
-          <label class="radio" for="pub-app-main"><input id="pub-app-main" v-model="form.app" type="radio" value="main" /> 主闲鱼</label>
-          <p class="hint">一期每设备仅绑定一个闲鱼账号，副闲鱼已禁用。</p>
-        </div>
-      </div>
-      <template v-else>
-        <div class="row">
-          <span class="label">适配多开</span>
+      <h2>{{ isXianyu ? '闲鱼帖子' : '小红书图文' }}分配计划</h2>
+      <div class="notice">此页仅预览内容与设备的分配，并将计划保存到当前浏览器。不会创建任务、下发手机或发布内容；清理浏览器数据会丢失计划。</div>
+      <p v-if="busy" role="status">正在读取设备与帖子…</p>
+      <div v-if="loadError" role="alert">{{ loadError }} <button type="button" :disabled="busy" @click="loadData">重试读取</button></div>
+      <fieldset :disabled="busy || !loaded || isXianyu">
+        <div v-if="isXianyu" class="notice">当前 CloudCtl 版本未接入闲鱼帖子发布。</div>
+        <XianyuDevicePicker v-model="form.deviceIds" :devices="devices" />
+        <div class="row top">
+          <span class="label">发布的{{ copy.itemLabel }}</span>
           <div>
-            <label class="radio" for="pub-multi-off"><input id="pub-multi-off" v-model="form.multiOpen" type="radio" :value="false" /> 关闭</label>
-            <p class="hint">一期只做官方单开小红书，多开已禁用。</p>
+            <button class="picker" type="button" @click="pickerOpen = true">{{ selectedPosts.length ? selectedPosts.map((item) => item.title).join('，') : copy.pickerPlaceholder }}</button>
+            <div class="links">
+              已选 <b>{{ form.postIds.length }}</b> {{ copy.itemUnit }}
+              <button type="button" @click="pickerOpen = true">选择{{ copy.itemLabel }}</button>
+              <button type="button" @click="form.postIds = []">清空</button>
+            </div>
           </div>
         </div>
         <div class="row">
-          <span class="label">一键成片</span>
+          <span class="label">{{ copy.itemLabel }}分配</span>
           <div>
-            <label class="radio" for="pub-video-off"><input id="pub-video-off" v-model="form.autoVideo" type="radio" :value="false" /> 关</label>
-            <label class="radio" for="pub-video-on"><input id="pub-video-on" v-model="form.autoVideo" type="radio" :value="true" /> 开</label>
+            <label class="radio" for="pub-alloc-default"><input id="pub-alloc-default" v-model="form.allocation" type="radio" value="default" /> 默认</label>
+            <label class="radio" for="pub-alloc-even"><input id="pub-alloc-even" v-model="form.allocation" type="radio" value="even" /> 均匀分配</label>
+            <p class="hint">分配规则具体解释可阅读本页面底部说明</p>
           </div>
         </div>
-      </template>
-      <div class="row">
-        <span class="label">图片水印</span>
-        <div>
-          <label class="radio" for="pub-wm-on"><input id="pub-wm-on" v-model="form.watermark" type="radio" :value="true" /> 开启</label>
-          <label class="radio" for="pub-wm-off"><input id="pub-wm-off" v-model="form.watermark" type="radio" :value="false" /> 关闭</label>
-          <div class="links"><button type="button" @click="router.push('/operations/post-management/post-management-05')">设置水印</button></div>
+        <div v-if="isXianyu" class="row">
+          <span class="label">执行应用</span>
+          <div>
+            <label class="radio" for="pub-app-main"><input id="pub-app-main" v-model="form.app" type="radio" value="main" /> 主闲鱼</label>
+            <p class="hint">一期每设备仅绑定一个闲鱼账号，副闲鱼已禁用。</p>
+          </div>
         </div>
-      </div>
-      <div class="row">
-        <label class="label" for="pub-interval">发布间隔</label>
-        <div class="inline">
-          <input id="pub-interval" v-model.number="form.intervalSeconds" type="number" min="1" />
-          <span>秒</span>
+        <div class="row"><span class="label">媒体处理</span><p class="hint">当前仅规划图文内容，不支持一键成片、视频发布、多开或自动应用水印。</p></div>
+        <div class="row">
+          <label class="label" for="pub-interval">计划间隔（仅记录）</label>
+          <div class="inline">
+            <input id="pub-interval" v-model.number="form.intervalSeconds" type="number" min="1" />
+            <span>秒</span>
+          </div>
         </div>
-      </div>
-      <div class="row">
-        <span class="label">发布形式</span>
-        <div>
-          <label class="radio" for="pub-mode-direct"><input id="pub-mode-direct" v-model="form.formMode" type="radio" value="direct" /> 直接发布</label>
-          <label v-if="!isXianyu" class="radio" for="pub-mode-draft"><input id="pub-mode-draft" v-model="form.formMode" type="radio" value="draft" /> 存草稿</label>
+        <div class="row">
+          <span class="label">计划形式（仅记录）</span>
+          <div>
+            <label class="radio" for="pub-mode-direct"><input id="pub-mode-direct" v-model="form.formMode" type="radio" value="direct" /> 发布意向</label>
+            <label v-if="!isXianyu" class="radio" for="pub-mode-draft"><input id="pub-mode-draft" v-model="form.formMode" type="radio" value="draft" /> 草稿意向</label>
+          </div>
         </div>
-      </div>
-      <div class="row">
-        <label class="label" for="pub-schedule">执行时间</label>
-        <select id="pub-schedule" v-model="form.schedule">
-          <option>立即执行</option>
-        </select>
-      </div>
-      <p v-if="errorMessage" class="flash error">{{ errorMessage }}</p>
-      <p v-if="successMessage" class="flash ok">{{ successMessage }}</p>
-      <div class="footer">
-        <button class="primary" type="button" :disabled="busy" @click="createTask">创建任务</button>
-        <button class="primary" type="button" :disabled="busy" @click="saveConfig">保存配置</button>
-      </div>
+        <div class="row">
+          <label class="label" for="pub-schedule">计划时间（仅记录）</label>
+          <select id="pub-schedule" v-model="form.schedule">
+            <option value="立即执行">暂不安排执行</option>
+          </select>
+        </div>
+        <p v-if="errorMessage" class="flash error" role="alert">{{ errorMessage }}</p>
+        <p v-if="successMessage" class="flash ok" role="status">{{ successMessage }}</p>
+        <div class="footer">
+          <button class="primary" type="button" :disabled="busy || !loaded || isXianyu" @click="savePlan">保存浏览器计划</button>
+        </div>
+      </fieldset>
+      <details class="allocation-preview"><summary>分配预览 · {{ assignments.length }} 条计划记录</summary><p v-if="!assignments.length">选择内容和设备后查看分配；不会自动执行。</p><ul><li v-for="assignment in assignments" :key="assignment.deviceId + ':' + assignment.postId">{{ devices.find((item) => item.id === assignment.deviceId)?.name ?? assignment.deviceId }} → {{ posts.find((item) => item.id === assignment.postId)?.title ?? assignment.postId }}</li></ul></details>
     </div>
 
     <div class="card table-card">
       <div class="filter">
-        <input v-model="searchQuery" :placeholder="`搜索标题、内容`" />
+        <input v-model="searchQuery" aria-label="搜索标题、内容" @keyup.enter="searchTable" :placeholder="`搜索标题、内容`" />
         <select v-model="groupFilter">
           <option value="">{{ copy.groupPlaceholder }}</option>
           <option v-for="item in groups" :key="item" :value="item">{{ item }}</option>
@@ -233,14 +238,14 @@ onMounted(async () => {
         <button class="primary" type="button" @click="searchTable">查找</button>
       </div>
       <div class="actions">
-        <button class="primary" type="button" @click="addSelectedToQueue">添加发布</button>
+        <button class="primary" type="button" @click="addSelectedToQueue">加入计划</button>
         <span class="spacer" />
         <button class="primary" type="button" @click="filterOpen = true">筛选</button>
         <button class="primary" type="button" @click="resetTable">还原</button>
         <button class="primary" type="button" @click="exportCsv">导出</button>
         <button class="primary" type="button" @click="printList">打印</button>
       </div>
-      <table>
+      <div class="table-scroll"><table>
         <thead>
           <tr>
             <th class="check"><input v-model="allSelected" type="checkbox" /></th>
@@ -253,9 +258,9 @@ onMounted(async () => {
           </tr>
         </thead>
         <tbody>
-          <tr v-if="paged.length === 0"><td colspan="7" class="empty">无{{ copy.itemLabel }}数据，请先编辑{{ copy.itemLabel }}或采集后再发布。</td></tr>
+          <tr v-if="paged.length === 0"><td colspan="7" class="empty">{{ busy ? '正在读取…' : loadError ? '读取失败，请重试。' : '没有符合条件的内容。可先编辑帖子或调整筛选。' }}</td></tr>
           <tr v-for="post in paged" :key="post.id">
-            <td class="check"><input type="checkbox" :checked="tableSelected.includes(post.id)" @change="toggleTableSelected(post.id)" /></td>
+            <td class="check"><input type="checkbox" :disabled="!loaded || !isGraphicPost(post)" :checked="tableSelected.includes(post.id)" @change="toggleTableSelected(post.id)" /></td>
             <td>{{ post.groupName }}</td>
             <td>
               <div class="thumbs">
@@ -264,49 +269,35 @@ onMounted(async () => {
                 <span v-else class="muted">无图</span>
               </div>
             </td>
-            <td>{{ clipText(post.title, 16) }}</td>
+            <td>{{ clipText(post.title, 16) }}<small v-if="!isGraphicPost(post)">（视频内容暂不支持）</small></td>
             <td>{{ clipText(post.body, 18) }}</td>
             <td>{{ formatDateTime(post.updatedAt || post.createdAt) }}</td>
             <td class="ops">
-              <button type="button" title="添加发布" @click="togglePost(post.id)">+</button>
+              <button type="button" title="加入或移出计划" aria-label="加入或移出计划" :disabled="!loaded || !isGraphicPost(post)" @click="togglePost(post.id)">+</button>
               <button type="button" title="编辑" @click="router.push(`/operations/post-management/post-management-01?id=${post.id}`)">✎</button>
             </td>
           </tr>
         </tbody>
-      </table>
+      </table></div>
       <div class="pager">
         <button type="button" :disabled="page <= 1" @click="page -= 1">‹</button>
         <button class="current" type="button">{{ page }}</button>
         <button type="button" :disabled="page >= totalPages" @click="page += 1">›</button>
         <span>到第</span>
-        <input v-model="jumpPage" />
+        <input v-model="jumpPage" aria-label="跳转页码" inputmode="numeric" @keyup.enter="jumpToPage" />
         <span>页</span>
-        <button type="button" @click="page = Math.max(1, Number(jumpPage) || 1)">确定</button>
+        <button type="button" @click="jumpToPage">确定</button>
         <span>共 {{ filtered.length }} 条</span>
         <select v-model.number="pageSize"><option :value="10">10条/页</option><option :value="20">20条/页</option></select>
       </div>
     </div>
 
-    <div class="help">
-      <h3>使用说明</h3>
-      <ol>
-        <li>{{ copy.helpLead }}</li>
-        <li>在下方的表格选择要发布的{{ copy.itemLabel }}，前方的复选框可多选，每一列后面的+可单选</li>
-        <li>您可在<a href="javascript:void(0)" @click="router.push('/operations/post-management/post-management-05')">水印设置</a>为发布的{{ copy.itemLabel }}设置水印，包括内容、字体样式、字体大小、颜色、透明度、水印位置</li>
-        <li>
-          {{ copy.itemLabel }}分配方式分为“默认”和“均匀分配”两种：
-          <p><span class="tag">默认</span> 所选{{ copy.itemLabel }}会在每台选定的设备上发布一次，例如若选择了五个{{ copy.itemLabel }}（编号为1、2、3、4、5）并选定了设备A和B，则每个{{ copy.itemLabel }}都会在这两个设备上各发布一次，总共发布十个{{ copy.itemLabel }}。</p>
-          <p><span class="tag">均匀分配</span> 系统尽可能将{{ copy.itemLabel }}平均地分配到每台设备上。例如，若{{ copy.itemLabel }}总数能被设备数整除，则每台设备上的{{ copy.itemLabel }}数相同；若不能整除，则多出的{{ copy.itemLabel }}将依次分配给前面的设备。</p>
-          <p>按照均匀分配的规则，如果还是五个{{ copy.itemLabel }}（1、2、3、4、5）分配给设备A和B，那么设备A会发布{{ copy.itemLabel }}1、2、3，而设备B发布{{ copy.itemLabel }}4、5，总共发布五个{{ copy.itemLabel }}。</p>
-        </li>
-        <li v-if="!isXianyu"><span class="tag">适配多开</span> 红薯多开运行任务前，请手动切换红薯分身到前台，暂无法像闲鱼那样选择主副应用</li>
-      </ol>
-    </div>
+    <div class="help"><h3>计划说明</h3><ol><li>默认分配：每台所选设备对应全部所选内容。</li><li>均匀分配：内容按所选顺序分配给设备，余数优先分配给前面的设备。</li><li>分配预览与浏览器计划均不代表设备就绪、账号授权或发布成功。</li></ol></div>
 
     <div v-if="filterOpen" class="mask" @click.self="filterOpen = false">
       <div class="modal">
         <h3>筛选{{ copy.itemLabel }}</h3>
-        <input v-model="searchQuery" placeholder="搜索标题、内容" />
+        <input v-model="searchQuery" aria-label="搜索标题、内容" @keyup.enter="searchTable" placeholder="搜索标题、内容" />
         <select v-model="groupFilter">
           <option value="">{{ copy.groupPlaceholder }}</option>
           <option v-for="item in groups" :key="item" :value="item">{{ item }}</option>
@@ -319,9 +310,9 @@ onMounted(async () => {
       <div class="modal">
         <h3>选择{{ copy.itemLabel }}</h3>
         <label v-for="post in posts" :key="post.id" class="pick-row">
-          <input type="checkbox" :checked="form.postIds.includes(post.id)" @change="togglePost(post.id)" />
+          <input type="checkbox" :disabled="!loaded || !isGraphicPost(post)" :checked="form.postIds.includes(post.id)" @change="togglePost(post.id)" />
           <strong>{{ post.title || '未命名' }}</strong>
-          <small>{{ post.groupName }}</small>
+          <small>{{ isGraphicPost(post) ? post.groupName : '视频内容暂不支持' }}</small>
         </label>
         <p v-if="posts.length === 0" class="hint">还没有{{ copy.itemLabel }}。</p>
         <div class="modal-actions"><button class="primary" type="button" @click="pickerOpen = false">确定</button></div>
@@ -378,4 +369,12 @@ th, td { padding: 10px 8px; border-bottom: 1px solid #eef2f7; text-align: left; 
 .modal { width: min(520px, 92vw); background: #fff; border-radius: 8px; padding: 16px; display: grid; gap: 10px; }
 .pick-row { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; }
 .modal-actions { display: flex; justify-content: flex-end; }
+fieldset { margin: 0; padding: 0; border: 0; display: grid; gap: 14px; min-width: 0; }
+.allocation-preview { font-size: 13px; overflow-wrap: anywhere; }
+.allocation-preview ul { max-height: 240px; overflow: auto; }
+.table-scroll { overflow-x: auto; }
+.table-scroll table { min-width: 650px; }
+.modal { max-height: 85vh; overflow: auto; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+@media (max-width: 600px) { .row { grid-template-columns: 1fr; } .footer, .flash { padding-left: 0; } .picker { height: auto; min-height: 34px; overflow-wrap: anywhere; } }
 </style>

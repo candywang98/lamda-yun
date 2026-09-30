@@ -90,11 +90,12 @@ describe('OperationsView', () => {
   it('collects public post links into the local post library', async () => {
     await renderRoute('/operations/post-management/post-management-02')
     expect(screen.getByLabelText('帖子链接')).toBeTruthy()
-    expect(screen.getByRole('button', { name: '开始采集' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '记录链接' })).toBeTruthy()
     expect(screen.queryByText('竞品页面依据')).toBeNull()
+    await screen.findByRole('option', { name: '默认分组' })
     await fireEvent.update(screen.getByLabelText('帖子链接'), 'https://example.com/notes/demo-1')
-    await fireEvent.click(screen.getByRole('button', { name: '开始采集' }))
-    expect(await screen.findByText(/已记录 1 条链接到帖子库/)).toBeTruthy()
+    await fireEvent.click(screen.getByRole('button', { name: '记录链接' }))
+    expect(await screen.findByText(/已记录 1 条链接，跳过 0 条重复链接/)).toBeTruthy()
   })
 
   it('lists collected posts without competitor chrome', async () => {
@@ -418,22 +419,23 @@ describe('OperationsView', () => {
 
   it('shows xiaohongshu note publish form without competitor chrome', async () => {
     await renderRoute('/operations/post-management/post-management-08')
-    expect(screen.getByRole('heading', { name: '发布红薯笔记' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: '小红书图文分配计划' })).toBeTruthy()
     expect(screen.queryByLabelText('红薯多开')).toBeNull()
-    expect(screen.getByLabelText('存草稿')).toBeTruthy()
-    expect(screen.getByRole('button', { name: '设置水印' })).toBeTruthy()
+    expect(screen.getByLabelText('草稿意向')).toBeTruthy()
+    expect(screen.getByRole('button', { name: '保存浏览器计划' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '创建任务' })).toBeNull()
     expect(screen.queryByText('竞品页面依据')).toBeNull()
   })
 
   it('renders xiaohongshu authorized publish notes as the same workbench', async () => {
     await renderRoute('/operations/red-tasks/red-tasks-01')
-    expect(screen.getByRole('heading', { name: '发布红薯笔记' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: '小红书图文分配计划' })).toBeTruthy()
     expect(screen.getByText('发布的笔记')).toBeTruthy()
     expect(screen.getByLabelText('默认')).toBeTruthy()
     expect(screen.getByLabelText('均匀分配')).toBeTruthy()
-    expect(screen.getByRole('button', { name: '添加发布' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '加入计划' })).toBeTruthy()
     expect(screen.getAllByText('笔记分组').length).toBeGreaterThan(0)
-    expect(screen.getByText(/此功能可将系统中的笔记发布到红薯/)).toBeTruthy()
+    expect(screen.getByText(/此页仅预览内容与设备的分配/)).toBeTruthy()
     expect(screen.queryByText('竞品页面依据')).toBeNull()
     expect(screen.queryByText('暂无执行适配器')).toBeNull()
   })
