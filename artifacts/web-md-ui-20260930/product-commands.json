@@ -1,0 +1,22 @@
+[
+  {
+    "command": "pnpm --filter @cloudctl/web exec vitest run tests/product-management.spec.ts tests/orders-workflow.spec.ts",
+    "exit_code": 0
+  },
+  {
+    "command": "pnpm --filter @cloudctl/web typecheck",
+    "exit_code": 0
+  },
+  {
+    "command": "pnpm --filter @cloudctl/web build",
+    "exit_code": 0
+  },
+  {
+    "command": "pnpm --filter @cloudctl/web exec eslint src/views/ProductManagementView.vue tests/product-management.spec.ts",
+    "exit_code": 0
+  },
+  {
+    "command": "git diff --check",
+    "exit_code": 0
+  }
+]

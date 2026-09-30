@@ -1,0 +1,89 @@
+[
+  {
+    "sourceSha": "e6e44d3a9635670fce27aa051e2be0d564b6cceb",
+    "name": "responsive-tests",
+    "command": [
+      "pnpm",
+      "--filter",
+      "@cloudctl/web",
+      "exec",
+      "vitest",
+      "run",
+      "tests/operations-shell.spec.ts",
+      "tests/operations-catalog-navigation.spec.ts"
+    ],
+    "exit_code": 0,
+    "tests": 5
+  },
+  {
+    "sourceSha": "e6e44d3a9635670fce27aa051e2be0d564b6cceb",
+    "name": "responsive-typecheck",
+    "command": [
+      "pnpm",
+      "--filter",
+      "@cloudctl/web",
+      "typecheck"
+    ],
+    "exit_code": 0
+  },
+  {
+    "sourceSha": "e6e44d3a9635670fce27aa051e2be0d564b6cceb",
+    "name": "preview-build",
+    "command": [
+      "pnpm",
+      "--filter",
+      "@cloudctl/web",
+      "exec",
+      "vite",
+      "build",
+      "--base",
+      "/cloudctl-mobile/",
+      "--outDir",
+      "/tmp/cloudctl-web-md-20260930-evidence/preview-dist"
+    ],
+    "env": {
+      "VITE_CONTROL_API_URL": "http://127.0.0.1:18764",
+      "VITE_OPERATIONS_MOCK_ENABLED": "false",
+      "VITE_CONTROL_API_DEV_AUTH": "false"
+    },
+    "exit_code": 0
+  },
+  {
+    "sourceSha": "e6e44d3a9635670fce27aa051e2be0d564b6cceb",
+    "name": "production-build",
+    "command": [
+      "pnpm",
+      "--filter",
+      "@cloudctl/web",
+      "exec",
+      "vite",
+      "build",
+      "--base",
+      "/cloudctl-mobile/",
+      "--outDir",
+      "/tmp/cloudctl-web-md-20260930-evidence/integration/prod-dist-e6e44d3a9635"
+    ],
+    "env": {
+      "VITE_CONTROL_API_URL": "https://43.133.243.154.sslip.io",
+      "VITE_OPERATIONS_MOCK_ENABLED": "false",
+      "VITE_CONTROL_API_DEV_AUTH": "false"
+    },
+    "exit_code": 0
+  },
+  {
+    "sourceSha": "e6e44d3a9635670fce27aa051e2be0d564b6cceb",
+    "name": "responsive-catalog-extra-tests",
+    "command": [
+      "pnpm",
+      "--filter",
+      "@cloudctl/web",
+      "exec",
+      "vitest",
+      "run",
+      "tests/operations-catalog.spec.ts",
+      "tests/operation-page-availability.spec.ts"
+    ],
+    "exit_code": 0,
+    "tests": 18
+  }
+]

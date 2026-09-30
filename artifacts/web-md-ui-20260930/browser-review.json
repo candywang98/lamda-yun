@@ -1,0 +1,1138 @@
+{
+  "previewSha": "4205e5e8180ba3c04d4314cf8228656865aaa729",
+  "runtimeIdenticalToFinal": "ee55c18dc513c7fb6d9cfaaab11b06e9f5ec68bf",
+  "queue": {
+    "detail": {
+      "dialog": true,
+      "bodyHasState": true,
+      "resumeShown": false
+    },
+    "filtered": {
+      "filteredRowCount": 0
+    }
+  },
+  "import": {
+    "rowCount": 1,
+    "previewVisible": true,
+    "explicitConfirm": true,
+    "imageBoundary": true,
+    "resultCount": 0
+  },
+  "geometry": [
+    {
+      "route": "/cloudctl-mobile/operations/product-management/product-management-02",
+      "width": 320,
+      "client": 305,
+      "scroll": 320,
+      "tables": [
+        {
+          "client": 242,
+          "scroll": 480,
+          "overflow": "auto"
+        }
+      ],
+      "heading": "Excel / CSV 导入商品"
+    },
+    {
+      "route": "/cloudctl-mobile/operations/product-management/product-management-02",
+      "width": 390,
+      "client": 375,
+      "scroll": 375,
+      "tables": [
+        {
+          "client": 297,
+          "scroll": 480,
+          "overflow": "auto"
+        }
+      ],
+      "heading": "Excel / CSV 导入商品"
+    },
+    {
+      "route": "/cloudctl-mobile/operations/product-management/product-management-02",
+      "width": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "tables": [
+        {
+          "client": 1114,
+          "scroll": 1114,
+          "overflow": "auto"
+        }
+      ],
+      "heading": "Excel / CSV 导入商品"
+    },
+    {
+      "route": "/cloudctl-mobile/operations/product-management/product-management-03",
+      "width": 320,
+      "client": 320,
+      "scroll": 320,
+      "tables": [
+        {
+          "client": 266,
+          "scroll": 680,
+          "overflow": "auto"
+        }
+      ]
+    },
+    {
+      "route": "/cloudctl-mobile/operations/product-management/product-management-03",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "tables": [
+        {
+          "client": 336,
+          "scroll": 680,
+          "overflow": "auto"
+        }
+      ]
+    },
+    {
+      "route": "/cloudctl-mobile/operations/product-management/product-management-03",
+      "width": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "tables": [
+        {
+          "client": 1154,
+          "scroll": 1154,
+          "overflow": "auto"
+        }
+      ]
+    },
+    {
+      "route": "/cloudctl-mobile/operations/post-management/post-management-02",
+      "width": 320,
+      "client": 305,
+      "scroll": 320,
+      "tables": []
+    },
+    {
+      "route": "/cloudctl-mobile/operations/post-management/post-management-02",
+      "width": 390,
+      "client": 375,
+      "scroll": 375,
+      "tables": []
+    },
+    {
+      "route": "/cloudctl-mobile/operations/post-management/post-management-02",
+      "width": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "tables": []
+    },
+    {
+      "route": "/cloudctl-mobile/operations/post-management/post-management-03",
+      "width": 320,
+      "client": 305,
+      "scroll": 320,
+      "tables": [
+        {
+          "client": 242,
+          "scroll": 1000,
+          "overflow": "auto"
+        }
+      ]
+    },
+    {
+      "route": "/cloudctl-mobile/operations/post-management/post-management-03",
+      "width": 390,
+      "client": 375,
+      "scroll": 375,
+      "tables": [
+        {
+          "client": 297,
+          "scroll": 1000,
+          "overflow": "auto"
+        }
+      ]
+    },
+    {
+      "route": "/cloudctl-mobile/operations/post-management/post-management-03",
+      "width": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "tables": [
+        {
+          "client": 1122,
+          "scroll": 1122,
+          "overflow": "auto"
+        }
+      ]
+    },
+    {
+      "route": "/cloudctl-mobile/operations/post-management/post-management-04",
+      "width": 320,
+      "client": 320,
+      "scroll": 320,
+      "tables": [
+        {
+          "client": 266,
+          "scroll": 680,
+          "overflow": "auto"
+        }
+      ]
+    },
+    {
+      "route": "/cloudctl-mobile/operations/post-management/post-management-04",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "tables": [
+        {
+          "client": 336,
+          "scroll": 680,
+          "overflow": "auto"
+        }
+      ]
+    },
+    {
+      "route": "/cloudctl-mobile/operations/post-management/post-management-04",
+      "width": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "tables": [
+        {
+          "client": 1154,
+          "scroll": 1154,
+          "overflow": "auto"
+        }
+      ]
+    },
+    {
+      "route": "/cloudctl-mobile/operations/post-management/post-management-08",
+      "width": 320,
+      "client": 305,
+      "scroll": 320,
+      "tables": [
+        {
+          "client": 230,
+          "scroll": 650,
+          "overflow": "auto"
+        }
+      ]
+    },
+    {
+      "route": "/cloudctl-mobile/operations/post-management/post-management-08",
+      "width": 390,
+      "client": 375,
+      "scroll": 375,
+      "tables": [
+        {
+          "client": 285,
+          "scroll": 650,
+          "overflow": "auto"
+        }
+      ]
+    },
+    {
+      "route": "/cloudctl-mobile/operations/post-management/post-management-08",
+      "width": 1440,
+      "client": 1425,
+      "scroll": 1425,
+      "tables": [
+        {
+          "client": 1103,
+          "scroll": 1103,
+          "overflow": "auto"
+        }
+      ]
+    },
+    {
+      "route": "/cloudctl-mobile/operations",
+      "width": 320,
+      "client": 305,
+      "scroll": 320,
+      "tables": []
+    },
+    {
+      "route": "/cloudctl-mobile/operations",
+      "width": 390,
+      "client": 375,
+      "scroll": 375,
+      "tables": []
+    },
+    {
+      "route": "/cloudctl-mobile/operations",
+      "width": 1440,
+      "client": 1425,
+      "scroll": 1425,
+      "tables": []
+    },
+    {
+      "route": "/cloudctl-mobile/operations/product-management/product-management-01",
+      "width": 320,
+      "client": 305,
+      "scroll": 320,
+      "tables": [
+        {
+          "client": 266,
+          "scroll": 920,
+          "overflow": "auto"
+        }
+      ]
+    },
+    {
+      "route": "/cloudctl-mobile/operations/product-management/product-management-01",
+      "width": 390,
+      "client": 375,
+      "scroll": 375,
+      "tables": [
+        {
+          "client": 321,
+          "scroll": 920,
+          "overflow": "auto"
+        }
+      ]
+    },
+    {
+      "route": "/cloudctl-mobile/operations/product-management/product-management-01",
+      "width": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "tables": [
+        {
+          "client": 1154,
+          "scroll": 1154,
+          "overflow": "auto"
+        }
+      ]
+    },
+    {
+      "route": "/cloudctl-mobile/operations/product-management/product-management-01?tab=orders",
+      "width": 320,
+      "client": 320,
+      "scroll": 320,
+      "tables": [
+        {
+          "client": 238,
+          "scroll": 720,
+          "overflow": "auto"
+        }
+      ]
+    },
+    {
+      "route": "/cloudctl-mobile/operations/product-management/product-management-01?tab=orders",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "tables": [
+        {
+          "client": 308,
+          "scroll": 720,
+          "overflow": "auto"
+        }
+      ]
+    },
+    {
+      "route": "/cloudctl-mobile/operations/product-management/product-management-01?tab=orders",
+      "width": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "tables": [
+        {
+          "client": 1118,
+          "scroll": 1118,
+          "overflow": "auto"
+        }
+      ]
+    },
+    {
+      "route": "/cloudctl-mobile/operations/orders/orders-01",
+      "width": 320,
+      "client": 320,
+      "scroll": 320,
+      "tables": []
+    },
+    {
+      "route": "/cloudctl-mobile/operations/orders/orders-01",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "tables": []
+    },
+    {
+      "route": "/cloudctl-mobile/operations/orders/orders-01",
+      "width": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "tables": []
+    },
+    {
+      "route": "/cloudctl-mobile/operations/task-queue/task-queue-01",
+      "width": 320,
+      "client": 305,
+      "scroll": 320,
+      "tables": []
+    },
+    {
+      "route": "/cloudctl-mobile/operations/task-queue/task-queue-01",
+      "width": 390,
+      "client": 375,
+      "scroll": 375,
+      "tables": []
+    },
+    {
+      "route": "/cloudctl-mobile/operations/task-queue/task-queue-01",
+      "width": 1440,
+      "client": 1425,
+      "scroll": 1425,
+      "tables": []
+    },
+    {
+      "route": "/cloudctl-mobile/operations/assets/assets-02",
+      "width": 320,
+      "client": 305,
+      "scroll": 320,
+      "tables": [
+        {
+          "client": 234,
+          "scroll": 420,
+          "overflow": "auto"
+        }
+      ]
+    },
+    {
+      "route": "/cloudctl-mobile/operations/assets/assets-02",
+      "width": 390,
+      "client": 375,
+      "scroll": 375,
+      "tables": [
+        {
+          "client": 289,
+          "scroll": 420,
+          "overflow": "auto"
+        }
+      ]
+    },
+    {
+      "route": "/cloudctl-mobile/operations/assets/assets-02",
+      "width": 1440,
+      "client": 1425,
+      "scroll": 1425,
+      "tables": [
+        {
+          "client": 1107,
+          "scroll": 1107,
+          "overflow": "auto"
+        }
+      ]
+    },
+    {
+      "route": "/cloudctl-mobile/operations/post-management/post-management-09",
+      "width": 320,
+      "client": 320,
+      "scroll": 320,
+      "tables": []
+    },
+    {
+      "route": "/cloudctl-mobile/operations/post-management/post-management-09",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "tables": []
+    },
+    {
+      "route": "/cloudctl-mobile/operations/post-management/post-management-09",
+      "width": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "tables": []
+    }
+  ],
+  "readPages": [
+    {
+      "route": "/cloudctl-mobile/operations/product-management/product-management-03",
+      "headings": [],
+      "alerts": []
+    },
+    {
+      "route": "/cloudctl-mobile/operations/post-management/post-management-02",
+      "headings": [
+        "帖子链接记录 / 导入"
+      ],
+      "alerts": []
+    },
+    {
+      "route": "/cloudctl-mobile/operations/post-management/post-management-03",
+      "headings": [
+        "帖子/笔记列表"
+      ],
+      "alerts": []
+    },
+    {
+      "route": "/cloudctl-mobile/operations/post-management/post-management-04",
+      "headings": [],
+      "alerts": []
+    },
+    {
+      "route": "/cloudctl-mobile/operations/post-management/post-management-08",
+      "headings": [
+        "小红书图文分配计划"
+      ],
+      "alerts": []
+    },
+    {
+      "route": "/cloudctl-mobile/operations",
+      "headings": [
+        "运营功能目录"
+      ],
+      "alerts": [],
+      "guideLinks": [
+        {
+          "text": "进入消息聚合",
+          "href": "/cloudctl-mobile/im"
+        }
+      ],
+      "activeTab": [
+        "全部功能"
+      ],
+      "unintegrated": false
+    },
+    {
+      "route": "/cloudctl-mobile/operations/product-management/product-management-01",
+      "headings": [],
+      "alerts": [],
+      "guideLinks": [],
+      "activeTab": [
+        "商品列表"
+      ],
+      "unintegrated": false
+    },
+    {
+      "route": "/cloudctl-mobile/operations/product-management/product-management-01?tab=orders",
+      "headings": [
+        "已同步订单"
+      ],
+      "alerts": [],
+      "guideLinks": [],
+      "activeTab": [
+        "已同步订单"
+      ],
+      "unintegrated": false
+    },
+    {
+      "route": "/cloudctl-mobile/operations/orders/orders-01",
+      "headings": [
+        "同步闲鱼订单"
+      ],
+      "alerts": [],
+      "guideLinks": [],
+      "activeTab": [
+        "同步闲鱼订单"
+      ],
+      "unintegrated": false
+    },
+    {
+      "route": "/cloudctl-mobile/operations/task-queue/task-queue-01",
+      "headings": [
+        "任务队列"
+      ],
+      "alerts": [],
+      "guideLinks": [],
+      "activeTab": [
+        "任务队列"
+      ],
+      "unintegrated": false
+    },
+    {
+      "route": "/cloudctl-mobile/operations/assets/assets-02",
+      "headings": [
+        "图片素材"
+      ],
+      "alerts": [],
+      "guideLinks": [
+        {
+          "text": "打开媒体资产工作台",
+          "href": "/cloudctl-mobile/media-assets"
+        }
+      ],
+      "activeTab": [
+        "图片素材"
+      ],
+      "unintegrated": true
+    },
+    {
+      "route": "/cloudctl-mobile/operations/post-management/post-management-09",
+      "headings": [
+        "视频教程"
+      ],
+      "alerts": [],
+      "guideLinks": [],
+      "activeTab": [
+        "视频教程"
+      ],
+      "unintegrated": false
+    }
+  ],
+  "screenshot": {
+    "attempt": "Page.screenshot",
+    "result": "Page.captureScreenshot timed out",
+    "visualAcceptance": false
+  },
+  "displaySettings": {
+    "hidden": {
+      "moduleVisible": false,
+      "sidebarVisible": false
+    },
+    "restored": {
+      "moduleVisible": true,
+      "sidebarVisible": true
+    }
+  },
+  "ordersLoaded": {
+    "rows": 14,
+    "activeTabs": [
+      "已同步订单"
+    ],
+    "loadError": false
+  },
+  "finalPreviewSha": "e6e44d3a9635670fce27aa051e2be0d564b6cceb",
+  "finalGeometry": [
+    {
+      "route": "/cloudctl-mobile/operations",
+      "width": 320,
+      "client": 305,
+      "scroll": 305,
+      "tables": []
+    },
+    {
+      "route": "/cloudctl-mobile/operations",
+      "width": 390,
+      "client": 375,
+      "scroll": 375,
+      "tables": []
+    },
+    {
+      "route": "/cloudctl-mobile/operations",
+      "width": 1440,
+      "client": 1425,
+      "scroll": 1425,
+      "tables": []
+    },
+    {
+      "route": "/cloudctl-mobile/operations/product-management/product-management-01",
+      "width": 320,
+      "client": 305,
+      "scroll": 305,
+      "tables": [
+        {
+          "client": 251,
+          "scroll": 920,
+          "overflow": "auto"
+        }
+      ]
+    },
+    {
+      "route": "/cloudctl-mobile/operations/product-management/product-management-01",
+      "width": 390,
+      "client": 375,
+      "scroll": 375,
+      "tables": [
+        {
+          "client": 321,
+          "scroll": 920,
+          "overflow": "auto"
+        }
+      ]
+    },
+    {
+      "route": "/cloudctl-mobile/operations/product-management/product-management-01",
+      "width": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "tables": [
+        {
+          "client": 1154,
+          "scroll": 1154,
+          "overflow": "auto"
+        }
+      ]
+    },
+    {
+      "route": "/cloudctl-mobile/operations/product-management/product-management-02",
+      "width": 320,
+      "client": 305,
+      "scroll": 305,
+      "tables": [
+        {
+          "client": 227,
+          "scroll": 480,
+          "overflow": "auto"
+        }
+      ]
+    },
+    {
+      "route": "/cloudctl-mobile/operations/product-management/product-management-02",
+      "width": 390,
+      "client": 375,
+      "scroll": 375,
+      "tables": [
+        {
+          "client": 297,
+          "scroll": 480,
+          "overflow": "auto"
+        }
+      ]
+    },
+    {
+      "route": "/cloudctl-mobile/operations/product-management/product-management-02",
+      "width": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "tables": [
+        {
+          "client": 1114,
+          "scroll": 1114,
+          "overflow": "auto"
+        }
+      ]
+    },
+    {
+      "route": "/cloudctl-mobile/operations/product-management/product-management-03",
+      "width": 320,
+      "client": 320,
+      "scroll": 320,
+      "tables": [
+        {
+          "client": 266,
+          "scroll": 680,
+          "overflow": "auto"
+        }
+      ]
+    },
+    {
+      "route": "/cloudctl-mobile/operations/product-management/product-management-03",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "tables": [
+        {
+          "client": 336,
+          "scroll": 680,
+          "overflow": "auto"
+        }
+      ]
+    },
+    {
+      "route": "/cloudctl-mobile/operations/product-management/product-management-03",
+      "width": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "tables": [
+        {
+          "client": 1154,
+          "scroll": 1154,
+          "overflow": "auto"
+        }
+      ]
+    },
+    {
+      "route": "/cloudctl-mobile/operations/task-queue/task-queue-01",
+      "width": 320,
+      "client": 305,
+      "scroll": 305,
+      "tables": [
+        {
+          "client": 253,
+          "scroll": 300,
+          "overflow": "auto"
+        }
+      ]
+    },
+    {
+      "route": "/cloudctl-mobile/operations/task-queue/task-queue-01",
+      "width": 390,
+      "client": 375,
+      "scroll": 375,
+      "tables": [
+        {
+          "client": 323,
+          "scroll": 323,
+          "overflow": "auto"
+        }
+      ]
+    },
+    {
+      "route": "/cloudctl-mobile/operations/task-queue/task-queue-01",
+      "width": 1440,
+      "client": 1425,
+      "scroll": 1425,
+      "tables": [
+        {
+          "client": 1141,
+          "scroll": 1141,
+          "overflow": "auto"
+        }
+      ]
+    },
+    {
+      "route": "/cloudctl-mobile/operations/orders/orders-01",
+      "width": 320,
+      "client": 320,
+      "scroll": 320,
+      "tables": []
+    },
+    {
+      "route": "/cloudctl-mobile/operations/orders/orders-01",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "tables": []
+    },
+    {
+      "route": "/cloudctl-mobile/operations/orders/orders-01",
+      "width": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "tables": []
+    },
+    {
+      "route": "/cloudctl-mobile/operations/product-management/product-management-01?tab=orders",
+      "width": 320,
+      "client": 305,
+      "scroll": 305,
+      "tables": [
+        {
+          "client": 223,
+          "scroll": 720,
+          "overflow": "auto"
+        }
+      ]
+    },
+    {
+      "route": "/cloudctl-mobile/operations/product-management/product-management-01?tab=orders",
+      "width": 390,
+      "client": 375,
+      "scroll": 375,
+      "tables": [
+        {
+          "client": 293,
+          "scroll": 720,
+          "overflow": "auto"
+        }
+      ]
+    },
+    {
+      "route": "/cloudctl-mobile/operations/product-management/product-management-01?tab=orders",
+      "width": 1440,
+      "client": 1425,
+      "scroll": 1425,
+      "tables": [
+        {
+          "client": 1103,
+          "scroll": 1103,
+          "overflow": "auto"
+        }
+      ]
+    },
+    {
+      "route": "/cloudctl-mobile/operations/post-management/post-management-02",
+      "width": 320,
+      "client": 305,
+      "scroll": 305,
+      "tables": []
+    },
+    {
+      "route": "/cloudctl-mobile/operations/post-management/post-management-02",
+      "width": 390,
+      "client": 375,
+      "scroll": 375,
+      "tables": []
+    },
+    {
+      "route": "/cloudctl-mobile/operations/post-management/post-management-02",
+      "width": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "tables": []
+    },
+    {
+      "route": "/cloudctl-mobile/operations/post-management/post-management-03",
+      "width": 320,
+      "client": 305,
+      "scroll": 305,
+      "tables": [
+        {
+          "client": 227,
+          "scroll": 1000,
+          "overflow": "auto"
+        }
+      ]
+    },
+    {
+      "route": "/cloudctl-mobile/operations/post-management/post-management-03",
+      "width": 390,
+      "client": 375,
+      "scroll": 375,
+      "tables": [
+        {
+          "client": 297,
+          "scroll": 1000,
+          "overflow": "auto"
+        }
+      ]
+    },
+    {
+      "route": "/cloudctl-mobile/operations/post-management/post-management-03",
+      "width": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "tables": [
+        {
+          "client": 1122,
+          "scroll": 1122,
+          "overflow": "auto"
+        }
+      ]
+    },
+    {
+      "route": "/cloudctl-mobile/operations/post-management/post-management-04",
+      "width": 320,
+      "client": 320,
+      "scroll": 320,
+      "tables": [
+        {
+          "client": 266,
+          "scroll": 680,
+          "overflow": "auto"
+        }
+      ]
+    },
+    {
+      "route": "/cloudctl-mobile/operations/post-management/post-management-04",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "tables": [
+        {
+          "client": 336,
+          "scroll": 680,
+          "overflow": "auto"
+        }
+      ]
+    },
+    {
+      "route": "/cloudctl-mobile/operations/post-management/post-management-04",
+      "width": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "tables": [
+        {
+          "client": 1154,
+          "scroll": 1154,
+          "overflow": "auto"
+        }
+      ]
+    },
+    {
+      "route": "/cloudctl-mobile/operations/post-management/post-management-08",
+      "width": 320,
+      "client": 305,
+      "scroll": 305,
+      "tables": [
+        {
+          "client": 215,
+          "scroll": 650,
+          "overflow": "auto"
+        }
+      ]
+    },
+    {
+      "route": "/cloudctl-mobile/operations/post-management/post-management-08",
+      "width": 390,
+      "client": 375,
+      "scroll": 375,
+      "tables": [
+        {
+          "client": 285,
+          "scroll": 650,
+          "overflow": "auto"
+        }
+      ]
+    },
+    {
+      "route": "/cloudctl-mobile/operations/post-management/post-management-08",
+      "width": 1440,
+      "client": 1425,
+      "scroll": 1425,
+      "tables": [
+        {
+          "client": 1103,
+          "scroll": 1103,
+          "overflow": "auto"
+        }
+      ]
+    },
+    {
+      "route": "/cloudctl-mobile/operations/assets/assets-02",
+      "width": 320,
+      "client": 305,
+      "scroll": 305,
+      "tables": [
+        {
+          "client": 219,
+          "scroll": 420,
+          "overflow": "auto"
+        }
+      ]
+    },
+    {
+      "route": "/cloudctl-mobile/operations/assets/assets-02",
+      "width": 390,
+      "client": 375,
+      "scroll": 375,
+      "tables": [
+        {
+          "client": 289,
+          "scroll": 420,
+          "overflow": "auto"
+        }
+      ]
+    },
+    {
+      "route": "/cloudctl-mobile/operations/assets/assets-02",
+      "width": 1440,
+      "client": 1425,
+      "scroll": 1425,
+      "tables": [
+        {
+          "client": 1107,
+          "scroll": 1107,
+          "overflow": "auto"
+        }
+      ]
+    },
+    {
+      "route": "/cloudctl-mobile/operations/post-management/post-management-09",
+      "width": 320,
+      "client": 320,
+      "scroll": 320,
+      "tables": []
+    },
+    {
+      "route": "/cloudctl-mobile/operations/post-management/post-management-09",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "tables": []
+    },
+    {
+      "route": "/cloudctl-mobile/operations/post-management/post-management-09",
+      "width": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "tables": []
+    },
+    {
+      "route": "/cloudctl-mobile/operations/settings/display",
+      "width": 320,
+      "client": 305,
+      "scroll": 305,
+      "tables": []
+    },
+    {
+      "route": "/cloudctl-mobile/operations/settings/display",
+      "width": 390,
+      "client": 375,
+      "scroll": 375,
+      "tables": []
+    },
+    {
+      "route": "/cloudctl-mobile/operations/settings/display",
+      "width": 1440,
+      "client": 1425,
+      "scroll": 1425,
+      "tables": []
+    }
+  ],
+  "modalGeometry": [
+    {
+      "route": "/cloudctl-mobile/operations/post-management/post-management-03",
+      "width": 320,
+      "left": 8.5,
+      "right": 296.5,
+      "client": 305,
+      "modalClient": 286,
+      "modalScroll": 286,
+      "focusContained": true
+    },
+    {
+      "route": "/cloudctl-mobile/operations/post-management/post-management-03",
+      "width": 390,
+      "left": 8.5,
+      "right": 366.5,
+      "client": 375,
+      "modalClient": 356,
+      "modalScroll": 356,
+      "focusContained": true
+    },
+    {
+      "route": "/cloudctl-mobile/operations/post-management/post-management-03",
+      "width": 1440,
+      "left": 360,
+      "right": 1080,
+      "client": 1440,
+      "modalClient": 718,
+      "modalScroll": 718,
+      "focusContained": true
+    },
+    {
+      "route": "operations/post-management/post-management-03",
+      "escapeClosed": true
+    },
+    {
+      "route": "/cloudctl-mobile/operations/task-queue/task-queue-01",
+      "width": 320,
+      "left": 20,
+      "right": 324,
+      "client": 305,
+      "modalClient": 302,
+      "modalScroll": 302,
+      "focusContained": true
+    },
+    {
+      "route": "/cloudctl-mobile/operations/task-queue/task-queue-01",
+      "width": 390,
+      "left": 20,
+      "right": 390.5,
+      "client": 375,
+      "modalClient": 369,
+      "modalScroll": 369,
+      "focusContained": true
+    },
+    {
+      "route": "/cloudctl-mobile/operations/task-queue/task-queue-01",
+      "width": 1440,
+      "left": 262.5,
+      "right": 1162.5,
+      "client": 1425,
+      "modalClient": 898,
+      "modalScroll": 898,
+      "focusContained": true
+    },
+    {
+      "route": "operations/task-queue/task-queue-01",
+      "escapeClosed": true
+    }
+  ],
+  "requestSummary": {
+    "count": 284,
+    "methods": [
+      "GET"
+    ],
+    "businessWrites": [],
+    "apiErrors": []
+  },
+  "geometryPassed": true,
+  "finishedChecksAt": "2026-09-30T16:28:37.095Z",
+  "finalCandidateSha": "0078c5c5ec35a02f34ac3f4aa0670fbb6c4d4159",
+  "queueModalAfterFinalFix": {
+    "status": "BROWSER_UNVERIFIED",
+    "sourceChange": "width100%;min-width0 instead of95vw within padded backdrop",
+    "measuredPriorCandidate": "e6e44d3a9635670fce27aa051e2be0d564b6cceb",
+    "reason": "taskSpace36 finished before final CSS supplement; no replacement space opened"
+  },
+  "taskSpaceFinished": true,
+  "previewServerStopped": true
+}

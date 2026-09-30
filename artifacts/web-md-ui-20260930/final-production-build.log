@@ -1,0 +1,19 @@
+vite v7.3.6 building client environment for production...
+transforming...
+✓ 1934 modules transformed.
+
+(!) outDir /tmp/cloudctl-web-md-20260930-evidence/integration/prod-dist is not inside project root and will not be emptied.
+Use --emptyOutDir to override.
+
+rendering chunks...
+computing gzip size...
+../../../../../tmp/cloudctl-web-md-20260930-evidence/integration/prod-dist/index.html                   0.72 kB │ gzip:   0.38 kB
+../../../../../tmp/cloudctl-web-md-20260930-evidence/integration/prod-dist/assets/index-CLSWGzjd.css  144.07 kB │ gzip:  24.36 kB
+../../../../../tmp/cloudctl-web-md-20260930-evidence/integration/prod-dist/assets/xlsx-CNerDvZX.js    429.19 kB │ gzip: 141.77 kB
+../../../../../tmp/cloudctl-web-md-20260930-evidence/integration/prod-dist/assets/index-y0adrxHy.js   822.66 kB │ gzip: 259.20 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 2.22s

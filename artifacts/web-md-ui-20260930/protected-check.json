@@ -1,0 +1,12 @@
+{
+  "protectedFilesUnchanged": {
+    "apps/web/src/features/fleet/FleetDeviceCardView.vue": true,
+    "apps/web/src/features/fleet/FleetWorkbenchView.vue": true,
+    "apps/web/src/features/fleet/model.ts": true,
+    "apps/web/tests/fleet.spec.ts": true,
+    "apps/web/src/features/fleet/presentation.ts": true,
+    "apps/web/tests/fleet-presentation.spec.ts": true
+  },
+  "tasksUnchanged": true,
+  "mainSha": "974a392dfd64465779009a17c839d37dd66407be"
+}

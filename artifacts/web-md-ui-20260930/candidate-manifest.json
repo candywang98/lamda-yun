@@ -1,0 +1,36 @@
+{
+  "sourceSha": "0078c5c5ec35a02f34ac3f4aa0670fbb6c4d4159",
+  "archive": "/tmp/cloudctl-web-md-20260930-evidence/integration/cloudctl-web-md-0078c5c5ec35.tar.gz",
+  "prodDist": "/tmp/cloudctl-web-md-20260930-evidence/integration/prod-dist-0078c5c5ec35",
+  "sha256": "8714dc7dfce4fdeb9521162bd31b37ec7b3ac26018993e9bac631caaaadd6163",
+  "archiveBytes": 505028,
+  "distBytes": 1490302,
+  "files": 14,
+  "version": {
+    "sourceSha": "0078c5c5ec35a02f34ac3f4aa0670fbb6c4d4159",
+    "release": "web-md-20260930",
+    "base": "/cloudctl-mobile/",
+    "controlApiUrl": "https://43.133.243.154.sslip.io",
+    "operationsMockEnabled": false,
+    "controlApiDevAuth": false,
+    "buildFlags": {
+      "VITE_CONTROL_API_URL": "https://43.133.243.154.sslip.io",
+      "VITE_OPERATIONS_MOCK_ENABLED": "false",
+      "VITE_CONTROL_API_DEV_AUTH": "false"
+    }
+  },
+  "reusedEvidence": {
+    "fullSuiteSha": "695ec158cec9b396f29fd0876119b25dfd0f3877",
+    "fullSuiteTests": 628,
+    "scopedSha": "4205e5e8180ba3c04d4314cf8228656865aaa729",
+    "scopedTests": 60,
+    "typecheckSha": "4205e5e8180ba3c04d4314cf8228656865aaa729",
+    "shellCatalogSha": "e6e44d3a9635670fce27aa051e2be0d564b6cceb",
+    "shellCatalogTests": 23
+  },
+  "previousCandidate": "e6e44d3a9635670fce27aa051e2be0d564b6cceb",
+  "finalTests": 11,
+  "finalTypecheck": 0,
+  "queueModalGeometry": "browser_unverified",
+  "browserNote": "Final queue modal width fix has not been browser-verified; component tests do not establish geometry."
+}

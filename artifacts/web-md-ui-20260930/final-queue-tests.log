@@ -1,0 +1,11 @@
+
+ RUN  v3.2.7 /private/tmp/cloudctl-web-md-release-20260930/apps/web
+
+(node:73942) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/task-queue.spec.ts (11 tests) 251ms
+
+ Test Files  1 passed (1)
+      Tests  11 passed (11)
+   Start at  00:33:46
+   Duration  1.08s (transform 110ms, setup 156ms, collect 120ms, tests 251ms, environment 276ms, prepare 50ms)

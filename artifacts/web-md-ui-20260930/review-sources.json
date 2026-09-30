@@ -1,0 +1,44 @@
+{
+  "sourceDocument": "/Users/wangziheng/Desktop/鱼游助手/竞品调研.md",
+  "documentSha256": "eb07d73303bac69f220a614a27e8762e94be96fbd0d865c2b691b6f24098bb3c",
+  "reviewedSections": [
+    "orders",
+    "product list/import/groups",
+    "task queue",
+    "post links/list/groups/publish plans",
+    "operations catalog and generic workbenches"
+  ],
+  "implementationCommits": [
+    "7a9232bb70f618756b944449c78d73708980397c fix(web): protect post exports and align integrated route assertions",
+    "8d211386e5699e34eb8c74460f5e12464dacd7d5 fix(web): make generic workbenches truthful and fail closed",
+    "4aa8cf15143184e16e4c6945a4d011289b670e04 fix(web): preview post batch edits and isolate uncertain results",
+    "b5e77ec6d8e1c2c7647193d0bb1700c41d3cf5f0 fix(web): make group metadata boundaries and partial updates explicit",
+    "a434e5b49481b3cf7454cf5c2c1ff14c38bbe7d7 fix(web): make post links and browser plans truthful and recoverable",
+    "aac1710c2a5746406908a98fa81fc3884c77177f feat(web): preview and confirm product imports with safe partial progress",
+    "7069e2f3e255d96828104eed244f86b9664df7e8 fix(web): neutralize spreadsheet formulas in product exports",
+    "4386571dcceffcc58597f911d070dfc818b67cea fix(web): contain queue detail focus and enable retry",
+    "6ed65e7b47a4edb155d4b6fa969015e602ec060d fix(web): replace generic task queue with truthful platform task view",
+    "f5733387a48c512499db6781a9fa822d5ee40b1e feat(web): make product list controls and batch previews functional",
+    "f4e1cca128bf104df0607a9abce99945c722750d fix(web): respect display settings in operations directory",
+    "c3483210e1241c535dc13d380119624f1cf5cb2b feat(web): make operations catalog a workflow starting point",
+    "974a392dfd64465779009a17c839d37dd66407be fix(web): size queue detail within padded backdrop",
+    "e90214e5082e2a86fb1de0fce518db3eb52146c3 fix(web): let body fit narrow layout viewports",
+    "48f08e8bdb1d176e122060020d7cb96e041164f6 test(web): remove unused queue export mock parameter",
+    "f6e125a074cd2533cf34ea0227662a082b12273c fix(web): decouple plan device reads from task authorization helper"
+  ],
+  "scope": "Web UI and existing frontend API adapters only; deployment and real device actions not performed",
+  "unimplementedBackendGaps": [
+    "import images not ingested as media assets",
+    "post grouping not persisted by current adapter",
+    "post revisions lack expectedRevision guard",
+    "cross-client link dedupe is not atomic",
+    "generic preview does not imply executor availability"
+  ],
+  "markdownImageReferences": 156,
+  "existingLocalImageReferences": 156,
+  "reviewedImageExamples": [
+    "screenshots/001_系统主页_产品介绍.png",
+    "screenshots/036_商品管理_商品列表.png",
+    "screenshots/053_订单管理_同步某鱼订单.png"
+  ]
+}

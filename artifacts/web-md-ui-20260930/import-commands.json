@@ -1,0 +1,22 @@
+[
+  {
+    "command": "pnpm --filter @cloudctl/web exec vitest run tests/product-import.spec.ts tests/product-import-view.spec.ts",
+    "exit_code": 0
+  },
+  {
+    "command": "pnpm --filter @cloudctl/web typecheck",
+    "exit_code": 0
+  },
+  {
+    "command": "pnpm --filter @cloudctl/web build",
+    "exit_code": 0
+  },
+  {
+    "command": "pnpm --filter @cloudctl/web exec eslint src/views/ProductImportView.vue src/data/product-import.ts tests/product-import.spec.ts tests/product-import-view.spec.ts",
+    "exit_code": 0
+  },
+  {
+    "command": "git diff --check",
+    "exit_code": 0
+  }
+]

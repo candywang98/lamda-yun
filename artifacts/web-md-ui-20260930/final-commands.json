@@ -1,0 +1,61 @@
+[
+  {
+    "sourceSha": "0078c5c5ec35a02f34ac3f4aa0670fbb6c4d4159",
+    "name": "supplement-queue-tests",
+    "command": [
+      "pnpm",
+      "--filter",
+      "@cloudctl/web",
+      "exec",
+      "vitest",
+      "run",
+      "tests/task-queue.spec.ts"
+    ],
+    "exit_code": 0
+  },
+  {
+    "sourceSha": "0078c5c5ec35a02f34ac3f4aa0670fbb6c4d4159",
+    "name": "supplement-typecheck",
+    "command": [
+      "pnpm",
+      "--filter",
+      "@cloudctl/web",
+      "typecheck"
+    ],
+    "exit_code": 0
+  },
+  {
+    "sourceSha": "0078c5c5ec35a02f34ac3f4aa0670fbb6c4d4159",
+    "name": "supplement-diff-check",
+    "command": [
+      "git",
+      "diff",
+      "--check",
+      "ec1b0cc",
+      "HEAD"
+    ],
+    "exit_code": 0
+  },
+  {
+    "sourceSha": "0078c5c5ec35a02f34ac3f4aa0670fbb6c4d4159",
+    "name": "production-build",
+    "command": [
+      "pnpm",
+      "--filter",
+      "@cloudctl/web",
+      "exec",
+      "vite",
+      "build",
+      "--base",
+      "/cloudctl-mobile/",
+      "--outDir",
+      "/tmp/cloudctl-web-md-20260930-evidence/integration/prod-dist-0078c5c5ec35"
+    ],
+    "env": {
+      "VITE_CONTROL_API_URL": "https://43.133.243.154.sslip.io",
+      "VITE_OPERATIONS_MOCK_ENABLED": "false",
+      "VITE_CONTROL_API_DEV_AUTH": "false"
+    },
+    "exit_code": 0
+  }
+]

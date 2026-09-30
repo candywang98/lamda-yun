@@ -1,0 +1,22 @@
+[
+  {
+    "command": "pnpm --filter @cloudctl/web exec vitest run tests/group-view.spec.ts",
+    "exit_code": 0
+  },
+  {
+    "command": "pnpm --filter @cloudctl/web typecheck",
+    "exit_code": 0
+  },
+  {
+    "command": "pnpm --filter @cloudctl/web build",
+    "exit_code": 0
+  },
+  {
+    "command": "pnpm --filter @cloudctl/web exec eslint src/views/ProductGroupView.vue src/views/PostGroupView.vue tests/group-view.spec.ts",
+    "exit_code": 0
+  },
+  {
+    "command": "git diff --check",
+    "exit_code": 0
+  }
+]

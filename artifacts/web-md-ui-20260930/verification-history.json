@@ -1,0 +1,77 @@
+[
+  {
+    "sourceSha": "695ec158cec9b396f29fd0876119b25dfd0f3877",
+    "originalLog": "/tmp/cloudctl-web-md-20260930-evidence/integration/full-tests.log",
+    "logSha256": "e9271576796009401061f1ac627a2c3b7621d197c8ed9ff53dfbd75a0e0616c2",
+    "testsPassed": 628,
+    "summary": [
+      " ✓ tests/status-badge.spec.ts (2 tests) 21ms",
+      "",
+      " Test Files  54 passed (54)",
+      "      Tests  628 passed (628)",
+      "   Start at  00:02:54",
+      "   Duration  8.12s (transform 4.23s, setup 7.97s, collect 12.16s, tests 28.75s, environment 16.55s, prepare 2.75s)",
+      ""
+    ]
+  },
+  {
+    "sourceSha": "4205e5e8180ba3c04d4314cf8228656865aaa729",
+    "originalLog": "/tmp/cloudctl-web-md-20260930-evidence/integration/final-scoped-tests.log",
+    "logSha256": "6e933629976a86f6603f5385d7086f33b19a30c7d2714e611a991d7c36c8d191",
+    "testsPassed": 60,
+    "summary": [
+      " ✓ tests/operations-view.spec.ts (46 tests) 1442ms",
+      "",
+      " Test Files  2 passed (2)",
+      "      Tests  60 passed (60)",
+      "   Start at  00:07:45",
+      "   Duration  3.06s (transform 858ms, setup 288ms, collect 1.35s, tests 1.88s, environment 484ms, prepare 206ms)",
+      ""
+    ]
+  },
+  {
+    "sourceSha": "e6e44d3a9635670fce27aa051e2be0d564b6cceb",
+    "originalLog": "/tmp/cloudctl-web-md-20260930-evidence/integration/responsive-tests.log",
+    "logSha256": "2092bfd4ae6f6f3a1df99b0f19216caa489a62ae607953c1c9cd02d590dbe7a8",
+    "testsPassed": 5,
+    "summary": [
+      "   ✓ catalog starting paths > counts the displayed directory, filters status and searches accessible fields  547ms",
+      "",
+      " Test Files  2 passed (2)",
+      "      Tests  5 passed (5)",
+      "   Start at  00:24:19",
+      "   Duration  1.61s (transform 201ms, setup 328ms, collect 368ms, tests 877ms, environment 610ms, prepare 188ms)",
+      ""
+    ]
+  },
+  {
+    "sourceSha": "e6e44d3a9635670fce27aa051e2be0d564b6cceb",
+    "originalLog": "/tmp/cloudctl-web-md-20260930-evidence/integration/responsive-catalog-extra-tests.log",
+    "logSha256": "356b898fc759901b895f9400d417c552556719f7a200ccb64f60b102a1eec4ce",
+    "testsPassed": 18,
+    "summary": [
+      " ✓ tests/operations-catalog.spec.ts (6 tests) 6ms",
+      "",
+      " Test Files  2 passed (2)",
+      "      Tests  18 passed (18)",
+      "   Start at  00:25:24",
+      "   Duration  733ms (transform 88ms, setup 278ms, collect 119ms, tests 8ms, environment 480ms, prepare 86ms)",
+      ""
+    ]
+  },
+  {
+    "sourceSha": "0078c5c5ec35a02f34ac3f4aa0670fbb6c4d4159",
+    "originalLog": "/tmp/cloudctl-web-md-20260930-evidence/integration/supplement-queue-tests.log",
+    "logSha256": "50c75da705c26816d65dbac52756b891a7a8d856b0ef9c5eef63ad0224e4acec",
+    "testsPassed": 11,
+    "summary": [
+      " ✓ tests/task-queue.spec.ts (11 tests) 251ms",
+      "",
+      " Test Files  1 passed (1)",
+      "      Tests  11 passed (11)",
+      "   Start at  00:33:46",
+      "   Duration  1.08s (transform 110ms, setup 156ms, collect 120ms, tests 251ms, environment 276ms, prepare 50ms)",
+      ""
+    ]
+  }
+]
