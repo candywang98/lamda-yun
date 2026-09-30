@@ -28,6 +28,7 @@ import { useSessionStore } from '@/stores/session'
 import { useOperationsWorkspace } from '@/stores/operations-workspace'
 import { useDisplaySettings } from '@/stores/display-settings'
 import { findOperation, firstOperationPath, operationModules, operationPath } from '@/data/operations-catalog'
+import { orderResultsPath } from '@/data/operation-page-availability'
 import { controlApiConfigured, operationsMockEnabled } from '@/api/control'
 import type { Component } from 'vue'
 
@@ -70,6 +71,7 @@ const moduleIcons: Record<string, Component> = {
 
 const visibleModules = computed(() => display.visibleModules())
 const currentOperation = computed(() => findOperation(String(route.params.moduleId ?? ''), String(route.params.operationId ?? '')))
+const orderResultsOpen = computed(() => currentOperation.value?.id === 'product-management-01' && route.query.tab === 'orders')
 const catalogOpen = computed(() => route.name === 'operations-catalog')
 const settingsOpen = computed(() => route.name === 'operations-display-settings')
 const recipesOpen = computed(() => route.name === 'recipe-versions')
@@ -77,6 +79,7 @@ const imOpen = computed(() => route.path.startsWith('/im'))
 const fleetOpen = computed(() => route.path.startsWith('/fleet'))
 const remoteOpen = computed(() => route.name === 'device-detail')
 const pageTitle = computed(() => {
+  if (orderResultsOpen.value) return '已同步订单'
   if (currentOperation.value) return currentOperation.value.title
   if (recipesOpen.value) return 'Recipe 版本管理'
   if (settingsOpen.value) return '显示设置'
@@ -147,11 +150,12 @@ watch(currentOperation, (operation) => {
               :key="operation.id"
               :to="operationPath(operation)"
               class="yy-sub-link"
-              :class="{ active: operation.id === currentOperation?.id }"
+              :class="{ active: operation.id === currentOperation?.id && !orderResultsOpen }"
               @click="session.sidebarOpen = false"
             >
               {{ operation.title }}
             </RouterLink>
+            <RouterLink v-if="module.id === 'product-management'" :to="orderResultsPath" class="yy-sub-link" :class="{ active: orderResultsOpen }" :aria-current="orderResultsOpen ? 'page' : undefined" @click="session.sidebarOpen = false">已同步订单</RouterLink>
           </div>
         </section>
       </nav>
@@ -177,7 +181,8 @@ watch(currentOperation, (operation) => {
         <RouterLink to="/operations/settings/display" class="yy-tab" :class="{ active: settingsOpen }">显示设置</RouterLink>
         <RouterLink v-if="recipesOpen" to="/recipes" class="yy-tab active">Recipe 版本管理</RouterLink>
         <RouterLink v-if="remoteOpen" :to="route.fullPath" class="yy-tab active">设备详情 / 远控</RouterLink>
-        <div v-for="tab in workspace.tabs" :key="tab.id" class="yy-tab" :class="{ active: tab.id === currentOperation?.id }">
+        <RouterLink v-if="orderResultsOpen" :to="orderResultsPath" class="yy-tab active">已同步订单</RouterLink>
+        <div v-for="tab in workspace.tabs" :key="tab.id" class="yy-tab" :class="{ active: tab.id === currentOperation?.id && !orderResultsOpen }">
           <RouterLink :to="tab.to">{{ tab.title }}</RouterLink>
           <button type="button" :aria-label="`关闭 ${tab.title}`" @click="closeTab(tab.id)"><X :size="11" /></button>
         </div>
@@ -194,3 +199,9 @@ watch(currentOperation, (operation) => {
     </main>
   </div>
 </template>
+
+<style scoped>
+.yy-sub-link { overflow-wrap: anywhere; white-space: normal; }
+.yy-tab { min-width: 0; }
+.yy-tab > a { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+</style>
