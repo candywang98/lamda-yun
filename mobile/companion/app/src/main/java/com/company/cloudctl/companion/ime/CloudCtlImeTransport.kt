@@ -26,16 +26,20 @@ internal class CloudCtlImeTransport(
     },
     private val identityOf: () -> ImeSessionIdentity.FieldIdentity? = { CloudCtlInputMethod.currentEditorIdentity() },
     private val onMain: Boolean = true,
+    private val manualEpochOf: () -> Long = { CloudCtlInputMethod.manualActionEpoch },
 ) : EditorTransport {
     private var commits = 0
+    private val manualEpoch = manualEpochOf()
 
     override fun commitCount(): Int = commits
 
     override suspend fun snapshot(): EditorSnapshot? = onImeThread {
+        if (manualEpochOf() != manualEpoch) return@onImeThread null
         val identity = identityOf()?.takeIf { it.packageName == targetPackage } ?: return@onImeThread null
         if (EditorPrivacy.password(identity.inputType)) return@onImeThread null
         val session = sessionOf() ?: return@onImeThread null
         val text = readOf(session) ?: return@onImeThread null
+        if (manualEpochOf() != manualEpoch || sessionOf() != session || identityOf() != identity) return@onImeThread null
         val truncated = text.length > CompleteEditorText.MAX_LENGTH
         val body = if (truncated) "" else text
         EditorSnapshot(
@@ -49,10 +53,12 @@ internal class CloudCtlImeTransport(
             offset = 0,
             truncated = truncated,
             selectionKnown = false,
+            manualActionEpoch = manualEpoch,
         )
     }
 
     override suspend fun commit(snapshot: EditorSnapshot, text: String): Boolean = onImeThread {
+        if (manualEpochOf() != manualEpoch || snapshot.manualActionEpoch != manualEpoch) return@onImeThread false
         // Empty only. A non-empty field — even one that already equals the
         // expected text — is verified by the caller and never rewritten.
         if (snapshot.text.isNotEmpty() || text.isEmpty()) return@onImeThread false
@@ -66,6 +72,9 @@ internal class CloudCtlImeTransport(
         // The write-time read is the safety fact. A missing read, or any
         // non-empty draft, refuses instead of selecting-to-end and overwriting.
         if (current == null || current.isNotEmpty()) return@onImeThread false
+        if (manualEpochOf() != manualEpoch || sessionOf() != session || identityOf() != identity ||
+            connectionOf(session) !== connection
+        ) return@onImeThread false
         val accepted = runCatching { connection.commitText(text, 1) }.getOrDefault(false)
         if (accepted) commits += 1
         accepted

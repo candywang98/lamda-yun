@@ -2,7 +2,12 @@
     <string name="app_name">CloudCtl Companion</string>
     <string name="accessibility_service_description">Executes only signed, structured CloudCtl actions for explicitly allowlisted apps.</string>
     <string name="ime_name">CloudCtl Input</string>
-    <string name="ime_recovery_message">CloudCtl 不支持手打，请切换日常键盘</string>
+    <string name="ime_recovery_message">英文、数字与符号键盘；中文请切换到已安装的搜狗或讯飞输入法（无内置拼音）。</string>
     <string name="ime_recovery_action">切换键盘</string>
-    <string name="ime_description">Types CloudCtl task text into the focused field. Enable only while Companion is running automation.</string>
+    <string name="ime_description">Basic English and symbol keyboard with scoped CloudCtl automation. Switch to an installed Chinese keyboard for Chinese typing.</string>
+    <string name="ime_hide">收起键盘</string>
+    <string name="ime_space">空格</string>
+    <string name="ime_newline">换行</string>
+    <string name="ime_delete">删除</string>
+    <string name="ime_shift">大小写</string>
 </resources>

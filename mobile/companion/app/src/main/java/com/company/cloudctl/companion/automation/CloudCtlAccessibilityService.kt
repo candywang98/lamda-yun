@@ -687,6 +687,7 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
      * calls commit.
      */
     private suspend fun verifyTemporaryImeProof(targetPackage: String, proof: InputProof): Boolean {
+        if (proof.snapshot.manualActionEpoch != CloudCtlInputMethod.manualActionEpoch) return false
         if (!CloudCtlInputMethod.isEnabled(this)) return false
         return runCatching {
             platformImeSwitch().around {
@@ -698,11 +699,13 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
     private suspend fun readStableFullText(targetPackage: String, proof: InputProof): Boolean {
         val pinned = proof.field
         suspend fun sample(): Pair<Long, String>? {
+            if (proof.snapshot.manualActionEpoch != CloudCtlInputMethod.manualActionEpoch) return null
             val identity = CloudCtlInputMethod.currentEditorIdentity() ?: return null
             if (identity.fingerprint != pinned) return null
             if (identity.packageName != targetPackage) return null
             val session = CloudCtlInputMethod.chatSession(targetPackage) ?: return null
             val text = CloudCtlInputMethod.readChatText(targetPackage, session) ?: return null
+            if (proof.snapshot.manualActionEpoch != CloudCtlInputMethod.manualActionEpoch) return null
             if (text != proof.expected) return null
             return session to text
         }
@@ -1195,6 +1198,7 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
      */
     private suspend fun commitChatInput(targetPackage: String, locatorRef: String, value: String): InputProof {
         return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main.immediate) {
+            val manualEpoch = CloudCtlInputMethod.manualActionEpoch
             fun composer(): AccessibilityNodeInfo? {
                 ensureReady(targetPackage)
                 val locator = TargetLocatorRegistry.resolve(targetPackage, locatorRef)
@@ -1272,6 +1276,9 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
                     "INPUT_READBACK_UNAVAILABLE",
                     "Accessibility editor is not bound; the user's keyboard was not switched",
                 )
+            }
+            if (manualEpoch != CloudCtlInputMethod.manualActionEpoch || proved.snapshot.manualActionEpoch != manualEpoch) {
+                throw ExecutorFailure("USER_INTERFERENCE", "Manual keyboard interaction invalidated the input proof")
             }
             proved
         }

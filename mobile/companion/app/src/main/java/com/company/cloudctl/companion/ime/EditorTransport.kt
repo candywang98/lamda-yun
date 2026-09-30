@@ -19,6 +19,7 @@ data class EditorSnapshot(
      * not invent a caret position and then treat it as proof the field is settled.
      */
     val selectionKnown: Boolean = true,
+    val manualActionEpoch: Long = 0L,
 )
 
 internal object CompleteEditorText {

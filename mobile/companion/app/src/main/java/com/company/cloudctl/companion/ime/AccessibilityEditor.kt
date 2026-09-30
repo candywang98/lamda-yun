@@ -82,11 +82,13 @@ internal class AccessibilityEditor(service: AccessibilityService) : InputMethod(
     fun commitCount(): Int = commits
 
     fun transport(targetPackage: String): EditorTransport = object : EditorTransport {
+        private val manualEpoch = CloudCtlInputMethod.manualActionEpoch
+
         override fun commitCount(): Int = commits
 
         override suspend fun snapshot(): EditorSnapshot? {
             val captured = withContext(Dispatchers.Main.immediate) {
-                if (password) return@withContext null
+                if (password || manualEpoch != CloudCtlInputMethod.manualActionEpoch) return@withContext null
                 val identity = field?.takeIf { it.packageName == targetPackage } ?: return@withContext null
                 val connection = currentInputConnection ?: return@withContext null
                 Triple(generation, identity.fingerprint, connection)
@@ -101,13 +103,15 @@ internal class AccessibilityEditor(service: AccessibilityService) : InputMethod(
                 }.getOrNull()
             } ?: return null
             return withContext(Dispatchers.Main.immediate) {
-                publish(captured.first, captured.second, around, targetPackage)
+                if (manualEpoch != CloudCtlInputMethod.manualActionEpoch) null
+                else publish(captured.first, captured.second, around, targetPackage)?.copy(manualActionEpoch = manualEpoch)
             }
         }
 
         override suspend fun commit(snapshot: EditorSnapshot, text: String): Boolean =
             withContext(Dispatchers.Main.immediate) {
-                if (password || snapshot.generation != generation || snapshot.field != field?.fingerprint ||
+                if (password || manualEpoch != CloudCtlInputMethod.manualActionEpoch ||
+                    snapshot.manualActionEpoch != manualEpoch || snapshot.generation != generation || snapshot.field != field?.fingerprint ||
                     selectionComposing || !boundTo(targetPackage)
                 ) {
                     return@withContext false

@@ -403,7 +403,7 @@ private fun inputMethodStatus(state: CompanionState): String {
             else -> "需要先启用备用输入法"
         }
         InputChannel.MANUAL_IME -> when {
-            state.permissions.inputMethodCurrent -> "当前键盘，不支持手打"
+            state.permissions.inputMethodCurrent -> "当前键盘，支持英文、数字与符号；中文请切换搜狗或讯飞"
             state.permissions.inputMethodEnabled -> "已启用，需手动设为当前"
             else -> "需要授权并手动设为当前"
         }
@@ -415,7 +415,7 @@ private fun KeyboardRecoveryPrompt() {
     val context = LocalContext.current
     KeepAlivePrompt(
         title = "CloudCtl Input 正占用系统键盘",
-        detail = "它不支持手打。请从系统键盘选择器切回常用键盘；若选择器无法显示，将打开输入法设置。",
+        detail = "支持英文、数字与符号手打，无内置拼音。中文请切换到已安装的搜狗或讯飞输入法；若选择器无法显示，将打开输入法设置。",
         action = "切换键盘",
         onClick = { CloudCtlInputMethod.requestUserRecovery(context) },
     )

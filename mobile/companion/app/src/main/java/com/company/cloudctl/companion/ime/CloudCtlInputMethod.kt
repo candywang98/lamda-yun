@@ -11,17 +11,23 @@ import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
 import android.view.inputmethod.InputMethodManager
-import android.widget.Button
-import android.widget.LinearLayout
-import android.widget.TextView
-import com.company.cloudctl.companion.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /** Companion-owned IME. Text requests never survive an input session or a failed call. */
 class CloudCtlInputMethod : InputMethodService() {
     private var session: Long? = null
-    private var recoveryView: View? = null
+    private var keyboardView: ManualKeyboardView? = null
+    private val manual = ManualInputController(
+        connectionOf = { currentInputConnection },
+        blocked = { temporarySelection || session == null || active !== this },
+        onAction = {
+            manualActionEpoch++
+            if (session != null) session = gate.onEditorStarted()
+        },
+        switchKeyboard = { requestUserRecovery(this) },
+        hideKeyboard = { requestHideSelf(0) },
+    )
 
     override fun onCreate() {
         super.onCreate()
@@ -31,43 +37,59 @@ class CloudCtlInputMethod : InputMethodService() {
 
     override fun onDestroy() {
         session = null
-        recoveryView = null
+        manual.reset()
+        keyboardView?.reset()
+        keyboardView = null
+        gate.onEditorFinished()
         if (active === this) active = null
         super.onDestroy()
     }
 
-    override fun onCreateInputView(): View = LinearLayout(this).apply {
-        orientation = LinearLayout.HORIZONTAL
-        val padding = (8 * resources.displayMetrics.density).toInt()
-        setPadding(padding, padding, padding, padding)
-        addView(TextView(context).apply {
-            text = getString(R.string.ime_recovery_message)
-        }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-        addView(Button(context).apply {
-            text = getString(R.string.ime_recovery_action)
-            setOnClickListener {
-                if (!requestUserRecovery(this@CloudCtlInputMethod)) {
-                    Log.w(TAG, "Could not open the input-method picker or settings")
-                }
-            }
-        })
-        recoveryView = this
-        updateRecoveryView()
+    override fun onEvaluateFullscreenMode(): Boolean = false
+
+    override fun onCreateInputView(): View {
+        manual.refresh()
+        return ManualKeyboardView(this, manual).also { keyboardView = it }
     }
 
-    private fun updateRecoveryView() {
-        recoveryView?.visibility = if (temporarySelection) View.GONE else View.VISIBLE
+    private fun resetManualKeyboard() {
+        manual.refresh()
+        keyboardView?.reset()
+    }
+
+    override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
+        super.onStartInputView(info, restarting)
+        if (session != null) manual.resumeInput()
+        resetManualKeyboard()
+    }
+
+    override fun onFinishInputView(finishingInput: Boolean) {
+        manual.suspendInput()
+        keyboardView?.reset()
+        super.onFinishInputView(finishingInput)
+    }
+
+    override fun onUpdateSelection(
+        oldSelStart: Int, oldSelEnd: Int, newSelStart: Int, newSelEnd: Int,
+        candidatesStart: Int, candidatesEnd: Int,
+    ) {
+        super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd)
+        manual.updateSelection(newSelStart, newSelEnd)
     }
 
     override fun onStartInput(attribute: EditorInfo?, restarting: Boolean) {
         super.onStartInput(attribute, restarting)
         session = gate.onEditorStarted()
+        manual.bind(attribute)
+        keyboardView?.reset()
         Log.i(TAG, "IME_SESSION_STARTED session=$session restarting=$restarting")
     }
 
     override fun onFinishInput() {
         session = null
         gate.onEditorFinished()
+        manual.reset()
+        keyboardView?.reset()
         Log.i(TAG, "IME_SESSION_FINISHED")
         super.onFinishInput()
     }
@@ -76,18 +98,19 @@ class CloudCtlInputMethod : InputMethodService() {
         private const val TAG = "CloudCtlIme"
         private val gate = ImeSessionGate()
         @Volatile private var temporarySelection = false
+        @Volatile internal var manualActionEpoch = 0L
+            private set
 
         @Volatile
         var active: CloudCtlInputMethod? = null
             private set
 
-        /** The recovery control is hidden only during a scoped temporary switch. */
         internal fun setTemporarySelection(activeTransaction: Boolean) {
             temporarySelection = activeTransaction
             if (Looper.myLooper() == Looper.getMainLooper()) {
-                active?.updateRecoveryView()
+                active?.resetManualKeyboard()
             } else {
-                Handler(Looper.getMainLooper()).post { active?.updateRecoveryView() }
+                Handler(Looper.getMainLooper()).post { active?.resetManualKeyboard() }
             }
         }
 

@@ -181,6 +181,40 @@ class Api30ChatInputCommitTest {
 
     private fun cloudId() = "com.company.cloudctl.companion/.ime.CloudCtlInputMethod"
 
+    @Test fun manualEpochChangeDuringCommitRejectsAbaAndStillRestoresKeyboard() = runBlocking {
+        val switcher = Switcher()
+        var epoch = 5L
+        val transaction = Api30ChatInputCommit(
+            commit = {
+                epoch += 2
+                ChatInputReadback(EXPECTED, 9L, FINGERPRINT)
+            },
+            switchToCloudCtl = { block -> TemporaryImeSwitch(switcher, pause = {}).around(block) },
+            anchorOf = { ANCHOR },
+            cloudCtlStillSelected = { switcher.current == cloudId() },
+            livePackage = { "com.taobao.idlefish" },
+            manualEpochOf = { epoch },
+        )
+        assertEquals("USER_INTERFERENCE", assertFailsWith<ExecutorFailure> {
+            transaction.execute("com.taobao.idlefish", "xianyu_chat_input", EXPECTED)
+        }.code)
+        assertEquals("com.sogou/.SogouIME", switcher.current)
+    }
+
+    @Test fun freshProofAfterEarlierManualUsageCarriesCurrentEpoch() = runBlocking {
+        val switcher = Switcher()
+        val proof = Api30ChatInputCommit(
+            commit = { ChatInputReadback(EXPECTED, 9L, FINGERPRINT) },
+            switchToCloudCtl = { block -> TemporaryImeSwitch(switcher, pause = {}).around(block) },
+            anchorOf = { ANCHOR },
+            cloudCtlStillSelected = { switcher.current == cloudId() },
+            livePackage = { "com.taobao.idlefish" },
+            manualEpochOf = { 7L },
+        ).execute("com.taobao.idlefish", "xianyu_chat_input", EXPECTED)
+        assertEquals(7L, proof.snapshot.manualActionEpoch)
+        assertEquals("com.sogou/.SogouIME", switcher.current)
+    }
+
     private companion object {
         const val EXPECTED = "你好，在的"
         const val FINGERPRINT = "com.taobao.idlefish|1|6|-1|"

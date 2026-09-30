@@ -32,6 +32,7 @@ internal object ChatInputProofFactory {
         anchor: FieldAnchor,
         readback: com.company.cloudctl.companion.automation.ChatInputReadback,
         livePackage: String?,
+        manualActionEpoch: Long = CloudCtlInputMethod.manualActionEpoch,
     ): InputProof {
         if (anchor.targetPackage != targetPackage || anchor.locatorRef != locatorRef) {
             throw ExecutorFailure("INPUT_TARGET_CHANGED", "The chat locator changed after commit")
@@ -59,6 +60,7 @@ internal object ChatInputProofFactory {
             offset = 0,
             truncated = false,
             selectionKnown = false,
+            manualActionEpoch = manualActionEpoch,
         )
         return InputProof(
             target = targetPackage,
@@ -91,12 +93,17 @@ internal class Api30ChatInputCommit(
     private val anchorOf: () -> FieldAnchor?,
     private val cloudCtlStillSelected: () -> Boolean,
     private val livePackage: () -> String?,
+    private val manualEpochOf: () -> Long = { CloudCtlInputMethod.manualActionEpoch },
 ) {
     suspend fun execute(targetPackage: String, locatorRef: String, value: String): InputProof {
         val anchor = anchorOf()
             ?: throw ExecutorFailure("LOCATOR_NOT_FOUND", "Approved locator was not found")
         return switchToCloudCtl {
+            val manualEpoch = manualEpochOf()
             val readback = commit(value)
+            if (manualEpochOf() != manualEpoch) {
+                throw ExecutorFailure("USER_INTERFERENCE", "Manual keyboard interaction invalidated the input proof")
+            }
             if (!cloudCtlStillSelected()) {
                 throw ExecutorFailure(
                     "INPUT_IME_REQUIRED",
@@ -104,7 +111,7 @@ internal class Api30ChatInputCommit(
                 )
             }
             ChatInputProofFactory.fromReadback(
-                targetPackage, locatorRef, value, anchor, readback, livePackage(),
+                targetPackage, locatorRef, value, anchor, readback, livePackage(), manualEpoch,
             )
         }
     }

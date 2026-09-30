@@ -129,7 +129,7 @@ internal class VerifiedEditorInput(
         } else if (issued != 1) {
             fail("INPUT_REJECTED")
         }
-        return prove(pinned, before.field, before.generation, value, allowGenerationChange = !alreadyPresent)
+        return prove(pinned, before.field, before.generation, before.manualActionEpoch, value, allowGenerationChange = !alreadyPresent)
             .copy(commitCount = if (alreadyPresent) 0 else issued)
     }
 
@@ -144,6 +144,7 @@ internal class VerifiedEditorInput(
             live.selectionStart != proof.expected.length || live.selectionEnd != proof.expected.length
             )
         if (live.field != proof.field || live.generation != proof.generation ||
+            live.manualActionEpoch != proof.snapshot.manualActionEpoch ||
             live.text != proof.expected || live.composing || selectionMoved
         ) {
             fail("INPUT_PROOF_EXPIRED")
@@ -157,6 +158,7 @@ internal class VerifiedEditorInput(
         val second = read(pinned)
         if (first.field != second.field) fail("INPUT_TARGET_CHANGED")
         if (first.generation != second.generation) fail("USER_INTERFERENCE")
+        if (first.manualActionEpoch != second.manualActionEpoch) fail("USER_INTERFERENCE")
         if (first.text != second.text || first.selectionStart != second.selectionStart ||
             first.selectionEnd != second.selectionEnd || second.composing
         ) {
@@ -169,6 +171,7 @@ internal class VerifiedEditorInput(
         pinned: String,
         field: String,
         committedGeneration: Long,
+        manualActionEpoch: Long,
         value: String,
         allowGenerationChange: Boolean,
     ): InputProof {
@@ -176,6 +179,7 @@ internal class VerifiedEditorInput(
         repeat(20) {
             pause()
             val current = read(pinned)
+            if (current.manualActionEpoch != manualActionEpoch) fail("USER_INTERFERENCE")
             if (current.field != field) fail("INPUT_TARGET_CHANGED")
             if (current.composing) fail("USER_INTERFERENCE")
             // No commit was issued, so a rebuilt connection is someone else's editor.
