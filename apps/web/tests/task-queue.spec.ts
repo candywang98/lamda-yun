@@ -59,7 +59,7 @@ describe('TaskQueueView', () => {
   })
   it('escapes spreadsheet formulas when exporting the loaded fields', async () => {
     mock.api.listPlatformTasks.mockResolvedValue([{ ...task('task-1'), detail: '=SUM(1,2)' }])
-    const createUrl = vi.fn((_blob: Blob) => 'blob:test')
+    const createUrl = vi.fn<(blob: Blob) => string>().mockReturnValue('blob:test')
     Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: createUrl })
     Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: vi.fn() })
     const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined)
