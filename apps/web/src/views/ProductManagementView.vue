@@ -330,7 +330,12 @@ function exportCsv() {
       规格: productSpecLabel(product), 价格: product.price, 下单链接: attributes.orderLink,
       添加时间: formatDateTime(product.createdAt), 商品备注: attributes.notes,
     }
-    return header.map((name) => cells[name] ?? '')
+    return header.map((name) => {
+      const value = cells[name] ?? ''
+      // CSV quotes do not prevent spreadsheet formula evaluation.
+      const numericPrice = name === '价格' && value.trim() !== '' && Number.isFinite(Number(value))
+      return !numericPrice && /^\s*[=+@-]/.test(value) ? "'" + value : value
+    })
   })
   const csv = [header, ...rows].map((line) => line.map((cell) => `"${cell.replaceAll('"', '""')}"`).join(',')).join('\n')
   downloadDataUrl(`data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`, '商品列表.csv')
