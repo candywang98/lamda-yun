@@ -277,6 +277,7 @@ interface ConfigDeviceOption { id: string; name: string }
 
 const deviceOptions = ref<ConfigDeviceOption[]>([])
 const cfgDevice = ref('')
+const configOpen = ref(false)
 const cfgBusy = ref(false)
 const cfgMessage = ref('')
 const cfgMessageIsError = ref(false)
@@ -457,7 +458,13 @@ function deviceShort(id: string): string {
 }
 
 function deviceLabel(id: string): string {
-  return `${deviceNameById.value.get(id) ?? '设备'}（${deviceShort(id)}）`
+  const name = deviceNameById.value.get(id)?.trim()
+  const shortId = deviceShort(id)
+  const shortIdCollision = filterDeviceOptions.value.some((option) => option.id !== id && deviceShort(option.id) === shortId)
+  const identifier = shortIdCollision ? id : shortId
+  if (!name || name === id || name === '设备 ' + shortId) return '设备 ' + identifier
+  const duplicate = filterDeviceOptions.value.some((option) => option.id !== id && option.name.trim() === name)
+  return duplicate ? name + '（' + identifier + '）' : name
 }
 
 const POLL_INTERVAL_MS = 5_000
@@ -513,18 +520,20 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="yy-panel">
+  <section class="yy-panel im-inbox">
     <header class="yy-page-head">
       <div>
         <h1>消息聚合</h1>
+        <p class="yy-sub im-scope">{{ deviceFilter ? '当前筛选：' + deviceLabel(deviceFilter) : '汇总全部设备已上报的会话，无需逐台查看' }} · 页面可见时每 5 秒自动刷新</p>
       </div>
       <div class="yy-actions">
+        <button v-if="configDeviceOptions.length" class="yy-btn" type="button" :aria-expanded="configOpen" aria-controls="im-monitor-config" @click="configOpen = !configOpen">设备监控设置</button>
         <label class="yy-field">
-          <span>设备</span>
-          <select v-model="deviceFilter">
+          <span>筛选设备</span>
+          <select v-model="deviceFilter" :title="deviceFilter || '全部设备'">
             <option value="">全部设备</option>
-            <option v-for="option in filterDeviceOptions" :key="option.id" :value="option.id">
-              {{ option.name }}（{{ deviceShort(option.id) }}）
+            <option v-for="option in filterDeviceOptions" :key="option.id" :value="option.id" :title="option.id">
+              {{ deviceLabel(option.id) }}
             </option>
           </select>
         </label>
@@ -543,18 +552,19 @@ onBeforeUnmount(() => {
     <p v-if="classificationError" class="yy-error" role="alert">{{ classificationError }}</p>
     <p v-if="classificationNotice" class="yy-ok" role="status">{{ classificationNotice }}</p>
 
-    <section v-if="configDeviceOptions.length > 0" class="yy-panel im-config">
+    <p v-if="cfgMessageIsError && !configOpen" class="yy-error" role="alert">{{ cfgMessage }}，请展开设备监控设置处理。</p>
+    <section v-if="configDeviceOptions.length > 0" v-show="configOpen" id="im-monitor-config" class="yy-panel im-config" aria-label="设备监控设置">
       <header class="im-config-head">
         <div>
           <h2>设备监控设置</h2>
-          <p class="yy-sub">按设备选择监听平台与值班模式；保存后随手机下一轮同步生效（约 1 分钟内）。</p>
+          <p class="yy-sub">仅设置所选设备的监听方式，不影响上方消息筛选。保存后随手机下一轮同步生效。</p>
         </div>
         <label class="yy-field">
-          <span>设备</span>
-          <select v-model="cfgDevice" @change="loadConfig">
+          <span>设置设备</span>
+          <select v-model="cfgDevice" :title="cfgDevice" @change="loadConfig">
             <option value="" disabled>选择设备</option>
-            <option v-for="option in configDeviceOptions" :key="option.id" :value="option.id">
-              {{ option.name }}（{{ option.id.slice(0, 8) }}）
+            <option v-for="option in configDeviceOptions" :key="option.id" :value="option.id" :title="option.id">
+              {{ deviceLabel(option.id) }}
             </option>
           </select>
         </label>
@@ -577,7 +587,7 @@ onBeforeUnmount(() => {
             <input v-model="cfg.mode" type="radio" value="NOTIFICATION" :disabled="!canEditConfig || cfgBusy" /><span>通知监听（后台，不占手机）</span>
           </label>
           <label class="yy-check">
-            <input v-model="cfg.mode" type="radio" value="DUTY" :disabled="!canEditConfig || cfgBusy" /><span>值班模式（驻守消息页，全文零漏收）</span>
+            <input v-model="cfg.mode" type="radio" value="DUTY" :disabled="!canEditConfig || cfgBusy" /><span>值班模式（驻守消息页）</span>
           </label>
           <template v-if="cfg.mode === 'DUTY'">
             <label class="yy-field"><span>值班起</span><input v-model="cfg.dutyStart" type="time" :disabled="!canEditConfig || cfgBusy" /></label>
@@ -586,11 +596,14 @@ onBeforeUnmount(() => {
             <span class="yy-sub">跨零点窗口自动顺延（如 22:00–06:00）</span>
           </template>
         </div>
-        <p class="yy-sub im-config-note">
-          通道过滤：闲鱼上报全部通知；小红书 / 抖音 / 微信只上报私信类通知通道（message / msg / im / chat / 私信），信息流推送由手机端过滤。
-          <template v-if="dmFilteredPlatforms.length > 0">当前受过滤平台：{{ dmFilteredPlatforms.join('、') }}。</template>
-        </p>
-        <p v-if="cfg.updatedAt" class="yy-sub">上次同步：{{ timeLabel(cfg.updatedAt) }}前保存</p>
+        <details class="im-config-note">
+          <summary>监听范围与过滤说明</summary>
+          <p class="yy-sub">
+            通道过滤：闲鱼上报全部通知；小红书 / 抖音 / 微信只上报私信类通知通道（message / msg / im / chat / 私信），信息流推送由手机端过滤。
+            <template v-if="dmFilteredPlatforms.length > 0">当前受过滤平台：{{ dmFilteredPlatforms.join('、') }}。</template>
+          </p>
+        </details>
+        <p v-if="cfg.updatedAt" class="yy-sub">设置保存时间：{{ timeLabel(cfg.updatedAt) }}</p>
         <p v-if="!canEditConfig" class="yy-sub im-readonly">当前角色只读，仅能查看监控设置。</p>
         <ul v-if="cfgErrors.length > 0" class="yy-error im-config-errors">
           <li v-for="error in cfgErrors" :key="error">{{ error }}</li>
@@ -622,6 +635,7 @@ onBeforeUnmount(() => {
         <span :title="bucketCounts ? '匹配会话数' : '服务端未提供分类计数'">{{ bucketCounts?.[item.key] ?? '—' }}</span>
       </button>
     </div>
+    <p class="yy-sub im-bucket-hint">默认看用户消息；未分类内容在「待确认」，查看所有分类请选「全部」。</p>
     <div id="im-inbox-panel" class="im-layout" role="tabpanel" :aria-labelledby="`im-tab-${bucket}`">
       <aside class="im-threads" aria-label="会话列表" :aria-busy="threadsLoading">
         <p v-if="threadsLoading" class="yy-sub" role="status">加载会话中…</p>
@@ -646,8 +660,9 @@ onBeforeUnmount(() => {
           <span class="im-summary" :class="{ pending: !threadSummary(thread) }">
             {{ threadSummary(thread) || '暂无正文' }}
           </span>
-          <span class="im-meta">
-            {{ thread.lastDirection === 'IN' ? '收到' : '已回复' }} · {{ timeLabel(thread.lastMessageAt) }} · {{ deviceLabel(thread.deviceId) }}
+          <span class="im-meta im-thread-meta">
+            <span>{{ thread.lastDirection === 'IN' ? '收到' : '已回复' }} · {{ timeLabel(thread.lastMessageAt) }}</span>
+            <span class="im-device-name" :title="deviceLabel(thread.deviceId) + ' · ' + thread.deviceId">{{ deviceLabel(thread.deviceId) }}</span>
           </span>
         </button>
         <button v-if="threadsHasMore" class="yy-btn" type="button" :disabled="threadsLoading || moreThreadsLoading || !!classificationBusy" @click="loadMoreThreads">
@@ -663,7 +678,7 @@ onBeforeUnmount(() => {
             <span v-if="dutyChips.get(selected.deviceId)" class="im-duty" :data-state="dutyChips.get(selected.deviceId)?.state">
               {{ dutyChips.get(selected.deviceId)?.label }}
             </span>
-            <span class="im-meta">{{ deviceLabel(selected.deviceId) }}</span>
+            <span class="im-meta im-device-name" :title="deviceLabel(selected.deviceId) + ' · ' + selected.deviceId">{{ deviceLabel(selected.deviceId) }}</span>
           </header>
           <div class="im-stream" :aria-busy="messagesLoading">
             <p v-if="messagesLoading" class="yy-sub" role="status">加载消息中…</p>
@@ -706,6 +721,30 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.im-inbox { color: var(--ink); font-size: 13px; line-height: 1.5; }
+.im-inbox h1 { margin: 0 0 4px; font-size: 22px; line-height: 1.3; }
+.yy-sub { margin: 6px 0; color: var(--muted); font-size: 12px; }
+.yy-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 34px; padding: 6px 11px; border: 1px solid var(--line-strong); border-radius: 5px; color: var(--ink); background: var(--surface); font-size: 12px; font-weight: 600; }
+.yy-btn.primary { color: #fff; border-color: var(--accent); background: var(--accent); }
+.yy-btn:active:not(:disabled) { transform: scale(.98); }
+.im-inbox :is(button, select, input, textarea, summary):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.yy-field { color: var(--muted); font-size: 12px; }
+.yy-field select, .yy-field input, .im-composer textarea { padding: 7px 9px; color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 5px; font: inherit; }
+.yy-field select { width: 210px; text-overflow: ellipsis; }
+.yy-check { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; }
+.yy-check input { margin: 0; accent-color: var(--accent); }
+.yy-error, .yy-ok { margin: 8px 0; font-size: 12px; }
+.yy-error { color: var(--bad); }
+.yy-ok { color: var(--good); }
+.im-config { padding: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+.im-config-note summary { color: var(--muted); font-size: 12px; cursor: pointer; }
+.im-bucket-hint { margin: 0 0 12px; }
+.im-thread-meta { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.im-thread-meta > span:first-child { flex-shrink: 0; }
+.im-device-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.im-conversation-head .im-device-name { width: auto; flex: 1; text-align: right; }
+@media (hover: hover) { .yy-btn:hover:not(:disabled) { border-color: var(--accent); } .im-thread:hover { border-color: var(--accent); } }
+
 .yy-page-head { flex-wrap: wrap; align-items: flex-start; }
 .yy-page-head > div { min-width: 0; max-width: 100%; }
 .yy-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
@@ -731,14 +770,14 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 4px;
   padding: 10px 12px;
-  border: 1px solid var(--yy-line, #d8dee6);
+  border: 1px solid var(--line, #dce1e1);
   border-radius: 10px;
   background: #fff;
   text-align: left;
   cursor: pointer;
 }
 .im-thread.active {
-  border-color: var(--yy-primary, #0f766e);
+  border-color: var(--accent, #166b5b);
   background: #f0fbf9;
 }
 .im-peer {
@@ -792,13 +831,14 @@ onBeforeUnmount(() => {
   font-style: italic;
 }
 .im-meta {
+  width: 100%;
   color: #64748b;
   font-size: 12px;
 }
 .im-conversation {
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--yy-line, #d8dee6);
+  border: 1px solid var(--line, #dce1e1);
   border-radius: 12px;
   background: #fff;
   min-height: 420px;
@@ -809,7 +849,7 @@ onBeforeUnmount(() => {
   flex-wrap: wrap;
   gap: 8px;
   padding: 10px 14px;
-  border-bottom: 1px solid var(--yy-line, #d8dee6);
+  border-bottom: 1px solid var(--line, #dce1e1);
 }
 .im-stream {
   flex: 1;
@@ -847,7 +887,7 @@ onBeforeUnmount(() => {
   display: flex;
   gap: 8px;
   padding: 12px;
-  border-top: 1px solid var(--yy-line, #d8dee6);
+  border-top: 1px solid var(--line, #dce1e1);
 }
 .im-composer textarea {
   flex: 1;
@@ -865,7 +905,7 @@ onBeforeUnmount(() => {
 .im-config-feedback { font-size: 13px; color: #0f766e; }
 .im-config-feedback.error { color: #b91c1c; }
 .im-readonly { color: #b45309; }
-.im-buckets { margin-bottom: 12px; padding-left: 0; background: transparent; }
+.im-buckets { margin-bottom: 8px; padding-left: 0; background: transparent; }
 .im-buckets > button { cursor: pointer; }
 .im-buckets > button span { min-width: 2ch; text-align: center; font-variant-numeric: tabular-nums; }
 .im-refresh { width: 34px; height: 34px; padding: 0; justify-content: center; }
@@ -875,5 +915,7 @@ onBeforeUnmount(() => {
   .im-layout { grid-template-columns: minmax(0, 1fr); }
   .im-threads { max-height: 260px; }
   .im-bubble { max-width: 100%; box-sizing: border-box; }
+  .yy-actions { width: 100%; }
+  .im-empty { padding: 24px; text-align: center; }
 }
 </style>

@@ -71,9 +71,14 @@ for (const route of ['/orders', '/im']) {
       return true
     }, ['viewer'])
     await page.goto(route)
-    await expect(page.getByRole('option', { name: `${logicalName}（${deviceId.slice(0, 8)}）` }).first()).toBeAttached()
+    await expect(page.getByRole('option', { name: route === '/im' ? logicalName : `${logicalName}（${deviceId.slice(0, 8)}）` }).first()).toBeAttached()
     if (route === '/orders') await expect(page.getByRole('cell', { name: 'QA buyer', exact: true })).toBeVisible()
-    else await expect(page.getByLabel('监听总开关')).toBeChecked()
+    else {
+      await expect(page.getByRole('button', { name: '设备监控设置' })).toHaveAttribute('aria-expanded', 'false')
+      await expect(page.getByLabel('监听总开关')).not.toBeVisible()
+      await page.getByRole('button', { name: '设备监控设置' }).click()
+      await expect(page.getByLabel('监听总开关')).toBeChecked()
+    }
     await capture(page, info, `${route.slice(1)}-long-content`)
   })
 }
@@ -92,6 +97,7 @@ test('monitor config errors remain visible and can recover', async ({ page }, in
   })
   await page.goto('/im')
   await expect(page.getByRole('alert')).toContainText('QA config unavailable')
+  await page.getByRole('button', { name: '设备监控设置' }).click()
   configFailed = false
   await page.getByRole('button', { name: '重试加载设置' }).click()
   await expect(page.getByLabel('监听总开关')).toBeChecked()
