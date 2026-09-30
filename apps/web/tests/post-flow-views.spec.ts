@@ -7,11 +7,10 @@ import PostPublishView from '@/views/PostPublishView.vue'
 import { emptyPost } from '@/data/post-fields'
 import { configStorageKey, emptyPublishConfig } from '@/data/post-publish'
 
-const mocks = vi.hoisted(() => ({ list: vi.fn(), save: vi.fn(), devices: vi.fn(), task: vi.fn(), download: vi.fn() }))
+const mocks = vi.hoisted(() => ({ configured: true, list: vi.fn(), save: vi.fn(), devices: vi.fn(), task: vi.fn(), download: vi.fn() }))
 vi.mock('@/data/product-fields', async (original) => ({ ...await original<typeof import('@/data/product-fields')>(), downloadDataUrl: mocks.download }))
 vi.mock('@/api/post-catalog', () => ({ createPostCatalog: () => ({ list: mocks.list, save: mocks.save }) }))
-vi.mock('@/api/control', () => ({ controlApiConfigured: true, createControlApiClient: () => ({ createPlatformTask: mocks.task }) }))
-vi.mock('@/data/xianyu-task-devices', async (original) => ({ ...await original<typeof import('@/data/xianyu-task-devices')>(), fetchXianyuTaskDevices: mocks.devices }))
+vi.mock('@/api/control', () => ({ get controlApiConfigured() { return mocks.configured }, createControlApiClient: () => ({ createPlatformTask: mocks.task, devices: mocks.devices }) }))
 
 function deferred<T>() {
   let resolve!: (value: T) => void
@@ -35,10 +34,11 @@ async function mountPublish(platform: 'xianyu' | 'xiaohongshu' = 'xiaohongshu') 
 }
 beforeEach(() => {
   vi.clearAllMocks()
+  mocks.configured = true
   localStorage.clear()
   mocks.list.mockReset().mockResolvedValue([])
   mocks.save.mockReset().mockImplementation(async ({ post }) => post)
-  mocks.devices.mockReset().mockResolvedValue([{ id: 'd1', name: '计划设备', online: true, account: '', accountId: null }])
+  mocks.devices.mockReset().mockResolvedValue([{ id: 'd1', logical_name: '计划设备', last_seen_at: new Date().toISOString() }])
 })
 
 describe('link recording boundaries', () => {
@@ -156,14 +156,25 @@ describe('browser-only post allocation plans', () => {
     expect((screen.getByRole('button', { name: '保存浏览器计划' }) as HTMLButtonElement).disabled).toBe(true)
     await fireEvent.click(screen.getByRole('button', { name: '重试读取' }))
     await waitFor(() => expect(screen.queryByRole('alert')).toBeNull())
-    expect(screen.getByText('没有符合条件的内容。可先编辑帖子或调整筛选。')).toBeTruthy()
+    expect(await screen.findByText('没有符合条件的内容。可先编辑帖子或调整筛选。')).toBeTruthy()
     expect(mocks.task).not.toHaveBeenCalled()
   })
-  it('reports swallowed device-loader errors and keeps the plan disabled', async () => {
-    mocks.devices.mockImplementationOnce(async (onError) => { onError('设备读取失败'); return [] })
+  it('reports rejected device reads and keeps the plan disabled', async () => {
+    mocks.devices.mockRejectedValueOnce(new Error('设备读取失败'))
     await mountPublish()
     expect(screen.getByRole('alert').textContent).toContain('设备读取失败')
     expect((screen.getByRole('button', { name: '保存浏览器计划' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+  it('does not read devices or preserve stale device selections when API is unconfigured', async () => {
+    mocks.configured = false
+    mocks.list.mockResolvedValue([emptyPost({ id: 'p1', title: '测试笔记' })])
+    localStorage.setItem(configStorageKey('xiaohongshu'), JSON.stringify(emptyPublishConfig({ postIds: ['p1'], deviceIds: ['stale'] })))
+    await mountPublish()
+    expect(mocks.devices).not.toHaveBeenCalled()
+    expect(screen.getByText('分配预览 · 0 条计划记录')).toBeTruthy()
+    await fireEvent.click(screen.getByRole('button', { name: '保存浏览器计划' }))
+    expect(screen.getByRole('alert').textContent).toContain('请先选择计划设备和笔记')
+    expect(mocks.task).not.toHaveBeenCalled()
   })
   it('clamps jumps and resets the page when search narrows results', async () => {
     mocks.list.mockResolvedValue(Array.from({ length: 12 }, (_, index) => emptyPost({ id: String(index), title: '条目' + index })))
