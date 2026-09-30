@@ -1,0 +1,151 @@
+import { createPinia } from 'pinia'
+import { fireEvent, render, screen, within, waitFor } from '@testing-library/vue'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { PlatformTaskView } from '@cloudctl/api-contracts'
+const mock = vi.hoisted(() => ({ configured: true, api: { listPlatformTasks: vi.fn(), devices: vi.fn(), getPlatformTask: vi.fn(), resumePlatformTask: vi.fn() } }))
+vi.mock('@/api/control', () => ({ get controlApiConfigured() { return mock.configured }, createControlApiClient: () => mock.api }))
+import TaskQueueView from '@/views/TaskQueueView.vue'
+import { useSessionStore } from '@/stores/session'
+function task(id: string, state = 'PAUSED_WAITING_USER'): PlatformTaskView {
+  return { id, taskId: id, deviceId: 'device-1', accountId: 'account-1', bindingVersion: 2, deviceIdAtExecution: null, commandType: 'XIANYU_PUBLISH', commandPayload: { title: '真实任务参数' }, snapshotSha256: null, state, runnerStatus: 'PAUSED', controlMode: 'MANUAL', batchId: null, attempt: 1, attemptId: 'attempt-1', scheduledFor: '2026-09-30T12:00:00Z', stallReason: '需要检查页面', resumeCount: 0, pauseAckAt: null, reconciliation: null, errorCode: null, detail: '商品填表任务', result: null, createdBy: 'operator', createdAt: '2026-09-30T10:00:00Z', startedAt: null, completedAt: null }
+}
+function mount(allowed = true) {
+  const pinia = createPinia()
+  const session = useSessionStore(pinia)
+  session.loaded = true; session.permissions = allowed ? ['device.control'] : []
+  return render(TaskQueueView, { global: { plugins: [pinia] } })
+}
+function deferred<T>() { let resolve!: (value: T) => void; const promise = new Promise<T>(r => { resolve = r }); return { promise, resolve } }
+beforeEach(() => {
+  mock.configured = true; vi.resetAllMocks()
+  mock.api.listPlatformTasks.mockResolvedValue({ items: [task('task-1')], nextCursor: null })
+  mock.api.devices.mockResolvedValue([{ id: 'device-1', logical_name: '真实设备甲' }])
+  mock.api.getPlatformTask.mockImplementation(async (id: string) => task(id))
+})
+describe('TaskQueueView', () => {
+  it('preserves every backend business state in rows and filters', async () => {
+    const states = ['QUEUED', 'WAITING_MATERIALS', 'PREFLIGHT', 'RUNNING', 'PAUSE_REQUESTED', 'PAUSED_WAITING_USER', 'RESUME_CHECK', 'RECONCILING', 'CANCEL_REQUESTED', 'SUCCEEDED', 'FAILED', 'CANCELLED', 'EXPIRED']
+    mock.api.listPlatformTasks.mockResolvedValue(states.map((state, i) => task('state-' + i, state)))
+    mount()
+    const table = await screen.findByRole('table')
+    for (const state of states) {
+      expect(within(table).getByText(new RegExp(' · ' + state + '$'))).toBeTruthy()
+    }
+    await fireEvent.update(screen.getByLabelText('任务状态'), 'CANCELLED')
+    expect(within(table).getAllByRole('row')).toHaveLength(2)
+  })
+  it('escapes spreadsheet formulas when exporting the loaded fields', async () => {
+    mock.api.listPlatformTasks.mockResolvedValue([{ ...task('task-1'), detail: '=SUM(1,2)' }])
+    const createUrl = vi.fn((_blob: Blob) => 'blob:test')
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: createUrl })
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: vi.fn() })
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined)
+    mount(); await screen.findByRole('table')
+    await fireEvent.click(screen.getByRole('button', { name: '导出筛选结果' }))
+    const csv = await new Promise<string>(resolve => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result))
+      reader.readAsText(createUrl.mock.calls[0]![0])
+    })
+    expect(csv).toContain("'=SUM(1,2)")
+    expect(csv).toContain('真实设备甲')
+    expect(csv).toContain('PAUSED_WAITING_USER')
+    click.mockRestore()
+  })
+  it('shows actual states, devices, command, schedule and filters with reset', async () => {
+    mock.api.listPlatformTasks.mockResolvedValue([task('task-1'), { ...task('task-2', 'RECONCILING'), commandType: 'OTHER', deviceId: 'device-2', errorCode: 'COMMIT_UNKNOWN' }])
+    mount()
+    const table = await screen.findByRole('table')
+    expect(within(table).getByText('真实设备甲')).toBeTruthy()
+    expect(within(table).getByText('已暂停，等待用户处理 · PAUSED_WAITING_USER')).toBeTruthy()
+    expect(within(table).getByText('对账中 · RECONCILING')).toBeTruthy()
+    expect(within(table).queryByText('待审批')).toBeNull()
+    await fireEvent.update(screen.getByLabelText('设备'), 'device-2')
+    expect(within(table).queryByText('task-1')).toBeNull()
+    await fireEvent.click(screen.getByRole('button', { name: '还原筛选' }))
+    await fireEvent.update(screen.getByLabelText('查找'), 'COMMIT_UNKNOWN')
+    expect(within(table).getByText('task-2')).toBeTruthy()
+    expect(within(table).queryByText('task-1')).toBeNull()
+    await fireEvent.update(screen.getByLabelText('查找'), 'missing')
+    expect(screen.getByText('没有符合筛选条件的任务')).toBeTruthy()
+  })
+  it('distinguishes loading, empty, unavailable, malformed and failed loads', async () => {
+    const pending = deferred<unknown>()
+    mock.api.listPlatformTasks.mockReturnValue(pending.promise)
+    mount()
+    expect(await screen.findByText('正在加载任务与设备…')).toBeTruthy()
+    expect(screen.queryByText('暂无任务')).toBeNull()
+    pending.resolve({ items: [] })
+    expect(await screen.findByText('暂无任务')).toBeTruthy()
+    mock.api.listPlatformTasks.mockResolvedValue({ invalid: true })
+    await fireEvent.click(screen.getByRole('button', { name: '刷新任务' }))
+    expect(await screen.findByRole('alert')).toHaveProperty('textContent', '任务加载失败：任务列表响应格式不正确')
+    mock.api.listPlatformTasks.mockRejectedValue(new Error('offline'))
+    await fireEvent.click(screen.getByRole('button', { name: '刷新任务' }))
+    expect(await screen.findByText('任务加载失败：offline')).toBeTruthy()
+  })
+  it('never falls back to mock when API is unavailable', async () => {
+    mock.configured = false; mount()
+    expect((await screen.findByRole('alert')).textContent).toContain('未配置 Control API')
+    expect(mock.api.listPlatformTasks).not.toHaveBeenCalled()
+  })
+  it('pages the loaded range locally and retains unknown raw states', async () => {
+    mock.api.listPlatformTasks.mockResolvedValue(Array.from({ length: 21 }, (_, i) => task('task-' + i, i === 20 ? 'FUTURE_STATE' : 'QUEUED')))
+    mount(); await screen.findByRole('table')
+    expect(screen.queryByText('task-20')).toBeNull()
+    await fireEvent.click(screen.getByRole('button', { name: '下一页' }))
+    expect(within(screen.getByRole('table')).getByText('未识别状态 · FUTURE_STATE')).toBeTruthy()
+    expect(mock.api.listPlatformTasks).toHaveBeenCalledTimes(1)
+  })
+  it('loads actual detail and requires checkbox, reason and single in-flight resume', async () => {
+    const pending = deferred<PlatformTaskView>()
+    mock.api.resumePlatformTask.mockReturnValue(pending.promise)
+    mount(); await fireEvent.click(await screen.findByRole('button', { name: '详情' }))
+    const dialog = screen.getByRole('dialog')
+    await within(dialog).findByText(/真实任务参数/)
+    const submit = within(dialog).getByRole('button', { name: '交还控制权并继续' }) as HTMLButtonElement
+    expect(submit.disabled).toBe(true)
+    await fireEvent.update(within(dialog).getByLabelText('恢复理由'), '已核验页面')
+    expect(submit.disabled).toBe(true)
+    await fireEvent.click(within(dialog).getByRole('checkbox'))
+    expect(submit.disabled).toBe(false)
+    await fireEvent.click(submit); await fireEvent.click(submit)
+    expect(mock.api.resumePlatformTask).toHaveBeenCalledExactlyOnceWith('task-1', { pageVerified: true, reason: '已核验页面' })
+    pending.resolve(task('task-1', 'RESUME_CHECK'))
+    expect(await within(dialog).findByText(/恢复请求已提交/)).toBeTruthy()
+    expect(within(dialog).queryByRole('checkbox')).toBeNull()
+  })
+  it('gates resume by permission and reports detail failure', async () => {
+    mount(false); await fireEvent.click(await screen.findByRole('button', { name: '详情' }))
+    expect(await screen.findByText('当前登录身份没有设备控制权限，无法恢复任务。')).toBeTruthy()
+    expect((screen.getByRole('button', { name: '交还控制权并继续' }) as HTMLButtonElement).disabled).toBe(true)
+    await fireEvent.click(screen.getByRole('button', { name: '关闭详情' }))
+    mock.api.getPlatformTask.mockRejectedValue(new Error('denied'))
+    await fireEvent.click(screen.getByRole('button', { name: '详情' }))
+    expect(await screen.findByText('详情加载失败：denied')).toBeTruthy()
+    expect(mock.api.resumePlatformTask).not.toHaveBeenCalled()
+  })
+  it('ignores stale detail responses after switching tasks', async () => {
+    const pending = deferred<PlatformTaskView>()
+    mock.api.listPlatformTasks.mockResolvedValue([task('task-1'), task('task-2')])
+    mock.api.getPlatformTask.mockReturnValueOnce(pending.promise).mockResolvedValueOnce({ ...task('task-2'), detail: '第二任务详情' })
+    mount(); await screen.findByRole('table')
+    await fireEvent.click(screen.getAllByRole('button', { name: '详情' })[0]!)
+    await fireEvent.click(screen.getByRole('button', { name: '关闭详情' }))
+    await fireEvent.click(screen.getAllByRole('button', { name: '详情' })[1]!)
+    await screen.findByText(/详情：第二任务详情/)
+    pending.resolve({ ...task('task-1'), detail: '过期响应' })
+    await waitFor(() => expect(screen.queryByText(/过期响应/)).toBeNull())
+    expect(screen.getByRole('dialog').textContent).toContain('第二任务详情')
+  })
+  it('requires fresh verification after resume failure', async () => {
+    mock.api.resumePlatformTask.mockRejectedValue(new Error('409 conflict'))
+    mount(); await fireEvent.click(await screen.findByRole('button', { name: '详情' }))
+    const checkbox = await screen.findByRole('checkbox')
+    await fireEvent.click(checkbox); await fireEvent.update(screen.getByLabelText('恢复理由'), '重新核验')
+    await fireEvent.click(screen.getByRole('button', { name: '交还控制权并继续' }))
+    expect(await screen.findByText('恢复失败：409 conflict')).toBeTruthy()
+    expect((checkbox as HTMLInputElement).checked).toBe(false)
+    expect((screen.getByRole('button', { name: '交还控制权并继续' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+})

@@ -15,6 +15,7 @@ import {
   X,
 } from 'lucide-vue-next'
 import PageHeader from '@/components/PageHeader.vue'
+import TaskQueueView from '@/views/TaskQueueView.vue'
 import PostCollectView from '@/views/PostCollectView.vue'
 import PostEditorView from '@/views/PostEditorView.vue'
 import PostGroupView from '@/views/PostGroupView.vue'
@@ -806,7 +807,7 @@ async function loadOperationData() {
   clearPoll()
   backendTasks.value = []
   platformTasks.value = []
-  if (isOrderSync.value || isProductList.value || isProductEditor.value || isProductImport.value || isProductGroup.value || isPostEditor.value || isPostCollect.value || isPostList.value || isPostGroup.value || isPostWatermark.value || isPostPublishXianyu.value || isPostPublishXiaohongshu.value || isXiaohongshuNurture.value || isListingInfoCollect.value || isXianyuPublishGoods.value) return
+  if (isTaskQueue.value || isOrderSync.value || isProductList.value || isProductEditor.value || isProductImport.value || isProductGroup.value || isPostEditor.value || isPostCollect.value || isPostList.value || isPostGroup.value || isPostWatermark.value || isPostPublishXianyu.value || isPostPublishXiaohongshu.value || isXiaohongshuNurture.value || isListingInfoCollect.value || isXianyuPublishGoods.value) return
   if (!controlApiConfigured) {
     connection.value = operationsMockEnabled ? 'mock' : 'unavailable'
     connectionDetail.value = operationsMockEnabled
@@ -1066,7 +1067,8 @@ onUnmounted(clearPoll)
 </script>
 
 <template>
-  <OrderSyncView v-if="isOrderSync" />
+  <TaskQueueView v-if="isTaskQueue" />
+  <OrderSyncView v-else-if="isOrderSync" />
   <ProductOrdersWorkspace v-else-if="isProductList" />
   <ProductImportView v-else-if="isProductImport" />
   <ProductGroupView v-else-if="isProductGroup" />
