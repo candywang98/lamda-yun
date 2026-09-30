@@ -1,0 +1,36 @@
+{
+  "activated": true,
+  "release": "web-qa-ec1b0cc95dfc",
+  "sourceSha": "ec1b0cc95dfc9c46f4687a86fa6906b97d45f7e7",
+  "archiveSha256": "87382bb1eb24d4b832206ffa1d3484bda18b788d7ec58b418eac798646735a75",
+  "activatedAt": "2026-09-30T12:29:08Z",
+  "oldWeb": "/var/www/cloudctl-mobile-web-qa-e328929262e4",
+  "newWeb": "/var/www/cloudctl-mobile-web-qa-ec1b0cc95dfc",
+  "apiRelease": "/home/ubuntu/cloudctl-mobile/releases/order-delivery-557f547",
+  "apiPid": "2790688",
+  "apiRestarted": false,
+  "databaseMigrated": false,
+  "backupRestoreVerified": true,
+  "backupTables": 69,
+  "businessBefore": {
+    "schema": "20260926_0035",
+    "outCount": 23,
+    "taskCount": 379
+  },
+  "businessAfter": {
+    "schema": "20260926_0035",
+    "outCount": 23,
+    "taskCount": 379
+  },
+  "deviceActionsIssued": false,
+  "httpVerification": {
+    "routes": 5,
+    "entryAssets": 2,
+    "apiReads": 6,
+    "versionAndAssetBytesMatch": true,
+    "healthChecks": 2,
+    "receiveOnly": true
+  },
+  "verificationOrigin": "external authenticated public HTTPS; no protection changes",
+  "receiveOnly": true
+}

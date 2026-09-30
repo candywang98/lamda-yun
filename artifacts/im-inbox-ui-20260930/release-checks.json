@@ -1,0 +1,73 @@
+{
+  "baseline": "e328929262e40f1333f9d274c340aafe0e36604b",
+  "sourceSha": "ec1b0cc95dfc9c46f4687a86fa6906b97d45f7e7",
+  "ownedPathDiff": [
+    "apps/web/e2e/console-regressions.spec.ts",
+    "apps/web/src/features/im/MessageClassification.vue",
+    "apps/web/src/views/ImInboxView.vue",
+    "apps/web/tests/im-inbox.spec.ts"
+  ],
+  "branch": "release/im-inbox-ui-20260930",
+  "contracts": "Release-baseline contracts compiled locally; node_modules workspace link resolves within release worktree",
+  "buildEnv": {
+    "VITE_CONTROL_API_URL": "https://43.133.243.154.sslip.io",
+    "VITE_CONTROL_API_DEV_AUTH": "false",
+    "VITE_OPERATIONS_MOCK_ENABLED": "false"
+  },
+  "commands": [
+    {
+      "command": "pnpm install --offline --frozen-lockfile",
+      "exitCode": 0,
+      "log": "install.log"
+    },
+    {
+      "command": "pnpm --filter @cloudctl/api-contracts build",
+      "exitCode": 0,
+      "log": "contracts-build.log"
+    },
+    {
+      "command": "pnpm exec vue-tsc -b && pnpm exec vite build --base=/cloudctl-mobile/ --outDir=/tmp/cloudctl-im-inbox-deploy-20260930/dist",
+      "env": "buildEnv applied to both commands",
+      "exitCode": 0,
+      "log": "web-build.log"
+    },
+    {
+      "command": "pnpm exec vitest run tests/im-inbox.spec.ts",
+      "exitCode": 0,
+      "files": 1,
+      "tests": 47,
+      "log": "targeted.log"
+    },
+    {
+      "command": "pnpm exec eslint src/views/ImInboxView.vue src/features/im/MessageClassification.vue tests/im-inbox.spec.ts e2e/console-regressions.spec.ts",
+      "exitCode": 0,
+      "log": "lint.log"
+    },
+    {
+      "command": "pnpm exec vitest run",
+      "exitCode": 0,
+      "files": 45,
+      "tests": 522,
+      "log": "full-web.log"
+    },
+    {
+      "command": "git diff e328929262e40f1333f9d274c340aafe0e36604b HEAD --check",
+      "exitCode": 0
+    }
+  ],
+  "archive": "web-qa-ec1b0cc95dfc.tar.gz",
+  "archiveSha256": "87382bb1eb24d4b832206ffa1d3484bda18b788d7ec58b418eac798646735a75",
+  "version": {
+    "sourceSha": "ec1b0cc95dfc9c46f4687a86fa6906b97d45f7e7",
+    "release": "web-qa-ec1b0cc95dfc",
+    "builtAt": "2026-09-30T12:24:21.596548Z",
+    "base": "/cloudctl-mobile/",
+    "mockEnabled": false,
+    "devAuthEnabled": false
+  },
+  "limitations": [
+    "No cloud SSH deploy/device operations performed",
+    "Production deployment and authenticated readback remain parent-controlled",
+    "Build warning for chunks over 500 kB; test warning for experimental localStorage"
+  ]
+}

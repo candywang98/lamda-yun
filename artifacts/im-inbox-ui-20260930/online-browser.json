@@ -1,0 +1,25 @@
+{
+  "settingsCollapsed": true,
+  "settingsHidden": true,
+  "allDevices": true,
+  "aggregationHint": true,
+  "diagnosticsHidden": true,
+  "threadCount": 1,
+  "visibleErrors": [],
+  "network": {
+    "errors": [],
+    "blockedWrites": [],
+    "badResponses": []
+  },
+  "settingsExpand": true,
+  "version": {
+    "sourceSha": "ec1b0cc95dfc9c46f4687a86fa6906b97d45f7e7",
+    "release": "web-qa-ec1b0cc95dfc",
+    "builtAt": "2026-09-30T12:24:21.596548Z",
+    "base": "/cloudctl-mobile/",
+    "mockEnabled": false,
+    "devAuthEnabled": false
+  },
+  "url": "https://43.133.243.154.sslip.io/cloudctl-mobile/im",
+  "checkedAt": "2026-09-30T12:31:04.424Z"
+}
