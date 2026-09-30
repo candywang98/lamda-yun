@@ -2,14 +2,16 @@
 import { computed, ref } from 'vue'
 import { Search } from 'lucide-vue-next'
 import PageHeader from '@/components/PageHeader.vue'
-import { isRetiredOperation, operationModules, operationPath } from '@/data/operations-catalog'
+import { useDisplaySettings } from '@/stores/display-settings'
+import { operationPath } from '@/data/operations-catalog'
 import { moduleDescriptions, operationPageStatus, pageStatusLabels, quickPaths, type PageStatus } from '@/data/operation-page-availability'
 
 const search = ref('')
 const status = ref<'all' | PageStatus>('all')
-const directory = operationModules.map((module) => ({ ...module, operations: module.operations.filter((operation) => !isRetiredOperation(operation.id)) }))
-const total = directory.reduce((count, module) => count + module.operations.length, 0)
-const filteredModules = computed(() => directory.map((module) => ({ ...module,
+const display = useDisplaySettings()
+const directory = computed(() => display.visibleModules())
+const total = computed(() => directory.value.reduce((count, module) => count + module.operations.length, 0))
+const filteredModules = computed(() => directory.value.map((module) => ({ ...module,
   operations: module.operations.filter((operation) => {
     const text = [module.label, moduleDescriptions[module.id], operation.title, ...operation.pageProfile.fields.map((field) => field.label)].join(' ').toLowerCase()
     return text.includes(search.value.trim().toLowerCase()) && (status.value === 'all' || operationPageStatus(operation) === status.value)
@@ -19,7 +21,7 @@ const visibleCount = computed(() => filteredModules.value.reduce((count, module)
 </script>
 
 <template>
-  <PageHeader title="运营功能目录" :description="directory.length + ' 个业务模块 · ' + total + ' 个目录入口。从设备准备开始，整理内容、发布任务，再查看结果。'" />
+  <PageHeader title="运营功能目录" :description="directory.length + ' 个业务模块 · ' + total + ' 个可见目录入口。从设备准备开始，整理内容、发布任务，再查看结果。'" />
   <nav class="catalog-quick-paths" aria-label="常用操作链路">
     <RouterLink v-for="(item, index) in quickPaths" :key="item.to" :to="item.to">
       <span class="cell-sub">{{ index + 1 }}</span><strong>{{ item.title }}</strong><small>{{ item.description }}</small>
