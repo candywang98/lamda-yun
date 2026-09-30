@@ -104,6 +104,7 @@ describe('OperationsView live Control API path', () => {
     await renderLiveOperation()
     await screen.findByLabelText('版本说明')
     await fireEvent.update(screen.getByLabelText('版本说明'), '封面素材 v2')
+    await fireEvent.update(screen.getByLabelText('实际资源 ID'), 'media-real-001')
     await fireEvent.click(screen.getByRole('button', { name: '保存配置' }))
     await waitFor(() => expect(api.updateOperationFeatureConfigDraft).toHaveBeenCalledWith(
       'assets-02',
@@ -121,11 +122,13 @@ describe('OperationsView live Control API path', () => {
     await fireEvent.click(screen.getByRole('button', { name: '确认提交' }))
 
     await screen.findByText('后端任务已接收')
+    expect(screen.getByText(/执行状态：contract_only · 执行器可用：否/)).toBeTruthy()
+    expect(screen.getByText(/后端任务已接收不代表设备正在执行/)).toBeTruthy()
     expect(api.createOperationTask).toHaveBeenCalledWith(
       expect.objectContaining({
         operationKey: 'media.derivative.generate',
         featureId: 'assets-02',
-        resourceId: 'demo-resource-001',
+        resourceId: 'media-real-001',
         parameters: {
           pageParameters: {
             assetName: '',
@@ -149,7 +152,7 @@ describe('OperationsView live Control API path', () => {
 
     await fireEvent.click(screen.getByRole('button', { name: '取消任务' }))
     await waitFor(() => expect(api.cancelOperationTask).toHaveBeenCalledWith('task-live-001', { reason: '登记图片素材' }))
-    expect(screen.getByText(/CANCELED/)).toBeTruthy()
+    expect(screen.getAllByText(/CANCELED/).length).toBeGreaterThan(0)
     expect(canceledTask.status).toBe('CANCELED')
     expect(queuedTask.status).toBe('QUEUED')
   })
@@ -162,9 +165,7 @@ describe('OperationsView live Control API path', () => {
     await renderLiveOperation()
     await screen.findByLabelText('版本说明')
     await fireEvent.update(screen.getByLabelText('版本说明'), '封面素材 v3')
-    const rowSelections = screen.getAllByLabelText('选择 图片素材 · task-liv')
-    await fireEvent.click(rowSelections[0]!)
-    await fireEvent.click(rowSelections[1]!)
+    await fireEvent.update(screen.getByLabelText('实际资源 ID'), 'media-real-001,media-real-002')
     await fireEvent.click(screen.getAllByRole('button', { name: '创建后端任务' })[0]!)
     await fireEvent.update(
       screen.getByPlaceholderText('填写授权依据或业务用途，写入审计'),
@@ -177,7 +178,7 @@ describe('OperationsView live Control API path', () => {
       expect.objectContaining({
         operationKey: 'media.derivative.generate',
         featureId: 'assets-02',
-        resourceIds: ['task-live-001', 'task-live-002'],
+        resourceIds: ['media-real-001', 'media-real-002'],
         parameters: {
           pageParameters: {
             assetName: '',
