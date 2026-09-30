@@ -15,7 +15,9 @@ import {
   savePublishConfig,
   type PostPublishPlatform,
 } from '@/data/post-publish'
-import { fetchXianyuTaskDevices, type XianyuTaskDevice } from '@/data/xianyu-task-devices'
+import type { XianyuTaskDevice } from '@/data/xianyu-task-devices'
+import { controlApiConfigured, createControlApiClient } from '@/api/control'
+import { mapControlDevice } from '@/api/devices'
 
 const props = defineProps<{ platform: PostPublishPlatform }>()
 const router = useRouter()
@@ -62,13 +64,24 @@ const allSelected = computed({
   },
 })
 
+async function loadPlanDevices(): Promise<XianyuTaskDevice[]> {
+  if (!controlApiConfigured) return []
+  const records = await createControlApiClient().devices()
+  if (!Array.isArray(records)) throw new Error('设备列表格式无效')
+  return records.filter((record) => record && typeof record.id === 'string' && record.id.trim()).map((record) => {
+    const device = mapControlDevice(record)
+    // Allocation is a browser plan, not an account authorization decision.
+    return { id: device.id, name: device.name, online: device.presence === 'ONLINE', account: '', accountId: null }
+  })
+}
+
 async function loadData() {
   if (busy.value) return
   busy.value = true
   loaded.value = false
   loadError.value = ''
   const results = await Promise.allSettled([
-    fetchXianyuTaskDevices((message) => { loadError.value = message }),
+    loadPlanDevices(),
     catalog.list(),
   ])
   const [deviceResult, postResult] = results
