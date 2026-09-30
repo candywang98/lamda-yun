@@ -34,6 +34,13 @@ async function renderRoute(path: string) {
 }
 
 describe('OperationsView', () => {
+  it('routes task queue to the dedicated fail-closed view', async () => {
+    await renderRoute('/operations/task-queue/task-queue-01')
+    expect(await screen.findByText('未配置 Control API，无法读取真实任务。')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '创建模拟任务' })).toBeNull()
+    expect(screen.queryByText('页面参数快照')).toBeNull()
+  })
+
   beforeEach(() => {
     window.localStorage.clear()
     vi.restoreAllMocks()
