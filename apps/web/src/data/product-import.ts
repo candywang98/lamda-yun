@@ -112,7 +112,7 @@ export function parseCsv(text: string): string[][] {
     row.push(cell)
     rows.push(row)
   }
-  return rows.filter((item) => item.some((value) => cleanCell(value).length > 0))
+  return rows
 }
 
 function headerIndex(headers: string[]): Record<(typeof IMPORT_HEADERS)[number], number> {
@@ -141,9 +141,26 @@ export function parseImportTable(table: string[][]): ImportParseResult {
     const title = read('标题')
     const price = read('价格')
     const images = splitImageRefs(read('图片'))
-    if (!title && !price && images.length === 0) return
+    if (!cells.some((cell) => cleanCell(cell))) return
     if (!title || !price || images.length === 0) {
       errors.push(`第 ${line} 行缺少必填字段（图片、标题、价格）`)
+      return
+    }
+    if (images.length > 100 || images.some((image) => image.length > 2048)) {
+      errors.push('第 ' + line + ' 行图片引用超限（最多 100 个，每个最长 2048 字符），已跳过')
+      return
+    }
+    const invalidMoney = (['价格', '入手价', '运费'] as const).find((key) => {
+      const value = read(key)
+      return value !== '' && (!/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(value) || !Number.isFinite(Number(value)) || Number(value) < 0)
+    })
+    if (invalidMoney) {
+      errors.push('第 ' + line + ' 行' + invalidMoney + '必须是非负有限数值，已跳过')
+      return
+    }
+    const stock = read('库存') || '0'
+    if (!/^\d+$/.test(stock) || !Number.isSafeInteger(Number(stock))) {
+      errors.push('第 ' + line + ' 行库存必须是非负安全整数，已跳过')
       return
     }
     images.filter((item) => !isRemoteImage(item)).forEach((item) => localImageRefs.push(item))
@@ -156,13 +173,14 @@ export function parseImportTable(table: string[][]): ImportParseResult {
       description: read('描述'),
       notes: read('备注'),
       costPrice: read('入手价') ? normalizePrice(read('入手价')) : '',
-      stock: Number(read('库存') || '0') || 0,
+      stock: Number(stock),
       shippingFee: read('运费') ? normalizePrice(read('运费')) : '',
       collectionLink: read('采集链接'),
       address: addressRaw ? [addressRaw] : [],
     })
   })
-  if (table.length - 1 > 100) errors.push('单次最多导入 100 个商品，已截取前 100 行')
+  const overflow = table.slice(101).filter((cells) => cells.some((cell) => cleanCell(cell))).length
+  if (overflow) errors.push('单次最多检查前 100 行商品；第 102 行起另有 ' + overflow + ' 行未处理，请拆分文件后另行导入')
   return { rows, errors, localImageRefs: [...new Set(localImageRefs)] }
 }
 
@@ -182,7 +200,7 @@ export async function parseExcelBytes(data: ArrayBuffer | Uint8Array): Promise<I
   const workbook = xlsx.read(data, { type: 'array' })
   const sheetName = workbook.SheetNames[0]
   if (!sheetName) return { rows: [], errors: ['Excel 文件没有工作表'], localImageRefs: [] }
-  const table = xlsx.utils.sheet_to_json<(string | number | null)[]>(workbook.Sheets[sheetName]!, { header: 1, raw: false, blankrows: false })
+  const table = xlsx.utils.sheet_to_json<(string | number | null)[]>(workbook.Sheets[sheetName]!, { header: 1, raw: false, blankrows: true })
   return parseImportTable(table.map((row) => (row ?? []).map((cell) => String(cell ?? ''))))
 }
 
@@ -209,7 +227,6 @@ export async function parseImportFile(file: File): Promise<ImportParseResult> {
 
 export function toProductCreate(row: ParsedImportRow, groupName: string, resolvedImages: string[]): ProductCreate {
   const attributes = emptyAttributes()
-  attributes.images = resolvedImages
   attributes.notes = row.notes
   attributes.costPrice = row.costPrice
   attributes.shippingFee = row.shippingFee
@@ -224,6 +241,6 @@ export function toProductCreate(row: ParsedImportRow, groupName: string, resolve
     price: row.price,
     stock: row.stock,
     mediaAssetIds: [],
-    attributes: attributesPayload(attributes),
+    attributes: { ...attributesPayload(attributes), importedImageRefs: [...resolvedImages] },
   }
 }
