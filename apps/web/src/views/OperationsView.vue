@@ -25,7 +25,8 @@ import PostWatermarkView from '@/views/PostWatermarkView.vue'
 import ProductEditView from '@/views/ProductEditView.vue'
 import ProductImportView from '@/views/ProductImportView.vue'
 import ProductGroupView from '@/views/ProductGroupView.vue'
-import ProductManagementView from '@/views/ProductManagementView.vue'
+import ProductOrdersWorkspace from '@/views/ProductOrdersWorkspace.vue'
+import OrderSyncView from '@/views/OrderSyncView.vue'
 import RetiredOperationView from '@/views/RetiredOperationView.vue'
 import XianyuPublishGoodsView from '@/views/XianyuPublishGoodsView.vue'
 import XianyuSimpleTaskView from '@/views/XianyuSimpleTaskView.vue'
@@ -128,6 +129,7 @@ const mockRows = computed<OperationRow[]>(() => {
   }))
 })
 
+const isOrderSync = computed(() => operation.value.id === 'orders-01')
 const isProductList = computed(() => operation.value.id === 'product-management-01')
 const isProductImport = computed(() => operation.value.id === 'product-management-02')
 const isProductGroup = computed(() => operation.value.id === 'product-management-03')
@@ -804,7 +806,7 @@ async function loadOperationData() {
   clearPoll()
   backendTasks.value = []
   platformTasks.value = []
-  if (isProductList.value || isProductEditor.value || isProductImport.value || isProductGroup.value || isPostEditor.value || isPostCollect.value || isPostList.value || isPostGroup.value || isPostWatermark.value || isPostPublishXianyu.value || isPostPublishXiaohongshu.value || isXiaohongshuNurture.value || isListingInfoCollect.value || isXianyuPublishGoods.value) return
+  if (isOrderSync.value || isProductList.value || isProductEditor.value || isProductImport.value || isProductGroup.value || isPostEditor.value || isPostCollect.value || isPostList.value || isPostGroup.value || isPostWatermark.value || isPostPublishXianyu.value || isPostPublishXiaohongshu.value || isXiaohongshuNurture.value || isListingInfoCollect.value || isXianyuPublishGoods.value) return
   if (!controlApiConfigured) {
     connection.value = operationsMockEnabled ? 'mock' : 'unavailable'
     connectionDetail.value = operationsMockEnabled
@@ -1064,7 +1066,8 @@ onUnmounted(clearPoll)
 </script>
 
 <template>
-  <ProductManagementView v-if="isProductList" />
+  <OrderSyncView v-if="isOrderSync" />
+  <ProductOrdersWorkspace v-else-if="isProductList" />
   <ProductImportView v-else-if="isProductImport" />
   <ProductGroupView v-else-if="isProductGroup" />
   <ProductEditView v-else-if="isProductEditor" />

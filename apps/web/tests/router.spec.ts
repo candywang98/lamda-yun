@@ -7,7 +7,7 @@ describe('core route contract', () => {
     expect(coreRoutes).toHaveLength(23)
     expect(new Set(coreRoutes.map((route) => route.path)).size).toBe(23)
     expect(coreRoutes.find((route) => route.name === 'im-inbox')?.component).toBeTruthy()
-    expect(coreRoutes.find((route) => route.name === 'orders')?.component).toBeTruthy()
+    expect(coreRoutes.find((route) => route.name === 'orders')?.redirect).toBe('/operations/orders/orders-01')
     expect(coreRoutes.find((route) => route.name === 'mobile-automation')?.redirect).toBe('/operations/system-home/system-home-02')
     expect(coreRoutes.find((route) => route.name === 'devices')?.redirect).toBe('/operations/system-home/system-home-02')
     expect(coreRoutes.find((route) => route.name === 'device-detail')?.component).toBeTruthy()
@@ -20,12 +20,12 @@ describe('core route contract', () => {
     expect(coreRoutes.find((route) => route.name === 'recipe-versions')?.component).toBeTruthy()
   })
 
-  it('exposes the orders page at /orders (order-sync/20260915.1)', async () => {
-    const testRouter = createRouter({ history: createMemoryHistory(), routes: coreRoutes })
+  it('redirects the legacy orders URL to the canonical sync task', async () => {
+    const testRouter = createRouter({ history: createMemoryHistory(), routes: [...coreRoutes, ...operationRoutes] })
     await testRouter.push('/orders')
     await testRouter.isReady()
-    expect(testRouter.currentRoute.value.name).toBe('orders')
-    expect(coreRoutes.find((route) => route.name === 'orders')?.component).toBeTruthy()
+    expect(testRouter.currentRoute.value.fullPath).toBe('/operations/orders/orders-01')
+    expect(coreRoutes.find((route) => route.name === 'orders')?.redirect).toBe('/operations/orders/orders-01')
   })
 
   it('gives each page a visible title and navigation section', () => {
@@ -36,8 +36,18 @@ describe('core route contract', () => {
   })
 
   it('adds catalog and reusable dynamic operation routes without changing the core routes', () => {
-    expect(operationRoutes).toHaveLength(3)
-    expect(operationRoutes.map((route) => route.path)).toEqual(['/operations', '/operations/settings/display', '/operations/:moduleId/:operationId'])
+    expect(operationRoutes).toHaveLength(4)
+    expect(operationRoutes.map((route) => route.path)).toEqual(['/operations/orders/orders-04', '/operations', '/operations/settings/display', '/operations/:moduleId/:operationId'])
+  })
+
+  it('redirects all-orders from both initial load and an existing dynamic operation route', async () => {
+    const testRouter = createRouter({ history: createMemoryHistory(), routes: operationRoutes })
+    await testRouter.push('/operations/orders/orders-04')
+    expect(testRouter.currentRoute.value.fullPath).toBe('/operations/product-management/product-management-01?tab=orders')
+    await testRouter.push('/operations/orders/orders-01')
+    await testRouter.push('/operations/orders/orders-04')
+    expect(testRouter.currentRoute.value.params.moduleId).toBe('product-management')
+    expect(testRouter.currentRoute.value.query.tab).toBe('orders')
   })
 
   it('redirects unknown operation identifiers to the catalog', async () => {

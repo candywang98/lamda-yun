@@ -11,7 +11,6 @@ import {
   Image,
   Layers,
   Lightbulb,
-  ListOrdered,
   Menu,
   MessageCircle,
   Package,
@@ -75,7 +74,6 @@ const catalogOpen = computed(() => route.name === 'operations-catalog')
 const settingsOpen = computed(() => route.name === 'operations-display-settings')
 const recipesOpen = computed(() => route.name === 'recipe-versions')
 const imOpen = computed(() => route.path.startsWith('/im'))
-const ordersOpen = computed(() => route.path.startsWith('/orders'))
 const fleetOpen = computed(() => route.path.startsWith('/fleet'))
 const remoteOpen = computed(() => route.name === 'device-detail')
 const pageTitle = computed(() => {
@@ -131,7 +129,6 @@ watch(currentOperation, (operation) => {
         <RouterLink to="/operations/settings/display" class="yy-catalog-link" :class="{ active: settingsOpen }" @click="session.sidebarOpen = false"><Settings2 :size="14" />显示设置</RouterLink>
         <RouterLink to="/recipes" class="yy-catalog-link" :class="{ active: recipesOpen }" @click="session.sidebarOpen = false"><Package :size="14" />Recipe 版本管理</RouterLink>
         <RouterLink to="/im" class="yy-catalog-link" :class="{ active: imOpen }" @click="session.sidebarOpen = false"><MessageCircle :size="14" />消息聚合</RouterLink>
-        <RouterLink to="/orders" class="yy-catalog-link" :class="{ active: ordersOpen }" @click="session.sidebarOpen = false"><ListOrdered :size="14" />订单同步</RouterLink>
         <RouterLink to="/fleet" class="yy-catalog-link" :class="{ active: fleetOpen }" @click="session.sidebarOpen = false"><Smartphone :size="14" />设备工作台</RouterLink>
         <section v-for="module in visibleModules" :key="module.id" class="yy-module-block">
           <button

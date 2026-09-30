@@ -18,6 +18,8 @@ import {
   type XianyuOrderRunView,
 } from '@/api/orders'
 import OrdersView from '@/views/OrdersView.vue'
+import OrderSyncView from '@/views/OrderSyncView.vue'
+import { createMemoryHistory, createRouter } from 'vue-router'
 
 const runId = '018f1a2b-0000-7000-8000-000000000010'
 const taskId = '018f1a2b-0000-7000-8000-000000000020'
@@ -28,7 +30,8 @@ function render(component: typeof OrdersView, roles = ['device_operator']) {
   const pinia = createPinia()
   const session = useSessionStore(pinia)
   session.applySession({ userId: 'operator', tenantId: 'tenant', roles, mfa: true, requestId: 'fixture' })
-  return { ...renderView(component, { global: { plugins: [pinia] } }), session }
+  const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/:pathMatch(.*)*', component: { template: '<div />' } }] })
+  return { ...renderView(component, { global: { plugins: [pinia, router] } }), session }
 }
 
 function deliveryFixture(overrides: Partial<OrderDelivery> = {}): OrderDelivery {
@@ -164,7 +167,7 @@ function runFixture(tasks: XianyuOrderRunTask[], overrides: Partial<XianyuOrderR
 }
 
 async function readyToCollect(roles = ['device_operator']) {
-  const view = render(OrdersView, roles)
+  const view = render(OrderSyncView, roles)
   await flushPromises()
   await fireEvent.update(screen.getByLabelText('设备'), 'dev-alpha-0001')
   await flushPromises()
@@ -173,7 +176,7 @@ async function readyToCollect(roles = ['device_operator']) {
 }
 
 async function clickCollect() {
-  await fireEvent.click(screen.getByRole('button', { name: '开始采集' }))
+  await fireEvent.click(screen.getByRole('button', { name: '创建同步任务' }))
   await vi.advanceTimersByTimeAsync(0)
 }
 
@@ -206,6 +209,16 @@ describe('OrdersView', () => {
     await flushPromises()
     expect(listOrders).toHaveBeenLastCalledWith(expect.objectContaining({ direction: 'BOUGHT', offset: 0 }))
     expect(screen.getByText('BOUGHT-1')).toBeTruthy()
+  })
+
+  it('keeps stored results read-only with a link to the task entry', async () => {
+    render(OrdersView)
+    await flushPromises()
+    expect(screen.queryByRole('button', { name: '创建同步任务' })).toBeNull()
+    expect(screen.queryByLabelText('采集屏数')).toBeNull()
+    expect(screen.getByRole('link', { name: '创建同步任务' }).getAttribute('href')).toBe('/operations/orders/orders-01')
+    expect(startXianyuOrderCollect).not.toHaveBeenCalled()
+    expect(fetchXianyuOrderRun).not.toHaveBeenCalled()
   })
 
   it('renders order rows with formatted amounts, direction chips and status text', async () => {
@@ -286,11 +299,11 @@ describe('OrdersView', () => {
   })
 
   it('disables the collect button with a hint until a concrete device is selected', async () => {
-    render(OrdersView)
-    await screen.findByText('XY202609141234')
-    const collect = screen.getByRole('button', { name: '开始采集' }) as HTMLButtonElement
+    render(OrderSyncView)
+    await flushPromises()
+    const collect = screen.getByRole('button', { name: '创建同步任务' }) as HTMLButtonElement
     expect(collect.disabled).toBe(true)
-    expect(screen.getByText(/请先在上方「设备」下拉选择具体设备/)).toBeTruthy()
+    expect(screen.getByText(/请选择执行同步的设备/)).toBeTruthy()
     // 旧的禁用态说明已随入口启用移除
     expect(screen.queryByText(/待真机定位器验证后启用/)).toBeNull()
     expect(vi.mocked(startXianyuOrderCollect)).not.toHaveBeenCalled()
@@ -302,14 +315,14 @@ describe('OrdersView', () => {
       .mockResolvedValueOnce(collectResultFixture({ runId: runId2, taskIds: [taskId2],
         tasks: [{ taskId: taskId2, state: 'QUEUED', createdAt: null }], direction: 'BOUGHT' }))
     vi.mocked(fetchXianyuOrderRun).mockResolvedValue(runFixture([runTaskFixture()], { direction: 'BOUGHT', delivery: syncedDelivery() }))
-    render(OrdersView)
-    await screen.findByText('XY202609141234')
+    render(OrderSyncView)
+    await flushPromises()
     await fireEvent.update(screen.getByLabelText('设备'), 'dev-alpha-0001')
-    await fireEvent.update(screen.getByLabelText('采集方向'), 'BOUGHT')
-    await fireEvent.update(screen.getByLabelText('屏数'), '3')
+    await fireEvent.update(screen.getByLabelText('订单方向'), 'BOUGHT')
+    await fireEvent.update(screen.getByLabelText('采集屏数'), '3')
     vi.useFakeTimers()
     try {
-      await fireEvent.click(screen.getByRole('button', { name: '开始采集' }))
+      await fireEvent.click(screen.getByRole('button', { name: '创建同步任务' }))
       await vi.advanceTimersByTimeAsync(0)
       expect(vi.mocked(startXianyuOrderCollect)).toHaveBeenCalledTimes(1)
       expect(vi.mocked(startXianyuOrderCollect)).toHaveBeenCalledWith(
@@ -318,10 +331,10 @@ describe('OrdersView', () => {
       )
       // 第一轮轮询到终态收口，busy 解除
       await vi.advanceTimersByTimeAsync(2000)
-      const button = screen.getByRole('button', { name: '新建采集' }) as HTMLButtonElement
+      const button = screen.getByRole('button', { name: '创建新的同步任务' }) as HTMLButtonElement
       expect(button.disabled).toBe(false)
       // 屏数回到缺省 1：不发送 screens 字段（slice1 v1 入参兼容）
-      await fireEvent.update(screen.getByLabelText('屏数'), '1')
+      await fireEvent.update(screen.getByLabelText('采集屏数'), '1')
       await fireEvent.click(button)
       await vi.advanceTimersByTimeAsync(0)
       expect(vi.mocked(startXianyuOrderCollect)).toHaveBeenCalledTimes(2)
@@ -337,32 +350,33 @@ describe('OrdersView', () => {
     }
   })
 
-  it('keeps polling after SUCCEEDED while PENDING, then refreshes the list only after SYNCED', async () => {
+  it('keeps polling after SUCCEEDED while PENDING and links to stored results only after SYNCED', async () => {
     vi.mocked(startXianyuOrderCollect).mockResolvedValueOnce(collectResultFixture())
     vi.mocked(fetchXianyuOrderRun)
       .mockResolvedValueOnce(runFixture([runTaskFixture()]))
       .mockResolvedValueOnce(runFixture([runTaskFixture()], { delivery: syncedDelivery() }))
-    render(OrdersView)
-    await screen.findByText('XY202609141234')
+    render(OrderSyncView)
+    await flushPromises()
     await fireEvent.update(screen.getByLabelText('设备'), 'dev-alpha-0001')
     const listCallsAfterLoad = vi.mocked(listOrders).mock.calls.length
     vi.useFakeTimers()
     try {
-      await fireEvent.click(screen.getByRole('button', { name: '开始采集' }))
+      await fireEvent.click(screen.getByRole('button', { name: '创建同步任务' }))
       // 提交 promise 落定后挂上第一个 2s 轮询
       await vi.advanceTimersByTimeAsync(0)
       await vi.advanceTimersByTimeAsync(2000)
       expect(vi.mocked(fetchXianyuOrderRun)).toHaveBeenCalledTimes(1)
       expect(screen.getByText('采集步骤完成')).toBeTruthy()
       expect(screen.getByText('同步待确认')).toBeTruthy()
+      expect(screen.queryByRole('link', { name: '查看已同步订单' })).toBeNull()
       expect(screen.getByText('已入库 0 屏 / 实际总屏数 待确认')).toBeTruthy()
       expect(vi.mocked(listOrders).mock.calls.length).toBe(listCallsAfterLoad)
-      expect((screen.getByRole('button', { name: '新建采集' }) as HTMLButtonElement).disabled).toBe(true)
+      expect((screen.getByRole('button', { name: '创建新的同步任务' }) as HTMLButtonElement).disabled).toBe(true)
       await vi.advanceTimersByTimeAsync(4000)
       expect(vi.mocked(fetchXianyuOrderRun)).toHaveBeenCalledTimes(2)
       expect(vi.mocked(fetchXianyuOrderRun)).toHaveBeenLastCalledWith(runId, expect.objectContaining({ durable: true }))
-      // 成功后自动刷新订单列表（比初始加载多一次）
-      expect(vi.mocked(listOrders).mock.calls.length).toBeGreaterThan(listCallsAfterLoad)
+      expect(listOrders).not.toHaveBeenCalled()
+      expect(screen.getByRole('link', { name: '查看已同步订单' }).getAttribute('href')).toBe('/operations/product-management/product-management-01?tab=orders')
       expect(screen.getByText('同步完成')).toBeTruthy()
       expect(screen.getByText('已入库 1 屏 / 实际总屏数 1')).toBeTruthy()
       expect(screen.getByText('SUCCEEDED', { selector: '.orders-task-state' })).toBeTruthy()
@@ -379,13 +393,13 @@ describe('OrdersView', () => {
         allTerminal: true, delivery: deliveryFixture({ state: 'BLOCKED', stopReason: 'TASK_FAILED' }),
       }),
     )
-    render(OrdersView)
-    await screen.findByText('XY202609141234')
+    render(OrderSyncView)
+    await flushPromises()
     await fireEvent.update(screen.getByLabelText('设备'), 'dev-alpha-0001')
     const listCallsAfterLoad = vi.mocked(listOrders).mock.calls.length
     vi.useFakeTimers()
     try {
-      await fireEvent.click(screen.getByRole('button', { name: '开始采集' }))
+      await fireEvent.click(screen.getByRole('button', { name: '创建同步任务' }))
       await vi.advanceTimersByTimeAsync(0)
       await vi.advanceTimersByTimeAsync(2000)
       expect(vi.mocked(fetchXianyuOrderRun)).toHaveBeenCalledTimes(1)
@@ -409,12 +423,12 @@ describe('OrdersView', () => {
     vi.mocked(fetchXianyuOrderRun).mockResolvedValue(
       runFixture([runTaskFixture({ state: 'RUNNING' })], { allTerminal: false }),
     )
-    const { unmount } = render(OrdersView)
-    await screen.findByText('XY202609141234')
+    const { unmount } = render(OrderSyncView)
+    await flushPromises()
     await fireEvent.update(screen.getByLabelText('设备'), 'dev-alpha-0001')
     vi.useFakeTimers()
     try {
-      await fireEvent.click(screen.getByRole('button', { name: '开始采集' }))
+      await fireEvent.click(screen.getByRole('button', { name: '创建同步任务' }))
       await vi.advanceTimersByTimeAsync(0)
       unmount()
       await vi.advanceTimersByTimeAsync(60000)
@@ -436,10 +450,10 @@ describe('OrdersView', () => {
     const pending = deferred<XianyuOrderCollectResult>()
     vi.mocked(startXianyuOrderCollect).mockReturnValueOnce(pending.promise)
     await readyToCollect()
-    const button = screen.getByRole('button', { name: '开始采集' })
+    const button = screen.getByRole('button', { name: '创建同步任务' })
     await Promise.all([fireEvent.click(button), fireEvent.click(button)])
     expect(startXianyuOrderCollect).toHaveBeenCalledTimes(1)
-    expect((screen.getByLabelText('屏数') as HTMLSelectElement).disabled).toBe(true)
+    expect((screen.getByLabelText('采集屏数') as HTMLSelectElement).disabled).toBe(true)
     const retry = screen.getByRole('button', { name: '重试提交' }) as HTMLButtonElement
     retry.disabled = false
     await fireEvent.click(retry)
@@ -447,7 +461,7 @@ describe('OrdersView', () => {
     pending.resolve(collectResultFixture())
     await vi.advanceTimersByTimeAsync(0)
     expect(screen.queryByRole('button', { name: '重试提交' })).toBeNull()
-    const newRun = screen.getByRole('button', { name: '新建采集' }) as HTMLButtonElement
+    const newRun = screen.getByRole('button', { name: '创建新的同步任务' }) as HTMLButtonElement
     newRun.disabled = false
     await fireEvent.click(newRun)
     expect(startXianyuOrderCollect).toHaveBeenCalledTimes(1)
@@ -461,11 +475,11 @@ describe('OrdersView', () => {
     await clickCollect()
     const first = vi.mocked(startXianyuOrderCollect).mock.calls[0]!
     expect(first[0].orderDeliveryProtocol).toBe(ORDER_DELIVERY_PROTOCOL)
-    expect((screen.getByRole('button', { name: '开始采集' }) as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByRole('button', { name: '创建同步任务' }) as HTMLButtonElement).disabled).toBe(true)
     await fireEvent.update(screen.getByLabelText('设备'), 'dev-beta-0002')
     // Programmatic changes cannot alter the request already snapshotted by the handler.
-    await fireEvent.update(screen.getByLabelText('采集方向'), 'BOUGHT')
-    await fireEvent.update(screen.getByLabelText('屏数'), '3')
+    await fireEvent.update(screen.getByLabelText('订单方向'), 'BOUGHT')
+    await fireEvent.update(screen.getByLabelText('采集屏数'), '3')
     await fireEvent.click(screen.getByRole('button', { name: '重试提交' }))
     await vi.advanceTimersByTimeAsync(0)
     expect(startXianyuOrderCollect).toHaveBeenCalledTimes(2)
@@ -485,7 +499,7 @@ describe('OrdersView', () => {
       expect(vi.mocked(startXianyuOrderCollect).mock.calls[0]![0].orderDeliveryProtocol).toBe(ORDER_DELIVERY_PROTOCOL)
       expect(screen.queryByRole('button', { name: '重试提交' })).toBeNull()
       expect(screen.queryByText('同步完成')).toBeNull()
-      expect((screen.getByRole('button', { name: '开始采集' }) as HTMLButtonElement).disabled).toBe(false)
+      expect((screen.getByRole('button', { name: '创建同步任务' }) as HTMLButtonElement).disabled).toBe(false)
       await vi.advanceTimersByTimeAsync(120000)
       expect(fetchXianyuOrderRun).not.toHaveBeenCalled()
       expect(startXianyuOrderCollect).toHaveBeenCalledTimes(1)
@@ -544,7 +558,7 @@ describe('OrdersView', () => {
     expect(screen.getByText('自动查询已暂停，同步状态以上次查询为准。')).toBeTruthy()
     expect(screen.getByText('同步待确认')).toBeTruthy()
     expect(screen.getByText('采集步骤完成')).toBeTruthy()
-    expect((screen.getByRole('button', { name: '新建采集' }) as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByRole('button', { name: '创建新的同步任务' }) as HTMLButtonElement).disabled).toBe(true)
     await vi.advanceTimersByTimeAsync(120000)
     expect(fetchXianyuOrderRun).toHaveBeenCalledTimes(7)
     vi.mocked(fetchXianyuOrderRun).mockResolvedValueOnce(runFixture([runTaskFixture()], { delivery: syncedDelivery() }))
@@ -654,7 +668,7 @@ describe('OrdersView', () => {
 
   it('enforces permission in submit and same-key retry handlers, while read-only GET remains available', async () => {
     const view = await readyToCollect(['viewer'])
-    const create = screen.getByRole('button', { name: '开始采集' }) as HTMLButtonElement
+    const create = screen.getByRole('button', { name: '创建同步任务' }) as HTMLButtonElement
     expect(create.disabled).toBe(true)
     create.disabled = false
     await fireEvent.click(create)
@@ -673,7 +687,7 @@ describe('OrdersView', () => {
     expect(startXianyuOrderCollect).toHaveBeenCalledTimes(1)
   })
 
-  it('keeps delivery proof separate from a failed order-list refresh', async () => {
+  it('does not load the results list while creating and confirming a sync task', async () => {
     vi.mocked(startXianyuOrderCollect).mockResolvedValueOnce(collectResultFixture())
     vi.mocked(fetchXianyuOrderRun).mockResolvedValueOnce(runFixture([runTaskFixture()], { delivery: syncedDelivery() }))
     await readyToCollect()
@@ -681,7 +695,8 @@ describe('OrdersView', () => {
     await clickCollect()
     await vi.advanceTimersByTimeAsync(2000)
     expect(screen.getByText('同步完成')).toBeTruthy()
-    expect(screen.getByText('list refresh unavailable')).toBeTruthy()
+    expect(listOrders).not.toHaveBeenCalled()
+    expect(screen.queryByText('list refresh unavailable')).toBeNull()
     expect(screen.queryByText(/已刷新订单列表/)).toBeNull()
   })
 
