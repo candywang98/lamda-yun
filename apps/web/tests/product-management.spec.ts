@@ -222,4 +222,19 @@ describe('product management regressions', () => {
     expect(screen.queryByText('没有符合条件的商品。')).toBeNull()
   })
 
+  it('neutralizes formula-like CSV text while preserving numeric prices', async () => {
+    await openProducts([{ ...product(1), title: '=1+1', description: '  @SUM(1)', price: '100', attributes: { notes: '-danger' } }])
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+      const csv = decodeURIComponent(this.href.split(',').slice(1).join(','))
+      expect(csv).toContain("'=1+1")
+      expect(csv).toContain("'  @SUM(1)")
+      expect(csv).toContain("'-danger")
+      expect(csv).toContain('"100"')
+      expect(csv).not.toContain("'100")
+    })
+    await fireEvent.click(screen.getByRole('button', { name: '导出' }))
+    expect(click).toHaveBeenCalledOnce()
+    click.mockRestore()
+  })
+
 })
