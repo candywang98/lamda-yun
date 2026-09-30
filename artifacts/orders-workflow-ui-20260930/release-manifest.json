@@ -1,0 +1,42 @@
+{
+  "status": "READY_NOT_DEPLOYED",
+  "sourceSha": "81bcdd087b7e5d79c653106d525397770deba7d1",
+  "release": "web-orders-81bcdd087b7e",
+  "baseline": "ec1b0cc95dfc9c46f4687a86fa6906b97d45f7e7",
+  "archive": "/tmp/cloudctl-orders-workflow-20260930-evidence/web-orders-81bcdd087b7e.tar.gz",
+  "archiveSha256": "8c7eca39f80b1ac2e4dd2a57cea05dec0b9fdccb9f4e12f9b6bf2aad18ac1549",
+  "archiveBytes": 488576,
+  "ownedPathDiff": [
+    "apps/web/src/components/OperationsShell.vue",
+    "apps/web/src/router.ts",
+    "apps/web/src/views/OperationsView.vue",
+    "apps/web/src/views/OrderSyncView.vue",
+    "apps/web/src/views/OrdersView.vue",
+    "apps/web/src/views/ProductOrdersWorkspace.vue",
+    "apps/web/tests/operations-shell.spec.ts",
+    "apps/web/tests/orders-view.spec.ts",
+    "apps/web/tests/orders-workflow.spec.ts",
+    "apps/web/tests/router.spec.ts"
+  ],
+  "version": {
+    "sourceSha": "81bcdd087b7e5d79c653106d525397770deba7d1",
+    "release": "web-orders-81bcdd087b7e",
+    "builtAt": "2026-09-30T13:13:20.360655+00:00",
+    "base": "/cloudctl-mobile/",
+    "mockEnabled": false,
+    "devAuthEnabled": false
+  },
+  "tests": {
+    "main": 633,
+    "release": 528,
+    "releaseFiles": 46
+  },
+  "deviceActionsIssued": false,
+  "cloudDeploymentPerformed": false,
+  "preview": "read-only local candidate with live API GET requests",
+  "limitations": [
+    "Browser screenshot capture timed out; functional DOM and viewport dimensions verified.",
+    "Real-device synchronization task was not run.",
+    "Date-range filtering and recurring schedules are not supported by the existing collection API."
+  ]
+}

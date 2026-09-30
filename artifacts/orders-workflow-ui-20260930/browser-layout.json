@@ -1,0 +1,176 @@
+[
+  {
+    "url": "/cloudctl-mobile/operations/orders/orders-01",
+    "viewport": 1440,
+    "pageWidth": 1440,
+    "overflow": false,
+    "controls": [
+      {
+        "tag": "SELECT",
+        "left": 371,
+        "right": 799,
+        "height": 36
+      },
+      {
+        "tag": "SELECT",
+        "left": 371,
+        "right": 799,
+        "height": 36
+      },
+      {
+        "tag": "SELECT",
+        "left": 371,
+        "right": 799,
+        "height": 36
+      },
+      {
+        "tag": "BUTTON",
+        "left": 371,
+        "right": 467,
+        "height": 34
+      }
+    ]
+  },
+  {
+    "url": "/cloudctl-mobile/operations/orders/orders-01",
+    "viewport": 390,
+    "pageWidth": 390,
+    "overflow": false,
+    "controls": [
+      {
+        "tag": "SELECT",
+        "left": 43,
+        "right": 347,
+        "height": 36
+      },
+      {
+        "tag": "SELECT",
+        "left": 43,
+        "right": 347,
+        "height": 36
+      },
+      {
+        "tag": "SELECT",
+        "left": 43,
+        "right": 347,
+        "height": 36
+      },
+      {
+        "tag": "BUTTON",
+        "left": 43,
+        "right": 139,
+        "height": 34
+      }
+    ]
+  },
+  {
+    "url": "/cloudctl-mobile/operations/orders/orders-01",
+    "viewport": 320,
+    "pageWidth": 320,
+    "overflow": false,
+    "controls": [
+      {
+        "tag": "SELECT",
+        "left": 43,
+        "right": 277,
+        "height": 36
+      },
+      {
+        "tag": "SELECT",
+        "left": 43,
+        "right": 277,
+        "height": 36
+      },
+      {
+        "tag": "SELECT",
+        "left": 43,
+        "right": 277,
+        "height": 36
+      },
+      {
+        "tag": "BUTTON",
+        "left": 43,
+        "right": 139,
+        "height": 34
+      }
+    ]
+  },
+  {
+    "url": "/cloudctl-mobile/operations/product-management/product-management-01?tab=orders",
+    "viewport": 1440,
+    "pageWidth": 1425,
+    "overflow": false,
+    "controls": [
+      {
+        "tag": "SELECT",
+        "left": 758,
+        "right": 918,
+        "height": 36
+      },
+      {
+        "tag": "SELECT",
+        "left": 960,
+        "right": 1120,
+        "height": 36
+      },
+      {
+        "tag": "INPUT",
+        "left": 1162,
+        "right": 1322,
+        "height": 36
+      }
+    ]
+  },
+  {
+    "url": "/cloudctl-mobile/operations/product-management/product-management-01?tab=orders",
+    "viewport": 390,
+    "pageWidth": 390,
+    "overflow": false,
+    "controls": [
+      {
+        "tag": "SELECT",
+        "left": 73,
+        "right": 349,
+        "height": 36
+      },
+      {
+        "tag": "SELECT",
+        "left": 73,
+        "right": 349,
+        "height": 36
+      },
+      {
+        "tag": "INPUT",
+        "left": 73,
+        "right": 349,
+        "height": 36
+      }
+    ]
+  },
+  {
+    "url": "/cloudctl-mobile/operations/product-management/product-management-01?tab=orders",
+    "viewport": 320,
+    "pageWidth": 320,
+    "overflow": false,
+    "controls": [
+      {
+        "tag": "SELECT",
+        "left": 73,
+        "right": 279,
+        "height": 36
+      },
+      {
+        "tag": "SELECT",
+        "left": 73,
+        "right": 279,
+        "height": 36
+      },
+      {
+        "tag": "INPUT",
+        "left": 73,
+        "right": 279,
+        "height": 36
+      }
+    ]
+  }
+]
