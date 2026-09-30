@@ -41,7 +41,7 @@ import type { XianyuSimpleKind } from '@/data/xianyu-simple-tasks'
 import { extraKindByOperationId } from '@/data/xianyu-extra-tasks'
 import StatusBadge from '@/components/StatusBadge.vue'
 import { findOperation, isRetiredOperation } from '@/data/operations-catalog'
-import { workbenchActions, workbenchColumns, workbenchKind } from '@/data/operation-workbenches'
+import { workbenchColumns, workbenchKind } from '@/data/operation-workbenches'
 import { initialPageParameters, type OperationPageField } from '@/data/operation-page-profiles'
 import { buildOperationParameters } from '@/data/operation-parameters'
 import { controlApiConfigured, createControlApiClient, operationsMockEnabled } from '@/api/control'
@@ -92,9 +92,17 @@ const showConfirm = ref(false)
 const confirmPhrase = ref('')
 const reason = ref('')
 const runResult = ref<{ requestId: string; taskId?: string; status: string; targets: number; source: 'live' | 'mock' } | null>(null)
-const activeGuideStep = ref(0)
-const form = ref({ deviceScope: '在线且兼容的授权设备（3 台）', executionApp: '主应用', schedule: '立即执行（加入队列）', snapshot: 'catalog-demo/revision-1', concurrency: 1, resourceIds: 'demo-resource-001' })
-const pageParameters = ref<Record<string, string | number | boolean>>(initialPageParameters(operation.value.pageProfile))
+const form = ref({ deviceScope: '', executionApp: '主应用', schedule: '立即执行（加入队列）', snapshot: '', concurrency: 1, resourceIds: !controlApiConfigured && operationsMockEnabled ? 'demo-resource-001' : '' })
+function initialGenericParameters() {
+  const values = initialPageParameters(operation.value.pageProfile)
+  if (controlApiConfigured || !operationsMockEnabled) {
+    for (const field of operation.value.pageProfile.fields) {
+      if (field.control === 'datetime' || (typeof values[field.id] === 'string' && String(values[field.id]).startsWith('demo-'))) values[field.id] = ''
+    }
+  }
+  return values
+}
+const pageParameters = ref<Record<string, string | number | boolean>>(initialGenericParameters())
 type OperationConnection = 'connecting' | 'live' | 'mock' | 'unavailable'
 const initialConnection: OperationConnection = controlApiConfigured ? 'connecting' : operationsMockEnabled ? 'mock' : 'unavailable'
 const connection = ref<OperationConnection>(initialConnection)
@@ -115,6 +123,7 @@ const configurationVersion = ref(0)
 const configurationExists = ref(false)
 const configurationUpdatedAt = ref<string | null>(null)
 let pollTimer: number | undefined
+let loadGeneration = 0
 
 const mockRows = computed<OperationRow[]>(() => {
   const devices = ['杭州-内容-023', '上海-内容-014', '北京-实验-008', '广州-内容-031']
@@ -190,9 +199,9 @@ const rows = computed<OperationRow[]>(() => {
   
   return backendTasks.value.map((task) => ({
     id: task.id,
-    name: `${operation.value.title} · ${task.id.slice(0, 8)}`,
+    name: `${task.operationKey} · ${task.id.slice(0, 8)}`,
     group: task.module,
-    device: `${task.totalCount} 个资源`,
+    device: liveDevices.value.find(device => device.id === task.context.deviceScope)?.name ?? (typeof task.context.deviceScope === 'string' && task.context.deviceScope ? task.context.deviceScope : String(task.totalCount) + ' 个资源'),
     owner: task.requestedBy,
     status: task.status,
     updatedAt: formatDate(task.completedAt ?? task.startedAt ?? task.createdAt),
@@ -210,9 +219,9 @@ function mapPlatformTaskState(state: string): OperationRow['status'] {
 }
 
 const filteredRows = computed(() => rows.value.filter((row) => {
-  const matchesSearch = `${row.name}${row.group}${row.device}${row.owner}`.toLowerCase().includes(search.value.trim().toLowerCase())
+  const matchesSearch = `${row.id}${row.name}${row.group}${row.device}${row.owner}${rowDeviceId(row.id)}`.toLowerCase().includes(search.value.trim().toLowerCase())
   const matchesStatus = statusFilter.value === '全部状态' || row.status === statusFilter.value
-  const matchesDevice = deviceFilter.value === '全部设备' || row.device === deviceFilter.value
+  const matchesDevice = deviceFilter.value === '全部设备' || (connection.value === 'mock' ? row.device : rowDeviceId(row.id)) === deviceFilter.value
   return matchesSearch && matchesStatus && matchesDevice
 }))
 
@@ -221,10 +230,11 @@ const catalogEntry = computed(() => serverCatalog.value.find((entry) => entry.ke
 const serverMappingConfirmed = computed(() => catalogEntry.value?.featureIds.includes(operation.value.id) === true && catalogEntry.value.risk === operation.value.risk)
 const parameterContractConfirmed = computed(() => catalogEntry.value?.allowedParameters.includes('pageParameters') === true)
 const targetResourceIds = computed(() => {
-  if (selectedIds.value.length > 0) return [...new Set(selectedIds.value)]
+  if (connection.value === 'mock' && selectedIds.value.length > 0) return [...new Set(selectedIds.value)]
   return [...new Set(form.value.resourceIds.split(/[\n,]/).map((item) => item.trim()).filter(Boolean))]
 })
 const canCreate = computed(() => {
+  if (operation.value.mode === 'guide' || form.value.schedule === '仅保存配置' || apiBusy.value) return false
   if (operation.value.risk === 'blocked') return false
   if (isContentEditor.value) {
     const title = String((isProductEditor.value ? pageParameters.value.productTitle : pageParameters.value.contentTitle) ?? '').trim()
@@ -233,7 +243,7 @@ const canCreate = computed(() => {
   }
   if (!operation.value.backendOperationKey) return false
   if (connection.value === 'connecting') return false
-  if (connection.value === 'live') return catalogEntry.value?.allowed === true && serverMappingConfirmed.value && parameterContractConfirmed.value
+  if (connection.value === 'live') return catalogEntry.value?.allowed === true && serverMappingConfirmed.value && parameterContractConfirmed.value && targetResourceIds.value.length > 0 && (kind.value !== 'task' || liveDevices.value.some(device => device.id === form.value.deviceScope))
   return connection.value === 'mock'
 })
 const actionLabel = computed(() => {
@@ -250,6 +260,7 @@ const actionLabel = computed(() => {
 })
 const requiredConfirmPhrase = computed(() => connection.value === 'live' ? '确认授权范围' : '确认模拟范围')
 const disabledReason = computed(() => {
+  if (form.value.schedule === '仅保存配置') return '当前选择仅保存配置，不会创建执行任务'
   if (operation.value.risk === 'blocked') return '生产策略明确阻断该能力'
   if (isContentEditor.value) {
     if (connection.value !== 'live') return '内容编辑需要可用的 Control API，不会写入 Mock 内容'
@@ -264,6 +275,8 @@ const disabledReason = computed(() => {
   if (connection.value === 'live' && catalogEntry.value?.allowed !== true) return '当前后端身份没有该操作权限'
   if (connection.value === 'live' && !parameterContractConfirmed.value) return '后端目录未声明 pageParameters 参数合同'
   if (connection.value === 'unavailable') return 'Control API 未配置或连接失败，生产操作已关闭'
+  if (connection.value === 'live' && !targetResourceIds.value.length) return '请填写实际资源 ID；历史任务 ID 不作为资源目标'
+  if (connection.value === 'live' && kind.value === 'task' && !liveDevices.value.some(device => device.id === form.value.deviceScope)) return '请选择本次查询返回的设备'
   return undefined
 })
 const kind = computed(() => workbenchKind(operation.value))
@@ -282,9 +295,20 @@ const postBusy = ref(false)
 const productMediaItems = ref<ProductMediaUpdateItem[]>([])
 const archiveReason = ref('商品已停止销售')
 const dispatchDeviceId = ref('')
-const tableColumns = computed(() => workbenchColumns(operation.value))
-const tableActions = computed(() => workbenchActions(operation.value))
-const articleBody = computed(() => operation.value.sourceSummary.replaceAll('\u0000', ' ').trim())
+const tableColumns = computed(() => connection.value === 'mock' ? workbenchColumns(operation.value) : [
+  { key: 'name' as const, label: '操作任务' }, { key: 'group' as const, label: '模块' },
+  { key: 'device' as const, label: '设备或资源范围' }, { key: 'owner' as const, label: '发起人' },
+  { key: 'status' as const, label: '任务状态' }, { key: 'updatedAt' as const, label: '任务更新时间' },
+])
+const detailTask = computed(() => backendTasks.value.find(task => task.id === detailRow.value?.id))
+const rowDeviceId = (id: string) => {
+  const context = backendTasks.value.find(task => task.id === id)?.context
+  return typeof context?.deviceScope === 'string' ? context.deviceScope : ''
+}
+const deviceFilterOptions = computed(() => connection.value === 'mock'
+  ? [...new Set(rows.value.map(row => row.device))].map(name => ({ id: name, name }))
+  : liveDevices.value)
+const statusFilterOptions = computed(() => [...new Set(rows.value.map(row => row.status))])
 const deviceKeyword = ref('')
 const liveDevices = ref<DeviceRecord[]>([])
 const deviceRows = computed(() => (connection.value === 'live' ? liveDevices.value : []))
@@ -325,18 +349,19 @@ const assets = [
 watch(operation, () => {
   search.value = ''
   statusFilter.value = '全部状态'
+  deviceFilter.value = '全部设备'
+  form.value = { deviceScope: '', executionApp: '主应用', schedule: '立即执行（加入队列）', snapshot: '', concurrency: 1, resourceIds: !controlApiConfigured && operationsMockEnabled ? 'demo-resource-001' : '' }
   selectedIds.value = []
   runResult.value = null
   activeTask.value = null
   auditEvents.value = []
   apiError.value = ''
-  activeGuideStep.value = 0
   detailRow.value = null
   viewFeedback.value = ''
   configurationVersion.value = 0
   configurationExists.value = false
   configurationUpdatedAt.value = null
-  pageParameters.value = initialPageParameters(operation.value.pageProfile)
+  pageParameters.value = initialGenericParameters()
   selectedPostId.value = null
   productMediaItems.value = []
   dispatchDeviceId.value = ''
@@ -426,12 +451,12 @@ function applyFeatureConfiguration(configuration: JsonObject) {
     ) as Record<string, string | number | boolean>
     pageParameters.value = { ...pageParameters.value, ...safeParameters }
   }
-  if (typeof configuration.deviceScope === 'string') form.value.deviceScope = configuration.deviceScope
-  if (typeof configuration.executionApp === 'string') form.value.executionApp = configuration.executionApp
-  if (typeof configuration.schedule === 'string') form.value.schedule = configuration.schedule
-  if (typeof configuration.snapshot === 'string') form.value.snapshot = configuration.snapshot
-  if (typeof configuration.concurrency === 'number') form.value.concurrency = configuration.concurrency
-  if (typeof configuration.resourceIds === 'string') form.value.resourceIds = configuration.resourceIds
+  if (typeof configuration.deviceScope === 'string' && liveDevices.value.some(device => device.id === configuration.deviceScope)) form.value.deviceScope = configuration.deviceScope
+  form.value.executionApp = '主应用'
+  if (configuration.schedule === '立即执行（加入队列）' || configuration.schedule === '仅保存配置') form.value.schedule = configuration.schedule
+  form.value.snapshot = ''
+  form.value.concurrency = 1
+  form.value.resourceIds = '' // Targets require fresh explicit input, not a saved demo or stale draft.
 }
 
 async function saveCurrentView() {
@@ -484,6 +509,7 @@ function exportAssetIndex() {
 }
 
 function csvCell(value: string | number) {
+  if (/^[\s]*[=+@-]/.test(String(value))) value = "'" + value
   return `"${String(value).replaceAll('"', '""')}"`
 }
 
@@ -609,7 +635,7 @@ function resetPostForm() {
   selectedPostId.value = null
   productMediaItems.value = []
   archiveReason.value = '商品已停止销售'
-  pageParameters.value = initialPageParameters(operation.value.pageProfile)
+  pageParameters.value = initialGenericParameters()
   viewFeedback.value = `已开始新${isProductEditor.value ? '商品' : '帖'}，未写入后端`
 }
 
@@ -804,7 +830,10 @@ function schedulePoll() {
 }
 
 async function loadOperationData() {
+  const generation = ++loadGeneration
   clearPoll()
+  if (operation.value.mode === 'guide') return
+  selectedIds.value = []
   backendTasks.value = []
   platformTasks.value = []
   if (isTaskQueue.value || isOrderSync.value || isProductList.value || isProductEditor.value || isProductImport.value || isProductGroup.value || isPostEditor.value || isPostCollect.value || isPostList.value || isPostGroup.value || isPostWatermark.value || isPostPublishXianyu.value || isPostPublishXiaohongshu.value || isXiaohongshuNurture.value || isListingInfoCollect.value || isXianyuPublishGoods.value) return
@@ -855,6 +884,7 @@ async function loadOperationData() {
       controlApi.operationFeatureConfigDraft(operation.value.id),
       controlApi.devices(),
     ])
+    if (generation !== loadGeneration) return
     serverCatalog.value = catalog
     backendTasks.value = operation.value.backendOperationKey
       ? tasks.filter((task) => task.operationKey === operation.value.backendOperationKey)
@@ -902,6 +932,7 @@ async function loadOperationData() {
         : 'Control API 已连接，当前页面尚未保存配置草稿'
     }
   } catch (error) {
+    if (generation !== loadGeneration) return
     connection.value = 'unavailable'
     connectionDetail.value = `Control API 请求失败，生产操作已关闭：${errorDetail(error)}`
     apiError.value = `Control API 初始化失败：${errorDetail(error)}`
@@ -920,14 +951,14 @@ function createMockRun() {
 }
 
 async function createRun() {
-  if (!canCreate.value || !operation.value.backendOperationKey) return
+  if (!canCreate.value || !operation.value.backendOperationKey || confirmPhrase.value !== requiredConfirmPhrase.value || reason.value.trim().length < 2) return
   if (connection.value === 'mock') {
     createMockRun()
     return
   }
   const resources = targetResourceIds.value
   if (resources.length === 0) {
-    apiError.value = '至少填写一个资源 ID，或从列表选择已有任务作为目标引用。'
+    apiError.value = '至少填写一个实际资源 ID；历史任务 ID 不作为资源目标。'
     return
   }
   if (resources.length > 1 && catalogEntry.value?.batchAllowed !== true) {
@@ -1063,7 +1094,7 @@ onMounted(() => {
   restoreSavedView()
   void loadOperationData()
 })
-onUnmounted(clearPoll)
+onUnmounted(() => { ++loadGeneration; clearPoll() })
 </script>
 
 <template>
@@ -1092,15 +1123,17 @@ onUnmounted(clearPoll)
   <ListingInfoCollectView v-else-if="isListingInfoCollect" />
   <template v-else>
   <PageHeader v-if="!isDeviceList" :title="operation.title" :description="operation.moduleLabel">
-    <template #actions>
-      <button class="button" @click="isContentEditor ? resetPostForm() : (pageParameters = initialPageParameters(operation.pageProfile))">重置</button>
+    <template v-if="kind !== 'article'" #actions>
+      <button class="button" @click="isContentEditor ? resetPostForm() : (pageParameters = initialGenericParameters())">重置</button>
       <button v-if="!isContentEditor" class="button" :disabled="apiBusy" @click="saveCurrentView">保存配置</button>
       <button class="button button-primary" :disabled="!canCreate || postBusy" :title="canCreate ? undefined : disabledReason" @click="requestAction"><Play :size="15" />{{ actionLabel }}</button>
       <button v-if="isProductEditor" class="button" type="button" :disabled="postBusy || connection !== 'live' || !selectedPostId || !dispatchDeviceId" @click="dispatchSavedPost">下发到闲鱼填表</button>
     </template>
   </PageHeader>
 
-  <div v-if="false" class="operation-context-strip"></div>
+  <div v-if="kind !== 'article' && !isDeviceList" class="notice notice-info"><div><strong>{{ connection === 'mock' ? '显式 Mock 演示 · 不会执行真实任务' : '配置预览' }}</strong><p>保存配置不代表执行能力已接通；创建任务仍需后端映射、权限和参数校验。</p><p v-if="disabledReason">{{ disabledReason }}</p></div></div>
+  <p v-if="connection === 'connecting' && kind !== 'article'" role="status">正在加载配置与任务记录…</p>
+  <button v-if="kind !== 'article' && !isDeviceList" class="button" :disabled="connection === 'connecting' || apiBusy" @click="loadOperationData">刷新数据</button>
 
   <section v-if="isDeviceList" class="panel yy-workbench">
     <div class="page-header yy-workbench-head">
@@ -1174,19 +1207,24 @@ onUnmounted(clearPoll)
     </div>
 
     <article v-if="kind === 'article'" class="yy-article">
-      <p>{{ articleBody }}</p>
-      <ol class="yy-help-list">
-        <li v-for="step in operation.pageProfile.workflow" :key="step">{{ step }}</li>
-      </ol>
+      <p>CloudCtl 使用入口：先检查设备连接，再管理内容；各业务页面会说明当前可用能力与执行条件。</p>
+      <ul class="yy-help-list">
+        <li><RouterLink to="/fleet">设备总览</RouterLink>：查看设备连接与任务状态。</li>
+        <li><RouterLink to="/content-io">内容导入导出</RouterLink>：准备和传递内容数据。</li>
+        <li><RouterLink to="/operations/product-management/product-management-01">商品管理</RouterLink>：查找商品并进入编辑。</li>
+        <li><RouterLink to="/im">消息聚合</RouterLink>：查看已接入的会话。</li>
+        <li><RouterLink to="/operations/orders/orders-01">订单同步</RouterLink>：查看同步入口及其可用条件。</li>
+      </ul>
     </article>
 
     <div v-if="kind === 'task'" class="form-grid operation-form yy-task-form">
-      <div class="form-field"><label>执行设备</label><select v-model="form.deviceScope"><option>在线且兼容的授权设备（3 台）</option><option>仅北京实验设备（1 台）</option><option>保存配置但不选择设备</option></select></div>
-      <div class="form-field"><label>执行应用</label><select v-model="form.executionApp"><option>主应用</option><option>副应用</option><option>先主后副</option></select></div>
-      <div class="form-field"><label>执行时间</label><select v-model="form.schedule"><option>立即执行（加入队列）</option><option>2026-08-31 09:00</option><option>仅保存配置</option></select></div>
+      <div class="form-field"><label for="generic-device">执行设备</label><select id="generic-device" v-model="form.deviceScope"><option value="">请选择设备</option><option v-for="item in liveDevices" :key="item.id" :value="item.id">{{ item.name }} · {{ item.id }}</option></select></div>
+      <div class="form-field"><label>执行应用</label><select v-model="form.executionApp"><option>主应用</option></select></div>
+      <div class="form-field"><label for="generic-schedule">执行时间</label><select id="generic-schedule" v-model="form.schedule"><option>立即执行（加入队列）</option><option>仅保存配置</option></select></div>
       <div class="form-field"><label>同设备并发</label><input v-model="form.concurrency" type="number" min="1" max="1" disabled /></div>
     </div>
 
+    <div v-if="kind !== 'article' && connection !== 'mock'" class="form-field" style="margin:12px 0"><label for="generic-resource-ids">实际资源 ID</label><textarea id="generic-resource-ids" v-model="form.resourceIds" placeholder="从资源工作台取得 ID，多个用逗号或换行分隔" /><small>资源类型：{{ catalogEntry?.resourceType ?? '后端尚未确认' }}。历史任务记录不是资源选择器。列表最多读取 200 条任务。</small></div>
     <div v-if="isProductEditor && connection === 'live'" class="form-grid operation-specific-fields" style="margin-bottom:12px">
       <div class="form-field">
         <label for="post-dispatch-device">下发设备</label>
@@ -1227,15 +1265,16 @@ onUnmounted(clearPoll)
       <div v-if="selectedPostId" class="form-field"><label for="product-archive-reason">归档原因</label><input id="product-archive-reason" v-model="archiveReason" /><button class="button button-danger" type="button" :disabled="postBusy" @click="archiveCurrentProduct">归档商品</button></div>
     </div>
 
-    <div v-if="kind === 'pool'" class="panel-body operation-assets-grid">
+    <div v-if="kind === 'pool' && connection === 'mock'" class="panel-body operation-assets-grid">
       <button v-for="asset in assets" :key="asset.name" class="operation-asset" @click="search = asset.name"><span><component :is="asset.icon" :size="28" /></span><div><strong>{{ asset.name }}</strong><small>{{ asset.type }} · {{ asset.detail }}</small></div></button>
     </div>
-    <div v-if="kind === 'pool'" class="yy-action-row"><button class="button" @click="exportAssetIndex"><Download :size="14" />导出索引</button></div>
+    <div v-if="kind === 'pool' && connection === 'mock'" class="yy-action-row"><button class="button" @click="exportAssetIndex"><Download :size="14" />导出索引</button></div>
 
-    <div v-if="operation.mode === 'insight'" class="panel-body">
+    <div v-if="operation.mode === 'insight' && connection === 'mock'" class="panel-body">
       <div class="operation-chart" aria-label="模拟运营趋势图"><div v-for="(height, index) in [42, 56, 38, 74, 62, 88, 71, 92, 68, 81, 95, 78]" :key="index" :style="{ height: `${height}%` }"><span>{{ index + 1 }}</span></div></div>
     </div>
 
+    <p v-if="(kind === 'pool' || operation.mode === 'insight') && connection !== 'mock'">本页尚未接入{{ kind === 'pool' ? '素材列表' : '运营趋势数据' }}。<RouterLink to="/media-assets">打开媒体资产工作台</RouterLink>查看实际素材与可用工具。</p>
     <div v-if="isContentEditor && connection === 'live'" class="table-wrap" style="margin-top:16px">
       <table class="data-table">
         <thead>
@@ -1266,64 +1305,54 @@ onUnmounted(clearPoll)
 
     <div v-if="kind === 'table' || kind === 'task' || kind === 'pool'" class="filter-bar operation-filter-bar">
       <label class="catalog-search"><Search :size="14" /><input v-model="search" aria-label="筛选当前功能记录" placeholder="名称、设备、分组、负责人" /></label>
-      <select v-model="deviceFilter" class="select-field" aria-label="设备筛选"><option>全部设备</option><option>杭州-内容-023</option><option>上海-内容-014</option><option>北京-实验-008</option><option>广州-内容-031</option></select>
-      <select v-model="statusFilter" class="select-field" aria-label="状态筛选"><option>全部状态</option><option>READY</option><option>RUNNING</option><option>SUCCEEDED</option><option>PENDING_APPROVAL</option><option>BLOCKED</option></select>
+      <select v-model="deviceFilter" class="select-field" aria-label="设备筛选"><option>全部设备</option><option v-for="item in deviceFilterOptions" :key="item.id" :value="item.id">{{ item.name }}</option></select>
+      <select v-model="statusFilter" class="select-field" aria-label="状态筛选"><option>全部状态</option><option v-for="status in statusFilterOptions" :key="status">{{ status }}</option></select>
       <button v-if="isTaskQueue" class="button button-danger" type="button" :disabled="selectedIds.length === 0">批量删除</button>
       <button v-if="isTaskQueue" class="button button-primary" type="button" :disabled="selectedIds.length === 0 || !canCreate" @click="requestAction">批量运行</button>
       <button class="button" @click="exportCurrentRows"><Download :size="14" />导出结果</button>
-      <button v-for="action in tableActions" :key="action" class="yy-chip" type="button">{{ action }}</button>
+      <button class="button" @click="search = ''; statusFilter = '全部状态'; deviceFilter = '全部设备'">还原筛选</button>
       <span class="filter-spacer" /><span class="cell-sub">{{ filteredRows.length }} 条</span>
     </div>
 
     <div v-if="viewFeedback" class="notice notice-info operation-view-feedback" role="status"><CheckCircle2 :size="16" /><p>{{ viewFeedback }}</p></div>
 
-    <div v-if="kind === 'table' || kind === 'task' || kind === 'pool'" class="operation-bulk-bar" :class="{ active: selectedIds.length > 0 }"><div><ListChecks :size="16" /><strong>已选择 {{ selectedIds.length }} 项</strong></div><button class="button" @click="selectedIds = []">取消选择</button><button class="button button-primary" :disabled="selectedIds.length === 0 || !canCreate" @click="requestAction">{{ actionLabel }}</button></div>
+    <div v-if="connection === 'mock' && (kind === 'table' || kind === 'task' || kind === 'pool')" class="operation-bulk-bar" :class="{ active: selectedIds.length > 0 }"><div><ListChecks :size="16" /><strong>已选择 {{ selectedIds.length }} 项</strong></div><button class="button" @click="selectedIds = []">取消选择</button><button class="button button-primary" :disabled="selectedIds.length === 0 || !canCreate" @click="requestAction">{{ actionLabel }}</button></div>
 
     <div v-if="kind === 'table' || kind === 'task' || kind === 'pool'" class="table-wrap">
       <table class="data-table">
         <thead>
           <tr>
-            <th><input type="checkbox" aria-label="选择当前筛选全部记录" :checked="allFilteredSelected" @change="toggleAll" /></th>
+            <th v-if="connection === 'mock'"><input type="checkbox" aria-label="选择当前筛选全部记录" :checked="allFilteredSelected" @change="toggleAll" /></th>
             <th v-for="column in tableColumns" :key="column.key">{{ column.label }}</th>
             <th>操作</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="row in filteredRows" :key="row.id" :class="{ selected: selectedIds.includes(row.id) }">
-            <td><input type="checkbox" :aria-label="`选择 ${row.name}`" :checked="selectedIds.includes(row.id)" @change="toggleRow(row.id)" /></td>
+            <td v-if="connection === 'mock'"><input type="checkbox" :aria-label="`选择 ${row.name}`" :checked="selectedIds.includes(row.id)" @change="toggleRow(row.id)" /></td>
             <td v-for="column in tableColumns" :key="column.key">
               <StatusBadge v-if="column.key === 'status'" :status="row.status" :label="row.status === 'READY' ? '就绪' : undefined" />
               <template v-else>{{ row[column.key] }}</template>
             </td>
             <td><button class="button button-quiet" @click="detailRow = row">查看</button></td>
           </tr>
-          <tr v-if="filteredRows.length === 0"><td :colspan="tableColumns.length + 2"><div class="query-state"><Search :size="20" />没有符合筛选条件的记录</div></td></tr>
+          <tr v-if="filteredRows.length === 0"><td :colspan="tableColumns.length + 2"><div class="query-state"><Search :size="20" />{{ connection === 'connecting' ? '正在加载记录…' : connection === 'unavailable' ? '数据不可用，请刷新重试' : rows.length ? '没有符合筛选条件的记录' : '暂无任务记录' }}</div></td></tr>
         </tbody>
       </table>
     </div>
   </section>
 
-  <div v-if="!isDeviceList && kind === 'article'" class="sr-only">
-    <div v-for="field in operation.pageProfile.fields" :key="field.id" class="form-field">
-      <label :for="`page-field-${field.id}`">{{ field.label }}</label>
-      <select v-if="field.control === 'select'" :id="`page-field-${field.id}`" :value="pageFieldValue(field)" @change="updatePageField(field, $event)">
-        <option v-for="option in field.options" :key="option" :value="option">{{ option }}</option>
-      </select>
-      <input v-else :id="`page-field-${field.id}`" :value="pageFieldValue(field)" @input="updatePageField(field, $event)" />
-    </div>
-  </div>
-
   <div v-if="false" class="notice operation-policy"></div>
 
-  <div v-if="apiError && !isDeviceList && display.visible('apiErrorBanner')" class="notice notice-danger operation-result" role="alert"><AlertTriangle :size="18" /><div><strong>Control API 请求未完成</strong><p>{{ apiError }}</p></div></div>
-  <div v-if="runResult && display.visible('runResultBanner')" class="notice notice-info operation-result" role="status"><CheckCircle2 :size="18" /><div><strong>{{ runResult.source === 'live' ? '后端任务已接收' : 'Mock 请求已接收' }}</strong><p><span class="mono">{{ runResult.taskId ?? runResult.requestId }}</span> · {{ runResult.status }} · {{ runResult.targets }} 个目标。{{ runResult.source === 'live' ? '状态将从 Control API 轮询并读取审计。' : '未触发真实设备或外部平台动作。' }}</p><div v-if="runResult.source === 'live'" class="page-actions" style="margin-top:8px"><button class="button" :disabled="apiBusy" @click="refreshTask">刷新状态</button><button class="button" :disabled="apiBusy" @click="loadAudit">刷新审计</button><button v-if="runResult.status === 'PENDING_APPROVAL'" class="button button-primary" :disabled="apiBusy" @click="decideTask(true)">批准任务</button><button v-if="runResult.status === 'PENDING_APPROVAL'" class="button button-danger" :disabled="apiBusy" @click="decideTask(false)">拒绝任务</button><button class="button button-danger" :disabled="apiBusy || ['SUCCEEDED', 'PARTIAL', 'FAILED', 'CANCELED', 'REJECTED'].includes(runResult.status)" @click="cancelTask">取消任务</button></div></div></div>
+  <div v-if="apiError && !isDeviceList && kind !== 'article'" class="notice notice-danger operation-result" role="alert"><AlertTriangle :size="18" /><div><strong>Control API 请求未完成</strong><p>{{ apiError }}</p></div></div>
+  <div v-if="runResult && display.visible('runResultBanner')" class="notice notice-info operation-result" role="status"><CheckCircle2 :size="18" /><div><strong>{{ runResult.source === 'live' ? '后端任务已接收' : 'Mock 请求已接收' }}</strong><p><span class="mono">{{ runResult.taskId ?? runResult.requestId }}</span> · {{ runResult.status }} · {{ runResult.targets }} 个目标。{{ runResult.source === 'live' ? '状态将从 Control API 轮询并读取审计。' : '未触发真实设备或外部平台动作。' }}</p><p v-if="runResult.source === 'live' && activeTask">执行状态：{{ activeTask.executionState }} · 执行器可用：{{ activeTask.executorAvailable ? '是' : '否' }}。后端任务已接收不代表设备正在执行。{{ activeTask.executionState === 'contract_only' || !activeTask.executorAvailable ? '该回执尚无可执行适配器，不会据此宣称设备已运行。' : '' }}</p><div v-if="runResult.source === 'live'" class="page-actions" style="margin-top:8px"><button class="button" :disabled="apiBusy" @click="refreshTask">刷新状态</button><button class="button" :disabled="apiBusy" @click="loadAudit">刷新审计</button><button v-if="runResult.status === 'PENDING_APPROVAL'" class="button button-primary" :disabled="apiBusy" @click="decideTask(true)">批准任务</button><button v-if="runResult.status === 'PENDING_APPROVAL'" class="button button-danger" :disabled="apiBusy" @click="decideTask(false)">拒绝任务</button><button class="button button-danger" :disabled="apiBusy || ['SUCCEEDED', 'PARTIAL', 'FAILED', 'CANCELED', 'REJECTED'].includes(runResult.status)" @click="cancelTask">取消任务</button></div></div></div>
 
   <section v-if="false" class="panel operation-source-panel"></section>
   <section v-if="!isDeviceList" class="sr-only operation-page-spec">页面规格 {{ String(operation.index).padStart(3, '0') }}</section>
   <section v-if="auditEvents.length && display.visible('auditPanel')" class="panel"><div class="panel-header"><div><h3>后端审计</h3><p>{{ auditEvents.length }} 条不可变事件</p></div></div><div class="panel-body"><ol class="timeline"><li v-for="event in auditEvents" :key="event.id"><strong>{{ event.action }}</strong><span>{{ event.actorType }} · {{ event.actorId }}</span><small>{{ formatDate(event.occurredAt) }} · {{ event.requestId }}</small></li></ol></div></section>
 
-  <div v-if="showConfirm" class="modal-backdrop" @click.self="showConfirm = false"><div class="modal operation-confirm" role="dialog" aria-modal="true" aria-label="批量操作确认"><div class="modal-header"><h3>{{ connection === 'live' ? '确认创建后端任务' : '确认创建 Mock 任务' }}</h3><button class="icon-button" title="关闭" @click="showConfirm = false"><X :size="16" /></button></div><div class="modal-body"><div class="notice notice-info"><AlertTriangle :size="18" /><div><strong>{{ operation.title }} · {{ Math.max(targetResourceIds.length, 1) }} 个目标</strong><p>{{ connection === 'live' ? '请求将携带幂等键提交到 Control API；后续状态、取消和审计均读取后端。' : 'Control API 当前不可用，本次仅生成有明确标识的 Mock 回执。' }}</p></div></div><ul class="preview-list"><li><span>后端操作</span><strong class="mono">{{ operation.backendOperationKey }}</strong></li><li><span>设备范围</span><strong>{{ form.deviceScope }}</strong></li><li><span>执行时间</span><strong>{{ form.schedule }}</strong></li><li><span>快照</span><strong class="mono">{{ form.snapshot }}</strong></li></ul><div class="form-field" style="margin-top:12px"><label>操作理由</label><textarea v-model="reason" placeholder="填写授权依据或业务用途，写入审计" /></div><div class="form-field" style="margin-top:10px"><label>输入确认短语：{{ requiredConfirmPhrase }}</label><input v-model="confirmPhrase" :placeholder="requiredConfirmPhrase" /></div></div><div class="modal-actions"><button class="button" @click="showConfirm = false">返回检查</button><button class="button button-primary" :disabled="apiBusy || confirmPhrase !== requiredConfirmPhrase || reason.trim().length < 2" @click="createRun">确认提交</button></div></div></div>
+  <div v-if="showConfirm" class="modal-backdrop" @click.self="showConfirm = false"><div class="modal operation-confirm" role="dialog" aria-modal="true" aria-label="批量操作确认"><div class="modal-header"><h3>{{ connection === 'live' ? '确认创建后端任务' : '确认创建 Mock 任务' }}</h3><button class="icon-button" title="关闭" @click="showConfirm = false"><X :size="16" /></button></div><div class="modal-body"><div class="notice notice-info"><AlertTriangle :size="18" /><div><strong>{{ operation.title }} · {{ Math.max(targetResourceIds.length, 1) }} 个目标</strong><p>{{ connection === 'live' ? '请求将携带幂等键提交到 Control API；后续状态、取消和审计均读取后端。' : 'Control API 当前不可用，本次仅生成有明确标识的 Mock 回执。' }}</p></div></div><ul class="preview-list"><li><span>后端操作</span><strong class="mono">{{ operation.backendOperationKey }}</strong></li><li><span>设备范围</span><strong>{{ form.deviceScope }}</strong></li><li><span>执行时间</span><strong>{{ form.schedule }}</strong></li><li><span>快照</span><strong class="mono">{{ form.snapshot || '未提供快照' }}</strong></li></ul><div class="form-field" style="margin-top:12px"><label>操作理由</label><textarea v-model="reason" placeholder="填写授权依据或业务用途，写入审计" /></div><div class="form-field" style="margin-top:10px"><label>输入确认短语：{{ requiredConfirmPhrase }}</label><input v-model="confirmPhrase" :placeholder="requiredConfirmPhrase" /></div></div><div class="modal-actions"><button class="button" @click="showConfirm = false">返回检查</button><button class="button button-primary" :disabled="apiBusy || confirmPhrase !== requiredConfirmPhrase || reason.trim().length < 2" @click="createRun">确认提交</button></div></div></div>
 
-  <div v-if="detailRow" class="modal-backdrop" @click.self="detailRow = null"><div class="modal operation-detail-modal" role="dialog" aria-modal="true" aria-label="记录详情"><div class="modal-header"><div><h3>{{ detailRow.name }}</h3><span class="cell-sub mono">{{ detailRow.id }}</span></div><button class="icon-button" title="关闭" @click="detailRow = null"><X :size="16" /></button></div><div class="modal-body"><div class="operation-detail-grid"><div><span>分组</span><strong>{{ detailRow.group }}</strong></div><div><span>设备或范围</span><strong>{{ detailRow.device }}</strong></div><div><span>负责人</span><strong>{{ detailRow.owner }}</strong></div><div><span>当前状态</span><StatusBadge :status="detailRow.status" /></div><div><span>更新时间</span><strong>{{ detailRow.updatedAt }}</strong></div><div><span>来源页面</span><strong class="mono">PDF {{ operation.sourcePage }} · {{ operation.sourceRoute }}</strong></div></div><div class="operation-detail-parameters"><h4>页面参数快照</h4><dl><div v-for="field in operation.pageProfile.fields" :key="field.id"><dt>{{ field.label }}</dt><dd>{{ typeof pageParameters[field.id] === 'boolean' ? (pageParameters[field.id] ? '已开启' : '已关闭') : pageParameters[field.id] }}</dd></div></dl></div></div><div class="modal-actions"><button v-if="canResumePausedTask" class="button" type="button" :disabled="apiBusy" @click="resumePausedPlatformTask"><Play :size="14" />交还控制权并继续</button><button class="button button-primary" @click="detailRow = null">关闭详情</button></div></div></div>
+  <div v-if="detailRow" class="modal-backdrop" @click.self="detailRow = null"><div class="modal operation-detail-modal" role="dialog" aria-modal="true" aria-label="记录详情"><div class="modal-header"><div><h3>{{ detailRow.name }}</h3><span class="cell-sub mono">{{ detailRow.id }}</span></div><button class="icon-button" title="关闭" @click="detailRow = null"><X :size="16" /></button></div><div class="modal-body"><div class="operation-detail-grid"><div><span>分组</span><strong>{{ detailRow.group }}</strong></div><div><span>设备或范围</span><strong>{{ detailRow.device }}</strong></div><div><span>负责人</span><strong>{{ detailRow.owner }}</strong></div><div><span>当前状态</span><StatusBadge :status="detailRow.status" /></div><div><span>更新时间</span><strong>{{ detailRow.updatedAt }}</strong></div></div><div class="operation-detail-parameters"><template v-if="detailTask"><h4>服务端任务参数与上下文</h4><pre style="white-space:pre-wrap;overflow-wrap:anywhere">{{ JSON.stringify({ parameters: detailTask.parameters, context: detailTask.context, executionState: detailTask.executionState, executorAvailable: detailTask.executorAvailable, resultSummary: detailTask.resultSummary }, null, 2) }}</pre></template><p v-else>{{ connection === 'mock' ? '演示记录；无真实任务参数快照。' : '未取得该记录的服务端任务参数。' }}</p></div></div><div class="modal-actions"><button v-if="canResumePausedTask" class="button" type="button" :disabled="apiBusy" @click="resumePausedPlatformTask"><Play :size="14" />交还控制权并继续</button><button class="button button-primary" @click="detailRow = null">关闭详情</button></div></div></div>
   </template>
 </template>
