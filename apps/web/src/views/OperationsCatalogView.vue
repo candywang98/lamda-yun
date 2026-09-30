@@ -1,88 +1,62 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { LayoutGrid, Route, Search, ShieldAlert, Workflow } from 'lucide-vue-next'
+import { Search } from 'lucide-vue-next'
 import PageHeader from '@/components/PageHeader.vue'
-import MetricCard from '@/components/MetricCard.vue'
-import { firstOperationPath, isRetiredOperation, operationModules, operationPath, operationsCatalog, riskLabel, type OperationRisk } from '@/data/operations-catalog'
+import { isRetiredOperation, operationModules, operationPath } from '@/data/operations-catalog'
+import { moduleDescriptions, operationPageStatus, pageStatusLabels, quickPaths, type PageStatus } from '@/data/operation-page-availability'
 
 const search = ref('')
-const risk = ref<'all' | OperationRisk>('all')
-const stage = ref<'all' | (typeof operationModules)[number]['stage']>('all')
-const stages = ['资产准备', '内容生产', '分发执行', '互动交易', '数据复盘'] as const
-
-const uniqueRouteCount = new Set(operationsCatalog.map((operation) => operation.sourceRoute)).size
-const riskCounts = {
-  standard: operationsCatalog.filter((operation) => operation.risk === 'standard').length,
-  approval: operationsCatalog.filter((operation) => operation.risk === 'approval').length,
-  blocked: operationsCatalog.filter((operation) => operation.risk === 'blocked').length,
-}
-
-const filteredModules = computed(() => operationModules.map((module) => ({
-  ...module,
+const status = ref<'all' | PageStatus>('all')
+const directory = operationModules.map((module) => ({ ...module, operations: module.operations.filter((operation) => !isRetiredOperation(operation.id)) }))
+const total = directory.reduce((count, module) => count + module.operations.length, 0)
+const filteredModules = computed(() => directory.map((module) => ({ ...module,
   operations: module.operations.filter((operation) => {
-    const profileFields = operation.pageProfile.fields.map((field) => field.label).join(' ')
-    const haystack = `${module.label}${operation.title}${operation.description}${operation.sourceRoute}${operation.sourceSummary}${operation.pageProfile.category}${profileFields}`.toLowerCase()
-    if (isRetiredOperation(operation.id)) return false
-    const matchesSearch = haystack.includes(search.value.trim().toLowerCase())
-    const matchesRisk = risk.value === 'all' || operation.risk === risk.value
-    const matchesStage = stage.value === 'all' || module.stage === stage.value
-    return matchesSearch && matchesRisk && matchesStage
+    const text = [module.label, moduleDescriptions[module.id], operation.title, ...operation.pageProfile.fields.map((field) => field.label)].join(' ').toLowerCase()
+    return text.includes(search.value.trim().toLowerCase()) && (status.value === 'all' || operationPageStatus(operation) === status.value)
   }),
-})).filter((module) => module.operations.length > 0))
-
+})).filter((module) => module.operations.length))
 const visibleCount = computed(() => filteredModules.value.reduce((count, module) => count + module.operations.length, 0))
 </script>
 
 <template>
-  <PageHeader title="运营功能目录" description="15 个业务模块、134 个菜单入口。采集 → 编辑 → 发布 → 聊天 → 订单 → 复盘；执行走授权设备与 Control API。" />
-
-  <div class="metrics-grid operations-catalog-metrics">
-    <MetricCard label="业务模块" :value="String(operationModules.length)" detail="侧栏按竞品 15 组展开，点模块进入对应功能" tone="good" :icon="LayoutGrid" />
-    <MetricCard label="菜单入口" :value="String(operationsCatalog.length)" detail="一项一页，重复路由仍按独立入口收录" :icon="Workflow" />
-    <MetricCard label="原始页面路由" :value="String(uniqueRouteCount)" detail="来自竞品调研截图中的真实前端路由" :icon="Route" />
-    <MetricCard label="风险分层" :value="`${riskCounts.blocked}`" :detail="`可模拟 ${riskCounts.standard} · 需审批 ${riskCounts.approval} · 策略阻断 ${riskCounts.blocked}`" tone="warn" :icon="ShieldAlert" />
-  </div>
-
+  <PageHeader title="运营功能目录" :description="directory.length + ' 个业务模块 · ' + total + ' 个目录入口。从设备准备开始，整理内容、发布任务，再查看结果。'" />
+  <nav class="catalog-quick-paths" aria-label="常用操作链路">
+    <RouterLink v-for="(item, index) in quickPaths" :key="item.to" :to="item.to">
+      <span class="cell-sub">{{ index + 1 }}</span><strong>{{ item.title }}</strong><small>{{ item.description }}</small>
+    </RouterLink>
+  </nav>
+  <p class="catalog-status-note">页面接入状态仅说明当前页面形式，不代表执行权限、设备就绪或任务可运行。<RouterLink to="/im">进入消息聚合</RouterLink></p>
   <div class="filter-bar operations-catalog-filter">
-    <label class="catalog-search"><Search :size="15" /><input v-model="search" aria-label="搜索运营功能" placeholder="搜索模块、功能、原始路由或页面字段" /></label>
-    <div class="segmented-control" aria-label="链路筛选">
-      <button :class="{ active: stage === 'all' }" @click="stage = 'all'">全部链路</button>
-      <button v-for="item in stages" :key="item" :class="{ active: stage === item }" @click="stage = item">{{ item }}</button>
-    </div>
-    <div class="segmented-control" aria-label="风险筛选">
-      <button v-for="item in [{ value: 'all', label: '全部' }, { value: 'standard', label: '可模拟' }, { value: 'approval', label: '需审批' }, { value: 'blocked', label: '策略阻断' }]" :key="item.value" :class="{ active: risk === item.value }" @click="risk = item.value as typeof risk">{{ item.label }}</button>
-    </div>
-    <span class="filter-spacer" /><span class="cell-sub">{{ visibleCount }} / {{ operationsCatalog.length }} 项</span>
+    <label class="catalog-search"><Search :size="15" /><input v-model="search" aria-label="搜索运营功能" placeholder="搜索模块、功能或配置字段" /></label>
+    <label class="catalog-status-select">页面状态 <select v-model="status" aria-label="筛选页面接入状态"><option value="all">全部状态</option><option v-for="(label, value) in pageStatusLabels" :key="value" :value="value">{{ label }}</option></select></label>
+    <span class="filter-spacer" /><span class="cell-sub" role="status">{{ visibleCount }} / {{ total }} 项</span>
   </div>
-
   <div class="operations-module-grid">
     <section v-for="module in filteredModules" :key="module.id" class="operation-module-card">
-      <header>
-        <RouterLink :to="firstOperationPath(module)">
-          <span>{{ module.stage }}</span>
-          <h3>{{ module.label }}</h3>
-        </RouterLink>
-        <strong>{{ module.operations.length }} / {{ module.titles.length }}</strong>
-      </header>
+      <header><div><span>{{ module.stage }}</span><h3>{{ module.label }}</h3><p class="catalog-module-description">{{ moduleDescriptions[module.id] }}</p></div><strong>{{ module.operations.length }}</strong></header>
       <div class="operation-link-list">
         <RouterLink v-for="operation in module.operations" :key="operation.id" :to="operationPath(operation)">
-          <span class="operation-sequence">{{ String(operation.index).padStart(3, '0') }}</span>
-          <span class="operation-link-copy">
-            <span class="operation-link-title">{{ operation.title }}</span>
-            <small>{{ operation.sourceRoute }}</small>
-          </span>
-          <span class="catalog-risk" :class="`risk-${operation.risk}`">{{ riskLabel(operation.risk) }}</span>
+          <span class="operation-link-copy"><span class="operation-link-title">{{ operation.title }}</span></span>
+          <span class="catalog-page-status" :class="'status-' + operationPageStatus(operation)">{{ pageStatusLabels[operationPageStatus(operation)] }}</span>
         </RouterLink>
       </div>
     </section>
   </div>
-
-  <div v-if="filteredModules.length === 0" class="panel query-state"><Search :size="22" /><span>没有符合当前筛选的功能</span><button class="button" @click="search = ''; risk = 'all'; stage = 'all'">清除筛选</button></div>
-
-  <div class="notice operations-source-note">
-    <div>
-      <strong>原始页面路由对照竞品登录后可见菜单</strong>
-      <p>同一路由若从不同菜单出现，仍按独立入口收录。采集、养号、鱼币等能力保留页面规格，生产策略保持阻断；可执行入口走 LAMDA Control API。</p>
-    </div>
-  </div>
+  <div v-if="!filteredModules.length" class="panel query-state"><Search :size="22" /><span>没有符合当前筛选的功能</span><button class="button" @click="search = ''; status = 'all'">清除筛选</button></div>
 </template>
+
+<style scoped>
+.catalog-quick-paths { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+.catalog-quick-paths a { display: grid; gap: 6px; padding: 14px; background: var(--panel, #fff); border: 1px solid var(--yy-line, #d8dee6); border-radius: 8px; color: inherit; text-decoration: none; min-width: 0; }
+.catalog-quick-paths small, .catalog-module-description, .catalog-status-note { color: var(--text-muted, #64748b); font-size: 12px; line-height: 1.6; }
+.catalog-status-note a { margin-left: 8px; }
+.catalog-module-description { margin: 5px 0 0; }
+.catalog-status-select { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.catalog-status-select select { padding: 7px; border: 1px solid var(--yy-line, #d8dee6); border-radius: 5px; background: white; }
+.catalog-page-status { flex-shrink: 0; font-size: 11px; color: #64748b; }
+.status-dedicated { color: #0f766e; }
+.operation-link-copy { min-width: 0; overflow-wrap: anywhere; }
+.operation-link-title { white-space: normal; }
+@media (max-width: 1000px) { .catalog-quick-paths { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 600px) { .catalog-quick-paths { grid-template-columns: repeat(2, minmax(0, 1fr)); } .operations-module-grid { grid-template-columns: minmax(0, 1fr); } .catalog-search { min-width: 0; width: 100%; } }
+</style>
