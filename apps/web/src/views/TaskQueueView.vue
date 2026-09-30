@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { PlatformTaskView } from '@cloudctl/api-contracts'
 import PageHeader from '@/components/PageHeader.vue'
 import { controlApiConfigured, createControlApiClient } from '@/api/control'
@@ -69,16 +69,38 @@ const verified = ref(false)
 const reason = ref('')
 const resuming = ref(false)
 const feedback = ref('')
+const dialog = ref<HTMLElement | null>(null)
+let detailTrigger: HTMLElement | null = null
+function dialogKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape') { event.preventDefault(); closeDetail(); return }
+  if (event.key !== 'Tab' || !dialog.value) return
+  const controls = [...dialog.value.querySelectorAll<HTMLElement>('button, input, textarea, select, summary, [tabindex="0"]')]
+    .filter(element => !element.matches(':disabled'))
+  const first = controls[0]
+  const last = controls.at(-1)
+  if (!first) { event.preventDefault(); dialog.value.focus(); return }
+  if (!controls.includes(document.activeElement as HTMLElement)) {
+    event.preventDefault(); (event.shiftKey ? last : first)?.focus(); return
+  }
+  if (event.shiftKey && (document.activeElement === first || document.activeElement === dialog.value)) {
+    event.preventDefault(); last?.focus()
+  } else if (!event.shiftKey && (document.activeElement === last || document.activeElement === dialog.value)) {
+    event.preventDefault(); first.focus()
+  }
+}
 function closeDetail() {
   if (resuming.value) return
   ++detailGeneration
   detailId.value = ''; detail.value = null; verified.value = false; reason.value = ''; detailError.value = ''
+  void nextTick(() => { if (detailTrigger?.isConnected) detailTrigger.focus() })
 }
 async function openDetail(task: PlatformTaskView) {
   if (resuming.value) return
+  if (!detailId.value) detailTrigger = document.activeElement instanceof HTMLElement ? document.activeElement : null
   const generation = ++detailGeneration
   detailId.value = task.id; detail.value = null; detailLoading.value = true
   detailError.value = ''; verified.value = false; reason.value = ''; feedback.value = ''
+  void nextTick(() => { if (generation === detailGeneration) dialog.value?.focus() })
   try {
     const result = await api.getPlatformTask(task.id)
     if (generation !== detailGeneration) return
@@ -88,6 +110,10 @@ async function openDetail(task: PlatformTaskView) {
   finally { if (generation === detailGeneration) detailLoading.value = false }
 }
 const canResume = computed(() => controlApiConfigured && session.can('device.control') && detail.value?.state === 'PAUSED_WAITING_USER')
+function retryDetail() {
+  const task = tasks.value.find(item => item.id === detailId.value)
+  if (task) void openDetail(task)
+}
 async function resume() {
   if (!canResume.value || !detail.value || resuming.value || !verified.value || reason.value.trim().length < 2) return
   const id = detail.value.id
@@ -138,9 +164,9 @@ onUnmounted(() => { ++listGeneration; ++detailGeneration })
       <tr v-for="task in rows" :key="task.id"><td>{{ deviceName(task.deviceId) }}<small>{{ devicePresence(task.deviceId) }} · {{ task.deviceId }}</small></td><td>{{ task.commandType }}<small>{{ task.id }}</small></td><td>{{ stateLabel(task.state) }}</td><td>{{ task.detail || '未回传详情' }}<small v-if="task.stallReason">停滞：{{ task.stallReason }}</small><small v-if="task.errorCode">错误：{{ task.errorCode }}</small></td><td>{{ timestamp(task.scheduledFor) }}</td><td>{{ timestamp(task.createdAt) }}</td><td><button class="button" :disabled="resuming" @click="openDetail(task)">详情</button></td></tr>
     </tbody></table></div>
     <div class="queue-pagination"><span>已加载 {{ tasks.length }} 条 · 筛选 {{ filtered.length }} 条 · 第 {{ page }} / {{ pages }} 页</span><button class="button" :disabled="page <= 1" @click="page--">上一页</button><button class="button" :disabled="page >= pages" @click="page++">下一页</button></div>
-    <div v-if="detailId" class="modal-backdrop" @click.self="closeDetail"><section class="modal queue-detail" role="dialog" aria-modal="true" aria-label="任务详情">
+    <div v-if="detailId" class="modal-backdrop" @click.self="closeDetail"><section ref="dialog" class="modal queue-detail" role="dialog" aria-modal="true" aria-label="任务详情" tabindex="-1" @keydown="dialogKeydown">
       <div class="modal-header"><h3>任务详情 · {{ detailId }}</h3><button class="button" :disabled="resuming" @click="closeDetail">关闭详情</button></div>
-      <div class="modal-body"><p v-if="detailLoading" role="status">正在读取任务详情…</p><p v-if="detailError" role="alert">{{ detailError }}</p><p v-if="feedback" role="status">{{ feedback }}</p>
+      <div class="modal-body"><p v-if="detailLoading" role="status">正在读取任务详情…</p><p v-if="detailError" role="alert">{{ detailError }}</p><button v-if="detailError && !detail" class="button" :disabled="detailLoading" @click="retryDetail">重试详情</button><p v-if="feedback" role="status">{{ feedback }}</p>
         <template v-if="detail"><p>{{ deviceName(detail.deviceId) }} · {{ stateLabel(detail.state) }}</p><p>任务类型：{{ detail.commandType }} · 执行器状态：{{ detail.runnerStatus }} · 控制模式：{{ detail.controlMode }}</p><p>计划：{{ timestamp(detail.scheduledFor) }} · 开始：{{ timestamp(detail.startedAt) }} · 完成：{{ timestamp(detail.completedAt) }}</p><p>详情：{{ detail.detail || '未回传' }} · 停滞：{{ detail.stallReason || '无' }} · 错误：{{ detail.errorCode || '无' }}</p>
           <details><summary>服务端任务原始字段（参数、结果与对账信息）</summary><pre>{{ JSON.stringify(detail, null, 2) }}</pre></details>
           <fieldset v-if="detail.state === 'PAUSED_WAITING_USER'" :disabled="resuming || !canResume"><legend>交还控制权并继续原任务</legend><p>请先检查设备当前页面；恢复请求可能继续执行原任务。</p><label><input v-model="verified" type="checkbox" />我已核验设备当前页面，可以交还控制权</label><label>恢复理由<textarea v-model="reason" placeholder="至少 2 个字符，将写入审计" /></label><button class="button button-primary" :disabled="!canResume || !verified || reason.trim().length < 2 || resuming" @click="resume">{{ resuming ? '正在提交…' : '交还控制权并继续' }}</button></fieldset>
@@ -152,10 +178,14 @@ onUnmounted(() => { ++listGeneration; ++detailGeneration })
 </template>
 
 <style scoped>
+.task-queue, .queue-filters label, .queue-detail .modal-header h3, .queue-detail .modal-body, fieldset { min-width: 0; overflow-wrap: anywhere; }
+.queue-filters label { max-width: 100%; }
+.queue-detail .modal-header h3 { flex: 1; }
+.queue-detail .modal-header .button { flex-shrink: 0; }
 .queue-note { color: var(--text-secondary, #64748b); margin: 12px 0; }
 .queue-filters { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; margin: 16px 0; }
 .queue-filters label, fieldset label { display: grid; gap: 6px; }
-.queue-filters input, .queue-filters select, textarea { padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; max-width: 320px; }
+.queue-filters input, .queue-filters select, textarea { padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; max-width: min(320px, 100%); min-width: 0; box-sizing: border-box; }
 .queue-table { overflow: auto; } table { width: 100%; border-collapse: collapse; } th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e2e8f0; vertical-align: top; } small { display: block; color: #64748b; overflow-wrap: anywhere; }
 .queue-pagination { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 16px 0; }
 .queue-detail { max-width: 900px; width: 95vw; max-height: 90vh; overflow: auto; } pre { white-space: pre-wrap; overflow-wrap: anywhere; } fieldset { display: grid; gap: 12px; margin-top: 16px; } fieldset label:has(input) { display: flex; align-items: center; }
