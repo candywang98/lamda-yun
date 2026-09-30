@@ -10,6 +10,7 @@ const emit = defineEmits<{
   reclassify: []
 }>()
 const menuOpen = ref(false)
+const detailsOpen = ref(false)
 const classification = computed(() => props.message.classification)
 const validVersion = computed(() => classificationVersion(classification.value) !== null)
 const rawScore = computed(() => {
@@ -34,12 +35,6 @@ function reclassify() {
       <span class="im-category" :data-category="classification?.category ?? 'UNKNOWN'">
         {{ categoryLabel(classification?.category) }}
       </span>
-      <span>来源：{{ classificationSource(classification) }}</span>
-      <span v-if="classification?.ruleCode">规则：{{ classification.ruleCode }}</span>
-      <span v-if="classification?.predictedCategory">模型预测：{{ categoryLabel(classification.predictedCategory) }}</span>
-      <span v-if="rawScore !== null" title="模型原始分数，非实测准确率">模型原始分数：{{ rawScore }}</span>
-      <span v-if="classification?.modelStatus">模型状态：{{ classification.modelStatus }}</span>
-      <span v-if="classification?.status">状态：{{ classification.status }}</span>
       <button
         v-if="canEdit"
         type="button"
@@ -53,7 +48,16 @@ function reclassify() {
       >
         <Ellipsis :size="16" aria-hidden="true" />
       </button>
+      <button type="button" class="im-details-trigger" :aria-expanded="detailsOpen" :aria-controls="'classification-details-' + message.id" @click="detailsOpen = !detailsOpen">分类详情</button>
       <span v-if="busy" role="status">分类更新中…</span>
+    </div>
+    <div v-if="detailsOpen" :id="'classification-details-' + message.id" class="im-classification-details">
+      <span>来源：{{ classificationSource(classification) }}</span>
+      <span v-if="classification?.ruleCode">规则：{{ classification.ruleCode }}</span>
+      <span v-if="classification?.predictedCategory">模型预测：{{ categoryLabel(classification.predictedCategory) }}</span>
+      <span v-if="rawScore !== null" title="模型原始分数，非实测准确率">模型原始分数：{{ rawScore }}</span>
+      <span v-if="classification?.modelStatus">模型状态：{{ classification.modelStatus }}</span>
+      <span v-if="classification?.status">状态：{{ classification.status }}</span>
     </div>
     <div
       v-if="menuOpen && canEdit"
@@ -82,6 +86,13 @@ function reclassify() {
 </template>
 
 <style scoped>
+.yy-btn, .im-details-trigger { display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--line-strong, #c9d0d0); border-radius: 5px; color: var(--muted, #697276); background: var(--surface, #fff); cursor: pointer; font: inherit; }
+.im-details-trigger { padding: 4px; border-color: transparent; background: transparent; }
+.im-classification button:focus-visible { outline: 2px solid var(--accent, #166b5b); outline-offset: 2px; }
+.im-classification button:active:not(:disabled) { transform: scale(.97); }
+.im-classification-details { display: flex; flex-direction: column; gap: 3px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line, #dce1e1); }
+@media (hover: hover) { .im-classification button:hover:not(:disabled) { color: var(--accent, #166b5b); } }
+
 .im-classification { font-size: 11px; color: #64748b; overflow-wrap: anywhere; }
 .im-classification-line, .im-classification-options { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
 .im-category { border: 1px solid #cbd5e1; border-radius: 8px; padding: 1px 6px; color: #475569; }
