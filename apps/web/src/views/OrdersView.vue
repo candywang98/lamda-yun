@@ -165,14 +165,14 @@ onUnmounted(() => { disposed = true; ++listRequest; ++detailRequest })
 </script>
 
 <template>
-  <section class="yy-panel">
+  <section class="panel orders-panel">
     <header class="yy-page-head">
       <div>
         <h1>已同步订单</h1>
         <p class="yy-sub">查看已入库的闲鱼订单快照，支持筛选和详情查询。</p>
       </div>
       <div class="yy-actions">
-        <RouterLink class="yy-btn" to="/operations/orders/orders-01">创建同步任务</RouterLink>
+        <RouterLink class="button" to="/operations/orders/orders-01">创建同步任务</RouterLink>
         <label class="yy-field">
           <span>设备</span>
           <select v-model="deviceFilter" @change="reload">
@@ -201,7 +201,7 @@ onUnmounted(() => { disposed = true; ++listRequest; ++detailRequest })
             @change="reload"
           />
         </label>
-        <button class="yy-btn" type="button" :disabled="loading" @click="manualRefresh">
+        <button class="button" type="button" :disabled="loading" @click="manualRefresh">
           {{ loading ? '加载中…' : '刷新' }}
         </button>
       </div>
@@ -213,7 +213,7 @@ onUnmounted(() => { disposed = true; ++listRequest; ++detailRequest })
       <table class="orders-table">
         <thead>
           <tr>
-            <th>订单号</th>
+            <th>订单标识</th>
             <th>商品</th>
             <th>对方</th>
             <th>金额</th>
@@ -244,7 +244,7 @@ onUnmounted(() => { disposed = true; ++listRequest; ++detailRequest })
                 <p v-else-if="detailError" class="yy-error">{{ detailError }}</p>
                 <template v-else-if="detail">
                   <dl class="orders-fields">
-                    <div><dt>订单号</dt><dd>{{ detail.orderKey }}</dd></div>
+                    <div><dt>订单标识</dt><dd>{{ detail.orderKey }}</dd></div>
                     <div><dt>平台 / 方向</dt><dd>{{ detail.platform }} / {{ orderDirectionLabel(detail.direction) }}</dd></div>
                     <div><dt>商品标题</dt><dd>{{ detail.itemTitle ?? '—' }}</dd></div>
                     <div><dt>对方昵称</dt><dd>{{ detail.buyerName ?? '—' }}</dd></div>
@@ -271,7 +271,7 @@ onUnmounted(() => { disposed = true; ++listRequest; ++detailRequest })
       <span class="yy-sub">已加载 {{ orders.length }} / 共 {{ total }} 条</span>
       <button
         v-if="hasMore"
-        class="yy-btn"
+        class="button"
         type="button"
         :disabled="loading"
         @click="loadMore"
@@ -283,12 +283,25 @@ onUnmounted(() => { disposed = true; ++listRequest; ++detailRequest })
 </template>
 
 <style scoped>
-.yy-page-head { flex-wrap: wrap; align-items: flex-start; }
+.orders-panel { min-width: 0; padding: 18px; }
+.yy-page-head { flex-wrap: wrap; align-items: flex-start; gap: 16px; }
 .yy-page-head > div { min-width: 0; max-width: 100%; }
-.yy-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.yy-field { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; }
+.yy-page-head h1 { margin: 0; color: var(--ink); font-size: 18px; }
+.yy-sub { margin: 6px 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
+.yy-error { color: var(--bad); font-size: 13px; overflow-wrap: anywhere; }
+.button { text-decoration: none; }
+.yy-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.yy-field { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; color: var(--muted); font-size: 13px; }
 .yy-field > span { flex-shrink: 0; }
-.yy-field select, .yy-field input { min-width: 0; max-width: 100%; }
+.yy-field select, .yy-field input { width: 160px; min-width: 0; max-width: 100%; min-height: 36px; padding: 7px 9px; color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 4px; font: inherit; text-overflow: ellipsis; }
+.yy-field select:focus-visible, .yy-field input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.table-wrap { max-width: 100%; overflow-x: auto; }
+@media (max-width: 600px) {
+  .orders-panel { padding: 14px; }
+  .yy-actions { width: 100%; }
+  .yy-field { width: 100%; }
+  .yy-field select, .yy-field input { flex: 1; }
+}
 .orders-table {
   width: 100%;
   min-width: 720px;

@@ -231,23 +231,23 @@ onUnmounted(() => { disposed = true; clearRunPoll() })
 </script>
 
 <template>
-  <section class="yy-panel">
+  <section class="panel order-sync-panel">
     <header class="yy-page-head">
       <div><h1>同步闲鱼订单</h1><p class="yy-sub">选择设备和订单方向，创建手机页面采集任务。确认入库后，可在商品管理的「已同步订单」中查看结果。</p></div>
-      <RouterLink to="/operations/product-management/product-management-01?tab=orders">前往商品管理</RouterLink>
+      <RouterLink class="button" to="/operations/product-management/product-management-01?tab=orders">前往商品管理</RouterLink>
     </header>
-    <p v-if="deviceError" class="yy-error" role="alert">{{ deviceError }} <button v-if="controlApiConfigured" class="yy-btn" type="button" :disabled="deviceLoading" @click="loadDeviceOptions">重新加载设备</button></p>
+    <p v-if="deviceError" class="yy-error" role="alert">{{ deviceError }} <button v-if="controlApiConfigured" class="button" type="button" :disabled="deviceLoading" @click="loadDeviceOptions">重新加载设备</button></p>
     <p v-else-if="deviceLoading" class="yy-sub" role="status">正在加载设备…</p>
     <p v-else-if="deviceOptions.length === 0" class="yy-sub">暂无可选设备，请先在设备列表中接入设备。</p>
     <form class="orders-collect" @submit.prevent="startCollect">
-      <label class="yy-field">
+      <label class="form-field yy-field">
         <span>设备</span>
         <select v-model="selectedDevice" :disabled="!canCollect || collectionLocked">
           <option value="">请选择设备</option>
           <option v-for="option in deviceOptions" :key="option.id" :value="option.id">{{ option.name }}（{{ option.id.slice(0, 8) }}）</option>
         </select>
       </label>
-      <label class="yy-field">
+      <label class="form-field yy-field">
         <span>订单方向</span>
         <select v-model="collectDirection" :disabled="!canCollect || collectionLocked">
           <option v-for="option in ORDER_DIRECTION_OPTIONS" :key="option.key" :value="option.key">
@@ -255,7 +255,7 @@ onUnmounted(() => { disposed = true; clearRunPoll() })
           </option>
         </select>
       </label>
-      <label class="yy-field">
+      <label class="form-field yy-field">
         <span>采集屏数</span>
         <select v-model="collectScreens" :disabled="!canCollect || collectionLocked">
           <option :value="1">1 屏</option>
@@ -263,19 +263,21 @@ onUnmounted(() => { disposed = true; clearRunPoll() })
           <option :value="3">3 屏</option>
         </select>
       </label>
-      <button
-        class="yy-btn"
-        type="submit"
-        :disabled="!selectedDevice || !canCollect || collectionLocked"
-      >
-        {{ collectBusy ? '提交中…' : attempt?.identity ? '创建新的同步任务' : '创建同步任务' }}
-      </button>
-      <button v-if="attempt && !attempt.identity" class="yy-btn" type="button" :disabled="collectBusy || !canCollect" @click="submitAttempt">
-        <RefreshCw :size="14" aria-hidden="true" />重试提交
-      </button>
-      <button v-if="attempt?.identity" class="yy-btn" type="button" :disabled="collectBusy" @click="manualRunRefresh">
-        <RefreshCw :size="14" aria-hidden="true" />刷新同步状态
-      </button>
+      <div class="orders-actions">
+        <button
+          class="button button-primary"
+          type="submit"
+          :disabled="!selectedDevice || !canCollect || collectionLocked"
+        >
+          {{ collectBusy ? '提交中…' : attempt?.identity ? '创建新的同步任务' : '创建同步任务' }}
+        </button>
+        <button v-if="attempt && !attempt.identity" class="button" type="button" :disabled="collectBusy || !canCollect" @click="submitAttempt">
+          <RefreshCw :size="14" aria-hidden="true" />重试提交
+        </button>
+        <button v-if="attempt?.identity" class="button" type="button" :disabled="collectBusy" @click="manualRunRefresh">
+          <RefreshCw :size="14" aria-hidden="true" />刷新同步状态
+        </button>
+      </div>
       <span v-if="!selectedDevice" class="yy-sub">请选择执行同步的设备。</span>
       <span v-if="collectNote" class="yy-sub" role="status">{{ collectNote }}</span>
     </form>
@@ -291,7 +293,7 @@ onUnmounted(() => { disposed = true; clearRunPoll() })
       <p v-if="delivery?.stopReason" :class="delivery.state === 'BLOCKED' ? 'yy-error' : 'yy-sub'">{{ deliveryReason(delivery.stopReason) }}</p>
       <span v-if="polling" class="yy-sub">自动查询中</span>
     </div>
-    <p v-if="delivery?.state === 'SYNCED'"><RouterLink class="yy-btn" to="/operations/product-management/product-management-01?tab=orders">查看已同步订单</RouterLink></p>
+    <p v-if="delivery?.state === 'SYNCED'"><RouterLink class="button" to="/operations/product-management/product-management-01?tab=orders">查看已同步订单</RouterLink></p>
     <details v-if="attempt?.identity" class="orders-diagnostics">
       <summary>任务诊断信息</summary>
       <p class="orders-identity">run {{ attempt.identity.runId }} · task {{ attempt.identity.taskIds.join('、') }}</p>
@@ -312,20 +314,19 @@ onUnmounted(() => { disposed = true; clearRunPoll() })
 </template>
 
 <style scoped>
-.yy-page-head { flex-wrap: wrap; align-items: flex-start; }
-.yy-page-head > div { min-width: 0; max-width: 100%; }
-.yy-field { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; }
-.yy-field > span { flex-shrink: 0; }
-.yy-field select, .yy-field input { min-width: 0; max-width: 100%; }
-.orders-collect {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 16px;
-  padding: 20px 0;
-  margin-bottom: 12px;
-}
-.orders-collect .yy-btn { display: inline-flex; align-items: center; gap: 6px; }
+.order-sync-panel { width: 100%; max-width: 880px; min-width: 0; padding: 20px; }
+.yy-page-head { flex-wrap: wrap; align-items: flex-start; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
+.yy-page-head > div { flex: 1 1 360px; min-width: 0; max-width: 100%; }
+.yy-page-head h1 { margin: 0; color: var(--ink); font-size: 18px; }
+.yy-sub { margin: 6px 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
+.yy-error { color: var(--bad); font-size: 13px; overflow-wrap: anywhere; }
+.button { text-decoration: none; }
+.orders-collect { display: grid; gap: 16px; max-width: 520px; padding: 8px 0 16px; }
+.orders-collect .yy-field { display: grid; grid-template-columns: 80px minmax(0, 1fr); align-items: center; gap: 12px; min-width: 0; }
+.yy-field > span { color: var(--muted); font-size: 13px; }
+.yy-field select { min-width: 0; max-width: 100%; text-overflow: ellipsis; }
+.yy-field select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.orders-actions { display: flex; flex-wrap: wrap; gap: 8px; padding-left: 92px; }
 .orders-delivery { margin-bottom: 12px; overflow-wrap: anywhere; }
 .orders-delivery p { margin: 4px 0; }
 .orders-identity { font-family: monospace; font-size: 12px; }
@@ -350,6 +351,11 @@ onUnmounted(() => { disposed = true; clearRunPoll() })
 .orders-task-state[data-state='SUCCEEDED'] { border-color: #bbf7d0; background: #f0fdf4; color: #166534; }
 .orders-task-state[data-state='FAILED'] { border-color: #fecaca; background: #fef2f2; color: #991b1b; }
 
-.orders-collect .yy-field { display: grid; grid-template-columns: 80px minmax(180px, 320px); }
-.orders-diagnostics { margin-top: 16px; }
+.orders-diagnostics { margin-top: 16px; font-size: 13px; overflow-wrap: anywhere; }
+.orders-diagnostics summary { cursor: pointer; color: var(--muted); }
+@media (max-width: 600px) {
+  .order-sync-panel { padding: 16px; }
+  .orders-collect .yy-field { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .orders-actions { padding-left: 0; }
+}
 </style>
