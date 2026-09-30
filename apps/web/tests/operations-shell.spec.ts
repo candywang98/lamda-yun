@@ -42,6 +42,9 @@ describe('OperationsShell', () => {
       '闲鱼授权任务', '转转授权任务', '小红书授权任务', '创意中心', '聊天管理', '系统素材', '个人中心',
     ])
     expect(screen.getByText('个人中心')).toBeTruthy()
+    expect(screen.queryByRole('link', { name: '订单同步' })).toBeNull()
+    await router.push('/operations/product-management/product-management-01?tab=orders')
+    expect(document.querySelector('.operation-module-nav.module-active')?.textContent).toContain('商品管理')
     expect(screen.getAllByText('全部功能').length).toBeGreaterThan(0)
   })
 
