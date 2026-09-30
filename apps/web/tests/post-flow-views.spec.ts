@@ -7,7 +7,8 @@ import PostPublishView from '@/views/PostPublishView.vue'
 import { emptyPost } from '@/data/post-fields'
 import { configStorageKey, emptyPublishConfig } from '@/data/post-publish'
 
-const mocks = vi.hoisted(() => ({ list: vi.fn(), save: vi.fn(), devices: vi.fn(), task: vi.fn() }))
+const mocks = vi.hoisted(() => ({ list: vi.fn(), save: vi.fn(), devices: vi.fn(), task: vi.fn(), download: vi.fn() }))
+vi.mock('@/data/product-fields', async (original) => ({ ...await original<typeof import('@/data/product-fields')>(), downloadDataUrl: mocks.download }))
 vi.mock('@/api/post-catalog', () => ({ createPostCatalog: () => ({ list: mocks.list, save: mocks.save }) }))
 vi.mock('@/api/control', () => ({ controlApiConfigured: true, createControlApiClient: () => ({ createPlatformTask: mocks.task }) }))
 vi.mock('@/data/xianyu-task-devices', async (original) => ({ ...await original<typeof import('@/data/xianyu-task-devices')>(), fetchXianyuTaskDevices: mocks.devices }))
@@ -118,6 +119,13 @@ describe('browser-only post allocation plans', () => {
     expect(JSON.parse(localStorage.getItem(configStorageKey('xiaohongshu'))!).postIds).toEqual(['p1'])
     expect(mocks.task).not.toHaveBeenCalled()
     expect(mocks.save).not.toHaveBeenCalled()
+  })
+  it('neutralizes spreadsheet formulas when exporting a plan content list', async () => {
+    mocks.list.mockResolvedValue([emptyPost({ title: '  =SUM(1)', body: '+payload', groupName: '@group' })])
+    await mountPublish()
+    await fireEvent.click(screen.getByRole('button', { name: '导出' }))
+    const csv = decodeURIComponent(mocks.download.mock.calls[0]![0])
+    for (const value of ['  =SUM(1)', '+payload', '@group']) expect(csv).toContain('"' + "'" + value + '"')
   })
   it('excludes video posts from restored plans and from selection', async () => {
     mocks.list.mockResolvedValue([emptyPost({ id: 'v1', title: '视频条目', videoAssetId: 'video-asset' })])

@@ -129,9 +129,13 @@ function printList() {
   window.print()
 }
 
+function safeCsvText(value: string) {
+  return /^\s*[=+@-]/.test(value) || /^[\t\r\n]/.test(value) ? "'" + value : value
+}
+
 function exportCsv() {
   const rows = [[copy.value.tableGroup, '标题', '内容', '添加时间'], ...filtered.value.map((post) => [post.groupName, post.title, post.body.replaceAll('\n', ' '), formatDateTime(post.updatedAt)])]
-  downloadDataUrl(`data:text/csv;charset=utf-8,${encodeURIComponent(rows.map((line) => line.map((cell) => `"${cell.replaceAll('"', '""')}"`).join(',')).join('\n'))}`, `${copy.value.title}.csv`)
+  downloadDataUrl(`data:text/csv;charset=utf-8,${encodeURIComponent(rows.map((line) => line.map((cell) => `"${safeCsvText(cell).replaceAll('"', '""')}"`).join(',')).join('\n'))}`, `${copy.value.title}.csv`)
 }
 
 function savePlan() {
