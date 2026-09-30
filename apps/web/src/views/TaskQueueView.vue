@@ -188,5 +188,5 @@ onUnmounted(() => { ++listGeneration; ++detailGeneration })
 .queue-filters input, .queue-filters select, textarea { padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; max-width: min(320px, 100%); min-width: 0; box-sizing: border-box; }
 .queue-table { overflow: auto; } table { width: 100%; border-collapse: collapse; } th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e2e8f0; vertical-align: top; } small { display: block; color: #64748b; overflow-wrap: anywhere; }
 .queue-pagination { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 16px 0; }
-.queue-detail { max-width: 900px; width: 95vw; max-height: 90vh; overflow: auto; } pre { white-space: pre-wrap; overflow-wrap: anywhere; } fieldset { display: grid; gap: 12px; margin-top: 16px; } fieldset label:has(input) { display: flex; align-items: center; }
+.queue-detail { min-width: 0; max-width: 900px; width: 100%; max-height: 90vh; overflow: auto; } pre { white-space: pre-wrap; overflow-wrap: anywhere; } fieldset { display: grid; gap: 12px; margin-top: 16px; } fieldset label:has(input) { display: flex; align-items: center; }
 </style>
