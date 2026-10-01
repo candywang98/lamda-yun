@@ -33,7 +33,7 @@
 
 浏览器使用认证只读代理，284 个请求均为 GET，无 API 错误或业务写入。商品管理读取现有 14 条订单；导入一行示例仅生成预览，无保存请求；任务详情、筛选、Escape 关闭、显示设置隐藏/恢复均已核对。e6e44d3a 的 14 个页面在 320、390、1440 像素下共 42 次页面主体尺寸检查通过。
 
-浏览器截图接口 Page.captureScreenshot 超时，未取得截图视觉验收。任务详情弹窗旧版本在窄屏出现裁切，最终版本已修改容器内宽度并通过软件检查；修复后的弹窗尚未进行浏览器几何复测，状态为 BROWSER_UNVERIFIED。不将源码推导或单元测试作为视觉验收。
+浏览器截图接口 Page.captureScreenshot 超时，未取得截图视觉验收。任务详情弹窗旧版本在窄屏出现裁切，最终版本已修改容器内宽度并通过软件检查；修复后的弹窗已在用户授权上线后，对最终版本完成 320、390、1440 像素浏览器几何复测，状态为 BROWSER_VERIFIED（见 online-browser.json）。不将源码推导或单元测试作为视觉验收。
 
 ## 现有后端能力边界
 
@@ -56,4 +56,4 @@
 - base=/cloudctl-mobile/；mock=false；dev-auth=false；版本与全部包内文件哈希已独立核对。
 - 原有 fleet 的六个改动文件哈希及任务台账哈希均保持不变。
 
-尚未部署、推送或执行设备任务。上线需按 AGENTS.md “With explicit authorization, run one serialized device/deployment acceptance queue” 获得明确授权。此次网页候选的上线不包含发送消息或真实发布的授权。
+用户随后明确“授权上线”，已部署上述精确候选，外部 HTTPS 与线上只读浏览器核对通过（见 deployment.md）。未推送源码或执行设备任务，未发送消息或真实发布。

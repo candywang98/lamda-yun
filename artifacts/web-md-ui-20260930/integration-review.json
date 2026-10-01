@@ -41,9 +41,9 @@
   "backendSchemaChanges": false,
   "deviceActionsIssued": false,
   "businessWritesIssued": false,
-  "cloudDeploymentPerformed": false,
+  "cloudDeploymentPerformed": true,
   "gitPushPerformed": false,
-  "status": "SOFTWARE_VALIDATED_DEPLOYMENT_AWAITING_EXPLICIT_AUTHORIZATION",
+  "status": "DEPLOYED_WEB_READ_ONLY_ACCEPTED",
   "deliveryPackage": "/Users/wangziheng/CloudCtlExternal/web-delivery/cloudctl-web-md-0078c5c5ec35.tar.gz",
   "sha256": "8714dc7dfce4fdeb9521162bd31b37ec7b3ac26018993e9bac631caaaadd6163",
   "artifactBytes": 505028,
@@ -57,8 +57,18 @@
     "candidateMeasured": "e6e44d3a9635670fce27aa051e2be0d564b6cceb",
     "bodyGeometryMeasurements": 42,
     "bodyGeometryPassed": true,
-    "finalQueueModalGeometry": "BROWSER_UNVERIFIED",
-    "screenshotVisualAcceptance": false
+    "finalQueueModalGeometry": "BROWSER_VERIFIED",
+    "screenshotVisualAcceptance": false,
+    "onlineCandidateMeasured": "0078c5c5ec35a02f34ac3f4aa0670fbb6c4d4159",
+    "onlineQueueGeometryMeasurements": 3,
+    "onlineTaskSpace": 1,
+    "onlineTaskSpaceFinished": true
   },
-  "verifiedAt": "2026-09-30T16:39:23.187226+00:00"
+  "verifiedAt": "2026-09-30T16:39:23.187226+00:00",
+  "deploymentAuthorization": "User explicitly said 授权上线",
+  "activatedAt": "2026-10-01T03:00:23Z",
+  "deployedWeb": "/var/www/cloudctl-mobile-web-md-0078c5c5ec35",
+  "rollbackWeb": "/var/www/cloudctl-mobile-web-qa-ec1b0cc95dfc",
+  "onlineBrowserEvidence": "online-browser.json",
+  "activationEvidence": "activation-result.json"
 }

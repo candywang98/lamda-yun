@@ -31,6 +31,6 @@
   "previousCandidate": "e6e44d3a9635670fce27aa051e2be0d564b6cceb",
   "finalTests": 11,
   "finalTypecheck": 0,
-  "queueModalGeometry": "browser_unverified",
-  "browserNote": "Final queue modal width fix has not been browser-verified; component tests do not establish geometry."
+  "queueModalGeometry": "browser_verified",
+  "browserNote": "Exact final candidate verified after authorized deployment; see online-browser.json for 320/390/1440 queue dialog measurements."
 }

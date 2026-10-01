@@ -1,0 +1,7 @@
+{
+  "status": "FAILED",
+  "errorType": "UnicodeEncodeError",
+  "remoteOutput": "{\"rollbackTargetRestored\": true, \"serviceUnchanged\": true}\n{\"status\": \"FAILED\", \"errorType\": \"AssertionError\"}\n",
+  "remoteExitCode": 1,
+  "oldVersionExternallyVerified": true
+}

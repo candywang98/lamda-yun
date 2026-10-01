@@ -1,0 +1,158 @@
+{
+  "sourceSha": "0078c5c5ec35a02f34ac3f4aa0670fbb6c4d4159",
+  "spaceId": 1,
+  "versionVerifiedBy": "external authenticated HTTPS exact byte match",
+  "checks": [
+    {
+      "name": "queue detail escape",
+      "closed": true
+    },
+    {
+      "name": "legacy order redirect",
+      "route": "/cloudctl-mobile/operations/orders/orders-01",
+      "noOrdersTable": true,
+      "scripts": [
+        "/cloudctl-mobile/assets/index-mRdz7PVI.js"
+      ]
+    },
+    {
+      "name": "synced order results",
+      "rows": 14,
+      "activeTab": [
+        "已同步订单"
+      ],
+      "errors": []
+    },
+    {
+      "name": "import preview only",
+      "rows": 1,
+      "explicitConfirm": true,
+      "resultCount": 0
+    },
+    {
+      "name": "catalog",
+      "modules": 15,
+      "quickPaths": 6
+    }
+  ],
+  "network": [
+    {
+      "errors": [],
+      "requests": [
+        {
+          "path": "/api/v1/session",
+          "method": "GET",
+          "status": 200
+        },
+        {
+          "path": "/api/v1/devices",
+          "method": "GET",
+          "status": 200
+        },
+        {
+          "path": "/api/v1/platform-tasks",
+          "method": "GET",
+          "status": 200
+        },
+        {
+          "path": "/api/v1/platform-tasks/5906545b-e755-4343-8ad9-a1db2d2bd3a5",
+          "method": "GET",
+          "status": 200
+        }
+      ],
+      "blockedWrites": [],
+      "badResponses": []
+    },
+    {
+      "errors": [],
+      "requests": [
+        {
+          "path": "/api/v1/session",
+          "method": "GET",
+          "status": 200
+        },
+        {
+          "path": "/api/v1/devices",
+          "method": "GET",
+          "status": 200
+        },
+        {
+          "path": "/api/v1/devices",
+          "method": "GET",
+          "status": 200
+        },
+        {
+          "path": "/api/v1/orders",
+          "method": "GET",
+          "status": 200
+        }
+      ],
+      "blockedWrites": [],
+      "badResponses": []
+    },
+    {
+      "errors": [],
+      "requests": [
+        {
+          "path": "/api/v1/session",
+          "method": "GET",
+          "status": 200
+        },
+        {
+          "path": "/api/v1/products",
+          "method": "GET",
+          "status": 200
+        }
+      ],
+      "blockedWrites": [],
+      "badResponses": []
+    },
+    {
+      "errors": [],
+      "requests": [],
+      "blockedWrites": [],
+      "badResponses": []
+    }
+  ],
+  "geometry": [
+    {
+      "width": 320,
+      "client": 320,
+      "scroll": 320,
+      "dialog": {
+        "left": 20,
+        "right": 300,
+        "client": 278,
+        "scroll": 278
+      },
+      "focusContained": true
+    },
+    {
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "dialog": {
+        "left": 20,
+        "right": 370,
+        "client": 348,
+        "scroll": 348
+      },
+      "focusContained": true
+    },
+    {
+      "width": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "dialog": {
+        "left": 270,
+        "right": 1170,
+        "client": 898,
+        "scroll": 898
+      },
+      "focusContained": true
+    }
+  ],
+  "passed": true,
+  "checkedAt": "2026-10-01T03:04:24.757Z",
+  "queueModalGeometry": "BROWSER_VERIFIED"
+}

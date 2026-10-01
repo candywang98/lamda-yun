@@ -1,0 +1,178 @@
+{
+  "activated": true,
+  "sourceSha": "0078c5c5ec35a02f34ac3f4aa0670fbb6c4d4159",
+  "archiveSha256": "8714dc7dfce4fdeb9521162bd31b37ec7b3ac26018993e9bac631caaaadd6163",
+  "activatedAt": "2026-10-01T03:00:23Z",
+  "oldWeb": "/var/www/cloudctl-mobile-web-qa-ec1b0cc95dfc",
+  "newWeb": "/var/www/cloudctl-mobile-web-md-0078c5c5ec35",
+  "apiRelease": "/home/ubuntu/cloudctl-mobile/releases/order-delivery-557f547",
+  "apiPid": "2790688",
+  "apiRestarted": false,
+  "databaseMigrated": false,
+  "staticBackupVerified": true,
+  "backupArchiveSha256": "07a45c2930b045e4df31e3be8a14aad6be3308a11cd3a43f2c0896211d2f1615",
+  "businessBefore": {
+    "schema": "20260926_0035",
+    "outCount": 23,
+    "taskCount": 379
+  },
+  "businessAfter": {
+    "schema": "20260926_0035",
+    "outCount": 23,
+    "taskCount": 379
+  },
+  "httpVerification": {
+    "routes": 6,
+    "packageFiles": 14,
+    "payloadBytesMatch": true,
+    "apiReads": 6,
+    "healthChecks": 2,
+    "receiveOnly": true,
+    "verificationOrigin": "external authenticated public HTTPS",
+    "requests": [
+      {
+        "path": "/health/live",
+        "status": 200,
+        "sha256": "a29ee2b15c494311c52521766e44af56a3ad2248e7a8ab465e5206463c13d288"
+      },
+      {
+        "path": "/health/ready",
+        "status": 200,
+        "sha256": "f09f8bf4368addcf4455db343ff210af1eccbbc7f852414152363d8d5d3cd9db"
+      },
+      {
+        "path": "/cloudctl-mobile/",
+        "status": 200,
+        "sha256": "3bd5e8a7bf38f65b91f2cee315f0c5afe15e29ff56041b6da86329ff986ff4d5"
+      },
+      {
+        "path": "/cloudctl-mobile/orders",
+        "status": 200,
+        "sha256": "3bd5e8a7bf38f65b91f2cee315f0c5afe15e29ff56041b6da86329ff986ff4d5"
+      },
+      {
+        "path": "/cloudctl-mobile/operations/orders/orders-01",
+        "status": 200,
+        "sha256": "3bd5e8a7bf38f65b91f2cee315f0c5afe15e29ff56041b6da86329ff986ff4d5"
+      },
+      {
+        "path": "/cloudctl-mobile/operations/product-management/product-management-01?tab=orders",
+        "status": 200,
+        "sha256": "3bd5e8a7bf38f65b91f2cee315f0c5afe15e29ff56041b6da86329ff986ff4d5"
+      },
+      {
+        "path": "/cloudctl-mobile/operations/task-queue/task-queue-01",
+        "status": 200,
+        "sha256": "3bd5e8a7bf38f65b91f2cee315f0c5afe15e29ff56041b6da86329ff986ff4d5"
+      },
+      {
+        "path": "/cloudctl-mobile/im",
+        "status": 200,
+        "sha256": "3bd5e8a7bf38f65b91f2cee315f0c5afe15e29ff56041b6da86329ff986ff4d5"
+      },
+      {
+        "path": "/cloudctl-mobile/apple-touch-icon.png",
+        "status": 200,
+        "sha256": "bb8d340bde5cf5b19867853f7807d7140e0a6675506b564d02b911d0a5998ecb"
+      },
+      {
+        "path": "/cloudctl-mobile/assets/index-QDMMcGRR.css",
+        "status": 200,
+        "sha256": "2aa5e8c480bd01a7bab2184e06d67972c2a6f756bdb917e3e672c09cc7c4e284"
+      },
+      {
+        "path": "/cloudctl-mobile/assets/index-mRdz7PVI.js",
+        "status": 200,
+        "sha256": "3247070f295352449252fa4cfe0a5d1eb0bab4cefb8dcf7e01ef4481c4710577"
+      },
+      {
+        "path": "/cloudctl-mobile/assets/xlsx-CNerDvZX.js",
+        "status": 200,
+        "sha256": "88bd58aabec374fbb50e18e1f271a15d6fca247297e8af73db4c368ae0408a9c"
+      },
+      {
+        "path": "/cloudctl-mobile/favicon-16.png",
+        "status": 200,
+        "sha256": "160591e3606b469f01c6317db7192aa9ed23c227b88598a78de2ab5fe465b4bf"
+      },
+      {
+        "path": "/cloudctl-mobile/favicon-32.png",
+        "status": 200,
+        "sha256": "cebe39fdfc85c65b4356275c5f45fbc6892331d82290f48bbfa9ea4fb8c92d13"
+      },
+      {
+        "path": "/cloudctl-mobile/favicon.ico",
+        "status": 200,
+        "sha256": "4e22652c18b05355d19a662764ede204393776f6599628945558d277a05f6138"
+      },
+      {
+        "path": "/cloudctl-mobile/favicon.svg",
+        "status": 200,
+        "sha256": "d82de564659108016c010f231002d220947e23c3fecca54d56f2645f89aa247d"
+      },
+      {
+        "path": "/cloudctl-mobile/icon-192.png",
+        "status": 200,
+        "sha256": "cdbf26602c41b398214507f927ccea3cdc419231da90a8b121d249c98264607e"
+      },
+      {
+        "path": "/cloudctl-mobile/icon-512.png",
+        "status": 200,
+        "sha256": "91406d04a8e5e96b0058840989376840687309b613bebd0d1e1ad053d4418cbd"
+      },
+      {
+        "path": "/cloudctl-mobile/index.html",
+        "status": 200,
+        "sha256": "3bd5e8a7bf38f65b91f2cee315f0c5afe15e29ff56041b6da86329ff986ff4d5"
+      },
+      {
+        "path": "/cloudctl-mobile/templates/\u5546\u54c1\u5bfc\u5165\u6a21\u677f.csv",
+        "status": 200,
+        "sha256": "dde111d99bd7c3d07b43056a80f4166ec2dcfdda93b0919226bb7a630f8f8760"
+      },
+      {
+        "path": "/cloudctl-mobile/templates/\u5546\u54c1\u5bfc\u5165\u6a21\u677f.xlsx",
+        "status": 200,
+        "sha256": "544b22b8bb93db5ad273265c5855cd7473976e19ef6b9f97d2cff2b2bd03afc5"
+      },
+      {
+        "path": "/cloudctl-mobile/version.json",
+        "status": 200,
+        "sha256": "a4665d9a30c9aa096f9b10c56a8e17155f859f42e1d89cb3433e895fb2e32a62"
+      },
+      {
+        "path": "/api/v1/session",
+        "status": 200,
+        "sha256": "4d47b74a8fe48f7e25b0e40ebb2251240a12f0c6ce7f450917e621a6573412ce"
+      },
+      {
+        "path": "/api/v1/devices",
+        "status": 200,
+        "sha256": "cfe62604240923aaf4385a96eb4528f1dda7080ec342aab9626698727ee78a5b"
+      },
+      {
+        "path": "/api/v1/products",
+        "status": 200,
+        "sha256": "159dd91dfb4354344b12e81b6614557dada9e7f110239a210fed40fdd5daf059"
+      },
+      {
+        "path": "/api/v1/orders",
+        "status": 200,
+        "sha256": "de0edbfc8cf24f4ce81064f1d975ed994c7e769427396404875cfe402d892228"
+      },
+      {
+        "path": "/api/v1/platform-tasks?limit=100",
+        "status": 200,
+        "sha256": "5cf874f831ed8965d713e470300a5df1deb4f0115f5054ed554d222496ef2833"
+      },
+      {
+        "path": "/api/v1/im/config?deviceId=769d67a5-679c-4655-aeb9-60a2a265fbc6",
+        "status": 200,
+        "sha256": "e27576e0fa8dee9f68167eb11f3e7b9e00ac7877e3a3fef3f32ad67bf493b304"
+      }
+    ]
+  },
+  "deviceActionsIssued": false,
+  "businessWritesIssued": false,
+  "gitPushPerformed": false
+}
