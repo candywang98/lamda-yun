@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   fetchImConfig,
+  replyImThread,
+  normalizeImDeliveryState,
   imDutyStatus,
   imPlatformDmFiltered,
   imPlatformLabel,
@@ -50,6 +52,10 @@ function configFixture(overrides: Partial<ImMonitorConfig> = {}): ImMonitorConfi
 }
 
 describe('im api helpers', () => {
+  it('keeps missing or future delivery states unknown', () => {
+    for (const value of [undefined, null, '', 'SENT', 'READ']) expect(normalizeImDeliveryState(value)).toBe('UNKNOWN')
+    for (const value of ['PENDING', 'DELIVERED', 'FAILED']) expect(normalizeImDeliveryState(value)).toBe(value)
+  })
   it('normalizes absent or blank server summaries to null', () => {
     expect(normalizeImThread(threadFixture()).lastMessageText).toBeNull()
     expect(normalizeImThread(threadFixture({ lastMessageText: '在的，可以拍' })).lastMessageText)
@@ -107,6 +113,20 @@ describe('im config api wiring', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals()
+  })
+
+  it.each([
+    ['IM_RECEIVE_ONLY', '仅接收消息'],
+    ['THREAD_HAS_NO_INBOUND', '尚未采集到买家消息'],
+  ])('explains reply refusal %s', async (detail, label) => {
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ detail }), { status: 409 }))
+    await expect(replyImThread('thread-1', 'hello')).rejects.toThrow(label)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not claim success for an unconfirmed reply response', async () => {
+    fetchMock.mockResolvedValueOnce(new Response('{}', { status: 200 }))
+    await expect(replyImThread('thread-1', 'hello')).rejects.toThrow('Unconfirmed reply response')
   })
 
   it('PUTs the config draft and returns the stored view', async () => {

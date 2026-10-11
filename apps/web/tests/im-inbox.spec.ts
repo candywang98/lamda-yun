@@ -21,13 +21,15 @@ import {
 import { useSessionStore } from '@/stores/session'
 import ImInboxView from '@/views/ImInboxView.vue'
 
+const deviceReads = vi.hoisted(() => ({ pending: vi.fn() }))
+
 vi.mock('@/api/control', () => ({
   controlApiConfigured: true,
   controlApiBaseUrl: () => 'http://control.test',
   controlApiHeaders: () => ({}),
   operationsMockEnabled: false,
   createControlApiClient: () => ({
-    devices: vi.fn(async () => [
+    devices: () => deviceReads.pending() ?? Promise.resolve([
       { id: 'dev-alpha-0001', logical_name: '一加 9R', state: 'REGISTERED' },
       { id: 'dev-huawei-vog', logical_name: '华为 VOG', state: 'REGISTERED' },
       { id: 'dev-huawei-ele', logical_name: '华为 ELE', state: 'REGISTERED' },
@@ -121,6 +123,7 @@ function deferred<T>() {
 
 describe('ImInboxView', () => {
   beforeEach(() => {
+    deviceReads.pending.mockReset()
     vi.mocked(listImThreads).mockReset().mockResolvedValue(pageFixture([
       threadFixture({ lastMessageText: '一加上的入站正文' }),
       threadFixture({
@@ -148,12 +151,160 @@ describe('ImInboxView', () => {
 
   async function renderView(roles: string[]) {
     const pinia = createPinia()
-    const view = render(ImInboxView, { global: { plugins: [pinia] } })
-    const session = useSessionStore()
+    const session = useSessionStore(pinia)
     session.applySession({ userId: 'user-1', tenantId: 'tenant-1', roles, mfa: true, requestId: 'req-1' })
-    return view
+    return render(ImInboxView, { global: { plugins: [pinia] } })
   }
 
+
+  it('shows placeholders, raw text and honest delivery states without treating ordinary text as a preview', async () => {
+    vi.mocked(listImMessages).mockResolvedValue([
+      messageFixture('发来一条新消息'),
+      messageFixture('你好\n还在吗', { id: 'real' }),
+      ...[undefined, 'PENDING', 'DELIVERED', 'FAILED'].map((deliveryState, index) => messageFixture('回复' + index, { id: 'out' + index, direction: 'OUT', deliveryState: deliveryState as ImMessage['deliveryState'] })),
+    ])
+    await renderView(['device_operator'])
+    await fireEvent.click(await screen.findByRole('button', { name: /买家小王/ }))
+    expect(await screen.findByText('通知提示 · 正文待采集')).toBeTruthy()
+    expect(screen.getByText('发来一条新消息')).toBeTruthy()
+    expect(screen.getByText('你好 还在吗').textContent).toBe('你好\n还在吗')
+    expect(screen.getByText('发送状态未知')).toBeTruthy()
+    expect(screen.getByText('等待手机确认')).toBeTruthy()
+    expect(screen.getByText(/手机报告发送完成/)).toBeTruthy()
+    expect(screen.getByText(/回复任务失败/)).toBeTruthy()
+    expect(screen.getByText(/账号：未核验/)).toBeTruthy()
+  })
+
+  it.each([undefined, true])('fails closed with receiveOnly=%s and keeps a visible disabled composer', async (receiveOnly) => {
+    vi.mocked(fetchImConfig).mockImplementation(async (deviceId) => configFixture({ deviceId, receiveOnly }))
+    vi.mocked(listImMessages).mockResolvedValue([])
+    await renderView(['device_operator'])
+    await fireEvent.click(await screen.findByRole('button', { name: /买家小王/ }))
+    expect((screen.getByRole('textbox', { name: '回复内容' }) as HTMLTextAreaElement).disabled).toBe(true)
+    expect(screen.getByText(/只读收件箱/)).toBeTruthy()
+    expect(replyImThread).not.toHaveBeenCalled()
+  })
+
+  it.each(['permission', 'platform', 'config'])('explains the %s reply gate', async (gate) => {
+    vi.mocked(fetchImConfig).mockImplementation(async (deviceId) => {
+      if (gate === 'config') throw new Error('unavailable')
+      return configFixture({ deviceId, receiveOnly: false })
+    })
+    vi.mocked(listImThreads).mockResolvedValue(pageFixture([threadFixture({ platform: gate === 'platform' ? 'xhs' : 'xianyu' })]))
+    vi.mocked(listImMessages).mockResolvedValue([])
+    await renderView(gate === 'permission' ? ['viewer'] : ['device_operator'])
+    await fireEvent.click(await screen.findByRole('button', { name: /买家小王/ }))
+    expect((screen.getByRole('textbox', { name: '回复内容' }) as HTMLTextAreaElement).disabled).toBe(true)
+    expect(screen.getByText(/只读收件箱/).textContent).toContain({ permission: '没有设备回复权限', platform: '此平台暂不支持', config: '回复配置尚未核验' }[gate]!)
+  })
+
+  it('searches only loaded names, devices and summaries', async () => {
+    await renderView(['viewer'])
+    await screen.findByRole('button', { name: /买家小王/ })
+    await fireEvent.update(screen.getByRole('searchbox'), 'VOG 入站正文')
+    expect(screen.getByRole('button', { name: /华为买家/ })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /买家小王/ })).toBeNull()
+    expect(screen.getByText(/搜索仅覆盖已加载会话/)).toBeTruthy()
+  })
+
+  it('pins the explicit reply target and protects another device draft while a request is pending', async () => {
+    vi.mocked(fetchImConfig).mockImplementation(async (deviceId) => configFixture({ deviceId, receiveOnly: false }))
+    vi.mocked(listImThreads).mockResolvedValue(pageFixture([
+      threadFixture(), threadFixture({ id: 'thread-2', deviceId: 'dev-huawei-vog' }),
+    ]))
+    vi.mocked(listImMessages).mockResolvedValue([])
+    const pending = deferred<{ taskId: string }>()
+    vi.mocked(replyImThread).mockReturnValue(pending.promise)
+    await renderView(['device_operator'])
+    const buttons = await screen.findAllByRole('button', { name: /买家小王/ })
+    expect(buttons[0]!.textContent).toContain('一加 9R')
+    expect(buttons[1]!.textContent).toContain('华为 VOG')
+    await fireEvent.click(buttons[1]!)
+    await fireEvent.update(screen.getByRole('textbox', { name: '回复内容' }), '第二台草稿')
+    await fireEvent.click(buttons[0]!)
+    const textarea = screen.getByRole('textbox', { name: '回复内容' })
+    await fireEvent.update(textarea, '第一台回复')
+    await fireEvent.keyDown(textarea, { key: 'Enter', ctrlKey: true })
+    expect(replyImThread).not.toHaveBeenCalled()
+    await fireEvent.click(screen.getByRole('button', { name: '核对回复' }))
+    expect(screen.getByRole('region', { name: '确认回复' }).textContent).toContain('一加 9R · 闲鱼 · 买家小王')
+    const submit = screen.getByRole('button', { name: '确认提交回复任务' })
+    await fireEvent.click(submit)
+    await fireEvent.click(submit)
+    expect(replyImThread).toHaveBeenCalledTimes(1)
+    expect(replyImThread).toHaveBeenCalledWith('thread-1', '第一台回复')
+    await fireEvent.click(buttons[1]!)
+    pending.resolve({ taskId: 'task-1' })
+    await flushPromises()
+    expect((screen.getByRole('textbox', { name: '回复内容' }) as HTMLTextAreaElement).value).toBe('第二台草稿')
+    expect(screen.queryByText(/任务已提交/)).toBeNull()
+    await fireEvent.click(buttons[0]!)
+    expect(screen.getByRole('status').textContent).toContain('一加 9R · 闲鱼 · 买家小王：任务已提交')
+    expect((screen.getByRole('textbox', { name: '回复内容' }) as HTMLTextAreaElement).value).toBe('')
+  })
+
+  it.each(['user', 'tenant'])('discards pending reply results and drafts after a %s change', async (change) => {
+    vi.mocked(fetchImConfig).mockImplementation(async (deviceId) => configFixture({ deviceId, receiveOnly: false }))
+    vi.mocked(listImMessages).mockResolvedValue([])
+    const pending = deferred<{ taskId: string }>()
+    vi.mocked(replyImThread).mockReturnValue(pending.promise)
+    await renderView(['device_operator'])
+    await fireEvent.click(await screen.findByRole('button', { name: /买家小王/ }))
+    await fireEvent.update(screen.getByRole('textbox', { name: '回复内容' }), '相同草稿')
+    await fireEvent.click(screen.getByRole('button', { name: '核对回复' }))
+    await fireEvent.click(screen.getByRole('button', { name: '确认提交回复任务' }))
+    useSessionStore().applySession({ userId: change === 'user' ? 'user-2' : 'user-1', tenantId: change === 'tenant' ? 'tenant-2' : 'tenant-1', roles: ['device_operator'], mfa: true, requestId: 'req-2' })
+    await flushPromises()
+    await fireEvent.click(await screen.findByRole('button', { name: /买家小王/ }))
+    expect((screen.getByRole('textbox', { name: '回复内容' }) as HTMLTextAreaElement).value).toBe('')
+    await fireEvent.update(screen.getByRole('textbox', { name: '回复内容' }), '相同草稿')
+    await fireEvent.click(screen.getByRole('button', { name: '核对回复' }))
+    pending.resolve({ taskId: 'old-session-task' })
+    await flushPromises()
+    expect(screen.queryByText(/任务已提交/)).toBeNull()
+    expect(screen.getByRole('region', { name: '确认回复' })).toBeTruthy()
+    expect((screen.getByRole('textbox', { name: '回复内容' }) as HTMLTextAreaElement).value).toBe('相同草稿')
+  })
+
+  it('ignores device names returned after the tenant changes', async () => {
+    const oldDevices = deferred<unknown[]>()
+    deviceReads.pending.mockReturnValueOnce(oldDevices.promise)
+    await renderView(['viewer'])
+    useSessionStore().applySession({ userId: 'user-1', tenantId: 'tenant-2', roles: ['viewer'], mfa: true, requestId: 'req-2' })
+    await flushPromises()
+    oldDevices.resolve([{ id: 'old-tenant-device', logical_name: '旧租户设备', state: 'REGISTERED' }])
+    await flushPromises()
+    expect(screen.queryByRole('option', { name: '旧租户设备' })).toBeNull()
+    expect(screen.getByRole('option', { name: '一加 9R' })).toBeTruthy()
+  })
+
+  it('opens collection settings for the selected device without changing or saving its mode', async () => {
+    vi.mocked(listImMessages).mockResolvedValue([])
+    await renderView(['device_operator'])
+    await fireEvent.click(await screen.findByRole('button', { name: /华为买家/ }))
+    vi.mocked(markImThreadRead).mockClear()
+    await fireEvent.click(screen.getByRole('button', { name: '查看正文采集设置' }))
+    await flushPromises()
+    expect((screen.getByRole('combobox', { name: '设置设备' }) as HTMLSelectElement).value).toBe('dev-huawei-vog')
+    expect((screen.getByRole('radio', { name: '通知监听（后台，不占手机）' }) as HTMLInputElement).checked).toBe(true)
+    expect(saveImConfig).not.toHaveBeenCalled()
+    expect(replyImThread).not.toHaveBeenCalled()
+    expect(markImThreadRead).not.toHaveBeenCalled()
+  })
+
+  it('retains the draft and warns against duplicate sends after an uncertain network failure', async () => {
+    vi.mocked(fetchImConfig).mockImplementation(async (deviceId) => configFixture({ deviceId, receiveOnly: false }))
+    vi.mocked(listImMessages).mockResolvedValue([])
+    vi.mocked(replyImThread).mockRejectedValue(new TypeError('network'))
+    await renderView(['device_operator'])
+    await fireEvent.click(await screen.findByRole('button', { name: /买家小王/ }))
+    await fireEvent.update(screen.getByRole('textbox', { name: '回复内容' }), '保留草稿')
+    await fireEvent.click(screen.getByRole('button', { name: '核对回复' }))
+    await fireEvent.click(screen.getByRole('button', { name: '确认提交回复任务' }))
+    expect((await screen.findByRole('alert')).textContent).toContain('任务可能已提交')
+    expect((screen.getByRole('textbox', { name: '回复内容' }) as HTMLTextAreaElement).value).toBe('保留草稿')
+    expect(replyImThread).toHaveBeenCalledTimes(1)
+  })
   it('mixes three production device ids by default with unread bodies and friendly labels', async () => {
     await renderView(['security_admin'])
     expect(await screen.findByText('买家小王')).toBeTruthy()
@@ -237,7 +388,7 @@ describe('ImInboxView', () => {
     vi.mocked(listImMessages).mockResolvedValue([messageFixture('真实入站展示夹具')])
     await renderView(['security_admin'])
     await fireEvent.click(await screen.findByText('买家小王'))
-    expect(await screen.findByText('只读收件箱')).toBeTruthy()
+    expect(await screen.findByText(/只读收件箱/)).toBeTruthy()
     expect(screen.queryByRole('button', { name: '发送回复' })).toBeNull()
     expect(vi.mocked(replyImThread)).not.toHaveBeenCalled()
   })

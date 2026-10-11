@@ -46,7 +46,7 @@ describe('im-notify/20260926.1 API contract', () => {
     expect(fetchMock.mock.calls[1]![0]).toBe(
       `http://control.test/api/v1/im/threads/thread%20%2F%20one/messages?limit=200&latest=true&bucket=${bucket}`,
     )
-    expect(messages).toEqual([{ id: 'message-without-classification' }])
+    expect(messages).toEqual([{ id: 'message-without-classification', deliveryState: 'UNKNOWN' }])
   })
 
   it('keeps legacy DTOs and defaults callers to all without guessing bucket counts', async () => {

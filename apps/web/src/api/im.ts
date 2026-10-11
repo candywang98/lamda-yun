@@ -44,6 +44,12 @@ export interface ImThread {
   lastMessageClassification?: ImClassification | null
 }
 
+export type ImDeliveryState = 'PENDING' | 'DELIVERED' | 'FAILED' | 'UNKNOWN'
+
+export function normalizeImDeliveryState(value: unknown): ImDeliveryState {
+  return value === 'PENDING' || value === 'DELIVERED' || value === 'FAILED' ? value : 'UNKNOWN'
+}
+
 export interface ImMessage {
   id: string
   threadId: string
@@ -51,6 +57,7 @@ export interface ImMessage {
   contentType: string
   text: string
   occurredAt: string
+  deliveryState?: ImDeliveryState
   replyTaskId: string | null
   classification?: ImClassification | null
   notificationMetadata?: ImNotificationMetadata | null
@@ -208,6 +215,8 @@ async function request<T>(path: string, body?: unknown): Promise<T> {
   try { payload = text ? JSON.parse(text) : null } catch { /* handled below */ }
   if (!response.ok) {
     const detail = responseDetail(payload) ?? '请求失败'
+    if (detail.includes('IM_RECEIVE_ONLY')) throw new ImApiError(response.status, '当前仅接收消息，服务端未允许回复')
+    if (detail.includes('THREAD_HAS_NO_INBOUND')) throw new ImApiError(response.status, '该会话尚未采集到买家消息，不能主动发起回复')
     if (response.status === 409 && detail.includes('THREAD_REPLY_RATE_LIMITED')) {
       throw new ImApiError(response.status, '该会话 60 秒内只能回复一条，请稍后再试')
     }
@@ -234,7 +243,7 @@ export async function listImMessages(threadId: string, bucket: ImBucket = 'all')
   const data = await request<{ items: ImMessage[] }>(
     `/threads/${encodeURIComponent(threadId)}/messages?limit=200&latest=true&bucket=${bucket}`,
   )
-  return data.items ?? []
+  return (data.items ?? []).map((message) => ({ ...message, deliveryState: normalizeImDeliveryState(message.deliveryState) }))
 }
 
 export async function classifyImMessage(messageId: string, category: ImCategory | null, expectedVersion: number): Promise<ImMessage> {
@@ -250,7 +259,9 @@ export async function markImThreadRead(threadId: string): Promise<void> {
 }
 
 export async function replyImThread(threadId: string, text: string): Promise<{ taskId: string }> {
-  return request<{ taskId: string }>(`/threads/${threadId}:reply`, { text })
+  const result = await request<{ taskId: string }>(`/threads/${threadId}:reply`, { text })
+  if (!result || typeof result.taskId !== 'string' || !result.taskId) throw new Error('Unconfirmed reply response')
+  return result
 }
 
 export async function fetchImConfig(deviceId: string): Promise<ImMonitorConfig> {
