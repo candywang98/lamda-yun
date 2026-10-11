@@ -199,13 +199,15 @@ function configErrorDetail(status: number, payload: unknown): string {
   return `保存监听设置失败（HTTP ${status}）`
 }
 
-async function request<T>(path: string, body?: unknown): Promise<T> {
+async function request<T>(path: string, body?: unknown, options: { signal?: AbortSignal; idempotencyKey?: string } = {}): Promise<T> {
   if (!controlApiConfigured) throw new ImApiError(0, '未配置 Control API，无法打开消息收件箱')
   const headers = new Headers(controlApiHeaders())
   headers.set('Accept', 'application/json')
+  if (options.idempotencyKey) headers.set('Idempotency-Key', options.idempotencyKey)
   if (body !== undefined) headers.set('Content-Type', 'application/json')
   const response = await fetch(`${controlApiBaseUrl()}/api/v1/im${path}`, {
     method: body === undefined ? 'GET' : 'POST',
+    signal: options.signal,
     headers,
     credentials: 'same-origin',
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
@@ -281,4 +283,38 @@ export async function saveImConfig(deviceId: string, config: ImMonitorConfigDraf
   try { payload = text ? JSON.parse(text) : null } catch { /* handled below */ }
   if (!response.ok) throw new ImApiError(response.status, configErrorDetail(response.status, payload))
   return payload as ImMonitorConfig
+}
+
+// Frozen local DTO: im-chat-collection/1 (20261011.1).
+export interface ImBodySnapshot {
+  capturedAt: string
+  scope: 'VISIBLE_SCREEN'
+  completeness: 'VISIBLE_ONLY'
+  accountIdentity: 'UNVERIFIED'
+  peerIdentity: { status: 'DISPLAY_NAME_MATCH'; observedName: string; basis: 'CHAT_HEADER' }
+  messages: { direction: 'IN' | 'OUT'; text: string; visibleOrder: number; occurredAt: null }[]
+  truncated: boolean
+}
+export interface ImBodyCollection {
+  taskId: string
+  threadId: string
+  status: string
+  createdAt: string
+  errorCode: string | null
+  snapshot: ImBodySnapshot | null
+}
+export interface ImBodyCollections {
+  capability: { supported: boolean; available: boolean; reason: string | null }
+  items: ImBodyCollection[]
+}
+export function listImBodyCollections(threadId: string, signal?: AbortSignal): Promise<ImBodyCollections> {
+  return request('/threads/' + encodeURIComponent(threadId) + '/body-collections', undefined, { signal })
+}
+export async function collectImBody(threadId: string, idempotencyKey: string): Promise<Pick<ImBodyCollection, 'taskId' | 'threadId' | 'status'>> {
+  if (!idempotencyKey.trim() || idempotencyKey.length > 128) throw new Error('Invalid collection idempotency key')
+  const result = await request<Pick<ImBodyCollection, 'taskId' | 'threadId' | 'status'>>(
+    '/threads/' + encodeURIComponent(threadId) + ':collect-body', {}, { idempotencyKey },
+  )
+  if (!result?.taskId || result.threadId !== threadId || !result.status) throw new Error('Unconfirmed collection response')
+  return result
 }
