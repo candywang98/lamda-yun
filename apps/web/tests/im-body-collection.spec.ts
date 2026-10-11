@@ -166,3 +166,18 @@ it.each(['PAUSED_WAITING_USER', 'RESUME_CHECK', 'RECONCILING', 'PAUSE_REQUESTED'
   await vi.advanceTimersByTimeAsync(3000); await flushPromises()
   expect(listImBodyCollections).toHaveBeenCalledTimes(2); expect(collectImBody).not.toHaveBeenCalled()
 })
+it.each([
+  ['IM_COLLECTION_NO_BINDING', false, '没有有效手机绑定'],
+  ['IM_COLLECTION_UNSUPPORTED', false, '手机端尚不支持正文读取协议'],
+  ['IM_COLLECTION_OFFLINE', true, '手机离线'],
+  ['IM_COLLECTION_NOT_EXECUTABLE', true, '手机当前不满足任务执行条件'],
+])('explains actual server capability reason %s without exposing codes', async (reason, supported, explanation) => {
+  vi.mocked(listImBodyCollections).mockResolvedValue({ capability: { supported, available: false, reason }, items: [] })
+  const view = setup(); await flushPromises()
+  expect(screen.getByText(explanation, { exact: false })).toBeTruthy()
+  expect(view.container.textContent).not.toContain(reason)
+  const button = screen.getByRole('button', { name: '读取当前可见正文' }) as HTMLButtonElement
+  expect(button.disabled).toBe(true)
+  await fireEvent.click(button)
+  expect(collectImBody).not.toHaveBeenCalled()
+})

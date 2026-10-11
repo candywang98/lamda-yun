@@ -24,7 +24,7 @@ const snapshotTitle = computed(() => latest.value?.status === 'SUCCEEDED' && lat
 const statusLabels: Record<string, string> = { PREFLIGHT: '手机正在准备读取', PAUSED_WAITING_USER: '已暂停，等待处理', RESUME_CHECK: '正在检查恢复条件', RECONCILING: '等待核对读取结果', PAUSE_REQUESTED: '正在暂停', CANCEL_REQUESTED: '正在取消', WAITING_MATERIALS: '等待任务条件就绪', QUEUED: '等待手机读取', PENDING: '等待手机读取', CREATED: '等待手机读取', DISPATCHED: '等待手机读取', CLAIMED: '正在读取', RUNNING: '正在读取', PAUSED: '已暂停', RETRYING: '等待手机读取', SUCCEEDED: '读取完成', FAILED: '读取失败', CANCELLED: '已取消', EXPIRED: '读取已过期' }
 const capabilityReason = computed(() => {
   const code = data.value?.capability?.reason
-  const labels: Record<string, string> = { OFFLINE: '手机离线', DEVICE_OFFLINE: '手机离线', PROTOCOL_UNSUPPORTED: '需要支持正文读取的手机端', DEVICE_BUSY: '手机正在执行其他任务', NO_ACTIVE_BINDING: '没有有效手机绑定', PLATFORM_UNSUPPORTED: '当前平台不支持' }
+  const labels: Record<string, string> = { IM_COLLECTION_NO_BINDING: '没有有效手机绑定', IM_COLLECTION_UNSUPPORTED: '手机端尚不支持正文读取协议', IM_COLLECTION_OFFLINE: '手机离线', IM_COLLECTION_NOT_EXECUTABLE: '手机当前不满足任务执行条件', OFFLINE: '手机离线', DEVICE_OFFLINE: '手机离线', PROTOCOL_UNSUPPORTED: '需要支持正文读取的手机端', DEVICE_BUSY: '手机正在执行其他任务', NO_ACTIVE_BINDING: '没有有效手机绑定', PLATFORM_UNSUPPORTED: '当前平台不支持' }
   return code && labels[code] ? '：' + labels[code] : ''
 })
 function readTime(value: string) { const date = new Date(value); return Number.isNaN(date.getTime()) ? '时间未知' : date.toLocaleString('zh-CN', { hour12: false }) }
