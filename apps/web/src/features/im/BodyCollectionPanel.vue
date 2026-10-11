@@ -17,11 +17,11 @@ let revision = 0
 let disposed = false
 let timer: ReturnType<typeof setTimeout> | undefined
 let controller: AbortController | undefined
-const activeStates = new Set(['PENDING', 'QUEUED', 'CREATED', 'DISPATCHED', 'CLAIMED', 'RUNNING', 'PAUSED', 'RETRYING'])
+const activeStates = new Set(['PENDING', 'QUEUED', 'CREATED', 'DISPATCHED', 'CLAIMED', 'RUNNING', 'PAUSED', 'RETRYING', 'PREFLIGHT', 'PAUSED_WAITING_USER', 'RESUME_CHECK', 'RECONCILING', 'PAUSE_REQUESTED', 'CANCEL_REQUESTED', 'WAITING_MATERIALS'])
 const latest = computed(() => data.value?.items[0])
 const snapshot = computed(() => data.value?.items.find((item) => item.status === 'SUCCEEDED' && item.snapshot)?.snapshot)
 const snapshotTitle = computed(() => latest.value?.status === 'SUCCEEDED' && latest.value.snapshot ? '本次读取的可见正文' : '上次读取的可见正文')
-const statusLabels: Record<string, string> = { QUEUED: '等待手机读取', PENDING: '等待手机读取', CREATED: '等待手机读取', DISPATCHED: '等待手机读取', CLAIMED: '正在读取', RUNNING: '正在读取', PAUSED: '已暂停', RETRYING: '等待手机读取', SUCCEEDED: '读取完成', FAILED: '读取失败', CANCELLED: '已取消', EXPIRED: '读取已过期' }
+const statusLabels: Record<string, string> = { PREFLIGHT: '手机正在准备读取', PAUSED_WAITING_USER: '已暂停，等待处理', RESUME_CHECK: '正在检查恢复条件', RECONCILING: '等待核对读取结果', PAUSE_REQUESTED: '正在暂停', CANCEL_REQUESTED: '正在取消', WAITING_MATERIALS: '等待任务条件就绪', QUEUED: '等待手机读取', PENDING: '等待手机读取', CREATED: '等待手机读取', DISPATCHED: '等待手机读取', CLAIMED: '正在读取', RUNNING: '正在读取', PAUSED: '已暂停', RETRYING: '等待手机读取', SUCCEEDED: '读取完成', FAILED: '读取失败', CANCELLED: '已取消', EXPIRED: '读取已过期' }
 const capabilityReason = computed(() => {
   const code = data.value?.capability?.reason
   const labels: Record<string, string> = { OFFLINE: '手机离线', DEVICE_OFFLINE: '手机离线', PROTOCOL_UNSUPPORTED: '需要支持正文读取的手机端', DEVICE_BUSY: '手机正在执行其他任务', NO_ACTIVE_BINDING: '没有有效手机绑定', PLATFORM_UNSUPPORTED: '当前平台不支持' }
