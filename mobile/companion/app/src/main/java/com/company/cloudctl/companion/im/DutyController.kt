@@ -82,7 +82,8 @@ object DutyController {
         val target = findUnreadEntry(service) ?: return
         val peerName = target.second
         if (!openConversation(service, target.first)) return
-        readAndQueue(context, service, peerName)
+        if (!readAndQueue(context, service, peerName)) return
+        if (!bodyCollector(service, peerName).matches(peerName)) return
         backToList(service)
         knownPeers.add(peerName)
     }
@@ -202,31 +203,49 @@ object DutyController {
         return roots.any { root -> containsDesc(root, "想跟TA说点什么") }
     }
 
-    private fun readAndQueue(context: android.content.Context, service: CloudCtlAccessibilityService, peer: String) {
-        val roots = service.allRootsForDuty() ?: return
+    private fun bodyCollector(service: CloudCtlAccessibilityService, peer: String) = GuardedChatBodyCollection(
+        targetForeground = { service.isTargetForeground(TargetLocatorRegistry.XIANYU_PACKAGE) },
+        evidence = { service.imChatEvidence(TargetLocatorRegistry.XIANYU_PACKAGE, peer) },
+        snapshot = {
+            // Preserve the existing duty bubble-selection rule: first nonempty root.
+            service.allRootsForDuty()
+                .filter { it.packageName?.toString() == TargetLocatorRegistry.XIANYU_PACKAGE }
+                .firstNotNullOfOrNull { root ->
+                ArrayList<ChatBubble>().also { collectBubbles(root, it) }.takeIf { it.isNotEmpty() }
+            }.orEmpty()
+        },
+    )
+
+    private suspend fun readAndQueue(
+        context: android.content.Context,
+        service: CloudCtlAccessibilityService,
+        peer: String,
+    ): Boolean {
         val deviceId = runCatching {
             val raw = context.getSharedPreferences("cloudctl_binding", android.content.Context.MODE_PRIVATE)
-                .getString("binding", null) ?: return
+                .getString("binding", null) ?: return false
             org.json.JSONObject(raw).getString("deviceId")
-        }.getOrNull() ?: return
-        for (root in roots) {
-            val bubbles = ArrayList<ChatBubble>()
-            collectBubbles(root, bubbles)
-            if (bubbles.isEmpty()) continue
-            ChatPageReading.freshInbound(bubbles).forEach { text ->
-                ImMonitor.accept(
-                    deviceId,
-                    ImEvent(
-                        platform = ImMonitorConfig.PLATFORM_XIANYU,
-                        peerName = peer,
-                        text = text,
-                        occurredAt = Instant.now(),
-                    ),
-                )
-            }
-            android.util.Log.i(TAG, "duty queued ${ChatPageReading.freshInbound(bubbles).size} messages from $peer")
-            return
-        }
+        }.getOrNull() ?: return false
+        val collector = bodyCollector(service, peer)
+        return collector.collect(
+            peer = peer,
+            hasBody = { ChatPageReading.freshInbound(it).isNotEmpty() },
+            queue = { bubbles ->
+                ChatPageReading.freshInbound(bubbles).forEach { text ->
+                    // Each message is a separate enqueue; recheck immediately before each one.
+                    check(collector.matches(peer)) { "Duty conversation evidence lost" }
+                    ImMonitor.accept(
+                        deviceId,
+                        ImEvent(
+                            platform = ImMonitorConfig.PLATFORM_XIANYU,
+                            peerName = peer,
+                            text = text,
+                            occurredAt = Instant.now(),
+                        ),
+                    )
+                }
+            },
+        )
     }
 
     private suspend fun backToList(service: CloudCtlAccessibilityService) {

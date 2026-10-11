@@ -633,52 +633,22 @@ class CompanionSyncService : Service() {
             android.util.Log.i("CompanionSync", "IM body enrichment: reply task shape not recognized")
             return
         }
-        val chatOpen = runCatching {
-            service.inspect(
-                task.targetPackage,
-                com.company.cloudctl.companion.im.ImReplyTaskShape.CHAT_INPUT_LOCATOR,
-            )?.visible == true
-        }.getOrDefault(false)
-        if (!chatOpen) {
-            android.util.Log.i("CompanionSync", "IM body enrichment: chat page not open after reply")
-            return
-        }
-        var bubbles = service.chatBubbles(task.targetPackage)
-        var attempts = 0
-        while (attempts < ENRICH_SWIPE_ATTEMPTS &&
-            com.company.cloudctl.companion.im.ChatPageReading.latestInbound(bubbles) == null
-        ) {
-            attempts++
-            // Our own replies push the contact's last message out of the Flutter
-            // semantics tree. Drag the list down inside its own bounds (the old
-            // fixed start point was consumed by the IME) to reveal it, re-read,
-            // and stop as soon as an inbound bubble becomes visible.
-            runCatching {
-                service.swipeConversationList(task.targetPackage, backward = true)
+        val collector = com.company.cloudctl.companion.im.GuardedChatBodyCollection(
+            targetForeground = { service.isTargetForeground(task.targetPackage) },
+            evidence = { service.imChatEvidence(task.targetPackage, peer) },
+            snapshot = { service.chatBubbles(task.targetPackage) },
+            swipe = { backward ->
+                service.swipeConversationList(task.targetPackage, backward)
                 delay(ENRICH_SWIPE_SETTLE_MS)
-            }
-            bubbles = service.chatBubbles(task.targetPackage)
-            android.util.Log.i(
-                "CompanionSync",
-                "IM body enrichment attempt=$attempts bubbles=${bubbles.size} " +
-                    "inbound=${com.company.cloudctl.companion.im.ChatPageReading.latestInbound(bubbles) != null}",
-            )
-        }
-        if (attempts > 0) {
-            // Restore the view so our newest replies are visible again. Exact
-            // placement is not required; bottom overscroll is harmless.
-            runCatching {
-                repeat(attempts) {
-                    service.swipeConversationList(task.targetPackage, backward = false)
-                    delay(ENRICH_SWIPE_SETTLE_MS)
-                }
-            }
-        }
-        val queued = imBodyEnricher.enrich(peer, bubbles)
-        android.util.Log.i(
-            "CompanionSync",
-            "IM body enrichment peer=${peer.take(32)} bubbles=${bubbles.size} queued=$queued attempts=$attempts",
+            },
         )
+        val completed = collector.collect(
+            peer = peer,
+            maxBackwardSwipes = ENRICH_SWIPE_ATTEMPTS,
+            hasBody = { com.company.cloudctl.companion.im.ChatPageReading.latestInbound(it) != null },
+            queue = { imBodyEnricher.enrich(peer, it) },
+        )
+        android.util.Log.i("CompanionSync", "IM body enrichment safeCompletion=$completed")
     }
 
     private suspend fun runNext(
