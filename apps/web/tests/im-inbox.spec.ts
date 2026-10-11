@@ -52,6 +52,8 @@ vi.mock('@/api/im', async (importOriginal) => {
     ...actual,
     listImThreads: vi.fn(),
     listImMessages: vi.fn(),
+    listImBodyCollections: vi.fn().mockResolvedValue({ capability: { supported: true, available: true, reason: null }, items: [] }),
+    collectImBody: vi.fn(),
     markImThreadRead: vi.fn(),
     replyImThread: vi.fn(),
     fetchImConfig: vi.fn(),

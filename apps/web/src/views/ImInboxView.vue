@@ -29,6 +29,7 @@ import {
 import { useSessionStore } from '@/stores/session'
 import { deliveryLabel, isNotificationPreview } from '@/features/im/presentation'
 import MessageClassification from '@/features/im/MessageClassification.vue'
+import BodyCollectionPanel from '@/features/im/BodyCollectionPanel.vue'
 import { categoryLabel, classificationVersion, IM_BUCKETS } from '@/features/im/classification'
 
 const threads = ref<ImThread[]>([])
@@ -763,6 +764,7 @@ onBeforeUnmount(() => {
           <p class="im-context">设备：{{ deviceLabel(selected.deviceId) }} · {{ selected.deviceId }}<br />账号：未核验 · 联系人：{{ selected.peerName }}<br />设备名称不等于登录账号；账号切换后的会话归属需核对。</p>
           <p class="im-context yy-sub">这里只展示已采集消息。通知可能只有提醒；值班采集会在手机进入聊天读取文字，会占用手机界面，也可能标为已读。现有设备能否完整读取仍待验证。</p>
           <div class="im-context"><button class="yy-btn" type="button" @click="openCollectionSettings">查看正文采集设置</button></div>
+          <BodyCollectionPanel :thread="selected" :device-label="deviceLabel(selected.deviceId)" />
           <div class="im-stream" :aria-busy="messagesLoading">
             <p v-if="messagesLoading" class="yy-sub" role="status">加载消息中…</p>
             <div
