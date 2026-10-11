@@ -445,7 +445,7 @@ async function saveConfig() {
   }
 }
 
-watch(() => [session.user.id, session.user.tenant], () => {
+watch([() => session.user.id, () => session.user.tenant], () => {
   ++identityRevision
   ++contextRevision
   ++threadRequest

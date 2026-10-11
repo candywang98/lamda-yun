@@ -243,6 +243,17 @@ describe('ImInboxView', () => {
     expect((screen.getByRole('textbox', { name: '回复内容' }) as HTMLTextAreaElement).value).toBe('')
   })
 
+  it('preserves the draft when the same identity session is refreshed', async () => {
+    vi.mocked(fetchImConfig).mockImplementation(async (deviceId) => configFixture({ deviceId, receiveOnly: false }))
+    vi.mocked(listImMessages).mockResolvedValue([])
+    await renderView(['device_operator'])
+    await fireEvent.click(await screen.findByRole('button', { name: /买家小王/ }))
+    await fireEvent.update(screen.getByRole('textbox', { name: '回复内容' }), '刷新后保留草稿')
+    useSessionStore().applySession({ userId: 'user-1', tenantId: 'tenant-1', roles: ['device_operator'], mfa: true, requestId: 'refreshed-session' })
+    await flushPromises()
+    expect((screen.getByRole('textbox', { name: '回复内容' }) as HTMLTextAreaElement).value).toBe('刷新后保留草稿')
+  })
+
   it.each(['user', 'tenant'])('discards pending reply results and drafts after a %s change', async (change) => {
     vi.mocked(fetchImConfig).mockImplementation(async (deviceId) => configFixture({ deviceId, receiveOnly: false }))
     vi.mocked(listImMessages).mockResolvedValue([])
