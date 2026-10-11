@@ -36,8 +36,8 @@ describe('core route contract', () => {
   })
 
   it('adds catalog and reusable dynamic operation routes without changing the core routes', () => {
-    expect(operationRoutes).toHaveLength(4)
-    expect(operationRoutes.map((route) => route.path)).toEqual(['/operations/orders/orders-04', '/operations', '/operations/settings/display', '/operations/:moduleId/:operationId'])
+    expect(operationRoutes).toHaveLength(6)
+    expect(operationRoutes.map((route) => route.path)).toEqual(['/operations/system-home/system-home-01', '/operations/system-home/system-home-06', '/operations/orders/orders-04', '/operations', '/operations/settings/display', '/operations/:moduleId/:operationId'])
   })
 
   it('redirects all-orders from both initial load and an existing dynamic operation route', async () => {
@@ -55,6 +55,15 @@ describe('core route contract', () => {
     await testRouter.push('/operations/not-a-module/not-an-operation')
     await testRouter.isReady()
     expect(testRouter.currentRoute.value.name).toBe('operations-catalog')
+    expect(testRouter.currentRoute.value.fullPath).toBe('/operations')
+  })
+
+  it.each(['system-home-01', 'system-home-06'])('redirects removed %s on initial and dynamic navigation', async (id) => {
+    const testRouter = createRouter({ history: createMemoryHistory(), routes: operationRoutes })
+    await testRouter.push('/operations/system-home/' + id)
+    expect(testRouter.currentRoute.value.fullPath).toBe('/operations')
+    await testRouter.push('/operations/system-home/system-home-02')
+    await testRouter.push('/operations/system-home/' + id)
     expect(testRouter.currentRoute.value.fullPath).toBe('/operations')
   })
 

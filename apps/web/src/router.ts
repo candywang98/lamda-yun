@@ -46,6 +46,8 @@ export const coreRoutes: RouteRecordRaw[] = [
 ]
 
 export const operationRoutes: RouteRecordRaw[] = [
+  { path: '/operations/system-home/system-home-01', redirect: '/operations' },
+  { path: '/operations/system-home/system-home-06', redirect: '/operations' },
   { path: '/operations/orders/orders-04', redirect: '/operations/product-management/product-management-01?tab=orders' },
   { path: '/operations', name: 'operations-catalog', component: OperationsCatalogView, meta: { title: '运营功能目录', section: '运营目录' } },
   { path: '/operations/settings/display', name: 'operations-display-settings', component: DisplaySettingsView, meta: { title: '显示设置', section: '运营目录' } },

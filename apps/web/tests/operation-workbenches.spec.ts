@@ -4,9 +4,9 @@ import { workbenchKind } from '@/data/operation-workbenches'
 
 describe('operation workbenches', () => {
   it('maps every catalog page to a competitor workbench instead of a generic shell', () => {
-    expect(operationsCatalog).toHaveLength(134)
+    expect(operationsCatalog).toHaveLength(132)
     expect(workbenchKind(operationsCatalog.find((item) => item.id === 'system-home-02')!)).toBe('device-list')
-    expect(workbenchKind(operationsCatalog.find((item) => item.id === 'system-home-01')!)).toBe('article')
+    expect(workbenchKind(operationsCatalog.find((item) => item.id === 'system-home-04')!)).toBe('article')
     expect(workbenchKind(operationsCatalog.find((item) => item.id === 'task-queue-01')!)).toBe('table')
     expect(workbenchKind(operationsCatalog.find((item) => item.id === 'product-editor-01')!)).toBe('editor')
     expect(workbenchKind(operationsCatalog.find((item) => item.id === 'product-editor-03')!)).toBe('pool')

@@ -38,6 +38,9 @@ describe('display settings', () => {
     await router.isReady()
     render(DisplaySettingsView, { global: { plugins: [createPinia(), router] } })
 
+    expect(screen.queryByLabelText('系统主页 / 产品介绍')).toBeNull()
+    expect(screen.queryByLabelText('系统主页 / 更新日志')).toBeNull()
+    expect(useDisplaySettings().visibleOperationCount).toBe(128)
     expect(screen.getByLabelText('系统主页')).toBeTruthy()
     expect(screen.getByLabelText('系统主页 / 设备列表')).toBeTruthy()
     await fireEvent.click(screen.getByLabelText('采集管理'))

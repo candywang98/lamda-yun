@@ -32,7 +32,13 @@ describe('OperationsShell', () => {
     })
     await router.push('/operations')
     await router.isReady()
-    render(OperationsShell, { global: { plugins: [createPinia(), router] } })
+    const pinia = createPinia()
+    const workspace = useOperationsWorkspace(pinia)
+    workspace.tabs = ['system-home-01', 'system-home-06'].map((id) => ({ id, title: 'Removed', moduleId: 'system-home', to: '/operations/system-home/' + id }))
+    render(OperationsShell, { global: { plugins: [pinia, router] } })
+    expect(workspace.tabs).toEqual([])
+    expect(screen.queryByRole('link', { name: '产品介绍' })).toBeNull()
+    expect(screen.queryByRole('link', { name: '更新日志' })).toBeNull()
 
     expect(screen.getByText('云控工作台')).toBeTruthy()
     expect(screen.getByRole('link', { name: 'Recipe 版本管理' }).getAttribute('href')).toBe('/recipes')
@@ -54,6 +60,29 @@ describe('OperationsShell', () => {
     router.back()
     await waitFor(() => expect(router.currentRoute.value.query.tab).toBeUndefined())
     expect(screen.getAllByText('全部功能').length).toBeGreaterThan(0)
+  })
+
+  it.each(['system-home-01', 'system-home-06'])('reconciles a removed active %s route retained by HMR', async (id) => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/operations', name: 'operations-catalog', component: { template: '<div>目录</div>' } },
+        { path: '/operations/:moduleId/:operationId', name: 'operation-detail', component: { template: '<div>功能</div>' } },
+      ],
+    })
+    await router.push('/operations/system-home/' + id)
+    render(OperationsShell, { global: { plugins: [createPinia(), router] } })
+    await waitFor(() => expect(router.currentRoute.value.fullPath).toBe('/operations'))
+    expect(useOperationsWorkspace().tabs).toEqual([])
+  })
+
+  it('refuses stale definitions for removed tabs', () => {
+    setActivePinia(createPinia())
+    const workspace = useOperationsWorkspace()
+    for (const id of ['system-home-01', 'system-home-06']) {
+      workspace.openTab({ ...operationsCatalog[0]!, id })
+    }
+    expect(workspace.tabs).toEqual([])
   })
 
   it('keeps at most five function tabs and closes the earliest one', () => {
