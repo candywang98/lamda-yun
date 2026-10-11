@@ -36,7 +36,7 @@ main 集成代码基线：98644c02feba863c28a8b3a9fc53e2213e6ac46b；本轮没�
 
 ## 上线结果
 
-2026-10-11 16:09:23 北京时间切换上线，16:12:45 提交确认。deployment-result.json 为 committed=true、rollback=false，无失败。
+2026-10-11 16:09:23 北京时间切换上线，16:12:45 提交确认。deployment-result.json 为 committed=true；未执行回滚，无部署失败。
 线上：https://43.133.243.154.sslip.io/cloudctl-mobile/im；本地只读预览：http://127.0.0.1:5173/im，源目录未换，HMR 已更新，readOnly=true。
 当前目标：/var/www/cloudctl-mobile-web-im-de8629edb5c4；上一目标：/var/www/cloudctl-mobile-web-menu-87fade44bbc2。
 备份：/home/ubuntu/cloudctl-mobile/backups/web-im-de8629edb5c4/web.tar.gz，29 个文件哈希核验；包 SHA256：76841d990c2c37399a8f769ce2af8a840d9e4fe77cfa1aaca825317661c9d4ee。
