@@ -100,7 +100,7 @@ describe('fleet-identity/v1 device card mapping', () => {
     expect(card.online).toBe(true)
     expect(card.executable).toBeNull()
     expect(schedulingEligibility(card)).toBe('ONLINE_NOT_EXECUTABLE')
-    expect(permissionGapSummary(card)).toEqual(['executable 未回传，等待 Companion 上报门禁明细'])
+    expect(permissionGapSummary(card)).toEqual(['执行状态待上报，暂不派发任务'])
   })
 })
 
@@ -353,6 +353,96 @@ describe('C10 acceptance B: fleet workbench mock indicator and fail-closed behav
     const cardB = document.querySelector('[data-device-id="dev-b-online"]') as HTMLElement
     expect(within(cardA).queryByText(/B 设备发布第 4 步超时/)).toBeNull()
     expect(within(cardB).getByText(/B 设备发布第 4 步超时/)).toBeTruthy()
+  })
+})
+
+describe('display-v1 filters and selection safety', () => {
+  it('defaults to all records, preserves duplicate names, sorts online first and reports matching counts', async () => {
+    setMode(true, false)
+    api.devices.mockResolvedValue([
+      { ...deviceAFixture(), logicalName: '同名设备' },
+      { ...deviceBFixture(), logicalName: '同名设备' },
+      rawFleetDeviceFixture({ deviceId: 'third-online', logicalName: 'third' }),
+    ])
+    api.listPlatformTasks.mockResolvedValue({ items: [] })
+    render(FleetWorkbenchView, { global: { plugins: [createPinia()] } })
+    await flushPromises()
+    expect(screen.getByRole('button', { name: '全部（3 条）' }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: '在线（2 条）' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '离线（1 条）' })).toBeTruthy()
+    expect(screen.getAllByText('同名设备')).toHaveLength(2)
+    expect([...document.querySelectorAll('.fleet-grid article')].map((card) => card.getAttribute('data-device-id'))).toEqual([DEVICE_B, 'third-online', DEVICE_A])
+    expect(screen.getByText(/数量为设备记录数，不等于物理设备数/)).toBeTruthy()
+    const search = screen.getByRole('searchbox', { name: '搜索设备名称或 ID' })
+    await fireEvent.update(search, ' 同名设备 ')
+    expect(screen.getAllByText('同名设备')).toHaveLength(2)
+    expect(screen.getByRole('button', { name: '全部（2 条）' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '在线（1 条）' })).toBeTruthy()
+    await fireEvent.click(screen.getByRole('button', { name: '离线（1 条）' }))
+    expect(document.querySelectorAll('.fleet-grid article')).toHaveLength(1)
+    expect(document.querySelector('.fleet-grid article')?.getAttribute('data-device-id')).toBe(DEVICE_A)
+    await fireEvent.click(screen.getByRole('button', { name: '全部（2 条）' }))
+    await fireEvent.update(search, DEVICE_B.toUpperCase())
+    expect(document.querySelectorAll('.fleet-grid article')).toHaveLength(1)
+    expect(document.querySelector('.fleet-grid article')?.getAttribute('data-device-id')).toBe(DEVICE_B)
+    await fireEvent.update(search, 'no-match')
+    expect(screen.getByText('没有匹配的设备记录，请调整搜索或连接状态筛选。')).toBeTruthy()
+    expect(screen.getByRole('button', { name: '全部（0 条）' })).toBeTruthy()
+  })
+
+  it.each(['search', 'filter', 'offline', 'error'] as const)('removes hidden selections and details after %s without restoring targets later', async (change) => {
+    setMode(true, false)
+    primeApiSuccess()
+    render(FleetWorkbenchView, { global: { plugins: [createPinia()] } })
+    const target = await selectDeviceBAndExpand()
+    await fireEvent.click(target.getByRole('button', { name: '查看' }))
+    if (change === 'search') await fireEvent.update(screen.getByRole('searchbox'), DEVICE_A)
+    else if (change === 'filter') await fireEvent.click(screen.getByRole('button', { name: '离线（1 条）' }))
+    else {
+      if (change === 'error') api.devices.mockRejectedValueOnce(new Error('refresh unavailable'))
+      else api.devices.mockResolvedValueOnce([deviceAFixture(), { ...deviceBFixture(), online: false }])
+      await fireEvent.click(screen.getByRole('button', { name: '刷新设备状态' }))
+      await flushPromises()
+    }
+    expect(document.querySelector('[data-target-device]')).toBeNull()
+    expect(screen.getByText(/已选 0 条记录/)).toBeTruthy()
+    if (change !== 'offline') expect(document.querySelector('.fleet-detail')).toBeNull()
+    await fireEvent.update(screen.getByRole('searchbox'), '')
+    await fireEvent.click(screen.getByRole('button', { name: /全部（/ }))
+    await fireEvent.click(screen.getByRole('button', { name: '刷新设备状态' }))
+    await flushPromises()
+    expect(document.querySelector('[data-target-device]')).toBeNull()
+    const card = document.querySelector(`.fleet-grid [data-device-id="${DEVICE_B}"]`) as HTMLElement
+    expect((within(card).getByRole('checkbox') as HTMLInputElement).checked).toBe(false)
+    expect((screen.getByRole('button', { name: /展开为逐设备目标（0 条）/ }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('retains only visible selected targets and allows explicit deselection', async () => {
+    setMode(true, false)
+    api.devices.mockResolvedValue([rawFleetDeviceFixture({ deviceId: DEVICE_A }), deviceBFixture()])
+    api.listPlatformTasks.mockResolvedValue({ items: [] })
+    render(FleetWorkbenchView, { global: { plugins: [createPinia()] } })
+    await flushPromises()
+    for (const checkbox of screen.getAllByRole('checkbox')) await fireEvent.click(checkbox)
+    await fireEvent.click(screen.getByRole('button', { name: /展开为逐设备目标/ }))
+    expect(document.querySelectorAll('[data-target-device]')).toHaveLength(2)
+    await fireEvent.update(screen.getByRole('searchbox'), DEVICE_B)
+    expect(document.querySelectorAll('[data-target-device]')).toHaveLength(1)
+    expect(document.querySelector('[data-target-device]')?.getAttribute('data-target-device')).toBe(DEVICE_B)
+    await fireEvent.update(screen.getByRole('searchbox'), '')
+    expect(document.querySelectorAll('[data-target-device]')).toHaveLength(1)
+    const card = document.querySelector(`.fleet-grid [data-device-id="${DEVICE_B}"]`) as HTMLElement
+    await fireEvent.click(within(card).getByRole('checkbox'))
+    expect(document.querySelector('[data-target-device]')).toBeNull()
+  })
+
+  it('preserves the global task loading failure notice', async () => {
+    setMode(true, false)
+    api.devices.mockResolvedValue([deviceBFixture()])
+    api.listPlatformTasks.mockRejectedValue(new Error('forbidden'))
+    render(FleetWorkbenchView, { global: { plugins: [createPinia()] } })
+    await flushPromises()
+    expect(screen.getByText('任务列表加载失败，设备卡暂不显示当前任务')).toBeTruthy()
   })
 })
 

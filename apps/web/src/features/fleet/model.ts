@@ -47,6 +47,8 @@ export interface FleetDeviceCard {
   /** 失败/缺失的门禁 = 权限缺口；API 未回传明细时为 null（不编造）。 */
   blockingGates: string[] | null
   capabilities: FleetCapability[]
+  capabilityKeys: string[]
+  appVersion: string | null
   /** 绑定平台账号（契约 §2 accountId 现状债务字段）。 */
   accountId: string | null
   bindingVersion: number | null
@@ -119,7 +121,7 @@ export function permissionGapSummary(device: FleetDeviceCard): string[] {
     return device.blockingGates.map((gate) => `${gateLabel(gate)} 未满足`)
   }
   if (device.blockingGates && device.blockingGates.length === 0) return ['门禁明细为空，服务端未回传可执行判定依据']
-  return ['executable 未回传，等待 Companion 上报门禁明细']
+  return [device.executable === null ? '执行状态待上报，暂不派发任务' : '服务端未回传未满足条件的明细']
 }
 
 /** 按 deviceId 严格匹配取当前进行中的任务（A 设备永远拿不到 B 设备的任务）。 */
@@ -143,6 +145,7 @@ export function mapFleetDevice(raw: JsonObject, tasks: readonly FleetTask[] = []
   const online = explicitOnline ?? (lastSeenAt ? presenceFromLastSeen(lastSeenAt) === 'ONLINE' : false)
   const blockingGates = stringArray(raw.blockingGates ?? raw.blocking_gates ?? raw.failedGates ?? raw.failed_gates)
   const executableGates = stringArray(raw.executableGates ?? raw.executable_gates)
+  const capabilities = objectValue(raw.capabilities)
   return {
     deviceId: deviceId || 'unknown-device',
     name: stringValue(raw.logicalName ?? raw.logical_name ?? raw.name, deviceId || '未命名设备'),
@@ -151,8 +154,10 @@ export function mapFleetDevice(raw: JsonObject, tasks: readonly FleetTask[] = []
     executable: booleanOrNull(raw.executable),
     executableGates: executableGates ?? [],
     blockingGates,
+    capabilityKeys: Object.keys(capabilities),
+    appVersion: stringOrNull(capabilities.companionVersion) ?? stringOrNull(capabilities.companion_version),
     capabilities: FLEET_CAPABILITY_KEYS.flatMap((key) => {
-      const entry = objectValue(objectValue(raw.capabilities)[key])
+      const entry = objectValue(capabilities[key])
       const supported = booleanOrNull(entry.supported)
       return supported == null ? [] : [{ key, supported, engineMin: numberOrNull(entry.engineMin ?? entry.engine_min) }]
     }),

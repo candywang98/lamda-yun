@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useSessionStore } from '@/stores/session'
 import PageHeader from '@/components/PageHeader.vue'
 import QueryState from '@/components/QueryState.vue'
@@ -20,6 +20,7 @@ import {
   type FleetDeviceTarget,
 } from '@/features/fleet/batch'
 import type { FleetDeviceCard } from '@/features/fleet/model'
+import { searchedDevices, shortDeviceIds, visibleFleetDevices, type FleetConnectionFilter } from '@/features/fleet/presentation'
 
 const session = useSessionStore()
 const mode = resolveFleetDataMode(controlApiConfigured, operationsMockEnabled)
@@ -29,6 +30,8 @@ const loading = ref(false)
 const loadError = ref('')
 const snapshot = ref<FleetSnapshot | null>(null)
 const selectedIds = ref<string[]>([])
+const search = ref('')
+const connectionFilter = ref<FleetConnectionFilter>('all')
 const expanded = ref(false)
 const detailDeviceId = ref<string | null>(null)
 const cancelBusyIds = ref<string[]>([])
@@ -36,8 +39,16 @@ const cancelErrorByDevice = ref<Record<string, string>>({})
 const cancelDoneByDevice = ref<Record<string, string>>({})
 
 const devices = computed<FleetDeviceCard[]>(() => snapshot.value?.devices ?? [])
-const detailDevice = computed(() => devices.value.find((device) => device.deviceId === detailDeviceId.value))
-const selectedDevices = computed(() => devices.value.filter((device) => selectedIds.value.includes(device.deviceId)))
+const matchingDevices = computed(() => searchedDevices(devices.value, search.value))
+const visibleDevices = computed(() => visibleFleetDevices(matchingDevices.value, connectionFilter.value))
+const shortIds = computed(() => shortDeviceIds(devices.value))
+const filters = computed(() => [
+  { value: 'all' as const, label: '全部', count: matchingDevices.value.length },
+  { value: 'online' as const, label: '在线', count: matchingDevices.value.filter((device) => device.online).length },
+  { value: 'offline' as const, label: '离线', count: matchingDevices.value.filter((device) => !device.online).length },
+])
+const detailDevice = computed(() => visibleDevices.value.find((device) => device.deviceId === detailDeviceId.value))
+const selectedDevices = computed(() => visibleDevices.value.filter((device) => device.online && selectedIds.value.includes(device.deviceId)))
 const batchCommand = { commandType: 'xianyu.publish_listing.steps.v1', requiredCapabilities: ['accessibility', 'ime'] }
 const targets = computed<FleetDeviceTarget[]>(() =>
   expandDeviceTargets(selectedDevices.value, batchCommand),
@@ -48,10 +59,19 @@ const expandDisabled = computed(() => mode === 'unavailable' || selectedDevices.
 let refreshRequest = 0
 let disposed = false
 
+watch(visibleDevices, (visible) => {
+  const selectableIds = new Set(visible.filter((device) => device.online).map((device) => device.deviceId))
+  selectedIds.value = selectedIds.value.filter((id) => selectableIds.has(id))
+  if (!detailDevice.value) detailDeviceId.value = null
+  if (selectedIds.value.length === 0) expanded.value = false
+}, { flush: 'sync' })
+
 function toggleDevice(deviceId: string) {
+  if (selectDisabled.value || !visibleDevices.value.some((device) => device.deviceId === deviceId && device.online)) return
   selectedIds.value = selectedIds.value.includes(deviceId)
     ? selectedIds.value.filter((id) => id !== deviceId)
     : [...selectedIds.value, deviceId]
+  if (selectedIds.value.length === 0) expanded.value = false
 }
 
 function toggleDetail(deviceId: string) {
@@ -114,7 +134,7 @@ onUnmounted(() => { disposed = true; ++refreshRequest })
 
 <template>
   <div>
-    <PageHeader title="设备工作台" description="真实设备舰队：在线/可执行分离、权限缺口、绑定账号与按设备任务。" :kicker="versionLine" />
+    <PageHeader title="设备工作台" description="按设备记录查看连接、执行状态与任务；在线不代表可执行。" :kicker="versionLine" />
 
     <div v-if="mode === 'mock'" class="notice fleet-mock-banner" role="status" data-testid="fleet-mock-banner">
       <strong>Mock 数据（开发模式）</strong>
@@ -130,14 +150,26 @@ onUnmounted(() => { disposed = true; ++refreshRequest })
     <div class="fleet-toolbar page-actions">
       <button class="button" type="button" :disabled="mode === 'unavailable' || loading" @click="refresh">刷新设备状态</button>
       <button class="button button-primary" type="button" :disabled="expandDisabled" @click="expanded = !expanded">
-        {{ expanded ? '收起逐设备目标' : `展开为逐设备目标（${selectedDevices.length} 台）` }}
+        {{ expanded ? '收起逐设备目标' : `展开为逐设备目标（${selectedDevices.length} 条）` }}
       </button>
       <button v-if="mode === 'unavailable'" class="button" type="button" disabled title="未配置 Control API，生产操作已关闭">Control API 不可用</button>
-      <span class="cell-sub">已选 {{ selectedDevices.length }} 台 · 在线 {{ devices.filter((item) => item.online).length }} 台</span>
+      <span class="cell-sub" role="status">已选 {{ selectedDevices.length }} 条记录 · 当前显示 {{ visibleDevices.length }} / {{ devices.length }} 条</span>
     </div>
+    <div class="fleet-filters">
+      <label class="fleet-search">
+        <span>搜索设备名称或 ID</span>
+        <input v-model="search" type="search" placeholder="名称或完整 / 部分 ID" :disabled="selectDisabled" />
+      </label>
+      <div class="fleet-filter-buttons" role="group" aria-label="连接状态筛选（搜索匹配记录数）">
+        <button v-for="filter in filters" :key="filter.value" type="button" class="button" :class="{ 'button-primary': connectionFilter === filter.value }" :aria-pressed="connectionFilter === filter.value" :disabled="selectDisabled" @click="connectionFilter = filter.value">
+          {{ filter.label }}（{{ filter.count }} 条）
+        </button>
+      </div>
+    </div>
+    <p class="cell-sub fleet-record-note">数量为设备记录数，不等于物理设备数。同名记录按 ID 分开显示，离线不代表旧记录或可清理。筛选计数基于搜索结果；隐藏或离线的记录会取消选择。</p>
 
     <QueryState :loading="loading" :error="null" :empty="devices.length === 0 && !loading && !loadError" empty-text="当前租户还没有已接入的设备。">
-      <section v-if="expanded" class="panel fleet-targets" data-testid="fleet-targets">
+      <section v-if="expanded && targets.length > 0" class="panel fleet-targets" data-testid="fleet-targets">
         <h3>批量选择已展开为显式逐设备目标</h3>
         <p class="cell-sub">每台设备独立判定与操作；离线/门禁未过/能力缺口均表示「不派发」，不是任务失败。</p>
         <div v-for="target in targets" :key="target.deviceId" class="fleet-target-row" :data-target-device="target.deviceId">
@@ -168,14 +200,16 @@ onUnmounted(() => { disposed = true; ++refreshRequest })
       </section>
 
       <section v-if="detailDevice" class="fleet-detail">
-        <FleetDeviceCardView :device="detailDevice" />
+        <FleetDeviceCardView :device="detailDevice" :short-id="shortIds.get(detailDevice.deviceId)" />
       </section>
 
+      <p v-if="devices.length > 0 && visibleDevices.length === 0" class="query-state" role="status">没有匹配的设备记录，请调整搜索或连接状态筛选。</p>
       <div class="fleet-grid">
         <FleetDeviceCardView
-          v-for="device in devices"
+          v-for="device in visibleDevices"
           :key="device.deviceId"
           :device="device"
+          :short-id="shortIds.get(device.deviceId)"
           :selectable="!selectDisabled"
           :selected="selectedIds.includes(device.deviceId)"
           @toggle="toggleDevice"
@@ -188,11 +222,17 @@ onUnmounted(() => { disposed = true; ++refreshRequest })
 <style scoped>
 .fleet-mock-banner { border: 2px dashed #d97706; font-weight: 600; }
 .fleet-toolbar { margin-bottom: 12px; align-items: center; }
-.fleet-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; margin-top: 12px; }
+.fleet-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); align-items: start; gap: 12px; margin-top: 12px; }
+.fleet-filters { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 12px; }
+.fleet-search { display: flex; flex-direction: column; gap: 6px; min-width: 0; flex: 1 1 240px; max-width: 420px; color: var(--muted); font-size: 12px; }
+.fleet-search input { min-width: 0; width: 100%; padding: 8px 10px; border: 1px solid var(--line-strong); border-radius: 4px; background: var(--surface); color: var(--ink); }
+.fleet-filter-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
+.fleet-record-note { line-height: 1.6; }
 .fleet-targets { margin-bottom: 12px; padding: 14px 16px; }
 .fleet-targets h3 { margin: 0 0 4px; }
 .fleet-target-row { display: flex; flex-direction: column; gap: 6px; padding: 10px 0; border-top: 1px solid #e2e8f0; }
-.fleet-target-main { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.fleet-target-main { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; overflow-wrap: anywhere; }
+.fleet-target-main > * { min-width: 0; max-width: 100%; }
 .fleet-target-actions { display: flex; gap: 8px; }
 .fleet-target-error { color: #b91c1c; font-weight: 600; }
 .fleet-target-done { color: #15803d; }
