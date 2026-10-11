@@ -2,16 +2,19 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Coroutine
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response, status
+from fastapi.routing import APIRoute
 from pydantic import BaseModel, ConfigDict, Field
 
 from .auth import current_actor
 from .im_classifier import Category
 from .im_service import ImService
 from .mobile_routes import binding
+from .mobile_schemas import ImChatCompletion
 
 companion_router = APIRouter(prefix="/companion/v2/im", tags=["im-companion"])
 operator_router = APIRouter(prefix="/api/v1/im", tags=["im-operator"])
@@ -196,3 +199,69 @@ async def put_im_config(
 @companion_router.get("/config")
 async def companion_im_config(binding_row: BindingDep, im: Service) -> dict[str, Any]:
     return await im.companion_config(binding_row)
+
+
+class ImChatCreateIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+@operator_router.post("/threads/{thread_id}:collect-body")
+async def collect_body(
+    thread_id: str,
+    body: ImChatCreateIn,
+    actor: ActorDep,
+    im: Service,
+    response: Response,
+    idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=1, max_length=128)],
+) -> dict[str, Any]:
+    from .im_chat_collection import create
+
+    result, created = await create(im, actor, thread_id, idempotency_key)
+    response.status_code = 201 if created else 200
+    return result
+
+
+@operator_router.get("/threads/{thread_id}/body-collections")
+async def body_collections(thread_id: str, actor: ActorDep, im: Service) -> dict[str, Any]:
+    from .im_chat_collection import list_collections
+
+    return await list_collections(im, actor, thread_id)
+
+
+async def complete_body_collection(
+    task_id: str,
+    body: ImChatCompletion,
+    binding_row: BindingDep,
+    im: Service,
+) -> dict[str, Any]:
+    from .im_chat_collection import complete
+
+    return await complete(im, binding_row, task_id, body)
+
+
+class ImChatCompletionRoute(APIRoute):
+    """Bound raw input before FastAPI JSON parsing, including chunked bodies."""
+
+    def get_route_handler(self) -> Callable[[Request], Coroutine[Any, Any, Response]]:
+        handler = super().get_route_handler()
+
+        async def bounded(request: Request) -> Response:
+            chunks: list[bytes] = []
+            size = 0
+            async for chunk in request.stream():
+                size += len(chunk)
+                if size > 400000:
+                    raise HTTPException(status_code=413, detail="IM collection upload too large")
+                chunks.append(chunk)
+            request._body = b"".join(chunks)
+            return await handler(request)
+
+        return bounded
+
+
+companion_router.add_api_route(
+    "/chat-collections/{task_id}:complete",
+    complete_body_collection,
+    methods=["POST"],
+    route_class_override=ImChatCompletionRoute,
+)

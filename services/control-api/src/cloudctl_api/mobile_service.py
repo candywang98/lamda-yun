@@ -63,6 +63,7 @@ from .fleet_identity import (
 )
 from .media_store import ObjectStore
 from .mobile_schemas import (
+    CollectImChatStep,
     DevicePreviewUpload,
     MobileDeviceHeartbeat,
     MobileTaskCreate,
@@ -878,6 +879,11 @@ class MobileTaskService:
             capabilities["companionVersion"] = body.companion_version
             capabilities["accessibilityEnabled"] = body.accessibility_enabled
             capabilities["runnerState"] = body.runner_state
+            capabilities.pop("imChatCollectionProtocol", None)
+            capabilities.pop("imChatCollectionBindingId", None)
+            if body.im_chat_collection_protocol is not None:
+                capabilities["imChatCollectionProtocol"] = body.im_chat_collection_protocol
+                capabilities["imChatCollectionBindingId"] = stored.id
             capabilities.pop("orderDeliveryProtocol", None)
             if body.order_delivery_protocol is not None:
                 capabilities["orderDeliveryProtocol"] = body.order_delivery_protocol
@@ -1173,6 +1179,8 @@ class MobileTaskService:
         self, actor: Actor, key: str, body: MobileTaskCreate
     ) -> tuple[dict[str, Any], bool]:
         require_permissions(actor.roles, Permission.DEVICE_MAINTAIN)
+        if any(isinstance(step, CollectImChatStep) for step in body.steps):
+            require_permissions(actor.roles, Permission.DEVICE_CONTROL)
         return await self._insert_task(
             tenant_id=str(actor.tenant_id),
             requested_by=str(actor.user_id),
@@ -1306,6 +1314,20 @@ class MobileTaskService:
         now: datetime,
         recheck_after_device_lock: bool,
     ) -> tuple[dict[str, Any], bool]:
+        collection = next(
+            (step for step in body.steps if isinstance(step, CollectImChatStep)), None
+        )
+        if collection is not None:
+            from .im_chat_collection import validate_target
+
+            collection_device = await session.get(
+                DeviceRow, body.device_id, with_for_update=True, populate_existing=True
+            )
+            if collection_device is None or collection_device.tenant_id != tenant_id:
+                raise NotFoundError("device was not found")
+            await validate_target(
+                session, tenant_id, collection_device, collection.target, require_available=True
+            )
         existing = await session.scalar(
             select(MobileTaskRow).where(
                 MobileTaskRow.tenant_id == tenant_id,
@@ -1464,6 +1486,7 @@ class MobileTaskService:
         binding: MobileBindingRow,
         lease_seconds: int,
         order_delivery_protocol: str | None = None,
+        im_chat_collection_protocol: str | None = None,
     ) -> dict[str, Any] | None:
         # Lazy import: mobile_actions imports helpers from this module.
         from .mobile_actions import UNPINNED_STEPS_COMMANDS
@@ -1564,6 +1587,38 @@ class MobileTaskService:
             row = None
             ineligible: list[tuple[str, list[str]]] = []
             for candidate in queued:
+                from .im_chat_collection import (
+                    CAPABILITY as IM_CAPABILITY,
+                )
+                from .im_chat_collection import (
+                    PROTOCOL as IM_PROTOCOL,
+                )
+                from .im_chat_collection import (
+                    frozen_target,
+                    is_collection,
+                    validate_target,
+                )
+
+                if is_collection(candidate):
+                    if (
+                        im_chat_collection_protocol != IM_PROTOCOL
+                        or (device.capabilities or {}).get(IM_CAPABILITY) != IM_PROTOCOL
+                    ):
+                        continue
+                    try:
+                        await validate_target(
+                            session,
+                            binding.tenant_id,
+                            device,
+                            frozen_target(candidate),
+                            require_available=True,
+                        )
+                    except ConflictError:
+                        candidate.status = candidate.business_state = "FAILED"
+                        candidate.error_code = "IM_COLLECTION_TARGET_INVALID"
+                        candidate.completed_at = now
+                        candidate.lease_id = candidate.lease_expires_at = None
+                        continue
                 if delivery_metadata(candidate) is not None:
                     if (
                         order_delivery_protocol != PROTOCOL
@@ -1938,6 +1993,10 @@ class MobileTaskService:
             row = await session.get(MobileTaskRow, task_id, with_for_update=True)
             self._validate_owned_task(row, binding)
             assert row is not None
+            from .im_chat_collection import is_collection
+
+            if status == "SUCCEEDED" and is_collection(row):
+                raise ConflictError("IM_COLLECTION_TYPED_COMPLETION_REQUIRED")
             if row.business_state == "RECONCILING":
                 raise ConflictError("uncertain result must be resolved by explicit reconciliation")
             if row.status in {"SUCCEEDED", "FAILED"}:

@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Mapping
+from datetime import datetime, timedelta
 from typing import Annotated, Literal
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -331,6 +334,108 @@ class LogStep(StrictModel):
         return value
 
 
+class ImChatTarget(StrictModel):
+    protocol_version: Literal["im-chat-collection/1"] = Field(alias="protocolVersion")
+    tenant_id: str = Field(alias="tenantId", min_length=1, max_length=128)
+    device_id: str = Field(alias="deviceId", min_length=1, max_length=128)
+    thread_id: str = Field(alias="threadId", min_length=1, max_length=128)
+    platform: Literal["xianyu"]
+    peer_key: str = Field(alias="peerKey", min_length=1, max_length=128)
+    peer_name: str = Field(alias="peerName", min_length=1, max_length=128)
+    mobile_binding_id: str = Field(alias="mobileBindingId", min_length=1, max_length=128)
+    scope: Literal["VISIBLE_SCREEN"]
+    no_send: Literal[True] = Field(alias="noSend")
+
+    @field_validator("tenant_id", "device_id", "thread_id", "mobile_binding_id")
+    @classmethod
+    def valid_uuid(cls, value: str) -> str:
+        if str(UUID(value)) != value:
+            raise ValueError("identity must be a canonical UUID")
+        return value
+
+    @field_validator("peer_key", "peer_name")
+    @classmethod
+    def nonblank_peer(cls, value: str) -> str:
+        if not value.strip() or value != value.strip():
+            raise ValueError("peer identity must be nonblank and trimmed")
+        return value
+
+    @field_validator("no_send", mode="before")
+    @classmethod
+    def explicitly_no_send(cls, value: object) -> object:
+        if value is not True:
+            raise ValueError("noSend must be true")
+        return value
+
+
+class CollectImChatStep(StrictModel):
+    step_id: str = Field(alias="stepId", pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
+    action: Literal["ui.collectImChat"]
+    timeout_ms: Literal[60000] = Field(alias="timeoutMs")
+    target: ImChatTarget
+
+
+class ImChatPeerIdentity(StrictModel):
+    status: Literal["DISPLAY_NAME_MATCH"]
+    observed_name: str = Field(alias="observedName", min_length=1, max_length=128)
+    basis: Literal["CHAT_HEADER"]
+
+
+class ImChatVisibleMessage(StrictModel):
+    direction: Literal["IN", "OUT"]
+    text: str = Field(min_length=1, max_length=2000)
+    visible_order: int = Field(alias="visibleOrder", ge=0, le=19, strict=True)
+    occurred_at: None = Field(alias="occurredAt")
+
+    @field_validator("text")
+    @classmethod
+    def nonblank_text(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("message text must be nonblank")
+        return value
+
+
+class ImChatSnapshot(StrictModel):
+    captured_at: datetime = Field(alias="capturedAt")
+    scope: Literal["VISIBLE_SCREEN"]
+    completeness: Literal["VISIBLE_ONLY"]
+    account_identity: Literal["UNVERIFIED"] = Field(alias="accountIdentity")
+    peer_identity: ImChatPeerIdentity = Field(alias="peerIdentity")
+    messages: list[ImChatVisibleMessage] = Field(max_length=20)
+    truncated: bool = Field(strict=True)
+
+    @field_validator("captured_at", mode="before")
+    @classmethod
+    def iso_utc_time(cls, value: object) -> object:
+        if not isinstance(value, (str, datetime)):
+            raise ValueError("capturedAt must be an ISO8601 UTC timestamp")
+        return value
+
+    @field_validator("captured_at")
+    @classmethod
+    def utc_time(cls, value: datetime) -> datetime:
+        if value.utcoffset() != timedelta(0):
+            raise ValueError("capturedAt must have UTC offset")
+        return value
+
+    @model_validator(mode="after")
+    def bounded_snapshot(self) -> ImChatSnapshot:
+        if [item.visible_order for item in self.messages] != list(range(len(self.messages))):
+            raise ValueError("visibleOrder must be contiguous in displayed order")
+        raw = json.dumps(self.model_dump(mode="json", by_alias=True), ensure_ascii=False)
+        if len(raw.encode("utf-8")) > 64000:
+            raise ValueError("snapshot exceeds 64000 UTF8 bytes")
+        return self
+
+
+class ImChatCompletion(StrictModel):
+    lease_id: str = Field(alias="leaseId", min_length=1, max_length=36)
+    control_epoch: int = Field(alias="controlEpoch", ge=1, strict=True)
+    protocol_version: Literal["im-chat-collection/1"] = Field(alias="protocolVersion")
+    target: ImChatTarget
+    snapshot: ImChatSnapshot
+
+
 MobileStep = Annotated[
     FindStep
     | TapStep
@@ -346,6 +451,7 @@ MobileStep = Annotated[
     | AppRestartStep
     | CollectListingsStep
     | ReviewOrdersStep
+    | CollectImChatStep
     | AssertStep
     | LogStep,
     Field(discriminator="action"),
@@ -397,6 +503,16 @@ class MobileTaskCreate(StrictModel):
 
     @model_validator(mode="after")
     def timeout_covers_bounded_steps(self) -> MobileTaskCreate:
+        if any(isinstance(step, CollectImChatStep) for step in self.steps):
+            if (
+                len(self.steps) != 1
+                or self.target_package != "com.taobao.idlefish"
+                or self.total_timeout_ms != 60000
+                or self.account_id is not None
+                or self.expected_binding_version is not None
+                or self.media_delivery is not None
+            ):
+                raise ValueError("IM collection requires the isolated no-send task shape")
         step_ids = [step.step_id for step in self.steps]
         if len(set(step_ids)) != len(step_ids):
             raise ValueError("stepId values must be unique")
@@ -461,6 +577,9 @@ class MobilePublishListingRequest(StrictModel):
 
 
 class MobileClaimRequest(StrictModel):
+    im_chat_collection_protocol: Literal["im-chat-collection/1"] | None = Field(
+        default=None, alias="imChatCollectionProtocol"
+    )
     lease_seconds: int = Field(default=60, alias="leaseSeconds", ge=10, le=300)
     order_delivery_protocol: Literal["order-delivery/1"] | None = Field(
         default=None, alias="orderDeliveryProtocol"
@@ -510,6 +629,9 @@ class MobileDeviceHealth(StrictModel):
 
 
 class MobileDeviceHeartbeat(StrictModel):
+    im_chat_collection_protocol: Literal["im-chat-collection/1"] | None = Field(
+        default=None, alias="imChatCollectionProtocol"
+    )
     order_delivery_protocol: Literal["order-delivery/1"] | None = Field(
         default=None, alias="orderDeliveryProtocol"
     )
