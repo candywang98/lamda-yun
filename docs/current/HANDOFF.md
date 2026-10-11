@@ -105,7 +105,11 @@ display-settings.spec.ts、operation-page-availability.spec.ts、operation-workb
 ## 尚未实施的讨论
 
 - 用户讨论“现有 APK + Auto.js 第二 APK”；没有架构定案或开发授权。共享控制平面仅为建议。
-- Recipe 同时包含 APK 内置/native 与可下载流程，不是所有流程都能热更新；不能承诺零 APK 更新。
+- 用户最新反馈仍不理解 Recipe 版本管理及其用途；这是继续解释和交接的要求，不是修改页面授权。
+- Recipe 页面目前用于导入开发者准备好的签名流程包，选择设备发布新版，或回滚旧版；属于维护功能，不是可视化步骤编辑器，也不是日常商品/消息操作入口。
+- 可以这样解释：APK 保存手机能执行的基本能力，单独更新的流程包告诉它按哪些步骤做。只有现有引擎支持的流程可不更新 APK；新增原生能力仍需更新 APK。Recipe 既有内置/native 也有可下载流程，不能承诺全部热更新。
+- 可建议将入口放到高级设置并改名“自动操作流程更新”，但仅是未实施建议，用户尚未授权移动、隐藏或改名。
+- 代码依据：[页面登记/发布/回滚](../../apps/web/src/views/RecipeVersionsView.vue)的 register/prepare/confirm，以及 [流程包安装与引擎兼容校验](../../mobile/companion/app/src/main/java/com/company/cloudctl/companion/updates/RecipePackageManager.kt)。
 - 用户希望消息聚合显示真实正文、区分设备。已有设备标签/筛选，服务端按设备 + 平台 + 对端分组。
 - 通知占位文字不等于完整聊天正文。DutyController 通过无障碍读取聊天，但实际可靠性尚未验收。
 - 进入聊天读取会占用手机界面，可能改变已读标记；不能当作无副作用后台读取。
