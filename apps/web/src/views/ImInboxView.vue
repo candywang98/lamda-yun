@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RefreshCw } from 'lucide-vue-next'
 import { controlApiConfigured, createControlApiClient } from '@/api/control'
 import { mapControlDevice } from '@/api/devices'
@@ -27,6 +27,7 @@ import {
   type ImThread,
 } from '@/api/im'
 import { useSessionStore } from '@/stores/session'
+import { deliveryLabel, isNotificationPreview } from '@/features/im/presentation'
 import MessageClassification from '@/features/im/MessageClassification.vue'
 import { categoryLabel, classificationVersion, IM_BUCKETS } from '@/features/im/classification'
 
@@ -52,11 +53,13 @@ const canEditConfig = computed(() => session.can('device.control'))
 
 /* ---------------- 会话流 ---------------- */
 
-const visibleThreads = computed(() =>
-  deviceFilter.value
-    ? threads.value.filter((thread) => thread.deviceId === deviceFilter.value)
-    : threads.value,
-)
+const searchText = ref('')
+const visibleThreads = computed(() => threads.value.filter((thread) => {
+  if (deviceFilter.value && thread.deviceId !== deviceFilter.value) return false
+  const query = searchText.value.trim().toLocaleLowerCase()
+  return !query || [thread.peerName, thread.lastMessageText, deviceLabel(thread.deviceId), thread.deviceId, imPlatformLabel(thread.platform)]
+    .some((value) => value?.toLocaleLowerCase().includes(query))
+}))
 const deviceIds = computed(() => [...new Set(threads.value.map((thread) => thread.deviceId))])
 const filterDeviceOptions = computed(() => {
   const merged = new Map<string, ConfigDeviceOption>()
@@ -68,7 +71,15 @@ const filterDeviceOptions = computed(() => {
 })
 const deviceNameById = computed(() => new Map(filterDeviceOptions.value.map((option) => [option.id, option.name])))
 
-const replyText = ref('')
+const drafts = ref<Record<string, string>>({})
+const replyText = computed({
+  get: () => selected.value ? drafts.value[selected.value.id] ?? '' : '',
+  set: (value: string) => { if (selected.value) drafts.value[selected.value.id] = value },
+})
+const replyIntent = ref<{ threadId: string; text: string; destination: string } | null>(null)
+const replyResults = ref<Record<string, { text: string; error: boolean }>>({})
+const replyFeedback = computed(() => selected.value ? replyResults.value[selected.value.id] : undefined)
+let identityRevision = 0
 const busy = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
@@ -85,7 +96,7 @@ function clearSelection() {
   selected.value = null
   messages.value = []
   messagesLoading.value = false
-  replyText.value = ''
+  replyIntent.value = null
   classificationError.value = ''
   classificationNotice.value = ''
 }
@@ -254,20 +265,40 @@ async function changeClassification(message: ImMessage, category: ImCategory | n
   }
 }
 
+function prepareReply() {
+  const thread = selected.value
+  if (!thread || busy.value || !canReply.value || !replyText.value.trim()) return
+  replyIntent.value = {
+    threadId: thread.id, text: replyText.value.trim(),
+    destination: deviceLabel(thread.deviceId) + ' · ' + imPlatformLabel(thread.platform) + ' · ' + thread.peerName,
+  }
+}
+
 async function sendReply() {
-  if (!selected.value || !replyText.value.trim() || !canReply.value) return
+  const intent = replyIntent.value
+  if (!intent || busy.value || !canReply.value || selected.value?.id !== intent.threadId) return
+  const revision = identityRevision
+  const tenant = session.user.tenant
+  const user = session.user.id
+  const current = () => !disposed && revision === identityRevision && tenant === session.user.tenant && user === session.user.id
   busy.value = true
-  errorMessage.value = ''
-  successMessage.value = ''
+  delete replyResults.value[intent.threadId]
   try {
-    const result = await replyImThread(selected.value.id, replyText.value.trim())
-    successMessage.value = `已生成回复任务 ${result.taskId.slice(0, 8)}…，手机将自动打开发送`
-    replyText.value = ''
-    await refreshInbox()
+    const result = await replyImThread(intent.threadId, intent.text)
+    if (!current()) return
+    replyResults.value[intent.threadId] = { error: false, text: intent.destination + '：任务已提交（' + result.taskId.slice(0, 8) + '），等待手机执行；不是发送成功确认。' }
+    if (drafts.value[intent.threadId]?.trim() === intent.text) delete drafts.value[intent.threadId]
+    if (selected.value?.id === intent.threadId) await refreshSelectedMessages()
   } catch (error) {
-    errorMessage.value = error instanceof ImApiError ? error.message : '回复失败'
+    if (!current()) return
+    replyResults.value[intent.threadId] = { error: true, text: intent.destination + '：' + (error instanceof ImApiError
+      ? error.message
+      : '未能确认请求结果，任务可能已提交。请先刷新核对任务记录，勿直接重复发送。') }
   } finally {
-    busy.value = false
+    if (current()) {
+      busy.value = false
+      replyIntent.value = null
+    }
   }
 }
 
@@ -284,12 +315,17 @@ const cfgMessageIsError = ref(false)
 const cfgErrors = ref<string[]>([])
 const cfg = ref<ImMonitorConfig | null>(null)
 const deviceConfigs = ref(new Map<string, ImMonitorConfig>())
-const canReply = computed(() => {
-  const deviceId = selected.value?.deviceId
-  if (!deviceId || !session.can('device.control')) return false
-  const config = deviceConfigs.value.get(deviceId)
-  return config !== undefined && config.receiveOnly !== true
+const replyDisabledReason = computed(() => {
+  const thread = selected.value
+  if (!thread) return '请选择会话'
+  if (!session.can('device.control')) return '当前角色没有设备回复权限'
+  if (thread.platform !== 'xianyu') return '当前仅支持闲鱼文字回复，此平台暂不支持'
+  const config = deviceConfigs.value.get(thread.deviceId)
+  if (!config || config.receiveOnly === undefined) return '回复配置尚未核验，暂不可发送'
+  if (config.receiveOnly !== false) return '当前仅接收消息，服务端未允许回复'
+  return ''
 })
+const canReply = computed(() => !replyDisabledReason.value)
 
 const configDeviceOptions = computed(() => {
   const merged = new Map<string, ConfigDeviceOption>()
@@ -305,17 +341,20 @@ const dmFilteredPlatforms = computed(() =>
 )
 
 async function loadDeviceOptions() {
+  const revision = identityRevision
   if (!controlApiConfigured) {
     deviceOptions.value = []
     return
   }
   try {
     const rows = await createControlApiClient().devices()
+    if (disposed || revision !== identityRevision) return
     deviceOptions.value = rows.map((row) => {
       const mapped = mapControlDevice(row)
       return { id: mapped.id, name: mapped.name }
     })
   } catch {
+    if (disposed || revision !== identityRevision) return
     deviceOptions.value = []
   }
 }
@@ -404,6 +443,45 @@ async function saveConfig() {
   } finally {
     cfgBusy.value = false
   }
+}
+
+watch(() => [session.user.id, session.user.tenant], () => {
+  ++identityRevision
+  ++contextRevision
+  ++threadRequest
+  ++deviceConfigsRequest
+  ++configRequest
+  clearSelection()
+  drafts.value = {}
+  replyResults.value = {}
+  busy.value = false
+  threads.value = []
+  threadsHasMore.value = false
+  bucketCounts.value = null
+  deviceConfigs.value = new Map()
+  cfg.value = null
+  cfgDevice.value = ''
+  cfgMessage.value = ''
+  cfgErrors.value = []
+  cfgBusy.value = false
+  cfgMessageIsError.value = false
+  deviceOptions.value = []
+  searchText.value = ''
+  deviceFilter.value = ''
+  void loadDeviceOptions()
+  errorMessage.value = ''
+  successMessage.value = ''
+  classificationBusy.value = ''
+  void refreshThreads(false)
+}, { flush: 'sync' })
+
+async function openCollectionSettings() {
+  if (!selected.value) return
+  cfgDevice.value = selected.value.deviceId
+  configOpen.value = true
+  void loadConfig()
+  await nextTick()
+  document.getElementById('im-monitor-config')?.scrollIntoView?.({ block: 'start' })
 }
 
 watch(deviceFilter, (value) => {
@@ -635,6 +713,8 @@ onBeforeUnmount(() => {
         <span :title="bucketCounts ? '匹配会话数' : '服务端未提供分类计数'">{{ bucketCounts?.[item.key] ?? '—' }}</span>
       </button>
     </div>
+    <label class="yy-field im-search"><span>搜索已加载会话</span><input v-model="searchText" type="search" placeholder="昵称、设备、最近消息" /></label>
+    <p class="yy-sub">搜索仅覆盖已加载会话及最近消息，不搜索完整聊天历史。</p>
     <p class="yy-sub im-bucket-hint">默认看用户消息；未分类内容在「待确认」，查看所有分类请选「全部」。</p>
     <div id="im-inbox-panel" class="im-layout" role="tabpanel" :aria-labelledby="`im-tab-${bucket}`">
       <aside class="im-threads" aria-label="会话列表" :aria-busy="threadsLoading">
@@ -658,10 +738,10 @@ onBeforeUnmount(() => {
             </span>
           </span>
           <span class="im-summary" :class="{ pending: !threadSummary(thread) }">
-            {{ threadSummary(thread) || '暂无正文' }}
+            {{ isNotificationPreview(thread.lastMessageText) ? '通知提示 · 正文待采集' : threadSummary(thread) || '暂无正文' }}
           </span>
           <span class="im-meta im-thread-meta">
-            <span>{{ thread.lastDirection === 'IN' ? '收到' : '已回复' }} · {{ timeLabel(thread.lastMessageAt) }}</span>
+            <span>{{ thread.lastDirection === 'IN' ? '收到' : '回复任务' }} · {{ timeLabel(thread.lastMessageAt) }}</span>
             <span class="im-device-name" :title="deviceLabel(thread.deviceId) + ' · ' + thread.deviceId">{{ deviceLabel(thread.deviceId) }}</span>
           </span>
         </button>
@@ -680,6 +760,9 @@ onBeforeUnmount(() => {
             </span>
             <span class="im-meta im-device-name" :title="deviceLabel(selected.deviceId) + ' · ' + selected.deviceId">{{ deviceLabel(selected.deviceId) }}</span>
           </header>
+          <p class="im-context">设备：{{ deviceLabel(selected.deviceId) }} · {{ selected.deviceId }}<br />账号：未核验 · 联系人：{{ selected.peerName }}<br />设备名称不等于登录账号；账号切换后的会话归属需核对。</p>
+          <p class="im-context yy-sub">这里只展示已采集消息。通知可能只有提醒；值班采集会在手机进入聊天读取文字，会占用手机界面，也可能标为已读。现有设备能否完整读取仍待验证。</p>
+          <div class="im-context"><button class="yy-btn" type="button" @click="openCollectionSettings">查看正文采集设置</button></div>
           <div class="im-stream" :aria-busy="messagesLoading">
             <p v-if="messagesLoading" class="yy-sub" role="status">加载消息中…</p>
             <div
@@ -688,7 +771,12 @@ onBeforeUnmount(() => {
               class="im-bubble"
               :class="message.direction === 'IN' ? 'in' : 'out'"
             >
-              <span class="im-text">{{ message.text }}</span>
+              <template v-if="message.direction === 'IN' && isNotificationPreview(message.text)">
+                <strong>通知提示 · 正文待采集</strong>
+                <details><summary>原始通知文字</summary><span class="im-text">{{ message.text }}</span><p class="yy-sub">这段文字可能只是提醒，手机通知可能未提供具体内容。</p></details>
+              </template>
+              <span v-else class="im-text">{{ message.text }}</span>
+              <span v-if="message.direction === 'OUT'" class="im-delivery" :data-state="message.deliveryState ?? 'UNKNOWN'">{{ deliveryLabel(message.deliveryState) }}</span>
               <span class="im-time">{{ timeLabel(message.occurredAt) }}</span>
               <MessageClassification
                 :message="message"
@@ -700,19 +788,22 @@ onBeforeUnmount(() => {
             </div>
             <p v-if="!messagesLoading && messages.length === 0" class="yy-sub">当前分类暂无消息记录。</p>
           </div>
-          <p v-if="!canReply" class="yy-sub">只读收件箱</p>
-          <form v-else class="im-composer" @submit.prevent="sendReply">
-            <textarea
-              v-model="replyText"
-              rows="2"
-              maxlength="500"
-              placeholder="输入回复（≤500 字），发送后生成手机任务"
-              :disabled="busy"
-            />
-            <button class="yy-btn primary" type="submit" :disabled="busy || !replyText.trim()">
-              {{ busy ? '发送中…' : '发送回复' }}
-            </button>
-          </form>
+          <div class="im-reply-panel">
+            <p v-if="!canReply" class="im-readonly">只读收件箱 · {{ replyDisabledReason }}</p>
+            <p v-else class="yy-sub">回复目标：{{ deviceLabel(selected.deviceId) }} · {{ imPlatformLabel(selected.platform) }} · {{ selected.peerName }}。发送前请确认手机当前账号。</p>
+            <p v-if="replyFeedback" :class="replyFeedback.error ? 'yy-error' : 'yy-ok'" :role="replyFeedback.error ? 'alert' : 'status'">{{ replyFeedback.text }}</p>
+            <form class="im-composer" @submit.prevent>
+              <textarea v-model="replyText" aria-label="回复内容" rows="3" maxlength="500" placeholder="输入回复，Enter 换行；点击按钮后确认提交" :disabled="!canReply || busy || !!replyIntent" />
+              <button class="yy-btn primary" type="button" :disabled="!canReply || busy || !replyText.trim() || !!replyIntent" @click="prepareReply">{{ busy ? '提交中…' : '核对回复' }}</button>
+            </form>
+            <div v-if="replyIntent" class="im-confirm" role="region" aria-label="确认回复">
+              <strong>确认提交给 {{ replyIntent.destination }}</strong>
+              <p class="im-text">{{ replyIntent.text }}</p>
+              <p class="yy-sub">提交后由手机执行，结果以任务记录为准；不会自动重试。</p>
+              <button class="yy-btn" type="button" :disabled="busy" @click="replyIntent = null">取消</button>
+              <button class="yy-btn primary" type="button" :disabled="busy || !canReply" @click="sendReply">确认提交回复任务</button>
+            </div>
+          </div>
         </template>
         <p v-else class="yy-sub im-empty">从左侧选择一个会话查看消息。</p>
       </div>
@@ -883,6 +974,12 @@ onBeforeUnmount(() => {
   font-size: 11px;
   color: #64748b;
 }
+.im-context, .im-reply-panel { padding: 0 14px; }
+.im-context { margin: 10px 0 0; overflow-wrap: anywhere; }
+.im-search { margin-bottom: 4px; }
+.im-confirm { padding: 12px; margin-bottom: 12px; background: #f8fafc; border: 1px solid var(--line); border-radius: 8px; overflow-wrap: anywhere; }
+.im-delivery { font-size: 11px; color: #475569; }
+.im-delivery[data-state="FAILED"] { color: #b91c1c; }
 .im-composer {
   display: flex;
   gap: 8px;
@@ -891,6 +988,7 @@ onBeforeUnmount(() => {
 }
 .im-composer textarea {
   flex: 1;
+  min-width: 0;
   resize: vertical;
 }
 .im-empty {
