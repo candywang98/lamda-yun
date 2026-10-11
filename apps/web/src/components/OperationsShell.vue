@@ -27,7 +27,7 @@ import {
 import { useSessionStore } from '@/stores/session'
 import { useOperationsWorkspace } from '@/stores/operations-workspace'
 import { useDisplaySettings } from '@/stores/display-settings'
-import { findOperation, firstOperationPath, operationModules, operationPath } from '@/data/operations-catalog'
+import { findOperation, firstOperationPath, operationModules, operationPath, removedOperationIds } from '@/data/operations-catalog'
 import { orderResultsPath } from '@/data/operation-page-availability'
 import { controlApiConfigured, operationsMockEnabled } from '@/api/control'
 import type { Component } from 'vue'
@@ -108,8 +108,15 @@ function closeTab(id: string) {
   }
 }
 
+// HMR can retain tabs from a previous catalog version.
+watch(() => workspace.tabs, (tabs) => {
+  const valid = tabs.filter((tab) => findOperation(tab.moduleId, tab.id))
+  if (valid.length !== tabs.length) workspace.tabs = valid
+}, { immediate: true, deep: true })
+
 watch(currentOperation, (operation) => {
   if (operation) workspace.openTab(operation)
+  else if (removedOperationIds.has(String(route.params.operationId ?? ''))) void router.replace('/operations')
 }, { immediate: true })
 </script>
 

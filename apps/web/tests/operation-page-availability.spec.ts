@@ -5,7 +5,7 @@ import { operationPageStatus } from '@/data/operation-page-availability'
 describe('static page integration status', () => {
   it.each([
     ['product-management-01', 'dedicated'], ['orders-04', 'dedicated'], ['xy-tasks-23', 'dedicated'],
-    ['product-editor-04', 'preview'], ['collection-01', 'preview'], ['system-home-01', 'guide'],
+    ['product-editor-04', 'preview'], ['collection-01', 'preview'], ['system-home-04', 'guide'],
     ['post-management-07', 'unavailable'], ['zz-tasks-08', 'unavailable'], ['red-tasks-03', 'unavailable'],
     ['collection-04', 'unavailable'], ['orders-02', 'unavailable'],
   ])('%s has reviewed page status %s', (id, status) => {

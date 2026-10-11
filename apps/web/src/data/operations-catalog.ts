@@ -188,6 +188,9 @@ function normalizeSourceLabel(value: string) {
     .replace('小红书任务', '小红书授权任务')
 }
 
+// Preserve source positions and stable IDs before hiding temporarily removed entries.
+export const removedOperationIds = new Set(['system-home-01', 'system-home-06'])
+
 export const operationModules: OperationModule[] = moduleDefinitions.map((module) => ({
   ...module,
   operations: module.titles.map((title, localIndex) => {
@@ -218,7 +221,7 @@ export const operationModules: OperationModule[] = moduleDefinitions.map((module
       sourceSummary: source.summary,
       pageProfile: buildOperationPageProfile(module.id, title, source),
     }
-  }),
+  }).filter((operation) => !removedOperationIds.has(operation.id)),
 }))
 
 export const operationsCatalog = operationModules.flatMap((module) => module.operations)

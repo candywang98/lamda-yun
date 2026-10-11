@@ -71,7 +71,7 @@ describe('generic workbench truthful production UI', () => {
     expect(screen.getByRole('button', { name: '查看' })).toBeTruthy()
   })
   it('offers guide navigation without save, reset, task creation or copied source workflow', async () => {
-    await mount('/operations/system-home/system-home-01')
+    await mount('/operations/system-home/system-home-04')
     expect(screen.getByText(/CloudCtl 使用入口/)).toBeTruthy()
     expect(screen.queryByRole('button', { name: '保存配置' })).toBeNull()
     expect(screen.queryByRole('button', { name: '重置' })).toBeNull()

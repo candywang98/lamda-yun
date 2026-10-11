@@ -1,6 +1,6 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import { firstOperationPath, operationModules, operationPath, type OperationDefinition } from '@/data/operations-catalog'
+import { findOperation, firstOperationPath, operationModules, operationPath, type OperationDefinition } from '@/data/operations-catalog'
 
 export const useOperationsWorkspace = defineStore('operations-workspace', () => {
   const expandedModuleId = ref(operationModules[0]?.id ?? 'system-home')
@@ -17,6 +17,7 @@ export const useOperationsWorkspace = defineStore('operations-workspace', () => 
   }
 
   function openTab(operation: OperationDefinition) {
+    if (!findOperation(operation.moduleId, operation.id)) return
     const to = operationPath(operation)
     const existing = tabs.value.find((tab) => tab.id === operation.id)
     if (existing) {

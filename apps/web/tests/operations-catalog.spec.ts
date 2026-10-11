@@ -3,11 +3,11 @@ import { competitorPageSpecs } from '@/data/competitor-pages.generated'
 import { findOperation, firstOperationPath, inferRisk, isRetiredOperation, operationModules, operationPath, operationsCatalog, retiredOperationIds } from '@/data/operations-catalog'
 
 describe('operations catalog', () => {
-  it('contains the complete 15-module, 134-entry competitor map', () => {
+  it('contains the complete 15-module, 132-entry visible competitor map', () => {
     expect(operationModules).toHaveLength(15)
-    expect(operationsCatalog).toHaveLength(134)
+    expect(operationsCatalog).toHaveLength(132)
     expect(new Set(operationsCatalog.map((operation) => operation.mode)).size).toBe(6)
-    expect(operationModules.map((module) => module.operations.length)).toEqual([10, 1, 10, 14, 10, 9, 5, 3, 31, 9, 4, 4, 11, 8, 5])
+    expect(operationModules.map((module) => module.operations.length)).toEqual([8, 1, 10, 14, 10, 9, 5, 3, 31, 9, 4, 4, 11, 8, 5])
     expect(operationModules.slice(8, 11).map((module) => module.label)).toEqual(['闲鱼授权任务', '转转授权任务', '小红书授权任务'])
     expect(operationsCatalog.every((operation) => Object.hasOwn(operation, 'backendOperationKey'))).toBe(true)
     expect(operationsCatalog.filter((operation) => operation.backendOperationKey)).toHaveLength(15)
@@ -26,7 +26,7 @@ describe('operations catalog', () => {
       module: operation.sourceModule,
       title: operation.sourceTitle,
       route: operation.sourceRoute,
-    }))).toEqual(competitorPageSpecs.map((page) => ({
+    }))).toEqual(competitorPageSpecs.filter((page) => ![1, 6].includes(page.index)).map((page) => ({
       index: page.index,
       page: page.page,
       module: page.module,
@@ -35,7 +35,7 @@ describe('operations catalog', () => {
     })))
     expect(operationsCatalog.every((operation) => operation.sourceSummary.length > 0)).toBe(true)
     expect(operationsCatalog.every((operation) => operation.pageProfile.fields.length >= 3 && operation.pageProfile.workflow.length === 4)).toBe(true)
-    expect(new Set(operationsCatalog.map((operation) => operation.pageProfile.key)).size).toBe(134)
+    expect(new Set(operationsCatalog.map((operation) => operation.pageProfile.key)).size).toBe(132)
     expect(operationsCatalog.every((operation) => operation.pageProfile.sourcePage === operation.sourcePage && operation.pageProfile.sourceRoute === operation.sourceRoute)).toBe(true)
     expect(operationsCatalog.every((operation) => new Set(operation.pageProfile.fields.map((field) => field.id)).size === operation.pageProfile.fields.length)).toBe(true)
     expect(operationsCatalog.flatMap((operation) => operation.pageProfile.fields).filter((field) => field.control === 'select').every((field) => field.options?.includes(String(field.defaultValue)))).toBe(true)
@@ -68,6 +68,15 @@ describe('operations catalog', () => {
     }
   })
 
+  it('removes only the requested entries without renumbering system-home', () => {
+    expect(operationModules[0]!.operations.map(({ id, index }) => [id, index])).toEqual(
+      [2, 3, 4, 5, 7, 8, 9, 10].map((index) => ['system-home-' + String(index).padStart(2, '0'), index]),
+    )
+    expect(findOperation('system-home', 'system-home-01')).toBeUndefined()
+    expect(findOperation('system-home', 'system-home-06')).toBeUndefined()
+    expect(firstOperationPath(operationModules[0]!)).toBe('/operations/system-home/system-home-02')
+  })
+
   it('creates stable dynamic paths and lookup keys', () => {
     const operation = operationModules[8].operations[0]
     expect(operation.title).toBe('发布商品')
@@ -76,9 +85,9 @@ describe('operations catalog', () => {
     expect(findOperation('xy-tasks', 'xy-tasks-01')).toEqual(operation)
   })
 
-  it('gives all 134 entries unique paths that round-trip through lookup', () => {
+  it('gives all 132 entries unique paths that round-trip through lookup', () => {
     const paths = operationsCatalog.map(operationPath)
-    expect(new Set(paths)).toHaveLength(134)
+    expect(new Set(paths)).toHaveLength(132)
 
     for (const operation of operationsCatalog) {
       expect(findOperation(operation.moduleId, operation.id)).toBe(operation)
