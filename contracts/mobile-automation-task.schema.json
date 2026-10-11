@@ -35,7 +35,117 @@
       "items": { "$ref": "#/$defs/step" }
     }
   },
+  "allOf": [{
+    "if": {"properties": {"steps": {"contains": {"properties": {"action": {"const": "ui.collectImChat"}}, "required": ["action"]}}}},
+    "then": {"properties": {"targetPackage": {"const": "com.taobao.idlefish"}, "maxRunSeconds": {"const": 60}, "steps": {"minItems": 1, "maxItems": 1}}}
+  }],
   "$defs": {
+  "ImChatTarget": {
+      "additionalProperties": false,
+      "properties": {
+        "protocolVersion": {
+          "const": "im-chat-collection/1",
+          "title": "Protocolversion",
+          "type": "string"
+        },
+        "tenantId": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Tenantid",
+          "type": "string"
+        },
+        "deviceId": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Deviceid",
+          "type": "string"
+        },
+        "threadId": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Threadid",
+          "type": "string"
+        },
+        "platform": {
+          "const": "xianyu",
+          "title": "Platform",
+          "type": "string"
+        },
+        "peerKey": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Peerkey",
+          "type": "string"
+        },
+        "peerName": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Peername",
+          "type": "string"
+        },
+        "mobileBindingId": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Mobilebindingid",
+          "type": "string"
+        },
+        "scope": {
+          "const": "VISIBLE_SCREEN",
+          "title": "Scope",
+          "type": "string"
+        },
+        "noSend": {
+          "const": true,
+          "title": "Nosend",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "tenantId",
+        "deviceId",
+        "threadId",
+        "platform",
+        "peerKey",
+        "peerName",
+        "mobileBindingId",
+        "scope",
+        "noSend"
+      ],
+      "title": "ImChatTarget",
+      "type": "object"
+    },
+    "collectImChat": {
+      "additionalProperties": false,
+      "properties": {
+        "stepId": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+          "title": "Stepid",
+          "type": "string"
+        },
+        "action": {
+          "const": "ui.collectImChat",
+          "title": "Action",
+          "type": "string"
+        },
+        "timeoutMs": {
+          "const": 60000,
+          "title": "Timeoutms",
+          "type": "integer"
+        },
+        "target": {
+          "$ref": "#/$defs/ImChatTarget"
+        }
+      },
+      "required": [
+        "stepId",
+        "action",
+        "timeoutMs",
+        "target"
+      ],
+      "title": "CollectImChatStep",
+      "type": "object"
+    },
     "id": {
       "type": "string",
       "minLength": 1,
@@ -74,6 +184,7 @@
     },
     "step": {
       "oneOf": [
+        { "$ref": "#/$defs/collectImChat" },
         { "$ref": "#/$defs/find" },
         { "$ref": "#/$defs/tap" },
         { "$ref": "#/$defs/input" },
