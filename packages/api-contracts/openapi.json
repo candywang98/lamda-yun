@@ -795,6 +795,37 @@
         "title": "ClassificationIn",
         "type": "object"
       },
+      "CollectImChatStep": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "const": "ui.collectImChat",
+            "title": "Action",
+            "type": "string"
+          },
+          "stepId": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+            "title": "Stepid",
+            "type": "string"
+          },
+          "target": {
+            "$ref": "#/components/schemas/ImChatTarget"
+          },
+          "timeoutMs": {
+            "const": 60000,
+            "title": "Timeoutms",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "stepId",
+          "action",
+          "timeoutMs",
+          "target"
+        ],
+        "title": "CollectImChatStep",
+        "type": "object"
+      },
       "CollectListingsStep": {
         "additionalProperties": false,
         "description": "Collect the whole 在卖 tab of 我发布的 (xy-tasks-24, listing-collect).\n\nOne action runs the full loop on the companion: dismiss the entry popups,\nread every visible card's content-desc, push the parsed rows per screen,\nsemantic-scroll, and stop at the 「所有宝贝加载完成」 anchor (or the\nmaxScreens bound). Read-only: the only gestures are popup dismiss and the\nlist's own scroll action — never a card tap.",
@@ -2530,6 +2561,239 @@
         "title": "ImBatchIn",
         "type": "object"
       },
+      "ImChatCompletion": {
+        "additionalProperties": false,
+        "properties": {
+          "controlEpoch": {
+            "minimum": 1.0,
+            "title": "Controlepoch",
+            "type": "integer"
+          },
+          "leaseId": {
+            "maxLength": 36,
+            "minLength": 1,
+            "title": "Leaseid",
+            "type": "string"
+          },
+          "protocolVersion": {
+            "const": "im-chat-collection/1",
+            "title": "Protocolversion",
+            "type": "string"
+          },
+          "snapshot": {
+            "$ref": "#/components/schemas/ImChatSnapshot"
+          },
+          "target": {
+            "$ref": "#/components/schemas/ImChatTarget"
+          }
+        },
+        "required": [
+          "leaseId",
+          "controlEpoch",
+          "protocolVersion",
+          "target",
+          "snapshot"
+        ],
+        "title": "ImChatCompletion",
+        "type": "object"
+      },
+      "ImChatCreateIn": {
+        "additionalProperties": false,
+        "properties": {},
+        "title": "ImChatCreateIn",
+        "type": "object"
+      },
+      "ImChatPeerIdentity": {
+        "additionalProperties": false,
+        "properties": {
+          "basis": {
+            "const": "CHAT_HEADER",
+            "title": "Basis",
+            "type": "string"
+          },
+          "observedName": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Observedname",
+            "type": "string"
+          },
+          "status": {
+            "const": "DISPLAY_NAME_MATCH",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "observedName",
+          "basis"
+        ],
+        "title": "ImChatPeerIdentity",
+        "type": "object"
+      },
+      "ImChatSnapshot": {
+        "additionalProperties": false,
+        "properties": {
+          "accountIdentity": {
+            "const": "UNVERIFIED",
+            "title": "Accountidentity",
+            "type": "string"
+          },
+          "capturedAt": {
+            "format": "date-time",
+            "title": "Capturedat",
+            "type": "string"
+          },
+          "completeness": {
+            "const": "VISIBLE_ONLY",
+            "title": "Completeness",
+            "type": "string"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/ImChatVisibleMessage"
+            },
+            "maxItems": 20,
+            "title": "Messages",
+            "type": "array"
+          },
+          "peerIdentity": {
+            "$ref": "#/components/schemas/ImChatPeerIdentity"
+          },
+          "scope": {
+            "const": "VISIBLE_SCREEN",
+            "title": "Scope",
+            "type": "string"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "capturedAt",
+          "scope",
+          "completeness",
+          "accountIdentity",
+          "peerIdentity",
+          "messages",
+          "truncated"
+        ],
+        "title": "ImChatSnapshot",
+        "type": "object"
+      },
+      "ImChatTarget": {
+        "additionalProperties": false,
+        "properties": {
+          "deviceId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Deviceid",
+            "type": "string"
+          },
+          "mobileBindingId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Mobilebindingid",
+            "type": "string"
+          },
+          "noSend": {
+            "const": true,
+            "title": "Nosend",
+            "type": "boolean"
+          },
+          "peerKey": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Peerkey",
+            "type": "string"
+          },
+          "peerName": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Peername",
+            "type": "string"
+          },
+          "platform": {
+            "const": "xianyu",
+            "title": "Platform",
+            "type": "string"
+          },
+          "protocolVersion": {
+            "const": "im-chat-collection/1",
+            "title": "Protocolversion",
+            "type": "string"
+          },
+          "scope": {
+            "const": "VISIBLE_SCREEN",
+            "title": "Scope",
+            "type": "string"
+          },
+          "tenantId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Tenantid",
+            "type": "string"
+          },
+          "threadId": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Threadid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "protocolVersion",
+          "tenantId",
+          "deviceId",
+          "threadId",
+          "platform",
+          "peerKey",
+          "peerName",
+          "mobileBindingId",
+          "scope",
+          "noSend"
+        ],
+        "title": "ImChatTarget",
+        "type": "object"
+      },
+      "ImChatVisibleMessage": {
+        "additionalProperties": false,
+        "properties": {
+          "direction": {
+            "enum": [
+              "IN",
+              "OUT"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "occurredAt": {
+            "title": "Occurredat",
+            "type": "null"
+          },
+          "text": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          },
+          "visibleOrder": {
+            "maximum": 19.0,
+            "minimum": 0.0,
+            "title": "Visibleorder",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "direction",
+          "text",
+          "visibleOrder",
+          "occurredAt"
+        ],
+        "title": "ImChatVisibleMessage",
+        "type": "object"
+      },
       "ImConfigIn": {
         "additionalProperties": false,
         "properties": {
@@ -3272,6 +3536,18 @@
       "MobileClaimRequest": {
         "additionalProperties": false,
         "properties": {
+          "imChatCollectionProtocol": {
+            "anyOf": [
+              {
+                "const": "im-chat-collection/1",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Imchatcollectionprotocol"
+          },
           "leaseSeconds": {
             "default": 60,
             "maximum": 300.0,
@@ -3547,6 +3823,18 @@
                 "type": "null"
               }
             ]
+          },
+          "imChatCollectionProtocol": {
+            "anyOf": [
+              {
+                "const": "im-chat-collection/1",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Imchatcollectionprotocol"
           },
           "lastAppliedControlSeq": {
             "anyOf": [
@@ -3923,6 +4211,7 @@
                   "run.log": "#/components/schemas/LogStep",
                   "ui.assert": "#/components/schemas/AssertStep",
                   "ui.assertBadge": "#/components/schemas/AssertBadgeStep",
+                  "ui.collectImChat": "#/components/schemas/CollectImChatStep",
                   "ui.collectListings": "#/components/schemas/CollectListingsStep",
                   "ui.find": "#/components/schemas/FindStep",
                   "ui.input": "#/components/schemas/InputStep",
@@ -3980,6 +4269,9 @@
                 },
                 {
                   "$ref": "#/components/schemas/ReviewOrdersStep"
+                },
+                {
+                  "$ref": "#/components/schemas/CollectImChatStep"
                 },
                 {
                   "$ref": "#/components/schemas/AssertStep"
@@ -10762,6 +11054,50 @@
         ]
       }
     },
+    "/api/v1/im/threads/{thread_id}/body-collections": {
+      "get": {
+        "operationId": "body_collections_api_v1_im_threads__thread_id__body_collections_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "thread_id",
+            "required": true,
+            "schema": {
+              "title": "Thread Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Body Collections Api V1 Im Threads  Thread Id  Body Collections Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Body Collections",
+        "tags": [
+          "im-operator"
+        ]
+      }
+    },
     "/api/v1/im/threads/{thread_id}/messages": {
       "get": {
         "operationId": "list_messages_api_v1_im_threads__thread_id__messages_get",
@@ -10855,6 +11191,71 @@
           }
         },
         "summary": "List Messages",
+        "tags": [
+          "im-operator"
+        ]
+      }
+    },
+    "/api/v1/im/threads/{thread_id}:collect-body": {
+      "post": {
+        "operationId": "collect_body_api_v1_im_threads__thread_id__collect_body_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "thread_id",
+            "required": true,
+            "schema": {
+              "title": "Thread Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImChatCreateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Collect Body Api V1 Im Threads  Thread Id  Collect Body Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Collect Body",
         "tags": [
           "im-operator"
         ]
@@ -17526,6 +17927,60 @@
         "summary": "Push Listing Screen",
         "tags": [
           "fleet-listings"
+        ]
+      }
+    },
+    "/companion/v2/im/chat-collections/{task_id}:complete": {
+      "post": {
+        "operationId": "complete_body_collection_companion_v2_im_chat_collections__task_id__complete_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImChatCompletion"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Complete Body Collection Companion V2 Im Chat Collections  Task Id  Complete Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Complete Body Collection",
+        "tags": [
+          "im-companion"
         ]
       }
     },
