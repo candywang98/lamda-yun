@@ -40,7 +40,6 @@ class GuardedChatBodyCollection(
                 swipe(true)
                 attempts++
                 if (!matches(peer)) return false
-                if (!matches(peer)) return false
                 bubbles = snapshot()
                 if (!matches(peer)) return false
             }

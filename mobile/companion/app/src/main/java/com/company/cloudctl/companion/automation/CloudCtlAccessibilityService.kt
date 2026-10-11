@@ -277,6 +277,8 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         orderScreensReporter: OrderScreensReporter? = null,
         listingScreensReporter: ListingScreensReporter? = null,
         orderDelivery: com.company.cloudctl.companion.features.xianyu.orders.OrderDeliverySession? = null,
+        imCollectionReporter: ((com.company.cloudctl.companion.im.ImChatCollectionTarget,
+            com.company.cloudctl.companion.im.ImChatCollectionSnapshot) -> Unit)? = null,
         journal: (AutomationStep, String) -> Unit,
     ) {
         if (active !== this) throw ExecutorFailure("ACCESSIBILITY_NOT_ACTIVE", "Accessibility service is not active")
@@ -289,6 +291,7 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
             listingScreensReporter = listingScreensReporter,
             orderScreensReporter = orderScreensReporter,
             orderDelivery = orderDelivery,
+            imCollectionReporter = imCollectionReporter,
         )
             .execute(task, control, startAfterIndex, journal)
     }
@@ -580,6 +583,28 @@ class CloudCtlAccessibilityService : AccessibilityService(), LocalAutomationUi {
         return allRoots()
             .filter { it.packageName?.toString() == targetPackage }
             .flatMap { root -> collect(root, requireScrollableAncestor = true).ifEmpty { collect(root, false) } }
+    }
+
+    /** Strict visible-list snapshot for explicit collection; no whole-page fallback. */
+    override fun visibleImChatBubbles(targetPackage: String): List<com.company.cloudctl.companion.im.ChatBubble> {
+        ensureReady(targetPackage)
+        val container = findScrollableContainer(targetPackage)
+            ?: throw ExecutorFailure("IM_COLLECTION_LIST_UNVERIFIED", "Conversation list is unavailable")
+        val listBounds = Rect().also { container.getBoundsInScreen(it) }
+        val found = mutableListOf<Pair<Int, com.company.cloudctl.companion.im.ChatBubble>>()
+        fun visit(node: AccessibilityNodeInfo) {
+            if (node.isVisibleToUser && node.isClickable) {
+                val text = (node.text?.toString() ?: node.contentDescription?.toString() ?: "").trim()
+                val bounds = Rect().also { node.getBoundsInScreen(it) }
+                if (text.isNotEmpty() && bounds.width() > 0 && bounds.height() > 0 && Rect.intersects(listBounds, bounds)) {
+                    found += bounds.top to com.company.cloudctl.companion.im.ChatBubble(
+                        text, bounds.exactCenterX(), bounds.width(), bounds.height())
+                }
+            }
+            for (index in 0 until node.childCount) node.getChild(index)?.let(::visit)
+        }
+        visit(container)
+        return found.sortedBy { it.first }.map { it.second }
     }
 
     /**

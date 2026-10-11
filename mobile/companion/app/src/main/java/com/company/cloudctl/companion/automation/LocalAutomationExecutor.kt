@@ -231,6 +231,9 @@ interface LocalAutomationUi {
     // plausible inbound bubble is on the page. Null when nothing readable is
     // available; the executor guards treat null per their own fail-closed
     // rules (never as "assume the best").
+    fun visibleImChatBubbles(targetPackage: String): List<com.company.cloudctl.companion.im.ChatBubble> =
+        error("Visible IM collection is unavailable")
+
     fun imChatEvidence(targetPackage: String, expectedPeer: String?): ImReplyBoundary.ChatEvidence? = null
 
     /**
@@ -377,6 +380,8 @@ class LocalAutomationExecutor(
     private val orderScreensReporter: OrderScreensReporter? = null,
     private val listingScreensReporter: ListingScreensReporter? = null,
     private val orderDelivery: OrderDeliverySession? = null,
+    private val imCollectionReporter: ((com.company.cloudctl.companion.im.ImChatCollectionTarget,
+        com.company.cloudctl.companion.im.ImChatCollectionSnapshot) -> Unit)? = null,
 ) {
     /** Badge baselines (tab locator -> count at the strike) captured during one run. */
     private val badgeBaselines = mutableMapOf<String, Int>()
@@ -408,6 +413,13 @@ class LocalAutomationExecutor(
         startAfterIndex: Int = -1,
         journal: (AutomationStep, String) -> Unit,
     ) {
+        val collection = task.steps.filterIsInstance<AutomationStep.CollectImChat>().singleOrNull()
+        if (collection != null && (task.steps.size != 1 || task.targetPackage != TargetLocatorRegistry.XIANYU_PACKAGE)) {
+            throw ExecutorFailure("IM_COLLECTION_CONTRACT_REJECTED", "Collection must be a single action")
+        }
+        if (collection != null && startAfterIndex >= 0) {
+            throw ExecutorFailure("IM_COLLECTION_SNAPSHOT_MISSING", "Skipped collector cannot manufacture success")
+        }
         ui.clearChatSendProof()
         badgeBaselines.clear()
         pendingOrderReport = null
@@ -427,7 +439,7 @@ class LocalAutomationExecutor(
         // verified in-page state (ResumeValidator guards those separately).
         // A diagnostic one-field package has no root page and must not be walked
         // with BACK or relaunch. Production packages keep the existing reset.
-        if (startAfterIndex < 0 && !DiagnosticInputPolicy.installed.skipsRootNavigation(task.targetPackage)) {
+        if (collection == null && startAfterIndex < 0 && !DiagnosticInputPolicy.installed.skipsRootNavigation(task.targetPackage)) {
             normalizeToRootPage(task, runDeadline, control)
         }
         var lastCompleted: AutomationStep? = task.steps.getOrNull(startAfterIndex)
@@ -492,6 +504,9 @@ class LocalAutomationExecutor(
                 ui.log(LogLevel.ERROR, "STEP_EXECUTION_FAILED")
                 throw ExecutorFailure("STEP_EXECUTION_FAILED", "Step ${step.stepId} failed safely", failure)
             }
+            // Typed collector persisted the snapshot and terminal event atomically.
+            // Never emit a later generic success or pause checkpoint for that capture.
+            if (step is AutomationStep.CollectImChat) return
             if (stepControl == StepControl.STOP_RECONCILING) return
             val durableRead = pendingDurableRead
             if (step is AutomationStep.ReadOrders && orderDelivery != null) {
@@ -551,6 +566,19 @@ class LocalAutomationExecutor(
         lastCompletedIndex: Int = -1,
     ): StepControl {
         when (step) {
+            is AutomationStep.CollectImChat -> {
+                val reporter = imCollectionReporter ?: throw ExecutorFailure(
+                    "IM_COLLECTION_PERSISTENCE_UNAVAILABLE", "Typed completion is required")
+                com.company.cloudctl.companion.im.ImChatCollector(
+                    ui,
+                    checkControl = {
+                        ensureWithinTaskDeadline(task, runDeadline)
+                        throwIfControlRequested(control, lastCompleted, lastCompletedIndex)
+                    },
+                    sleep = sleep,
+                    now = now,
+                ).collect(step.target) { snapshot -> reporter(step.target, snapshot) }
+            }
             is AutomationStep.Find -> waitFor(
                 task, step.locatorRef, NodeCondition.EXISTS, step.pollInterval(), runDeadline, control,
                 lastCompleted, lastCompletedIndex,

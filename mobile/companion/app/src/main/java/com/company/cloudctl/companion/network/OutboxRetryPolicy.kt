@@ -13,7 +13,10 @@ object OutboxRetryPolicy {
     private const val BASE_DELAY_MILLIS = 5_000L
     private const val MAX_DELAY_MILLIS = 5 * 60_000L
 
-    fun classify(error: CloudHttpException): DeliveryFailureAction = when {
+    fun classify(error: CloudHttpException, path: String? = null): DeliveryFailureAction = when {
+        // A rejected collection lease never proves the typed snapshot was stored.
+        path?.startsWith("/companion/v2/im/chat-collections/") == true && error.status == 409 ->
+            DeliveryFailureAction.PERMANENT_REJECTION
         error.status == 401 -> DeliveryFailureAction.PERMANENT_REJECTION
         error.status == 409 && error.responseBody.contains("mobile task lease", ignoreCase = true) ->
             DeliveryFailureAction.ACCEPT_AS_DELIVERED

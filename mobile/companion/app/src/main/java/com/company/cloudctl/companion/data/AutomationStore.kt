@@ -171,6 +171,19 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
                 require(sameExecutionPayload(existing.payload, payload)) {
                     "Task ID was reused with different content"
                 }
+                if (existing.leaseId != leaseId && isImCollectionPayload(payload)) {
+                    val now = Instant.now().toString()
+                    execSQL("UPDATE task_inbox SET payload=?,payload_sha256=? WHERE task_id=?",
+                        arrayOf(payload, payload.sha256(), taskId))
+                    if (existing.terminalState != null || existing.state in setOf("SUCCEEDED", "FAILED")) {
+                        execSQL("UPDATE event_outbox SET superseded_at=?,superseded_reason=? WHERE task_id=? AND delivered_at IS NULL AND superseded_at IS NULL",
+                            arrayOf(now, "IM_COLLECTION_LEASE_REPLACED", taskId))
+                        execSQL("UPDATE task_inbox SET lease_id=?,next_sequence=?,state=?,terminal_state=?,updated_at=? WHERE task_id=?",
+                            arrayOf(leaseId, lastSequence + 1, STATE_TERMINAL_PENDING, TERMINAL_FAILED, now, taskId))
+                        enqueueTerminalLocked(taskId, leaseId, false, "IM_COLLECTION_LEASE_REPLACED", now)
+                        return@transaction false
+                    }
+                }
                 execSQL(
                     "UPDATE task_inbox SET payload_sha256=? WHERE task_id=? AND payload_sha256=''",
                     arrayOf(payload.sha256(), taskId),
@@ -518,6 +531,41 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
         insertJournalLocked(taskId, null, STATE_START_BLOCKED, reason, now)
     }
 
+    /** Snapshot and terminal event are one durable transaction; no generic completion can substitute. */
+    fun finishImChatCollection(
+        taskId: String,
+        leaseId: String,
+        target: com.company.cloudctl.companion.im.ImChatCollectionTarget,
+        snapshot: com.company.cloudctl.companion.im.ImChatCollectionSnapshot,
+    ) = transaction {
+        val payload = row("SELECT payload FROM task_inbox WHERE task_id=?", arrayOf(taskId)) ?: error("Unknown task")
+        val task = com.company.cloudctl.companion.automation.AutomationTaskParser.parse(payload)
+        val step = task.steps.single() as? com.company.cloudctl.companion.automation.AutomationStep.CollectImChat
+            ?: error("IM_COLLECTION_CONTRACT_REJECTED")
+        require(step.target == target && task.taskId == taskId)
+        require(snapshot.toJson().getJSONObject("peerIdentity").getString("observedName") == target.peerName)
+        require(row("SELECT lease_id FROM task_inbox WHERE task_id=?", arrayOf(taskId)) == leaseId)
+        require(row("SELECT state FROM task_inbox WHERE task_id=?", arrayOf(taskId)) == STATE_RUNNING)
+        val body = JSONObject().put("leaseId", leaseId).put("controlEpoch", checkNotNull(task.controlEpoch))
+            .put("protocolVersion", com.company.cloudctl.companion.im.IM_CHAT_COLLECTION_PROTOCOL)
+            .put("target", target.toJson()).put("snapshot", snapshot.toJson())
+        val now = Instant.now().toString()
+        enqueueStepEventLocked(taskId, "STEP_SUCCEEDED", 0, JSONObject().put("detailCode", "STEP_SUCCEEDED"), now)
+        insertJournalLocked(taskId, step.stepId, "SUCCEEDED", "STEP_SUCCEEDED", now)
+        execSQL("UPDATE task_inbox SET state=?,terminal_state=?,updated_at=? WHERE task_id=?",
+            arrayOf(STATE_TERMINAL_PENDING, TERMINAL_SUCCEEDED, now, taskId))
+        enqueueLocked("$taskId:$leaseId:im-chat-complete", taskId,
+            "/companion/v2/im/chat-collections/$taskId:complete", body.toString(), true, now)
+    }
+
+    private fun SQLiteDatabase.isImChatCollection(taskId: String): Boolean =
+        row("SELECT payload FROM task_inbox WHERE task_id=?", arrayOf(taskId))?.let(::isImCollectionPayload) == true
+
+    private fun isImCollectionPayload(payload: String): Boolean = runCatching {
+        val steps = JSONObject(payload).optJSONArray("steps") ?: return@runCatching false
+        (0 until steps.length()).any { steps.optJSONObject(it)?.optString("action") == "ui.collectImChat" }
+    }.getOrDefault(false)
+
     fun finish(
         taskId: String,
         succeeded: Boolean,
@@ -537,6 +585,12 @@ class AutomationStore(context: Context) : SQLiteOpenHelper(context, DATABASE_NAM
                 current == STATE_RELEASED ||
                 current == STATE_START_BLOCKED
             ) return@transaction
+            if (isImChatCollection(taskId)) {
+                val terminal = row("SELECT terminal_state FROM task_inbox WHERE task_id=?", arrayOf(taskId))
+                // Capture already durably committed: later cancellation/failure cannot replace it.
+                if (terminal == TERMINAL_SUCCEEDED) return@transaction
+                require(!succeeded) { "IM_COLLECTION_SNAPSHOT_MISSING" }
+            }
             if (succeeded) enqueueOrderCompletionLocked(taskId)
             val leaseId = row("SELECT lease_id FROM task_inbox WHERE task_id=?", arrayOf(taskId))
                 ?: error("Unknown task")

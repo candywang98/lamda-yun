@@ -69,7 +69,7 @@ class CloudTaskClient(private val connection: CloudConnection) : ApkReleaseClien
 
     fun claim(): ClaimedTask? {
         val response = request("/companion/v2/tasks/claim",
-            addOrderDeliveryCapability(JSONObject().put("leaseSeconds", 60), BuildConfig.HEARTBEAT_DIAGNOSTIC)) ?: return null
+            addImChatCollectionCapability(addOrderDeliveryCapability(JSONObject().put("leaseSeconds", 60), BuildConfig.HEARTBEAT_DIAGNOSTIC), BuildConfig.HEARTBEAT_DIAGNOSTIC)) ?: return null
         val task = buildClaimedTaskPayload(response)
         return ClaimedTask(
             task.toString(), response.getString("taskId"), response.getString("deviceId"),
@@ -508,6 +508,12 @@ internal fun buildClaimedTaskPayload(response: JSONObject): JSONObject {
         .put("deviceId", response.getString("deviceId"))
         .put("targetPackage", response.getString("targetPackage"))
     command?.let { task.put("command", JSONObject(it.toString())) }
+    val collectionSteps = response.optJSONArray("steps")
+    if (collectionSteps != null && (0 until collectionSteps.length()).any {
+            collectionSteps.optJSONObject(it)?.optString("action") == "ui.collectImChat"
+        }) {
+        task.put("controlEpoch", response.getLong("controlEpoch"))
+    }
     optionalNonBlank(response, "commandType")?.let { task.put("commandType", it) }
     optionalNonBlank(response, "accountId")?.let { task.put("accountId", it) }
     if (response.has("orderDelivery")) {
@@ -556,3 +562,9 @@ internal fun parseTaskHeartbeat(response: JSONObject): TaskHeartbeat = TaskHeart
         null
     },
 )
+
+internal fun addImChatCollectionCapability(payload: JSONObject, diagnostic: Boolean): JSONObject {
+    if (diagnostic) payload.remove("imChatCollectionProtocol")
+    else payload.put("imChatCollectionProtocol", com.company.cloudctl.companion.im.IM_CHAT_COLLECTION_PROTOCOL)
+    return payload
+}

@@ -12,11 +12,17 @@ data class AutomationTask(
     val expiresAt: Instant,
     val maxRunSeconds: Int,
     val steps: List<AutomationStep>,
+    val controlEpoch: Long? = null,
 )
 
 sealed interface AutomationStep {
     val stepId: String
     val timeoutMs: Long
+
+    data class CollectImChat(
+        override val stepId: String, override val timeoutMs: Long,
+        val target: com.company.cloudctl.companion.im.ImChatCollectionTarget,
+    ) : AutomationStep
 
     data class Find(override val stepId: String, override val timeoutMs: Long, val locatorRef: String) : AutomationStep
     data class TapText(override val stepId: String, override val timeoutMs: Long, val value: String) : AutomationStep
@@ -193,6 +199,7 @@ object AutomationTaskParser {
         requireKeys(
             root,
             setOf("protocolVersion", "taskId", "deviceId", "targetPackage", "issuedAt", "expiresAt", "maxRunSeconds", "steps") +
+                optional(root, "controlEpoch") +
                 optional(root, "mediaDelivery") +
                 optional(root, "commandType") +
                 optional(root, "accountId") +
@@ -220,6 +227,16 @@ object AutomationTaskParser {
         require(stepsJson.length() in 1..100) { "Task step count is invalid" }
         val steps = List(stepsJson.length()) { parseStep(stepsJson.getJSONObject(it)) }
         require(steps.map { it.stepId }.toSet().size == steps.size) { "Step IDs must be unique" }
+        val collection = steps.filterIsInstance<AutomationStep.CollectImChat>().singleOrNull()
+        if (collection != null) {
+            require(steps.size == 1 && targetPackage == TargetLocatorRegistry.XIANYU_PACKAGE)
+            require(root.getInt("maxRunSeconds") == 60 && collection.target.deviceId == root.getString("deviceId"))
+            require(root.opt("controlEpoch") is Int || root.opt("controlEpoch") is Long)
+            require(root.getLong("controlEpoch") > 0)
+            require(!root.has("mediaDelivery") && !root.has("command"))
+        } else {
+            require(steps.none { it is AutomationStep.CollectImChat } && !root.has("controlEpoch"))
+        }
         val issuedAt = Instant.parse(root.getString("issuedAt"))
         val expiresAt = Instant.parse(root.getString("expiresAt"))
         require(expiresAt.isAfter(issuedAt)) { "Task expiry must follow issue time" }
@@ -231,6 +248,7 @@ object AutomationTaskParser {
             expiresAt = expiresAt,
             maxRunSeconds = root.getInt("maxRunSeconds").also { require(it in 1..900) },
             steps = steps,
+            controlEpoch = if (collection != null) root.getLong("controlEpoch") else null,
         )
     }
 
@@ -246,6 +264,12 @@ object AutomationTaskParser {
             require(it in 100..if (action in loopScaleActions) 900_000L else 60_000L)
         }
         return when (action) {
+            "ui.collectImChat" -> {
+                requireKeys(value, common + "target")
+                require(timeout == 60_000L)
+                AutomationStep.CollectImChat(stepId, timeout,
+                    com.company.cloudctl.companion.im.ImChatCollectionTarget.parse(value.getJSONObject("target")))
+            }
             "ui.find" -> AutomationStep.Find(stepId, timeout, locator(value, common + "locatorRef"))
             "ui.tapText" -> {
                 val keys = common + setOf("value")

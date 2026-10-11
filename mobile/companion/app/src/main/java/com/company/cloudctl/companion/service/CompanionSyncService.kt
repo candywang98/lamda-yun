@@ -286,6 +286,7 @@ class CompanionSyncService : Service() {
                         .put("accessibilityEnabled", !BuildConfig.HEARTBEAT_DIAGNOSTIC && accessibilityEnabled())
                         .put("runnerState", if (BuildConfig.HEARTBEAT_DIAGNOSTIC) "IDLE" else runnerState())
                     addOrderDeliveryCapability(payload, BuildConfig.HEARTBEAT_DIAGNOSTIC)
+                    com.company.cloudctl.companion.network.addImChatCollectionCapability(payload, BuildConfig.HEARTBEAT_DIAGNOSTIC)
                     val healthJson = JSONObject()
                         .put("batteryPercent", health.batteryPercent)
                         .put("charging", health.charging)
@@ -747,6 +748,10 @@ class CompanionSyncService : Service() {
                                 orderScreensReporter = orderScreensReporter,
                                 listingScreensReporter = listingScreensReporter,
                                 orderDelivery = orderDelivery,
+                                imCollectionReporter = { target, snapshot ->
+                                    throwIfControlRequested(control)
+                                    store.finishImChatCollection(task.taskId, pending.leaseId, target, snapshot)
+                                },
                             ) { step, state ->
                                 val stepIndex = task.steps.indexOf(step)
                                 currentStep.set(stepIndex)
@@ -931,6 +936,10 @@ class CompanionSyncService : Service() {
                             orderScreensReporter = orderScreensReporter,
                             listingScreensReporter = listingScreensReporter,
                             orderDelivery = orderDelivery,
+                            imCollectionReporter = { target, snapshot ->
+                                throwIfControlRequested(control)
+                                store.finishImChatCollection(task.taskId, pending.leaseId, target, snapshot)
+                            },
                         ) { step, state ->
                             val stepIndex = task.steps.indexOf(step)
                             currentStep.set(stepIndex)
@@ -1796,7 +1805,7 @@ class CompanionSyncService : Service() {
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: CloudHttpException) {
-                when (OutboxRetryPolicy.classify(error)) {
+                when (OutboxRetryPolicy.classify(error, outbox.path)) {
                     DeliveryFailureAction.ACCEPT_AS_DELIVERED -> store.markDelivered(outbox.id)
                     DeliveryFailureAction.PERMANENT_REJECTION -> {
                         store.markPermanentlyRejected(outbox.id, "HTTP_${error.status}")
