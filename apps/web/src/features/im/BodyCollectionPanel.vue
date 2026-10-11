@@ -20,13 +20,21 @@ let controller: AbortController | undefined
 const activeStates = new Set(['PENDING', 'QUEUED', 'CREATED', 'DISPATCHED', 'CLAIMED', 'RUNNING', 'PAUSED', 'RETRYING'])
 const latest = computed(() => data.value?.items[0])
 const snapshot = computed(() => data.value?.items.find((item) => item.status === 'SUCCEEDED' && item.snapshot)?.snapshot)
+const snapshotTitle = computed(() => latest.value?.status === 'SUCCEEDED' && latest.value.snapshot ? '本次读取的可见正文' : '上次读取的可见正文')
+const statusLabels: Record<string, string> = { QUEUED: '等待手机读取', PENDING: '等待手机读取', CREATED: '等待手机读取', DISPATCHED: '等待手机读取', CLAIMED: '正在读取', RUNNING: '正在读取', PAUSED: '已暂停', RETRYING: '等待手机读取', SUCCEEDED: '读取完成', FAILED: '读取失败', CANCELLED: '已取消', EXPIRED: '读取已过期' }
+const capabilityReason = computed(() => {
+  const code = data.value?.capability?.reason
+  const labels: Record<string, string> = { OFFLINE: '手机离线', DEVICE_OFFLINE: '手机离线', PROTOCOL_UNSUPPORTED: '需要支持正文读取的手机端', DEVICE_BUSY: '手机正在执行其他任务', NO_ACTIVE_BINDING: '没有有效手机绑定', PLATFORM_UNSUPPORTED: '当前平台不支持' }
+  return code && labels[code] ? '：' + labels[code] : ''
+})
+function readTime(value: string) { const date = new Date(value); return Number.isNaN(date.getTime()) ? '时间未知' : date.toLocaleString('zh-CN', { hour12: false }) }
 const reason = computed(() => {
   if (missing.value) return '云端尚不支持正文读取'
   if (props.thread.platform !== 'xianyu') return '当前仅支持闲鱼正文读取'
   if (!session.can('device.control')) return '当前角色无设备控制权限'
   if (!data.value) return loading.value ? '正在检查正文读取能力' : '尚未确认正文读取能力'
-  if (!data.value.capability.supported) return '设备尚不支持正文读取' + (data.value.capability.reason ? '：' + data.value.capability.reason : '')
-  if (!data.value.capability.available) return '设备当前不可读取' + (data.value.capability.reason ? '：' + data.value.capability.reason : '')
+  if (data.value.capability?.supported !== true) return '设备尚不支持正文读取' + capabilityReason.value
+  if (data.value.capability?.available !== true) return '设备当前不可读取' + capabilityReason.value
   if (pending.value) return '正文读取任务处理中'
   return ''
 })
@@ -116,12 +124,12 @@ onBeforeUnmount(() => { disposed = true; ++revision; stop(); document.removeEven
       <button type="button" :disabled="submitting" @click="confirming = false">取消</button>
       <button type="button" :disabled="!canCollect" @click="submit">确认读取当前可见正文</button>
     </div>
-    <p v-if="latest">最近读取任务：{{ latest.status }}<span v-if="latest.errorCode"> · {{ latest.errorCode }}</span></p>
-    <section v-if="snapshot" class="snapshot" aria-label="本次读取的可见正文">
-      <h3>本次读取的可见正文</h3>
+    <p v-if="latest">最近读取任务：{{ statusLabels[latest.status] ?? '状态待确认' }}</p>
+    <section v-if="snapshot" class="snapshot" :aria-label="snapshotTitle">
+      <h3>{{ snapshotTitle }}</h3>
       <p>来源：手机无障碍可见文字 · 仅当前一屏，非完整聊天历史。原始通知保留不变。</p>
-      <p>读取时间：{{ snapshot.capturedAt }} · 原消息时间：未知</p>
-      <p>账号：未核验（UNVERIFIED） · 聊天页显示名称：{{ snapshot.peerIdentity.observedName }}（仅标题匹配）</p>
+      <p>读取时间：{{ readTime(snapshot.capturedAt) }} · 原消息时间：未知</p>
+      <p>账号：未核验 · 聊天页显示名称：{{ snapshot.peerIdentity.observedName }}（仅标题匹配）</p>
       <p>方向根据气泡位置推测，不证明发送成功或对方已读。</p>
       <p v-if="snapshot.truncated" role="status">内容达到读取上限，已截断。</p>
       <p v-if="snapshot.messages.length === 0">本次未读取到可见文字，不代表会话没有消息。</p>

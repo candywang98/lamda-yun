@@ -61,7 +61,7 @@ describe('manual visible body collection', () => {
     vi.mocked(listImBodyCollections).mockResolvedValue({ ...page(), items: [{ taskId: 'task', threadId: thread.id, status: 'SUCCEEDED', createdAt: '', errorCode: null, snapshot: snapshot() }] })
     setup(); await flushPromises()
     const panel = screen.getByRole('region', { name: '本次读取的可见正文' })
-    for (const label of ['手机无障碍可见文字', '非完整聊天历史', '读取时间', '原消息时间：未知', 'UNVERIFIED', '仅标题匹配', '方向根据气泡位置推测', '本次未读取到可见文字']) expect(panel.textContent).toContain(label)
+    for (const label of ['手机无障碍可见文字', '非完整聊天历史', '读取时间', '原消息时间：未知', '账号：未核验', '仅标题匹配', '方向根据气泡位置推测', '本次未读取到可见文字']) expect(panel.textContent).toContain(label)
   })
   it('shows truncation and geometry-derived directions without modifying messages', async () => {
     const value = snapshot(); value.truncated = true; value.messages = [{ direction: 'IN', text: '可见正文', visibleOrder: 0, occurredAt: null }, { direction: 'OUT', text: '另一条', visibleOrder: 1, occurredAt: null }]
@@ -101,7 +101,7 @@ it('ignores a late submission after identity change and clears confirmation', as
   await flushPromises()
   resolve({ taskId: 'old-task', threadId: thread.id, status: 'RUNNING' }); await flushPromises()
   expect(screen.queryByRole('region', { name: '确认读取正文' })).toBeNull()
-  expect(screen.queryByText('最近读取任务：RUNNING')).toBeNull()
+  expect(screen.queryByText('最近读取任务：正在读取')).toBeNull()
   expect(collectImBody).toHaveBeenCalledTimes(1)
 })
 it('suspends pending polling while hidden and removes timers on unmount', async () => {
@@ -121,5 +121,27 @@ it('keeps a confirmation stable when inbox polling replaces the same thread obje
   await view.rerender({ thread: { ...thread, unreadCount: 3 } }); await flushPromises()
   expect(screen.getByRole('region', { name: '确认读取正文' })).toBeTruthy()
   expect(listImBodyCollections).toHaveBeenCalledTimes(1)
+  expect(collectImBody).not.toHaveBeenCalled()
+})
+it.each(['RUNNING', 'FAILED'])('labels an older successful snapshot when the latest task is %s', async (status) => {
+  vi.mocked(listImBodyCollections).mockResolvedValue({ ...page(), items: [
+    { taskId: 'new', threadId: thread.id, status, createdAt: '', errorCode: 'PRIVATE_CODE', snapshot: null },
+    { taskId: 'old', threadId: thread.id, status: 'SUCCEEDED', createdAt: '', errorCode: null, snapshot: snapshot() },
+  ] })
+  setup(); await flushPromises()
+  expect(screen.getByRole('region', { name: '上次读取的可见正文' })).toBeTruthy()
+  expect(screen.queryByRole('region', { name: '本次读取的可见正文' })).toBeNull()
+  expect(screen.queryByText('PRIVATE_CODE')).toBeNull()
+  expect(screen.queryByText('UNVERIFIED')).toBeNull()
+})
+it.each([
+  { supported: 'true', available: true },
+  { supported: true, available: 'true' },
+  { supported: true },
+  {},
+])('fails closed on malformed capability %j', async (capability) => {
+  vi.mocked(listImBodyCollections).mockResolvedValue({ capability, items: [] } as unknown as ImBodyCollections)
+  setup(); await flushPromises()
+  expect((screen.getByRole('button', { name: '读取当前可见正文' }) as HTMLButtonElement).disabled).toBe(true)
   expect(collectImBody).not.toHaveBeenCalled()
 })
