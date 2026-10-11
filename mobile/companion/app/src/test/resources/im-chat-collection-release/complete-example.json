@@ -1,0 +1,43 @@
+{
+  "leaseId": "092f497e-4177-4302-bac4-37d2cc412e3b",
+  "controlEpoch": 2,
+  "protocolVersion": "im-chat-collection/1",
+  "target": {
+    "protocolVersion": "im-chat-collection/1",
+    "tenantId": "00000000-0000-7000-8000-000000000111",
+    "deviceId": "68ebdf99-164f-4c53-862d-8ac736106b1a",
+    "threadId": "0dd8dcd6-fd59-4b0e-a63e-d392bf2fb01d",
+    "platform": "xianyu",
+    "peerKey": "buyer-body",
+    "peerName": "buyer-body",
+    "mobileBindingId": "8f46cef8-9fc9-464c-9c3a-ca183ac91bc2",
+    "scope": "VISIBLE_SCREEN",
+    "noSend": true
+  },
+  "snapshot": {
+    "capturedAt": "2026-10-11T08:52:11.280320+00:00",
+    "scope": "VISIBLE_SCREEN",
+    "completeness": "VISIBLE_ONLY",
+    "accountIdentity": "UNVERIFIED",
+    "peerIdentity": {
+      "status": "DISPLAY_NAME_MATCH",
+      "basis": "CHAT_HEADER",
+      "observedName": "buyer-body"
+    },
+    "messages": [
+      {
+        "direction": "IN",
+        "text": "visible body",
+        "visibleOrder": 0,
+        "occurredAt": null
+      },
+      {
+        "direction": "OUT",
+        "text": "my historical reply",
+        "visibleOrder": 1,
+        "occurredAt": null
+      }
+    ],
+    "truncated": false
+  }
+}

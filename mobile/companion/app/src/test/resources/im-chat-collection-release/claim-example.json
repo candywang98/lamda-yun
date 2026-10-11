@@ -1,0 +1,51 @@
+{
+  "protocolVersion": "cloudctl.mobile/v1",
+  "id": "e39fdfef-22b8-4138-a512-945f29c8975f",
+  "taskId": "e39fdfef-22b8-4138-a512-945f29c8975f",
+  "deviceId": "68ebdf99-164f-4c53-862d-8ac736106b1a",
+  "accountId": null,
+  "bindingVersion": null,
+  "deviceIdAtExecution": "68ebdf99-164f-4c53-862d-8ac736106b1a",
+  "targetPackage": "com.taobao.idlefish",
+  "commandType": null,
+  "issuedAt": "2026-10-11T08:52:11.272005Z",
+  "expiresAt": "2026-10-11T08:53:11.272005Z",
+  "maxRunSeconds": 60,
+  "totalTimeoutMs": 60000,
+  "mediaDelivery": null,
+  "steps": [
+    {
+      "stepId": "collect-im-chat",
+      "action": "ui.collectImChat",
+      "timeoutMs": 60000,
+      "target": {
+        "protocolVersion": "im-chat-collection/1",
+        "tenantId": "00000000-0000-7000-8000-000000000111",
+        "deviceId": "68ebdf99-164f-4c53-862d-8ac736106b1a",
+        "threadId": "0dd8dcd6-fd59-4b0e-a63e-d392bf2fb01d",
+        "platform": "xianyu",
+        "peerKey": "buyer-body",
+        "peerName": "buyer-body",
+        "mobileBindingId": "8f46cef8-9fc9-464c-9c3a-ca183ac91bc2",
+        "scope": "VISIBLE_SCREEN",
+        "noSend": true
+      }
+    }
+  ],
+  "status": "CLAIMED",
+  "leaseId": "092f497e-4177-4302-bac4-37d2cc412e3b",
+  "leaseExpiresAt": "2026-10-11T08:53:11.272005Z",
+  "controlEpoch": 2,
+  "attempt": 1,
+  "lastSequence": 0,
+  "currentStep": null,
+  "businessState": "PREFLIGHT",
+  "controlMode": "AUTO",
+  "stallReason": null,
+  "result": {},
+  "errorCode": null,
+  "detail": null,
+  "createdAt": "2026-10-11T08:52:11.264724",
+  "startedAt": "2026-10-11T08:52:11.272005Z",
+  "completedAt": null
+}
